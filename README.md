@@ -6,7 +6,7 @@ Il software engineer progetta struttura, diagrammi, flussi e interazioni fra att
 
 ## Stato attuale
 
-La shell nativa A.D.E include home di progetto, demo del checkout, proprietà e navigazione persistente nel workbench. Build di sviluppo, avvio, riavvio e prototipo nell’Extension Host sono verificati su Linux x64. CI desktop Linux/macOS e manutenzione upstream sono predisposte; la chiusura M0 attende il collaudo macOS. Esiti e limiti nella [roadmap](ade/docs/roadmap.md) e nel [report M0](ade/docs/m0-validation.md).
+La shell nativa A.D.E include home di progetto, demo del checkout, proprietà e navigazione persistente nel workbench. Build di sviluppo, avvio, riavvio e prototipo nell’Extension Host sono verificati su Linux x64. Il primo collaudo CI macOS arm64 è passato; la chiusura M0 richiede ancora la verifica del Mac originale. La verifica TypeScript di produzione, separata dai test, passa localmente con circa 5,15 GiB di picco RSS. Esiti e limiti nella [roadmap](ade/docs/roadmap.md) e nel [report M0](ade/docs/m0-validation.md).
 
 Editing visuale completo, analisi della codebase, IA e sincronizzazione sono da sviluppare. Le funzioni future risultano indisponibili nella shell. Il prototipo JSON resta in `ade/prototype/`.
 
@@ -20,7 +20,7 @@ export FOUNDRY_LOCAL_SKIP_INSTALL=1
 node build/npm/preinstall.ts
 npm ci
 npm run build-fast -- --client-only
-node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.json --pretty false
+GOMEMLIMIT=3GiB GOMAXPROCS=2 node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
 npm run gulp transpile-extensions compile-extension-media
 npm run compile-copilot
 ./ade/scripts/dev.sh

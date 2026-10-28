@@ -1,7 +1,13 @@
 name: ADE desktop
 on:
   push:
+    paths-ignore:
+      - '**/*.md'
+      - 'ade/docs/**'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'ade/docs/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -44,8 +50,8 @@ jobs:
       - run: npm ci
       - name: Build desktop client
         run: npm run build-fast -- --client-only
-      - name: Typecheck ADE contribution
-        run: node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.json --pretty false
+      - name: Typecheck production sources
+        run: node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
       - name: Build bundled extensions
         run: npm run gulp transpile-extensions compile-extension-media
       - name: Build upstream Copilot extension

@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-28",
+  "base_revision": "8f21fe7632f32142f7fdc07c653d30715215d000",
+  "platform": "Linux x64 / Debian 13",
+  "node": "24.22.1",
+  "compiler_version": "7.0.2",
+  "configuration": "ade/tsconfig.production.json",
+  "source_files": {
+    "original": 11073,
+    "production_program": 7881,
+    "imported_test_helpers_retained": 5
+  },
+  "exit_code": 0,
+  "elapsed_seconds": 294.6,
+  "max_rss_kib": 5394948,
+  "scope": "production source roots; test roots excluded, imported dependencies retained",
+  "gomemlimit": "3GiB",
+  "gomaxprocs": 2
+}
