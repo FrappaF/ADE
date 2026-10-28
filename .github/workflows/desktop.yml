@@ -36,6 +36,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Test npm network retries
+        run: node --test build/lib/test/npmNetworkRetry.test.ts
       - name: Verify macOS arm64 toolchain
         if: runner.os == 'macOS'
         run: |

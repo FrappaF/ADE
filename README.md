@@ -6,7 +6,7 @@ Il software engineer progetta struttura, diagrammi, flussi e interazioni fra att
 
 ## Stato attuale
 
-La shell nativa A.D.E include home di progetto, demo del checkout, proprietà e navigazione persistente nel workbench. Build di sviluppo, avvio, riavvio e prototipo nell’Extension Host sono verificati su Linux x64. Il primo collaudo CI macOS arm64 è passato; la chiusura M0 richiede ancora la verifica del Mac originale. La verifica TypeScript di produzione, separata dai test, passa localmente con circa 5,15 GiB di picco RSS. Esiti e limiti nella [roadmap](ade/docs/roadmap.md) e nel [report M0](ade/docs/m0-validation.md).
+La shell nativa A.D.E include home di progetto, demo del checkout, proprietà e navigazione persistente nel workbench. Build di sviluppo, avvio, riavvio e prototipo nell’Extension Host sono verificati su Linux x64. Il primo collaudo CI Linux/macOS arm64 è passato; la chiusura M0 richiede ancora la verifica del Mac originale. La verifica TypeScript di produzione, separata dai test, passa localmente con circa 5,15 GiB di picco RSS. Esiti e limiti nella [roadmap](ade/docs/roadmap.md) e nel [report M0](ade/docs/m0-validation.md).
 
 Editing visuale completo, analisi della codebase, IA e sincronizzazione sono da sviluppare. Le funzioni future risultano indisponibili nella shell. Il prototipo JSON resta in `ade/prototype/`.
 

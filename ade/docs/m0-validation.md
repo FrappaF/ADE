@@ -34,7 +34,7 @@ Gli esiti effettivi e gli impedimenti sono registrati qui sotto. Una configurazi
 | Ritorno alla base A.D.E | Manifest originale conservato, branch `work` ripristinato e client ricompilato |
 | Typecheck globale upstream | Non superato: processo terminato dal limite di memoria; nessuna diagnostica TypeScript prima della terminazione |
 | CI macOS arm64 iniziale | Build, verifica A.D.E e smoke superati su `8f21fe76`; [esecuzione](https://github.com/FrappaF/ADE/actions/runs/40720152689) |
-| CI Linux iniziale | Download npm interrotto con ECONNRESET; job Linux riavviato separatamente |
+| CI Linux iniziale | Superata al secondo tentativo dopo ECONNRESET durante un download npm; risultato macOS conservato |
 | Typecheck di produzione senza test come file iniziali | Superato localmente: 294,6 secondi, picco RSS circa 5,15 GiB; ora configurato nella CI |
 | Mac originale | Xcode/Command Line Tools e avvio locale ancora da verificare direttamente |
 
@@ -49,3 +49,5 @@ Il collaudo finale è stato ripetuto dopo la ricostruzione del client e delle es
 Nell’ambiente cloud di collaudo, `source .build/ade-cloud-env.sh` seleziona Node e i prerequisiti nativi installati nello spazio di lavoro. È un file locale generato e ignorato da Git; per altri sistemi seguire i prerequisiti della guida.
 
 L’[analisi dell’ingombro](build-footprint.md) descrive la nuova configurazione di produzione e i candidati a un futuro profilo desktop essenziale. La verifica globale originale, che include anche i test, resta distinta e non superata nel cloud da 8 GiB.
+
+L’installer riprova fino a tre volte la sola sottocartella che fallisce con i codici npm ECONNRESET, ETIMEDOUT o EAI_AGAIN. Errori di autorizzazione e compilazione rimangono fallimenti immediati. Gli otto casi del test di recupero e il typecheck mirato del codice di installazione sono passati localmente.

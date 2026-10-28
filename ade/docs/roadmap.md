@@ -45,7 +45,7 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 - [x] Confermare build desktop, typecheck del contributo A.D.E e smoke nella CI macOS. Il controllo di produzione separato dai test passa localmente con circa 5,15 GiB e viene aggiunto alla CI; il controllo globale originale resta distinto.
 - [x] Verificare su Linux apertura workspace, ripristino della finestra e della selezione, comando della home e caricamento del prototipo come estensione di sviluppo.
 - [x] Documentare prerequisiti e procedura da clone pulito, piattaforma, revisione, comandi e limiti del collaudo.
-- [x] Aggiungere CI desktop Linux/macOS separata dai test leggeri, con artifact delle schermate. Branch pubblicato con autorizzazione dell’utente; primo collaudo macOS superato.
+- [x] Aggiungere CI desktop Linux/macOS separata dai test leggeri, con artifact delle schermate. Branch pubblicato con autorizzazione dell’utente; primo collaudo Linux/macOS superato.
 
 **Consegna:** istruzioni riproducibili e primo avvio desktop verificato. La piattaforma iniziale proposta resta macOS arm64; Linux x64 è stato collaudato nell’ambiente cloud. Il primo collaudo CI macOS arm64 è passato; i runner CI non certificano la riparazione del Mac originale.
 

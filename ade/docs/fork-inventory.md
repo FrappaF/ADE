@@ -11,6 +11,7 @@
 | Avvio | `src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.contribution.ts` | Aggiunge `adeHome` ai valori dello startup editor; il contributo ADE ne imposta il valore predefinito. |
 | Avvio isolato e collaudo | `ade/scripts/` | Profilo di sviluppo separato, smoke desktop e preparazione aggiornamenti upstream. |
 | Laboratorio | `ade/prototype/` | Estensione sperimentale e validatore del vecchio JSON; non è il servizio semantico M1. |
+| Installazione | `build/npm/postinstall.ts`, `build/lib/npmNetworkRetry.ts` | Ripete soltanto la sottocartella npm fallita per errori di rete transitori, con massimo tre tentativi; i fallimenti permanenti restano visibili. |
 | CI | `.github/workflows/ci.yml`, `.github/workflows/desktop.yml` | Verifiche leggere separate da build e smoke desktop Linux/macOS. |
 | Provenienza | `ade/upstream.json`, `ade/upstream-workflows/` | Snapshot di base e workflow Microsoft disattivati. |
 
