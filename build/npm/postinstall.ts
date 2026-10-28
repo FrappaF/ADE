@@ -11,6 +11,7 @@ import { dirs } from './dirs.ts';
 import { root, stateFile, stateContentsFile, computeState, computeContents, isUpToDate } from './installStateHash.ts';
 import { ensureElectronTypes } from './electronTypes.ts';
 import { finishCloudSandbox } from './cloudSandbox.ts';
+import { withNpmNetworkRetries } from '../lib/npmNetworkRetry.ts';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const rootNpmrcConfigKeys = getNpmrcConfigKeys(path.join(root, '.npmrc'));
@@ -90,7 +91,10 @@ async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): 
 		run('sudo', ['chown', '-R', `${userinfo.uid}:${userinfo.gid}`, `${path.resolve(root, dir)}`], syncOpts);
 	} else {
 		log(dir, 'Installing dependencies...');
-		const output = await spawnAsync(npm, command.split(' '), finalOpts);
+		const output = await withNpmNetworkRetries(
+			() => spawnAsync(npm, command.split(' '), finalOpts),
+			attempt => log(dir, `Transient npm network failure; retrying this directory (attempt ${attempt}/3).`)
+		);
 		if (output.trim()) {
 			for (const line of output.trim().split('\n')) {
 				log(dir, line);

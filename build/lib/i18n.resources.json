@@ -19,6 +19,10 @@
 	],
 	"workbench": [
 		{
+			"name": "vs/workbench/contrib/ade",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/code",
 			"project": "vscode-workbench"
 		},
@@ -28,10 +32,6 @@
 		},
 		{
 			"name": "vs/workbench/api/common",
-			"project": "vscode-workbench"
-		},
-		{
-			"name": "vs/workbench/contrib/ade",
 			"project": "vscode-workbench"
 		},
 		{

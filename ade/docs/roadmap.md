@@ -2,7 +2,7 @@
 
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
-Le milestone indicano un ordine di sviluppo, non date di consegna. La verifica del 28 ottobre 2026 è registrata nel [verbale M0](m0-verification.md): Build, ripristino e smoke desktop sul MacBook sono stati confermati dall’utente; restano da registrare CI remota e verifiche manuali aggiuntive. M1 dispone ora di contratto, API, migrazione ed esempi verificabili con Node; la sua integrazione iniziale è stata collaudata dall’utente sul MacBook. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
+Le milestone indicano un ordine di sviluppo, non date di consegna. La verifica del 28 ottobre 2026 è registrata nel [verbale M0](m0-verification.md): Build, ripristino e smoke desktop sul MacBook sono stati confermati dall’utente; la CI della precedente integrazione M0 è documentata in [validazione M0](m0-validation.md); il merge M1 richiede una nuova esecuzione della CI. M1 dispone ora di contratto, API, migrazione ed esempi verificabili con Node; la sua integrazione iniziale è stata collaudata dall’utente sul MacBook. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
 
 ## Decisione di base: un prodotto desktop autonomo
 
@@ -18,7 +18,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 
 | Milestone | Risultato | Dipende da | Stato |
 | --- | --- | --- | --- |
-| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build e smoke locali confermati; CI e verifiche aggiuntive da registrare |
+| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build e smoke locali confermati; CI M0 Linux/macOS documentata, merge da ricollaudare |
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio verificato; smoke desktop confermato dall’utente |
 | M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Prossima priorità: riprogettazione UI/UX nativa |
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | Da sviluppare |
@@ -55,7 +55,7 @@ La shell attuale è una prima integrazione nativa aperta in un editor del workbe
 
 **Criterio di completamento:** un clone pulito viene compilato e avviato seguendo la guida; lo smoke test del workbench passa. Un workflow che verifica soltanto `ade/prototype/` non soddisfa questo criterio.
 
-**Verifica attuale:** installazione, build, avvio, ripristino e smoke desktop sul MacBook confermati dall’utente sul commit `d3ceb3d5`, dopo selezione del Node richiesto. Il blocco dell'ambiente Linux non si è riprodotto sul Mac. L'esito della CI desktop e i dettagli di piattaforma restano da registrare nel verbale.
+**Verifica attuale:** installazione, build, avvio, ripristino e smoke desktop sul MacBook confermati dall’utente sul commit `d3ceb3d5`, dopo selezione del Node richiesto. Il blocco dell'ambiente Linux non si è riprodotto sul Mac. La CI M0 Linux/macOS è documentata nella [validazione M0](m0-validation.md); il merge M1 richiede una nuova esecuzione. I dettagli del MacBook restano da registrare.
 
 ### M0.2 — Shell e identità del prodotto A.D.E
 
@@ -90,7 +90,7 @@ La shell attuale è una prima integrazione nativa aperta in un editor del workbe
 
 **Criterio di completamento:** la revisione di base e le personalizzazioni sono identificabili; un aggiornamento di prova supera build e smoke test, oppure presenta conflitti documentati senza compromettere il branch principale.
 
-**Verifica attuale:** [inventario e procedura](fork-maintenance.md) disponibili; prova su branch isolato verso `a3ad284029f2b1c907c7c7e00039c228fe24511e` con otto conflitti nei workflow spostati. Nessuna modifica applicata alla base registrata. Il criterio relativo ai conflitti è verificato; il successo della CI desktop rimane da registrare.
+**Verifica attuale:** [inventario e procedura](fork-maintenance.md) disponibili; prova su branch isolato verso `a3ad284029f2b1c907c7c7e00039c228fe24511e` con otto conflitti nei workflow spostati. Nessuna modifica applicata alla base registrata. Il criterio relativo ai conflitti è verificato; gli esiti della CI M0 sono registrati nella [validazione M0](m0-validation.md); il risultato della nuova integrazione resta da verificare.
 
 ## M1 — Modello semantico e contratti
 

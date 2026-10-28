@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE.txt in the project root.
+set -euo pipefail
+ADE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ADE_ROOT"
+ADE_NODE_VERSION="$(cat .nvmrc)"
+if [[ "$(node --version)" != "v$ADE_NODE_VERSION" ]]; then
+	echo "Select Node $ADE_NODE_VERSION from .nvmrc before starting A.D.E." >&2
+	exit 1
+fi
+export VSCODE_PORTABLE="$ADE_ROOT/.build/ade-portable"
+mkdir -p "$VSCODE_PORTABLE"
+exec ./scripts/code.sh --user-data-dir="$ADE_ROOT/.build/ade-profile" --extensions-dir="$ADE_ROOT/.build/ade-extensions" --shared-data-dir="$ADE_ROOT/.build/ade-shared" "$@"

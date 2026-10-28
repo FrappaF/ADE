@@ -8,17 +8,22 @@ Il software engineer progetta struttura, diagrammi, flussi e interazioni fra att
 
 ## Stato attuale
 
-I sorgenti dell'editor sono nella radice. Sono disponibili branding A.D.E, shell nativa (`A.D.E: Open Project Home`) e [modello semantico M1](ade/docs/semantic-model.md) con schema v2, API, esempi e migrazione del prototipo. Il dominio è verificabile con Node senza Electron. IA, editing visuale completo e sincronizzazione bidirezionale sono da sviluppare. Build, ripristino e smoke desktop sul MacBook sono stati confermati dall’utente; CI e verifiche aggiuntive sono tracciate nel [verbale M0](ade/docs/m0-verification.md).
+I sorgenti dell'editor sono nella radice. Sono disponibili branding A.D.E, shell nativa (`A.D.E: Open Project Home`) e [modello semantico M1](ade/docs/semantic-model.md) con schema v2, API, esempi e migrazione del prototipo. Il dominio è verificabile con Node senza Electron. IA, editing visuale completo e sincronizzazione bidirezionale sono da sviluppare. Build, ripristino e smoke desktop sul MacBook sono stati confermati dall’utente; CI storica Linux/macOS e verifiche aggiuntive sono tracciate nel [verbale M0](ade/docs/m0-verification.md).
 
 ## Sviluppo
 
 Usa la versione Node indicata in `.nvmrc` e i prerequisiti nativi descritti nella [guida al fork](ade/docs/fork-development.md). Poi, dalla radice:
 
 ```sh
+export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+export FOUNDRY_LOCAL_SKIP_INSTALL=1
+node build/npm/preinstall.ts
 npm ci
-npm run compile
-npm run electron
-./scripts/code.sh --user-data-dir="$PWD/.tmp/ade-profile" --extensions-dir="$PWD/.tmp/ade-extensions" "$PWD/ade/examples"
+npm run build-fast -- --client-only
+GOMEMLIMIT=3GiB GOMAXPROCS=2 node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
+npm run gulp transpile-extensions compile-extension-media
+npm run compile-copilot
+./ade/scripts/dev.sh
 ```
 
 Su Windows usa `scripts\code.bat`. Per verificare dominio e prototipo senza installare le dipendenze dell'editor:

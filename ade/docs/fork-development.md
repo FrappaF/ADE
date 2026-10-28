@@ -1,62 +1,71 @@
 # Sviluppare il fork A.D.E
 
-## Struttura
+## Struttura e responsabilità
 
-La radice contiene i sorgenti Code OSS importati dalla revisione registrata in `ade/upstream.json`. Le modifiche al prodotto si sviluppano direttamente qui. L'importazione è uno snapshot versionato nella storia ADE: non è un merge della storia Microsoft e non configura la relazione di fork nel network GitHub.
+La radice contiene i sorgenti Code OSS importati dalla revisione in `ade/upstream.json`. È uno snapshot nella storia ADE, non un merge della storia Microsoft. Il contributo nativo è in `src/vs/workbench/contrib/ade/browser/`; l’estensione sperimentale resta separata in `ade/prototype/`.
 
-- `src/vs/workbench/`: interfaccia, navigazione, servizi e contributi del workbench.
-- `src/vs/platform/`: servizi trasversali e infrastruttura.
-- `src/vs/editor/`: motore dell'editor testuale.
-- `src/vs/code/`: integrazione desktop Electron.
-- `extensions/`: estensioni integrate upstream.
-- `product.json`: identità e configurazione del prodotto.
-- `build/`, `scripts/`, `resources/`: compilazione, avvio e risorse.
-- `ade/docs/`: visione, architettura e roadmap specifiche di A.D.E.
-- `ade/prototype/`: precedente estensione sperimentale, ancora avviabile separatamente.
+L’[inventario del fork](fork-inventory.md) elenca personalizzazioni, punti di integrazione, servizi esterni e confini architetturali. Gli [esiti M0](m0-validation.md) distinguono implementazione, verifiche locali e verifiche ancora necessarie.
 
-## Prerequisiti e primo avvio
+## Da un clone pulito
 
-La versione Node richiesta è quella di `.nvmrc`, attualmente **24.22.1**, non quella del solo prototipo. Su macOS sono necessari Xcode/Command Line Tools funzionanti e le dipendenze native richieste dalla guida upstream. Su Linux servono compilatori C/C++, Python, `pkg-config`, header X11/xkbfile, libsecret e Kerberos, oltre alle librerie di esecuzione Electron; per un ambiente senza display serve Xvfb. Verificare i pacchetti per la propria distribuzione seguendo la guida upstream. Gli ostacoli riscontrati nell'ambiente gestito sono registrati nel [verbale M0](m0-verification.md).
+Selezionare **Node dalla `.nvmrc`** (attualmente 24.22.1), con npm incluso nella distribuzione Node. Non usare una versione Node arbitraria. Sono necessari Git, Python, compilatore C/C++ e una connessione per npm, Node, Electron e gli artifact delle estensioni.
 
-Con un gestore Node già installato, selezionare la versione del file `.nvmrc` (per esempio `nvm install` e `nvm use`). Non installare i pacchetti con una versione Node arbitraria.
+- **macOS arm64:** installare e selezionare Xcode/Command Line Tools funzionanti (`xcode-select -p`, `xcrun --find clang`, `clang --version`). Il problema della selezione Xcode osservato sul Mac originale deve essere corretto su quella macchina; il cloud Linux non può certificarne la riparazione.
+- **Linux (Debian/Ubuntu):** installare `build-essential pkg-config libx11-dev libxkbfile-dev libkrb5-dev libsecret-1-dev libgtk-3-dev libgbm-dev libnss3 libasound2-dev xvfb`. I nomi dei pacchetti possono variare con la distribuzione. Per i test senza display serve anche `xauth`.
+- **Windows:** seguire i prerequisiti C++ e Visual Studio della guida upstream; non è una piattaforma collaudata in M0.
 
-Dalla radice, eseguire `npm ci`, poi `npm run compile` e `npm run electron`, infine `./scripts/code.sh` su macOS/Linux o `scripts\code.bat` su Windows. La compilazione e il download di Electron richiedono rete, spazio e tempo; non sono parte dei test leggeri del prototipo. Per lo sviluppo continuativo usare le attività upstream presenti in `.vscode/` e la guida ufficiale. Un'installazione con `--ignore-scripts` serve ai controlli statici ma non completa la preparazione del desktop.
-
-Per isolare il collaudo dalle installazioni esistenti, scegliere directory dedicate e riutilizzarle soltanto per verificare il ripristino:
+Con `nvm` disponibile: `nvm install && nvm use`. Dalla radice:
 
 ```sh
-./scripts/code.sh --user-data-dir="$PWD/.tmp/ade-profile" --extensions-dir="$PWD/.tmp/ade-extensions" "$PWD/ade/examples"
+export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+export FOUNDRY_LOCAL_SKIP_INSTALL=1
+node build/npm/preinstall.ts
+npm ci
+npm run build-fast -- --client-only
+GOMEMLIMIT=3GiB GOMAXPROCS=2 node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
+npm run gulp transpile-extensions compile-extension-media
+npm run compile-copilot
+npm run electron
+./ade/scripts/dev.sh /percorso/del/progetto
 ```
 
-Dalla palette eseguire **A.D.E: Open Project Home**. La shell nativa può mostrare l'esempio integrato oppure aprire documenti M1 e modelli v1 migrati in memoria. Non occorre caricare il prototipo per usare questo contributo. Creazione visuale, importazione della codebase e coordinatore IA sono ancora indisponibili.
+La preparazione esplicita degli header precede gli script nativi delle dipendenze. `npm ci` conserva i lockfile e installa anche le sottocartelle previste upstream. `dev.sh` usa `.build/ade-profile`, `.build/ade-extensions`, `.build/ade-shared` e `.build/ade-portable`: sono isolati dagli altri editor. Su Windows usare `scripts\code.bat` con `--user-data-dir` e `--extensions-dir` dedicati. La sequenza separa build del client, typecheck di produzione ed estensioni per ridurre la memoria simultanea; è usata anche in CI. Per iterare sul solo client usare `npm run build-fast -- --client-only`. Il controllo di produzione separato dai test ha superato il collaudo con circa 5,15 GiB di picco RSS; dettagli nell’[analisi dell’ingombro](build-footprint.md). La compilazione globale upstream (`npm run compile`) resta disponibile su una macchina con memoria sufficiente; il suo controllo TypeScript completo non è stato superato nel cloud da 8 GiB.
 
-Per provare il prototipo precedente, aprire `ade/prototype/` come cartella VS Code e premere F5. Per caricarlo nel fork compilato, avviare `./scripts/code.sh --extensionDevelopmentPath="$PWD/ade/prototype"`. Non è ancora integrato come funzionalità nativa o estensione distribuita.
+Dietro un proxy HTTP mantenere le variabili e la CA fornite dall’ambiente; con Node 24 impostare `NODE_USE_ENV_PROXY=1` per i download basati su fetch. Il runtime Chromium per i test browser upstream non serve allo smoke Electron: `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` evita quel download durante l’installazione. `FOUNDRY_LOCAL_SKIP_INSTALL=1` è l’opzione prevista dall’SDK upstream per le build da sorgente: esclude il download del runtime Foundry, che non viene utilizzato dalla shell M0. Non disabilitare i controlli TLS.
 
-Dopo build e download di Electron, eseguire lo smoke automatico desktop:
+## Shell e collaudo
+
+L’avvio predefinito apre la home A.D.E se non vengono ripristinati altri editor. `A.D.E: Open Home` la riapre dalla palette. La demo di acquisto è statica e in sola lettura: permette navigazione del modello e delle proprietà, con selezione e pannello memorizzati per workspace. Creazione progetto, importazione semantica e collaborazione IA espongono esplicitamente la loro indisponibilità. Onboarding e funzioni Copilot ereditate sono disabilitati per impostazione predefinita, evitando richieste di autenticazione a un servizio non configurato da A.D.E. Editor testuale, terminale e strumenti upstream rimangono accessibili.
 
 ```sh
-VSCODE_SKIP_PRELAUNCH=1 ./scripts/code.sh --user-data-dir="$PWD/.tmp/ade-smoke-profile" --extensions-dir="$PWD/.tmp/ade-smoke-extensions" --skip-welcome --skip-release-notes --disable-workspace-trust --extensionDevelopmentPath="$PWD/ade/prototype" --extensionTestsPath="$PWD/ade/prototype/desktop/smoke.cjs" "$PWD/ade/examples"
+npm --prefix ade/prototype run check
+npm --prefix ade/prototype test
+node ade/scripts/smoke-desktop.mjs
 ```
 
-Il workflow desktop esegue lo stesso percorso su macOS e registra piattaforma e revisione. Il [verbale M0](m0-verification.md) elenca anche i controlli manuali necessari per completare la milestone. I test del dominio si eseguono con `npm run ade:test` senza dipendenze desktop; dopo l'installazione root, `npm run ade:check` controlla dominio e shell con TypeScript.
+Su Linux senza display: `xvfb-run -a node ade/scripts/smoke-desktop.mjs`. Lo smoke usa profilo, estensioni e progetto temporanei, verifica riavvio e ripristino, quindi esegue il collaudo del prototipo nell’Extension Host. Le schermate vanno in `.build/ade-smoke/`. Per provare manualmente il laboratorio: `./ade/scripts/dev.sh --extensionDevelopmentPath="$PWD/ade/prototype"`, poi eseguire «A.D.E: Apri modello visuale» e aprire `ade/prototype/examples/checkout.diagram.json`.
 
-## Primo branding
+Il workflow `desktop.yml` compila e collauda su Linux e macOS; `ci.yml` esegue soltanto i controlli leggeri. Le esecuzioni effettive vanno verificate su GitHub: il solo file YAML non dimostra il successo della CI.
 
-`product.json` personalizza nome, nome applicazione, cartelle dati, protocollo URL, bundle identifier macOS e indirizzo delle issue. Restano da completare icone, identificatori degli installer sulle altre piattaforme, firma, aggiornamenti e configurazione dei servizi. Non è ancora una distribuzione pronta alla pubblicazione.
+## Aggiornamenti upstream e ritorno alla base
 
-La configurazione upstream contiene riferimenti e integrazioni Microsoft/GitHub. Devono essere valutati uno per uno prima di distribuire il prodotto: lo snapshot non fornisce automaticamente autorizzazioni di accesso a Marketplace, servizi, marchi o estensioni proprietarie. Conservare licenze e avvisi; definire i servizi effettivamente offerti da A.D.E.
+`origin` punta a FrappaF/ADE; configurare `upstream` con `git remote add upstream https://github.com/microsoft/vscode.git`. Non unire indiscriminatamente storie non correlate e non sovrascrivere la radice con una nuova estrazione.
 
-## Aggiornamenti upstream
+1. Partire da modifiche ADE salvate in un commit e selezionare una revisione upstream completa, verificandone il diff rispetto a `ade/upstream.json`.
+2. Eseguire `node ade/scripts/prepare-upstream.mjs SHA_COMPLETO /percorso/assoluto/nuovo-worktree`. Lo script applica soltanto il delta fra snapshot su un branch dedicato e produce `ade/upstream-trial.json`. Il checkout iniziale resta intatto. Se cambiano workflow upstream, lo script si ferma prima di applicarli: vanno riconciliati come file `.disabled` in `ade/upstream-workflows/`.
+3. Risolvere eventuali conflitti nel worktree di prova, controllando branding, registrazioni e contributi nell’inventario. La revisione di base cambia solo dopo un’applicazione senza conflitti; in caso di risoluzione manuale aggiornare esplicitamente il manifest.
+4. Installare le dipendenze nel worktree, compilare, eseguire lo smoke desktop e i test pertinenti al delta. Non condividere `node_modules` tramite symlink fra checkout. Registrare revisioni ed esiti nel report prima del commit.
+5. Integrare il branch aggiornato soltanto dopo le verifiche. Per abbandonare la prova, conservare prima il report e poi rimuovere il worktree temporaneo; il branch originale mantiene la vecchia base. Per annullare un aggiornamento già integrato usare un revert del commit d’integrazione, includendo il manifest, senza riscrivere la storia condivisa.
 
-Remote di sviluppo: `origin` punta a FrappaF/ADE; `upstream` punta a microsoft/vscode. In un nuovo clone, aggiungere il secondo con `git remote add upstream https://github.com/microsoft/vscode.git`.
+Per validare una prova con le dipendenze già presenti nello stesso checkout: salvare il branch di prova in un commit, rimuovere il suo worktree pulito e passare temporaneamente a quel branch nel checkout di sviluppo. Tornare poi al branch originale. Se cambiano i lockfile va ripetuta l’installazione; ricompilare gli output influenzati dal cambio di branch.
 
-L'importazione iniziale è stata ottenuta da `upstream/main` con fetch limitato a una revisione. Non eseguire un merge indiscriminato di storie non correlate e non sovrascrivere i file ADE con una nuova estrazione.
-
-Per ogni aggiornamento: scegliere una revisione, confrontarla con quella registrata, applicare le differenze upstream in un branch dedicato, riconciliare il branding e i contributi ADE, eseguire build e verifiche pertinenti e aggiornare `ade/upstream.json`. La [procedura di manutenzione](fork-maintenance.md) include inventario, script di anteprima senza applicazione e prova con conflitti documentati.
-
-I workflow Microsoft sono conservati in `ade/upstream-workflows/` con suffisso `.disabled`; non sono attivati su ADE. `.github/workflows/ci.yml` verifica dominio e prototipo; `.github/workflows/desktop.yml` prepara dipendenze, compila ed esegue lo smoke desktop su macOS. La presenza del workflow non certifica una sua esecuzione riuscita.
+I workflow Microsoft restano in `ade/upstream-workflows/*.disabled`. Licenze e avvisi vanno conservati. Firma, notarizzazione, icone originali, canali di aggiornamento e distribuzione agli utenti appartengono a M8.
 
 ## Fonti
 
-- [Contribuire e compilare Code OSS](https://github.com/microsoft/vscode/wiki/How-to-Contribute)
-- [Differenze fra Code OSS e la distribuzione Visual Studio Code](https://github.com/microsoft/vscode/wiki/Differences-between-the-repository-and-Visual-Studio-Code)
+- [Compilare Code OSS](https://github.com/microsoft/vscode/wiki/How-to-Contribute)
+- [Code OSS e la distribuzione Visual Studio Code](https://github.com/microsoft/vscode/wiki/Differences-between-the-repository-and-Visual-Studio-Code)
+
+## Modello semantico M1
+
+La home usa il servizio semantico v2 per il modello di acquisto e l’apertura dei documenti. `A.D.E: Open Project Home` è un alias del comando `A.D.E: Open Home`. `npm run ade:test` verifica il dominio senza Electron; `npm run ade:check` controlla dominio e shell dopo l’installazione root. Schema, esempi e migrazione sono descritti nel [contratto M1](semantic-model.md). La riprogettazione completa della sidebar è pianificata in [M2](roadmap.md).

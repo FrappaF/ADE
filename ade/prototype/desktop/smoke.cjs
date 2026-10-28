@@ -15,13 +15,13 @@ async function run() {
 	assert.ok(commands.includes('ade.open'), 'Prototype command must be registered');
 	assert.ok(commands.includes('ade.workbench.open'), 'Native ADE command must be registered');
 	await vscode.commands.executeCommand('ade.workbench.open');
-	assert.equal(vscode.window.tabGroups.activeTabGroup.activeTab?.label, 'A.D.E Project');
+	assert.equal(vscode.window.tabGroups.activeTabGroup.activeTab?.label, 'A.D.E Home');
 	const example = vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, 'checkout.ade.json');
 	const document = await vscode.workspace.openTextDocument(example);
 	assert.equal(JSON.parse(document.getText()).version, 2);
 	await vscode.window.showTextDocument(document);
 	await vscode.commands.executeCommand('ade.workbench.open');
-	assert.equal(vscode.window.tabGroups.activeTabGroup.activeTab?.label, 'A.D.E Project');
+	assert.equal(vscode.window.tabGroups.activeTabGroup.activeTab?.label, 'A.D.E Home');
 }
 
 module.exports = { run };

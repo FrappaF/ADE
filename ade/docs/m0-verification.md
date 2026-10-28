@@ -43,3 +43,7 @@ Da un clone pulito, selezionare Node da `.nvmrc`, predisporre la toolchain nativ
 6. Eseguire `A.D.E: Apri modello visuale` del prototipo, aprire l'esempio v1 e verificare l'aggiornamento della webview dopo una modifica.
 
 Lo smoke automatico verifica apertura workspace, registrazione comandi, attivazione del prototipo e navigazione fra editor. Il ripristino dopo riavvio è stato confermato dall’utente. Le verifiche aggiuntive su contenuto della webview, documenti invalidi, accessibilità e confronto fra due profili non sono state confermate singolarmente.
+
+## Integrazione con main
+
+La precedente CI M0 Linux/macOS è documentata in [validazione M0](m0-validation.md) e [risultati CI](ci-m0-2026-10-28.json). Il merge mantiene avvio automatico, resolver e identità nativa di main, integrando il servizio semantico M1 nella stessa home. I selettori dello smoke desktop sono aggiornati al modello M1. Gli esiti CI storici non certificano questo merge: è necessaria una nuova esecuzione. I blocchi Linux descritti sopra si riferiscono al precedente ambiente di questa chat.
