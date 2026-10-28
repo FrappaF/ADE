@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 'use strict';
 const assert = require('node:assert/strict');
 const vscode = require('vscode');
@@ -10,7 +14,11 @@ exports.run = async function () {
   assert.ok(extension, 'The development extension must be installed');
   const api = await extension.activate();
   assert.equal(await vscode.commands.executeCommand('ade.open', resource), undefined);
-  assert.ok(vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputWebview);
+  const deadline = Date.now() + 10000;
+  while (!(vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputWebview) && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.ok(vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputWebview, 'The command must open a webview tab');
   await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   const panel = await api.openModel(resource);
   assert.ok(panel, 'The development extension must open a webview');

@@ -46,32 +46,34 @@ async function launch() {
 	return window;
 }
 try {
-	let window = await launch();
-	const shell = window.locator('.ade-shell');
-	await shell.getByRole('button', { name: 'Open Checkout Demo', exact: true }).click();
-	await shell.locator('.ade-flow').getByRole('button', { name: 'Payment', exact: true }).click();
-	await shell.getByRole('heading', { name: 'Payment', exact: true }).waitFor();
-	await window.screenshot({ path: path.join(evidence, 'properties.png') });
-	await shell.getByRole('button', { name: 'AI Collaboration', exact: true }).click();
-	await shell.getByText('Not available yet.', { exact: false }).waitFor();
-	await shell.getByRole('button', { name: 'Properties', exact: true }).click();
-	await shell.getByRole('heading', { name: 'Payment', exact: true }).waitFor();
-	await app.close();
-	app = undefined;
-	window = await launch();
-	await window.locator('.ade-shell').getByRole('heading', { name: 'Payment', exact: true }).waitFor();
-	await window.locator('.ade-shell').getByRole('button', { name: 'Project', exact: true }).click();
-	assert.equal(await window.locator('.ade-shell').getByRole('button', { name: 'Create Project', exact: false }).isEnabled(), false);
-	assert.equal(await window.locator('.ade-shell').getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), false);
-	await window.screenshot({ path: path.join(evidence, 'home.png') });
-	const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-	await window.keyboard.press(`${modifier}+Shift+P`);
-	await window.locator('.quick-input-widget input').fill('>A.D.E: Open Home');
-	await window.keyboard.press('Enter');
-	await window.locator('.ade-shell').getByRole('heading', { name: 'Your Project', exact: true }).waitFor();
-	console.log('PASS: desktop startup, native home, demo, properties, unavailable actions, command and persisted context after restart.');
-	await app.close();
-	app = undefined;
+	if (!process.argv.includes('--extension-only')) {
+		let window = await launch();
+		const shell = window.locator('.ade-shell');
+		await shell.getByRole('button', { name: 'Open Checkout Demo', exact: true }).click();
+		await shell.locator('.ade-flow').getByRole('button', { name: 'Payment', exact: true }).click();
+		await shell.getByRole('heading', { name: 'Payment', exact: true }).waitFor();
+		await window.screenshot({ path: path.join(evidence, 'properties.png') });
+		await shell.getByRole('button', { name: 'AI Collaboration', exact: true }).click();
+		await shell.getByText('Not available yet.', { exact: false }).waitFor();
+		await shell.getByRole('button', { name: 'Properties', exact: true }).click();
+		await shell.getByRole('heading', { name: 'Payment', exact: true }).waitFor();
+		await app.close();
+		app = undefined;
+		window = await launch();
+		await window.locator('.ade-shell').getByRole('heading', { name: 'Payment', exact: true }).waitFor();
+		await window.locator('.ade-shell').getByRole('button', { name: 'Project', exact: true }).click();
+		assert.equal(await window.locator('.ade-shell').getByRole('button', { name: 'Create Project', exact: false }).isEnabled(), false);
+		assert.equal(await window.locator('.ade-shell').getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), false);
+		await window.screenshot({ path: path.join(evidence, 'home.png') });
+		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+		await window.keyboard.press(`${modifier}+Shift+P`);
+		await window.locator('.quick-input-widget input').fill('>A.D.E: Open Home');
+		await window.keyboard.press('Enter');
+		await window.locator('.ade-shell').getByRole('heading', { name: 'Your Project', exact: true }).waitFor();
+		console.log('PASS: desktop startup, native home, demo, properties, unavailable actions, command and persisted context after restart.');
+		await app.close();
+		app = undefined;
+	}
 	await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));
 	await new Promise((resolve, reject) => {
 		const child = spawn(executablePath, [...args, '--skip-welcome',
