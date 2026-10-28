@@ -1,4 +1,4 @@
-name: Validate
+name: Validate ADE prototype
 on: [push, pull_request]
 permissions:
   contents: read
@@ -10,5 +10,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm run check
-      - run: npm test
+      - run: npm --prefix ade/prototype run check
+      - run: npm --prefix ade/prototype test

@@ -1,0 +1,13 @@
+{
+  "name": "ade",
+  "displayName": "A.D.E",
+  "description": "Agentice Development Environment: progettazione visuale e sviluppo collaborativo con IA.",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {"vscode": "^1.85.0", "node": ">=22"},
+  "main": "./src/extension.js",
+  "categories": ["Visualization"],
+  "activationEvents": ["onCommand:ade.open"],
+  "contributes": {"commands": [{"command": "ade.open", "title": "A.D.E: Apri modello visuale"}]},
+  "scripts": {"check": "node --check src/extension.js && node --check src/model.js", "test": "node --test"}
+}

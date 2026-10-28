@@ -1,27 +1,35 @@
 # A.D.E — Agentice Development Environment
 
-A.D.E è un progetto per un ambiente di sviluppo basato su VS Code in cui il software engineer lavora su **struttura, diagrammi, flussi e interazioni fra attori e sistema**, collaborando con l'IA per realizzare il codice e gestire i dettagli dei framework.
+A.D.E è un ambiente di sviluppo visuale e collaborativo con l'IA, costruito come **derivazione dei sorgenti Code OSS**, la base open source di Visual Studio Code.
 
-L'obiettivo è esplorare e modificare feature, risorse, viste e controller senza dover leggere il codice, mantenendo **diagrammi e codebase sincronizzati in entrambe le direzioni**.
+Il software engineer progetta struttura, diagrammi, flussi e interazioni fra attori e sistema; l'IA collabora alla realizzazione del codice e alla gestione dei dettagli tecnologici. L'obiettivo è esplorare feature, risorse, viste e controller e mantenere modello e codebase sincronizzati in entrambe le direzioni.
 
-## Stato del progetto
+## Stato attuale
 
-Prototipo iniziale: un'estensione VS Code legge un modello JSON, ne valida gli elementi e mostra un diagramma strutturale aggiornato durante la modifica del documento. Editing visuale, collaborazione con IA e sincronizzazione con la codebase sono ancora da implementare.
+I sorgenti dell'editor sono nella radice della repository e sono modificabili direttamente. È stato applicato un primo branding A.D.E in `product.json`. Il prototipo visuale precedente è conservato in `ade/prototype/`, ancora separato dal workbench. IA, editing visuale completo e sincronizzazione bidirezionale sono da sviluppare. La build desktop A.D.E non è ancora stata verificata.
 
-## Prova locale
+## Sviluppo
 
-Servono VS Code e Node.js >= 22. Non sono necessarie dipendenze npm.
+Usa la versione Node indicata in `.nvmrc` e i prerequisiti nativi descritti nella [guida al fork](ade/docs/fork-development.md). Poi, dalla radice:
 
-1. Apri questa cartella in VS Code e premi **F5 → Avvia A.D.E**.
-2. Nella finestra di sviluppo esegui **A.D.E: Apri modello visuale** dalla palette comandi.
-3. Seleziona `examples/checkout.diagram.json` e modifica il JSON per aggiornare la vista.
+```sh
+npm install
+npm run compile
+./scripts/code.sh
+```
 
-Controlli: `npm run check` e `npm test`.
+Su Windows usa `scripts\code.bat`. Per verificare soltanto il prototipo, senza installare le dipendenze dell'editor:
+
+```sh
+npm --prefix ade/prototype run check
+npm --prefix ade/prototype test
+```
 
 ## Documentazione
 
-- [Visione di prodotto](docs/vision.md)
-- [Roadmap e milestone](docs/roadmap.md)
-- [Architettura](docs/architecture.md)
+- [Roadmap](ade/docs/roadmap.md)
+- [Visione](ade/docs/vision.md)
+- [Architettura](ade/docs/architecture.md)
+- [Sviluppo e aggiornamenti del fork](ade/docs/fork-development.md)
 
-Repository: [FrappaF/ADE](https://github.com/FrappaF/ADE). Licenza di distribuzione ancora da definire.
+Base upstream: [microsoft/vscode](https://github.com/microsoft/vscode). Revisione importata in [upstream.json](ade/upstream.json). Licenza del codice upstream: [MIT](LICENSE.txt), con [avvisi di terze parti](ThirdPartyNotices.txt). A.D.E è un progetto indipendente; branding e servizi della distribuzione Microsoft non sono automaticamente inclusi.
