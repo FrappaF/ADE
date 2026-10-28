@@ -32,13 +32,14 @@ Gli esiti effettivi e gli impedimenti sono registrati qui sotto. Una configurazi
 | Aggiornamento upstream | Delta `98da3bad` → `915c6fae`, senza conflitti; build di sviluppo e smoke superati |
 | Test pertinenti al delta upstream | 54 superati: `CanvasEditor` e `Sessions - Agents Part Card` |
 | Ritorno alla base A.D.E | Manifest originale conservato, branch `work` ripristinato e client ricompilato |
-| Typecheck globale upstream | Non superato: processo terminato dal limite di memoria; nessuna diagnostica TypeScript prima della terminazione |
+| Typecheck globale upstream con tutti i test | Non superato anche se isolato: terminazione per memoria, picco RSS circa 7,80 GiB del solo processo |
 | CI macOS arm64 iniziale | Build, verifica A.D.E e smoke superati su `8f21fe76`; [esecuzione](https://github.com/FrappaF/ADE/actions/runs/40720152689) |
 | CI Linux iniziale | Superata al secondo tentativo dopo ECONNRESET durante un download npm; risultato macOS conservato |
-| Typecheck di produzione senza test come file iniziali | Superato localmente: 294,6 secondi, picco RSS circa 5,15 GiB; ora configurato nella CI |
+| Typecheck di produzione senza test come file iniziali | Superato localmente (294,6 secondi, picco RSS circa 5,15 GiB) e nella CI Linux/macOS arm64 |
+| CI desktop finale | [Superata su Linux e macOS arm64](https://github.com/FrappaF/ADE/actions/runs/40725431302), revisione `ac054344`; [report](ci-m0-2026-10-28.json) |
 | Mac originale | Xcode/Command Line Tools e avvio locale ancora da verificare direttamente |
 
-Il typecheck globale upstream è stato terminato due volte dal limite di 8 GiB dell’ambiente, anche con `GOMEMLIMIT=4GiB GOMAXPROCS=2 npm run gulp compile-client`. Nel secondo tentativo l’emissione JavaScript ha riportato zero errori, ma il processo TypeScript è stato ucciso: la compilazione globale **non è superata**. La build di sviluppo e la verifica TypeScript mirata A.D.E sono invece passate. La CI separa le fasi e non dichiara di sostituire il controllo TypeScript dell’intero snapshot.
+I primi due tentativi del typecheck globale upstream sono stati terminati dal limite di 8 GiB dell’ambiente, anche con `GOMEMLIMIT=4GiB GOMAXPROCS=2 npm run gulp compile-client`. Nel secondo tentativo l’emissione JavaScript ha riportato zero errori, ma il processo TypeScript è stato ucciso: la compilazione globale **non è superata**. La build di sviluppo e la verifica TypeScript mirata A.D.E sono invece passate. La CI separa le fasi e non dichiara di sostituire il controllo TypeScript dell’intero snapshot.
 
 Lo smoke ha rilevato e fatto correggere l’overlay iniziale Copilot ereditato da VS Code, che bloccava la home. Il prodotto ora disabilita quell’onboarding e le funzioni Copilot non configurate tramite valori predefiniti. Il test dell’Extension Host attende la propagazione effettiva della tab prima di verificarla.
 
@@ -51,3 +52,7 @@ Nell’ambiente cloud di collaudo, `source .build/ade-cloud-env.sh` seleziona No
 L’[analisi dell’ingombro](build-footprint.md) descrive la nuova configurazione di produzione e i candidati a un futuro profilo desktop essenziale. La verifica globale originale, che include anche i test, resta distinta e non superata nel cloud da 8 GiB.
 
 L’installer riprova fino a tre volte la sola sottocartella che fallisce con i codici npm ECONNRESET, ETIMEDOUT o EAI_AGAIN. Errori di autorizzazione e compilazione rimangono fallimenti immediati. Gli otto casi del test di recupero e il typecheck mirato del codice di installazione sono passati localmente.
+
+La verifica globale è stata infine ripetuta senza installazioni o emissione JavaScript concorrenti: terminata per memoria dopo 352,8 secondi, picco RSS del processo circa 7,80 GiB. Il limite riguarda quindi anche il programma originale completo e non soltanto la concorrenza della pipeline. Il controllo di produzione separato e i test eseguiti restano superati; i dati completi sono nell’[analisi dell’ingombro](build-footprint.md).
+
+La CI finale include otto test del recupero npm, controllo TypeScript di produzione, build del client e delle estensioni, avvio Electron, ripristino dopo riavvio e collaudo del prototipo nell’Extension Host. I download GitHub usano il token effimero del job con i soli permessi `contents: read`, evitando il download anonimo che aveva ricevuto HTTP 403 per ripgrep.

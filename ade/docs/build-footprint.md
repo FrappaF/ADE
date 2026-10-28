@@ -25,9 +25,19 @@ Questi conteggi descrivono il grafo dei file; non misurano una riduzione percent
 GOMEMLIMIT=3GiB GOMAXPROCS=2 node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
 ```
 
-**Esito misurato:** controllo di produzione superato in 294,6 secondi, picco RSS del processo di 5.394.948 KiB, circa 5,15 GiB, con `GOMEMLIMIT=3GiB` e `GOMAXPROCS=2`. È una prima esecuzione della nuova configurazione, non una misura del consumo dell’app. [Dati del collaudo](build-footprint-2026-10-28.json).
+**Esito misurato:** controllo di produzione superato in 294,6 secondi, picco RSS del processo di 5.394.948 KiB, circa 5,15 GiB, con `GOMEMLIMIT=3GiB` e `GOMAXPROCS=2`. È una prima esecuzione della nuova configurazione, non una misura del consumo dell’app. `GOMEMLIMIT` guida il garbage collector del compilatore nativo e non impone un tetto rigido all’RSS dell’intero processo. [Dati del collaudo](build-footprint-2026-10-28.json).
 
 La verifica mirata della shell resta in `ade/tsconfig.json`; la configurazione globale originale rimane in `src/tsconfig.json`. I test devono continuare a essere eseguiti e verificati separatamente: il risultato della configurazione di produzione non certifica i file esclusi.
+
+Il controllo globale originale è stato provato anche da solo, senza installazioni o emissione JavaScript concorrenti: dopo 352,8 secondi è stato terminato dal limite di memoria dell’ambiente, con un picco RSS del processo di 8.181.792 KiB, circa 7,80 GiB, più la memoria degli altri processi e del sistema. La configurazione originale include anche tutti i test e non è stata dichiarata superata. Per quel programma completo servono più memoria oppure verifiche dei test suddivise per dominio.
+
+La CI desktop con il controllo di produzione separato è [passata su Linux e macOS arm64](https://github.com/FrappaF/ADE/actions/runs/40725431302), revisione `ac054344`.
+
+## Campione di memoria dell’app
+
+Su Linux x64, con un workspace vuoto e la home nativa, dieci secondi dopo la comparsa della UI: somma PSS di 1.078.450 KiB, circa 1,03 GiB, su nove processi rilevati senza campioni mancanti. La somma RSS è 1.635.224 KiB, circa 1,56 GiB, e include pagine condivise contate più volte.
+
+Il campione usa la build di sviluppo Electron con inspector; non rappresenta un picco massimo o un progetto reale con altre estensioni. La PSS ripartisce la memoria condivisa fra processi e serve qui a distinguere l’app in esecuzione dalla verifica TypeScript. I dati sono inclusi nel [report](build-footprint-2026-10-28.json).
 
 ## Candidati per un profilo desktop essenziale
 

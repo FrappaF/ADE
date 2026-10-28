@@ -2,7 +2,7 @@
 
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
-Le milestone indicano un ordine di sviluppo, non date di consegna. La fondazione M0 comprende il fork Code OSS, la shell nativa e il collaudo desktop su Linux. La CI macOS ha superato il primo collaudo desktop; resta la verifica della toolchain del Mac originale prevista in M0.1. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
+Le milestone indicano un ordine di sviluppo, non date di consegna. La fondazione M0 comprende il fork Code OSS, la shell nativa e il collaudo desktop su Linux. La CI desktop e il controllo TypeScript di produzione sono passati su Linux e macOS arm64; resta la verifica della toolchain del Mac originale prevista in M0.1. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
 
 ## Decisione di base: un prodotto desktop autonomo
 
@@ -14,7 +14,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 
 | Milestone | Risultato | Dipende da | Stato |
 | --- | --- | --- | --- |
-| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Shell verificata su Linux e CI macOS; M0.1 attende verifica del Mac originale |
+| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build, produzione e smoke verificati Linux/macOS; resta la verifica del Mac originale |
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Da sviluppare |
 | M2 · Editor visuale | Creazione e modifica senza JSON | M1 | Da sviluppare |
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | Da sviluppare |
@@ -42,16 +42,16 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 - [x] Selezionare Node 24.22.1 da `.nvmrc` e predisporre una toolchain nativa compatibile per Linux x64.
 - [ ] Ripristinare e collaudare Xcode/Command Line Tools sul Mac di sviluppo originale.
 - [x] Compilare il client di sviluppo dello snapshot e avviare A.D.E su Linux con profilo, estensioni, dati condivisi e configurazione argv isolati.
-- [x] Confermare build desktop, typecheck del contributo A.D.E e smoke nella CI macOS. Il controllo di produzione separato dai test passa localmente con circa 5,15 GiB e viene aggiunto alla CI; il controllo globale originale resta distinto.
+- [x] Confermare build desktop, typecheck del contributo A.D.E e smoke nella CI macOS. Il controllo di produzione separato dai test passa localmente con circa 5,15 GiB e nella CI Linux/macOS; il controllo globale originale, che include tutti i test, resta distinto e supera la memoria disponibile.
 - [x] Verificare su Linux apertura workspace, ripristino della finestra e della selezione, comando della home e caricamento del prototipo come estensione di sviluppo.
 - [x] Documentare prerequisiti e procedura da clone pulito, piattaforma, revisione, comandi e limiti del collaudo.
-- [x] Aggiungere CI desktop Linux/macOS separata dai test leggeri, con artifact delle schermate. Branch pubblicato con autorizzazione dell’utente; primo collaudo Linux/macOS superato.
+- [x] Aggiungere CI desktop Linux/macOS separata dai test leggeri, con artifact delle schermate. Branch pubblicato con autorizzazione dell’utente; collaudo finale Linux/macOS superato, inclusa la verifica di produzione.
 
 **Consegna:** istruzioni riproducibili e primo avvio desktop verificato. La piattaforma iniziale proposta resta macOS arm64; Linux x64 è stato collaudato nell’ambiente cloud. Il primo collaudo CI macOS arm64 è passato; i runner CI non certificano la riparazione del Mac originale.
 
 **Criterio di completamento:** un clone pulito viene compilato e avviato seguendo la guida; lo smoke test del workbench passa. Un workflow che verifica soltanto `ade/prototype/` non soddisfa questo criterio.
 
-### M0.2 — Shell e identità del prodotto A.D.E · completata su Linux
+### M0.2 — Shell e identità del prodotto A.D.E · verificata su Linux/macOS
 
 **Dipende da:** M0.1. La progettazione dell’interfaccia può procedere durante la preparazione della toolchain; il collaudo richiede il desktop funzionante.
 
@@ -257,8 +257,8 @@ Prima di M4/M5 vanno scelti stack dimostrativo, provider IA e politiche di esecu
 
 ## Ordine operativo dei prossimi incrementi
 
-1. **Chiusura M0.1:** completare gli esiti della CI aggiornata e verificare toolchain/avvio sul Mac originale. Il branch è pubblicato e il primo collaudo macOS è passato; il controllo di produzione locale rientra negli 8 GiB.
-2. **M0.2 completata su Linux:** home, demo, proprietà e navigazione persistente sono disponibili nel workbench.
+1. **Chiusura M0.1:** verificare toolchain/avvio sul Mac originale; la CI aggiornata è superata su Linux/macOS. Il branch è pubblicato e il primo collaudo macOS è passato; il controllo di produzione locale rientra negli 8 GiB.
+2. **M0.2 verificata su Linux/macOS:** home, demo, proprietà e navigazione persistente sono disponibili nel workbench.
 3. **M0.3 verificata su Linux:** inventario, CI configurata e prova upstream documentata; conservare le stesse verifiche per gli aggiornamenti futuri.
 4. **M1:** definire il modello semantico del checkout e i suoi contratti. Risultato: dati condivisi fra editor, esploratore e futuri agenti.
 5. **Prima porzione di M2:** creare, collegare, modificare e salvare attore, feature e risorsa dal canvas. Risultato: prima sessione di progettazione senza modificare JSON.
