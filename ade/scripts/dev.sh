@@ -7,4 +7,6 @@ if [[ "$(node --version)" != "v$ADE_NODE_VERSION" ]]; then
 	echo "Select Node $ADE_NODE_VERSION from .nvmrc before starting A.D.E." >&2
 	exit 1
 fi
-exec ./scripts/code.sh --user-data-dir="$ADE_ROOT/.build/ade-profile" --extensions-dir="$ADE_ROOT/.build/ade-extensions" "$@"
+export VSCODE_PORTABLE="$ADE_ROOT/.build/ade-portable"
+mkdir -p "$VSCODE_PORTABLE"
+exec ./scripts/code.sh --user-data-dir="$ADE_ROOT/.build/ade-profile" --extensions-dir="$ADE_ROOT/.build/ade-extensions" --shared-data-dir="$ADE_ROOT/.build/ade-shared" "$@"

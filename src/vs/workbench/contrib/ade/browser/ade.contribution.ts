@@ -56,7 +56,12 @@ registerAction2(class extends Action2 {
 });
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerDefaultConfigurations([
-	{ overrides: { 'workbench.startupEditor': 'adeHome' } }
+	{ overrides: {
+		'workbench.startupEditor': 'adeHome',
+		'workbench.welcomePage.experimentalOnboarding': false,
+		'workbench.secondarySideBar.defaultVisibility': 'hidden',
+		'chat.disableAIFeatures': true
+	} }
 ]);
 
 class AdeStartup {

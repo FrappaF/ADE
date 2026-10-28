@@ -19,6 +19,9 @@ const directory = await mkdtemp(path.join(tmpdir(), 'ade-smoke-'));
 const userData = path.join(directory, 'profile');
 const workspace = path.join(directory, 'project');
 const evidence = path.join(root, '.build/ade-smoke');
+const portable = path.join(directory, 'portable');
+await mkdir(portable);
+const launchEnv = { ...process.env, VSCODE_DEV: '1', NODE_ENV: 'development', VSCODE_PORTABLE: portable };
 await mkdir(path.join(userData, 'User'), { recursive: true });
 await mkdir(workspace);
 await mkdir(evidence, { recursive: true });
@@ -31,12 +34,13 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'update.mode': 'none'
 }));
 const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=${directory}/extensions`,
+	`--shared-data-dir=${directory}/shared-data`,
 	'--disable-workspace-trust', '--disable-telemetry', '--disable-updates', '--disable-experiments',
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 let app;
 async function launch() {
-	app = await electron.launch({ executablePath, args, cwd: root, env: { ...process.env, VSCODE_DEV: '1', NODE_ENV: 'development' }, timeout: 90000 });
+	app = await electron.launch({ executablePath, args, cwd: root, env: launchEnv, timeout: 90000 });
 	const window = await app.firstWindow({ timeout: 90000 });
 	await window.locator('.ade-shell').waitFor({ timeout: 90000 });
 	return window;
@@ -72,7 +76,7 @@ try {
 	await new Promise((resolve, reject) => {
 		const child = spawn(executablePath, [...args, '--skip-welcome',
 			`--extensionDevelopmentPath=${root}/ade/prototype`, `--extensionTestsPath=${root}/ade/prototype/host-test/index.cjs`],
-		{ cwd: root, env: { ...process.env, VSCODE_DEV: '1', NODE_ENV: 'development' }, stdio: 'inherit' });
+		{ cwd: root, env: launchEnv, stdio: 'inherit' });
 		const timer = setTimeout(() => { child.kill(); reject(new Error('Extension Host smoke timed out')); }, 120000);
 		child.on('error', error => { clearTimeout(timer); reject(error); });
 		child.on('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`Extension Host exited with ${code}`)); });

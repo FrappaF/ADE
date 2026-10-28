@@ -6,7 +6,13 @@ exports.run = async function () {
   const folder = vscode.workspace.workspaceFolders[0].uri;
   const resource = vscode.Uri.joinPath(folder, 'checkout.diagram.json');
   const document = await vscode.workspace.openTextDocument(resource);
-  const panel = await vscode.commands.executeCommand('ade.open', resource);
+  const extension = vscode.extensions.all.find(extension => extension.packageJSON.name === 'ade');
+  assert.ok(extension, 'The development extension must be installed');
+  const api = await extension.activate();
+  assert.equal(await vscode.commands.executeCommand('ade.open', resource), undefined);
+  assert.ok(vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputWebview);
+  await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+  const panel = await api.openModel(resource);
   assert.ok(panel, 'The development extension must open a webview');
   assert.match(panel.webview.html, /Acquisto/);
   async function replace(text) {

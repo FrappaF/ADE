@@ -2,7 +2,7 @@
 const vscode = require('vscode');
 const {renderModel} = require('./model');
 function activate(context) {
-  context.subscriptions.push(vscode.commands.registerCommand('ade.open', async resource => {
+  const openModel = async resource => {
     const selected = resource instanceof vscode.Uri ? [resource] : await vscode.window.showOpenDialog({canSelectMany: false, filters: {'Diagram model': ['json']}, defaultUri: vscode.Uri.joinPath(context.extensionUri, 'examples', 'checkout.diagram.json')});
     if (!selected) return;
     const document = await vscode.workspace.openTextDocument(selected[0]);
@@ -18,6 +18,8 @@ function activate(context) {
     });
     panel.onDidDispose(() => listener.dispose());
     return panel;
-  }));
+  };
+  context.subscriptions.push(vscode.commands.registerCommand('ade.open', async resource => { await openModel(resource); }));
+  return {openModel};
 }
 module.exports = {activate};
