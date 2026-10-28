@@ -23,6 +23,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
+      GITHUB_TOKEN: ${{ github.token }}
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
       NODE_USE_ENV_PROXY: '1'
       FOUNDRY_LOCAL_SKIP_INSTALL: '1'
