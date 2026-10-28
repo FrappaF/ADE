@@ -490,3 +490,6 @@ import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
 import './contrib/opener/browser/opener.contribution.js';
 
 //#endregion
+
+// A.D.E native product shell
+import './contrib/ade/browser/ade.contribution.js';

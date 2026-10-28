@@ -1,0 +1,15 @@
+{
+	"extends": "../src/tsconfig.json",
+	"compilerOptions": {
+		"rootDir": "../src",
+		"noEmit": true,
+		"incremental": true,
+		"tsBuildInfoFile": "../.build/ade-production.typecheck.tsbuildinfo"
+	},
+	"exclude": [
+		"../src/**/test/**",
+		"../src/**/testFixtures/**",
+		"../src/**/*.test.ts",
+		"../src/vs/workbench/contrib/webview/browser/pre/service-worker.js"
+	]
+}

@@ -1,0 +1,75 @@
+name: ADE desktop
+on:
+  push:
+    paths-ignore:
+      - '**/*.md'
+      - 'ade/docs/**'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'ade/docs/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      NODE_USE_ENV_PROXY: '1'
+      FOUNDRY_LOCAL_SKIP_INSTALL: '1'
+      GOMEMLIMIT: 3GiB
+      GOMAXPROCS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test npm network retries
+        run: node --test build/lib/test/npmNetworkRetry.test.ts
+      - name: Verify macOS arm64 toolchain
+        if: runner.os == 'macOS'
+        run: |
+          test "$(uname -m)" = arm64
+          xcode-select -p
+          xcrun --find clang
+      - name: Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libx11-dev libxkbfile-dev libkrb5-dev libsecret-1-dev libgtk-3-dev libgbm-dev libnss3 libasound2-dev xvfb
+      - name: Prepare headers before native dependency scripts
+        run: node build/npm/preinstall.ts
+      - run: npm ci
+      - name: Build desktop client
+        run: npm run build-fast -- --client-only
+      - name: Typecheck production sources
+        run: node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
+      - name: Build bundled extensions
+        run: npm run gulp transpile-extensions compile-extension-media
+      - name: Build upstream Copilot extension
+        run: npm run compile-copilot
+      - run: npm run electron
+      - name: Desktop smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs
+      - name: Desktop smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-smoke-${{ matrix.os }}
+          path: .build/ade-smoke
+          if-no-files-found: ignore

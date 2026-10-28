@@ -2,7 +2,7 @@
 
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
-Le milestone indicano un ordine di sviluppo, non date di consegna. La fondazione M0 comprende ora anche l’importazione dei sorgenti Code OSS; la build desktop resta da verificare. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
+Le milestone indicano un ordine di sviluppo, non date di consegna. La fondazione M0 comprende il fork Code OSS, la shell nativa e il collaudo desktop su Linux. La CI desktop e il controllo TypeScript di produzione sono passati su Linux e macOS arm64; resta la verifica della toolchain del Mac originale prevista in M0.1. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
 
 ## Decisione di base: un prodotto desktop autonomo
 
@@ -14,7 +14,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 
 | Milestone | Risultato | Dipende da | Stato |
 | --- | --- | --- | --- |
-| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Importazione completata; M0.1–M0.3 da completare |
+| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build, produzione e smoke verificati Linux/macOS; resta la verifica del Mac originale |
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Da sviluppare |
 | M2 · Editor visuale | Creazione e modifica senza JSON | M1 | Da sviluppare |
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | Da sviluppare |
@@ -29,56 +29,60 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 ## M0 — Fondazione del fork Code OSS
 
-**Disponibile:** sorgenti Code OSS nella radice, revisione upstream registrata, primo branding A.D.E e prototipo separato in `ade/prototype/`. Il prototipo include comando VS Code, validazione di un modello JSON minimale, vista strutturale con aggiornamento dal documento, esempio di acquisto, test del modello e workflow CI.
+**Disponibile:** sorgenti e revisione upstream registrati, identità di sviluppo separata, home A.D.E nativa nel workbench, modello dimostrativo in sola lettura, navigazione delle proprietà e contesto persistente per workspace. Il laboratorio in `ade/prototype/` conserva il JSON minimale, la webview e i test del modello.
 
-**Limiti:** layout fisso, nessuna modifica dal canvas, nessuna analisi della codebase o chiamata IA. La vista attuale non è un editor UML completo.
+**Limiti:** demo statica, nessuna modifica dal canvas, analisi della codebase o implementazione IA. Le funzioni future sono indicate come indisponibili. Le funzioni Copilot upstream non configurate sono disabilitate per impostazione predefinita.
 
-**Verifica di uscita:** selezionare Node da `.nvmrc`, ripristinare la toolchain nativa, installare le dipendenze, compilare e avviare il desktop A.D.E; controlli Node del prototipo superati; avvio manuale nell'Extension Development Host, apertura dell'esempio e aggiornamento del diagramma verificati. I controlli automatici sono già eseguibili; il collaudo nell'host VS Code resta da effettuare.
+**Esiti:** build di sviluppo, smoke desktop con riavvio, test nell’Extension Host e prova di aggiornamento upstream verificati su Linux x64. Stato dettagliato e limiti in [verifica M0](m0-validation.md), personalizzazioni e servizi in [inventario del fork](fork-inventory.md). M0 non è dichiarata interamente conclusa finché non sono verificate le voci macOS di M0.1.
 
-### M0.1 — Toolchain e primo desktop funzionante
+### M0.1 — Toolchain e primo desktop funzionante · parziale
 
 **Attività:**
 
-- Selezionare la versione Node di `.nvmrc` e ripristinare una toolchain nativa compatibile sul Mac di sviluppo.
-- Installare le dipendenze dello snapshot, compilare e avviare A.D.E con profilo di sviluppo isolato.
-- Verificare apertura workspace, ripristino della finestra, comandi principali e caricamento del prototipo come estensione di sviluppo.
-- Documentare prerequisiti e procedura a partire da un clone pulito; registrare piattaforma e revisione usate per il collaudo.
-- Aggiungere una prima CI di compilazione per la piattaforma iniziale, separata dai test leggeri del prototipo.
+- [x] Selezionare Node 24.22.1 da `.nvmrc` e predisporre una toolchain nativa compatibile per Linux x64.
+- [ ] Ripristinare e collaudare Xcode/Command Line Tools sul Mac di sviluppo originale.
+- [x] Compilare il client di sviluppo dello snapshot e avviare A.D.E su Linux con profilo, estensioni, dati condivisi e configurazione argv isolati.
+- [x] Confermare build desktop, typecheck del contributo A.D.E e smoke nella CI macOS. Il controllo di produzione separato dai test passa localmente con circa 5,15 GiB e nella CI Linux/macOS; il controllo globale originale, che include tutti i test, resta distinto e supera la memoria disponibile.
+- [x] Verificare su Linux apertura workspace, ripristino della finestra e della selezione, comando della home e caricamento del prototipo come estensione di sviluppo.
+- [x] Documentare prerequisiti e procedura da clone pulito, piattaforma, revisione, comandi e limiti del collaudo.
+- [x] Aggiungere CI desktop Linux/macOS separata dai test leggeri, con artifact delle schermate. Branch pubblicato con autorizzazione dell’utente; collaudo finale Linux/macOS superato, inclusa la verifica di produzione.
 
-**Consegna:** istruzioni riproducibili e primo avvio desktop verificato. La piattaforma iniziale proposta è macOS arm64, coerente con l’ambiente locale; altre piattaforme saranno validate separatamente.
+**Consegna:** istruzioni riproducibili e primo avvio desktop verificato. La piattaforma iniziale proposta resta macOS arm64; Linux x64 è stato collaudato nell’ambiente cloud. Il primo collaudo CI macOS arm64 è passato; i runner CI non certificano la riparazione del Mac originale.
 
 **Criterio di completamento:** un clone pulito viene compilato e avviato seguendo la guida; lo smoke test del workbench passa. Un workflow che verifica soltanto `ade/prototype/` non soddisfa questo criterio.
 
-### M0.2 — Shell e identità del prodotto A.D.E
+### M0.2 — Shell e identità del prodotto A.D.E · verificata su Linux/macOS
 
 **Dipende da:** M0.1. La progettazione dell’interfaccia può procedere durante la preparazione della toolchain; il collaudo richiede il desktop funzionante.
 
 **Attività:**
 
-- Definire home di progetto, area centrale del modello, esploratore semantico, proprietà e pannello della collaborazione IA.
-- Integrare nel workbench un primo contributo A.D.E con comandi, apertura della vista e navigazione persistente.
-- Impostare il percorso iniziale «Crea progetto / Apri progetto / Importa codebase», distinguendo le operazioni disponibili da quelle ancora da implementare.
-- Completare il branding per lo sviluppo e isolare profili, impostazioni e dati rispetto ad altre installazioni dell’editor.
-- Conservare l’accesso agli strumenti tecnici senza renderlo necessario per la navigazione ordinaria.
-- Definire i confini fra contributi UI, servizi semantici, adattatori e coordinatore IA rispettando la struttura a livelli upstream.
+- [x] Definire home di progetto, area centrale del modello, esploratore semantico, proprietà e pannello della collaborazione IA.
+- [x] Integrare nel workbench un primo contributo A.D.E con comandi, apertura della vista e navigazione persistente.
+- [x] Impostare il percorso iniziale «Crea progetto / Apri progetto / Importa codebase», distinguendo le operazioni disponibili da quelle ancora da implementare.
+- [x] Completare il branding per lo sviluppo e isolare profili, impostazioni e dati rispetto ad altre installazioni dell’editor.
+- [x] Conservare l’accesso agli strumenti tecnici senza renderlo necessario per la navigazione ordinaria.
+- [x] Definire i confini fra contributi UI, servizi semantici, adattatori e coordinatore IA rispettando la struttura a livelli upstream.
 
 **Consegna:** shell desktop A.D.E navigabile, inizialmente con una vista del modello dimostrativo. La shell non equivale ancora all’editor visuale di M2.
 
 **Criterio di completamento:** aprendo un workspace dimostrativo si accede alla vista A.D.E, si cambia pannello e si ripristina il contesto dopo il riavvio. Le funzionalità future non simulano operazioni riuscite.
 
-### M0.3 — Gestione del fork e integrazione continua
+### M0.3 — Gestione del fork e integrazione continua · verificata su Linux
 
 **Attività:**
 
-- Definire la strategia di aggiornamento dallo snapshot registrato in `ade/upstream.json`, con confronto delle revisioni e branch dedicati.
-- Inventariare le modifiche A.D.E al core e mantenere separati, dove possibile, i contributi specifici dal codice upstream.
-- Verificare un aggiornamento upstream su un branch di prova e documentare riconciliazione e ritorno alla versione precedente.
-- Mantenere disattivati i workflow Microsoft non configurati per ADE; attivare soltanto controlli pertinenti e riproducibili.
-- Inventariare servizi esterni, estensioni integrate e riferimenti di prodotto da configurare, sostituire o rimuovere prima della distribuzione.
+- [x] Definire la strategia di aggiornamento dallo snapshot registrato in `ade/upstream.json`, con confronto delle revisioni e branch dedicati.
+- [x] Inventariare le modifiche A.D.E al core e mantenere separati, dove possibile, i contributi specifici dal codice upstream.
+- [x] Verificare un aggiornamento upstream su un branch di prova e documentare riconciliazione e ritorno alla versione precedente.
+- [x] Mantenere disattivati i workflow Microsoft non configurati per ADE; attivare soltanto controlli pertinenti e riproducibili.
+- [x] Inventariare servizi esterni, estensioni integrate e riferimenti di prodotto da configurare, sostituire o rimuovere prima della distribuzione.
 
 **Consegna:** procedura di manutenzione del fork e CI iniziale del desktop. Firma e aggiornamenti agli utenti appartengono alla fase di distribuzione M8.
 
 **Criterio di completamento:** la revisione di base e le personalizzazioni sono identificabili; un aggiornamento di prova supera build e smoke test, oppure presenta conflitti documentati senza compromettere il branch principale.
+
+**Prova effettuata:** delta `98da3bad` → `915c6fae` applicato su branch dedicato senza conflitti; build di sviluppo e smoke superati, 54 test upstream superati, ritorno al branch di base verificato. [Report](upstream-trial-2026-10-28.json). La base di lavoro resta `98da3bad`; l’aggiornamento di prova non è stato integrato.
 
 ## M1 — Modello semantico e contratti
 
@@ -253,9 +257,9 @@ Prima di M4/M5 vanno scelti stack dimostrativo, provider IA e politiche di esecu
 
 ## Ordine operativo dei prossimi incrementi
 
-1. **M0.1:** ripristinare toolchain e versione Node, compilare e collaudare il desktop. Risultato: A.D.E avviabile da sorgente.
-2. **M0.2:** introdurre home e primo contributo nativo A.D.E nel workbench. Risultato: il modello dimostrativo è raggiungibile nell’applicazione dedicata.
-3. **M0.3:** rendere verificabili build e aggiornamenti upstream. Risultato: una base mantenibile prima di ampliare le modifiche al core.
+1. **Chiusura M0.1:** verificare toolchain/avvio sul Mac originale; la CI aggiornata è superata su Linux/macOS. Il branch è pubblicato e il primo collaudo macOS è passato; il controllo di produzione locale rientra negli 8 GiB.
+2. **M0.2 verificata su Linux/macOS:** home, demo, proprietà e navigazione persistente sono disponibili nel workbench.
+3. **M0.3 verificata su Linux:** inventario, CI configurata e prova upstream documentata; conservare le stesse verifiche per gli aggiornamenti futuri.
 4. **M1:** definire il modello semantico del checkout e i suoi contratti. Risultato: dati condivisi fra editor, esploratore e futuri agenti.
 5. **Prima porzione di M2:** creare, collegare, modificare e salvare attore, feature e risorsa dal canvas. Risultato: prima sessione di progettazione senza modificare JSON.
 

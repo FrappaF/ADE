@@ -1,0 +1,19 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+.ade-shell {
+	box-sizing: border-box;
+	overflow: auto;
+	padding: 32px;
+	color: var(--vscode-editor-foreground);
+	background: var(--vscode-editor-background);
+}
+.ade-shell h1 { font-size: var(--vscode-fontSize-heading1); font-weight: var(--vscode-fontWeight-semiBold, 600); }
+.ade-shell h2 { font-size: var(--vscode-fontSize-heading2); font-weight: var(--vscode-fontWeight-semiBold, 600); }
+.ade-shell p { max-width: 70ch; line-height: 1.6; }
+.ade-shell nav, .ade-shell .ade-actions, .ade-shell .ade-flow { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0; }
+.ade-shell .monaco-button { width: auto; padding: 8px 12px; border-radius: var(--vscode-cornerRadius-small); }
+.ade-shell .ade-model-layout { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(240px, 3fr); gap: 32px; }
+.ade-shell aside .monaco-button { display: block; margin-bottom: 8px; }
+@media (max-width: 700px) { .ade-shell .ade-model-layout { grid-template-columns: 1fr; } }
