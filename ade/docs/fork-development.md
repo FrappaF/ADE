@@ -17,20 +17,25 @@ Selezionare **Node dalla `.nvmrc`** (attualmente 24.22.1), con npm incluso nella
 Con `nvm` disponibile: `nvm install && nvm use`. Dalla radice:
 
 ```sh
+export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+export FOUNDRY_LOCAL_SKIP_INSTALL=1
 node build/npm/preinstall.ts
 npm ci
-npm run compile
+npm run build-fast -- --client-only
+node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.json --pretty false
+npm run gulp transpile-extensions compile-extension-media
+npm run compile-copilot
 npm run electron
 ./ade/scripts/dev.sh /percorso/del/progetto
 ```
 
-La preparazione esplicita degli header precede gli script nativi delle dipendenze. `npm ci` conserva i lockfile e installa anche le sottocartelle previste upstream. `dev.sh` usa `.build/ade-profile` e `.build/ade-extensions`: sono isolati dagli altri editor. Su Windows usare `scripts\code.bat` con `--user-data-dir` e `--extensions-dir` dedicati. Per iterare sul solo client, dopo l’installazione, usare `npm run build-fast -- --client-only`; questo percorso traspila e richiede una verifica TypeScript separata quando pertinente.
+La preparazione esplicita degli header precede gli script nativi delle dipendenze. `npm ci` conserva i lockfile e installa anche le sottocartelle previste upstream. `dev.sh` usa `.build/ade-profile`, `.build/ade-extensions`, `.build/ade-shared` e `.build/ade-portable`: sono isolati dagli altri editor. Su Windows usare `scripts\code.bat` con `--user-data-dir` e `--extensions-dir` dedicati. La sequenza separa build del client, typecheck del contributo A.D.E ed estensioni per ridurre la memoria simultanea; è usata anche in CI. Per iterare sul solo client usare `npm run build-fast -- --client-only`. La compilazione globale upstream (`npm run compile`) resta disponibile su una macchina con memoria sufficiente; il suo controllo TypeScript completo non è stato superato nel cloud da 8 GiB.
 
-Dietro un proxy HTTP mantenere le variabili e la CA fornite dall’ambiente; con Node 24 impostare `NODE_USE_ENV_PROXY=1` per i download basati su fetch. Il runtime Chromium per i test browser upstream non serve allo smoke Electron: `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` evita quel download durante l’installazione. Non disabilitare i controlli TLS.
+Dietro un proxy HTTP mantenere le variabili e la CA fornite dall’ambiente; con Node 24 impostare `NODE_USE_ENV_PROXY=1` per i download basati su fetch. Il runtime Chromium per i test browser upstream non serve allo smoke Electron: `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` evita quel download durante l’installazione. `FOUNDRY_LOCAL_SKIP_INSTALL=1` è l’opzione prevista dall’SDK upstream per le build da sorgente: esclude il download del runtime Foundry, che non viene utilizzato dalla shell M0. Non disabilitare i controlli TLS.
 
 ## Shell e collaudo
 
-L’avvio predefinito apre la home A.D.E se non vengono ripristinati altri editor. `A.D.E: Open Home` la riapre dalla palette. La demo di acquisto è statica e in sola lettura: permette navigazione del modello e delle proprietà, con selezione e pannello memorizzati per workspace. Creazione progetto, importazione semantica e collaborazione IA espongono esplicitamente la loro indisponibilità. Editor testuale, terminale e strumenti upstream rimangono accessibili.
+L’avvio predefinito apre la home A.D.E se non vengono ripristinati altri editor. `A.D.E: Open Home` la riapre dalla palette. La demo di acquisto è statica e in sola lettura: permette navigazione del modello e delle proprietà, con selezione e pannello memorizzati per workspace. Creazione progetto, importazione semantica e collaborazione IA espongono esplicitamente la loro indisponibilità. Onboarding e funzioni Copilot ereditate sono disabilitati per impostazione predefinita, evitando richieste di autenticazione a un servizio non configurato da A.D.E. Editor testuale, terminale e strumenti upstream rimangono accessibili.
 
 ```sh
 npm --prefix ade/prototype run check

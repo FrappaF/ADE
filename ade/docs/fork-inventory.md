@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | Identità | `product.json` | Nome, protocollo, cartelle dati, server, tunnel e identificatori desktop separati da Code OSS. |
 | Shell nativa | `src/vs/workbench/contrib/ade/browser/` | Home, demo in sola lettura, proprietà, navigazione persistente e indicazione delle funzioni future. |
+| Localizzazione | `build/lib/i18n.resources.json` | Registra le stringhe del contributo A.D.E nel sistema di localizzazione upstream. |
 | Registrazione | `src/vs/workbench/workbench.common.main.ts` | Importa il contributo A.D.E usando il modello di contributi upstream. |
 | Avvio | `src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.contribution.ts` | Aggiunge `adeHome` ai valori dello startup editor; il contributo ADE ne imposta il valore predefinito. |
 | Avvio isolato e collaudo | `ade/scripts/` | Profilo di sviluppo separato, smoke desktop e preparazione aggiornamenti upstream. |
@@ -18,7 +19,7 @@
 | Riferimento | Stato e azione |
 | --- | --- |
 | Electron, Node, npm, GitHub release | Dipendenze di sviluppo. Versioni e checksum restano quelli upstream. |
-| `builtInExtensions` in `product.json` | js-debug-companion, js-debug e altre estensioni elencate nel file richiedono controllo di licenze, download e redistribuzione. Il collaudo M0 non certifica i debugger. |
+| `builtInExtensions` in `product.json` | `ms-vscode.js-debug-companion`, `ms-vscode.js-debug` e `ms-vscode.vscode-js-profile-table` richiedono controllo di licenze, download e redistribuzione. Il collaudo M0 non certifica i debugger. |
 | `extensions/copilot/`, SDK IA e agent host upstream | Codice ereditato. Non costituisce un provider A.D.E configurato; la shell segnala IA non disponibile. Definire provider e dati inviati in M5. |
 | Autenticazione GitHub/Microsoft, tunnel e remote | Moduli upstream conservati. Credenziali, endpoint e condizioni d’uso vanno valutati prima di offrirli agli utenti. |
 | Marketplace e servizi proprietari | Nessuna autorizzazione aggiunta. Non configurare automaticamente il Marketplace Microsoft. |

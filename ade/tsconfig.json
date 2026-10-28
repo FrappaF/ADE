@@ -1,0 +1,10 @@
+{
+	"extends": "../src/tsconfig.json",
+	"include": ["../src/typings", "../src/vs/workbench/contrib/ade/**/*.ts"],
+	"compilerOptions": {
+		"rootDir": "../src",
+		"noEmit": true,
+		"incremental": true,
+		"tsBuildInfoFile": "../.build/ade.typecheck.tsbuildinfo"
+	}
+}

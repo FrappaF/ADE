@@ -6,16 +6,24 @@ Il software engineer progetta struttura, diagrammi, flussi e interazioni fra att
 
 ## Stato attuale
 
-I sorgenti dell'editor sono nella radice della repository e sono modificabili direttamente. È stato applicato un primo branding A.D.E in `product.json`. Il prototipo visuale precedente è conservato in `ade/prototype/`, ancora separato dal workbench. IA, editing visuale completo e sincronizzazione bidirezionale sono da sviluppare. La build desktop A.D.E non è ancora stata verificata.
+La shell nativa A.D.E include home di progetto, demo del checkout, proprietà e navigazione persistente nel workbench. Build di sviluppo, avvio, riavvio e prototipo nell’Extension Host sono verificati su Linux x64. CI desktop Linux/macOS e manutenzione upstream sono predisposte; la chiusura M0 attende il collaudo macOS. Esiti e limiti nella [roadmap](ade/docs/roadmap.md) e nel [report M0](ade/docs/m0-validation.md).
+
+Editing visuale completo, analisi della codebase, IA e sincronizzazione sono da sviluppare. Le funzioni future risultano indisponibili nella shell. Il prototipo JSON resta in `ade/prototype/`.
 
 ## Sviluppo
 
 Usa la versione Node indicata in `.nvmrc` e i prerequisiti nativi descritti nella [guida al fork](ade/docs/fork-development.md). Poi, dalla radice:
 
 ```sh
-npm install
-npm run compile
-./scripts/code.sh
+export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+export FOUNDRY_LOCAL_SKIP_INSTALL=1
+node build/npm/preinstall.ts
+npm ci
+npm run build-fast -- --client-only
+node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.json --pretty false
+npm run gulp transpile-extensions compile-extension-media
+npm run compile-copilot
+./ade/scripts/dev.sh
 ```
 
 Su Windows usa `scripts\code.bat`. Per verificare soltanto il prototipo, senza installare le dipendenze dell'editor:
