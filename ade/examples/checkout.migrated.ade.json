@@ -1,0 +1,111 @@
+{
+	"version": 2,
+	"id": "checkout",
+	"name": "Acquisto — interazioni attore e sistema",
+	"semantics": {
+		"elements": [
+			{
+				"id": "customer",
+				"kind": "actor",
+				"name": "Cliente"
+			},
+			{
+				"id": "checkout",
+				"kind": "component",
+				"name": "Checkout"
+			},
+			{
+				"id": "payment",
+				"kind": "component",
+				"name": "Servizio pagamenti"
+			},
+			{
+				"id": "order",
+				"kind": "resource",
+				"name": "Ordine",
+				"legacyKind": "class"
+			},
+			{
+				"id": "confirmed",
+				"kind": "state",
+				"name": "Confermato"
+			}
+		],
+		"relations": [
+			{
+				"id": "legacy-relation-1",
+				"kind": "dependency",
+				"from": "customer",
+				"to": "checkout",
+				"name": "conferma acquisto",
+				"classification": "legacy-unclassified"
+			},
+			{
+				"id": "legacy-relation-2",
+				"kind": "dependency",
+				"from": "checkout",
+				"to": "payment",
+				"name": "richiede pagamento",
+				"classification": "legacy-unclassified"
+			},
+			{
+				"id": "legacy-relation-3",
+				"kind": "dependency",
+				"from": "checkout",
+				"to": "order",
+				"name": "crea",
+				"classification": "legacy-unclassified"
+			},
+			{
+				"id": "legacy-relation-4",
+				"kind": "dependency",
+				"from": "order",
+				"to": "confirmed",
+				"name": "pagamento riuscito",
+				"classification": "legacy-unclassified"
+			}
+		]
+	},
+	"views": [
+		{
+			"id": "structure",
+			"name": "Acquisto — interazioni attore e sistema",
+			"kind": "structure",
+			"nodes": [
+				{
+					"elementId": "customer",
+					"x": 35,
+					"y": 40
+				},
+				{
+					"elementId": "checkout",
+					"x": 330,
+					"y": 40
+				},
+				{
+					"elementId": "payment",
+					"x": 625,
+					"y": 40
+				},
+				{
+					"elementId": "order",
+					"x": 35,
+					"y": 220
+				},
+				{
+					"elementId": "confirmed",
+					"x": 330,
+					"y": 220
+				}
+			],
+			"relationIds": [
+				"legacy-relation-1",
+				"legacy-relation-2",
+				"legacy-relation-3",
+				"legacy-relation-4"
+			]
+		}
+	],
+	"codeMappings": [],
+	"verifications": []
+}

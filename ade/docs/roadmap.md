@@ -2,7 +2,7 @@
 
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
-Le milestone indicano un ordine di sviluppo, non date di consegna. La fondazione M0 comprende ora anche l’importazione dei sorgenti Code OSS; la build desktop resta da verificare. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
+Le milestone indicano un ordine di sviluppo, non date di consegna. La verifica del 28 ottobre 2026 è registrata nel [verbale M0](m0-verification.md): M0 resta aperto per build e collaudo desktop. M1 dispone ora di contratto, API, migrazione ed esempi verificabili con Node; la sua integrazione nell'applicazione attende il collaudo desktop. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
 
 ## Decisione di base: un prodotto desktop autonomo
 
@@ -14,8 +14,8 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 
 | Milestone | Risultato | Dipende da | Stato |
 | --- | --- | --- | --- |
-| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Importazione completata; M0.1–M0.3 da completare |
-| M1 · Modello semantico | Contratto condiviso del sistema | M0 | Da sviluppare |
+| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Aperto: shell e CI aggiunte; build e collaudo desktop bloccati |
+| M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio implementato e verificato; integrazione desktop da collaudare |
 | M2 · Editor visuale | Creazione e modifica senza JSON | M1 | Da sviluppare |
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | Da sviluppare |
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Da sviluppare |
@@ -29,7 +29,7 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 ## M0 — Fondazione del fork Code OSS
 
-**Disponibile:** sorgenti Code OSS nella radice, revisione upstream registrata, primo branding A.D.E e prototipo separato in `ade/prototype/`. Il prototipo include comando VS Code, validazione di un modello JSON minimale, vista strutturale con aggiornamento dal documento, esempio di acquisto, test del modello e workflow CI.
+**Disponibile:** sorgenti Code OSS nella radice, revisione upstream registrata, branding di sviluppo, prototipo separato e primo contributo nativo `ade.workbench.open`. La shell usa il servizio M1, legge documenti v1/v2, offre navigazione fra home, modello, proprietà e IA, e conserva file e selezione per workspace. Sono presenti CI leggera, workflow desktop macOS, smoke dell'Extension Host, inventario del fork e prova upstream con conflitti documentati. Vedi il [verbale](m0-verification.md) per distinguere implementazione e collaudo.
 
 **Limiti:** layout fisso, nessuna modifica dal canvas, nessuna analisi della codebase o chiamata IA. La vista attuale non è un editor UML completo.
 
@@ -49,6 +49,8 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 **Criterio di completamento:** un clone pulito viene compilato e avviato seguendo la guida; lo smoke test del workbench passa. Un workflow che verifica soltanto `ade/prototype/` non soddisfa questo criterio.
 
+**Verifica attuale:** Node 24.22.1 e test leggeri superati su Linux x64. Installazione desktop interrotta sul runtime Foundry; download opzionale Chromium negato dalla policy e prerequisiti grafici Linux incompleti. La CI desktop è predisposta, ma non risulta un'esecuzione riuscita. M0.1 rimane aperto.
+
 ### M0.2 — Shell e identità del prodotto A.D.E
 
 **Dipende da:** M0.1. La progettazione dell’interfaccia può procedere durante la preparazione della toolchain; il collaudo richiede il desktop funzionante.
@@ -66,6 +68,8 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 **Criterio di completamento:** aprendo un workspace dimostrativo si accede alla vista A.D.E, si cambia pannello e si ripristina il contesto dopo il riavvio. Le funzionalità future non simulano operazioni riuscite.
 
+**Verifica attuale:** shell nativa implementata e controllata con TypeScript e lint. Apertura del modello, aggiornamento da file, cambio pannello e ripristino richiedono ancora lo smoke e il collaudo manuale del [verbale M0](m0-verification.md). M0.2 non è certificato come completato.
+
 ### M0.3 — Gestione del fork e integrazione continua
 
 **Attività:**
@@ -80,7 +84,11 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 **Criterio di completamento:** la revisione di base e le personalizzazioni sono identificabili; un aggiornamento di prova supera build e smoke test, oppure presenta conflitti documentati senza compromettere il branch principale.
 
+**Verifica attuale:** [inventario e procedura](fork-maintenance.md) disponibili; prova su branch isolato verso `a3ad284029f2b1c907c7c7e00039c228fe24511e` con otto conflitti nei workflow spostati. Nessuna modifica applicata alla base registrata. Il criterio relativo ai conflitti è verificato; il successo della CI desktop rimane da registrare.
+
 ## M1 — Modello semantico e contratti
+
+**Disponibile:** [contratto v2 e API documentati](semantic-model.md), [schema JSON](../schema/model-v2.schema.json), servizio puro in `src/vs/workbench/contrib/ade/common/semanticModel.ts`, esempio completo di acquisto, fixture invalide e migrazione conservativa del prototipo. I test Node coprono identità dopo rinomina/spostamento, indipendenza del layout, riferimenti, compatibilità delle relazioni, cicli, evidenze e migrazione senza sovrascrittura. Il workbench consuma lo stesso servizio; la verifica di esecuzione desktop rimane subordinata a M0.1.
 
 **Obiettivo:** rappresentare il significato del sistema indipendentemente dalla posizione dei nodi e dal framework.
 

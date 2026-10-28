@@ -1,0 +1,48 @@
+name: Build and smoke test ADE desktop
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ade-desktop-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  desktop:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Record build platform
+        run: |
+          node --version
+          npm --version
+          uname -sm
+          xcodebuild -version
+          git rev-parse HEAD
+      - run: npm ci --no-audit --no-fund --foreground-scripts
+      - run: npm run ade:check
+      - run: npm run compile
+      - run: npm run electron
+      - name: Smoke test the built workbench and prototype host
+        env:
+          VSCODE_SKIP_PRELAUNCH: '1'
+        run: >-
+          ./scripts/code.sh
+          --user-data-dir="$RUNNER_TEMP/ade-desktop-profile"
+          --extensions-dir="$RUNNER_TEMP/ade-desktop-extensions"
+          --skip-welcome --skip-release-notes --disable-workspace-trust
+          --extensionDevelopmentPath="$PWD/ade/prototype"
+          --extensionTestsPath="$PWD/ade/prototype/desktop/smoke.cjs"
+          "$PWD/ade/examples"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ade-desktop-logs
+          path: ${{ runner.temp }}/ade-desktop-profile/logs

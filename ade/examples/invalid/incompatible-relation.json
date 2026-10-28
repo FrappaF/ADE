@@ -1,0 +1,34 @@
+{
+	"expectedCode": "incompatibleRelation",
+	"model": {
+		"version": 2,
+		"id": "invalid-example",
+		"name": "Esempio non valido",
+		"semantics": {
+			"elements": [
+				{
+					"id": "customer",
+					"kind": "actor",
+					"name": "Cliente"
+				},
+				{
+					"id": "order",
+					"kind": "resource",
+					"name": "Ordine"
+				}
+			],
+			"relations": [
+				{
+					"id": "request",
+					"kind": "write",
+					"from": "customer",
+					"to": "order",
+					"name": "un attore non scrive direttamente una risorsa"
+				}
+			]
+		},
+		"views": [],
+		"codeMappings": [],
+		"verifications": []
+	}
+}

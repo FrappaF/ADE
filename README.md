@@ -6,23 +6,25 @@ Il software engineer progetta struttura, diagrammi, flussi e interazioni fra att
 
 ## Stato attuale
 
-I sorgenti dell'editor sono nella radice della repository e sono modificabili direttamente. È stato applicato un primo branding A.D.E in `product.json`. Il prototipo visuale precedente è conservato in `ade/prototype/`, ancora separato dal workbench. IA, editing visuale completo e sincronizzazione bidirezionale sono da sviluppare. La build desktop A.D.E non è ancora stata verificata.
+I sorgenti dell'editor sono nella radice. Sono disponibili branding A.D.E, shell nativa (`A.D.E: Open Project Home`) e [modello semantico M1](ade/docs/semantic-model.md) con schema v2, API, esempi e migrazione del prototipo. Il dominio è verificabile con Node senza Electron. IA, editing visuale completo e sincronizzazione bidirezionale sono da sviluppare. **M0 resta aperto:** build e collaudo desktop non sono ancora conclusi; stato ed evidenze nel [verbale M0](ade/docs/m0-verification.md).
 
 ## Sviluppo
 
 Usa la versione Node indicata in `.nvmrc` e i prerequisiti nativi descritti nella [guida al fork](ade/docs/fork-development.md). Poi, dalla radice:
 
 ```sh
-npm install
+npm ci
 npm run compile
-./scripts/code.sh
+npm run electron
+./scripts/code.sh --user-data-dir="$PWD/.tmp/ade-profile" --extensions-dir="$PWD/.tmp/ade-extensions" "$PWD/ade/examples"
 ```
 
-Su Windows usa `scripts\code.bat`. Per verificare soltanto il prototipo, senza installare le dipendenze dell'editor:
+Su Windows usa `scripts\code.bat`. Per verificare dominio e prototipo senza installare le dipendenze dell'editor:
 
 ```sh
 npm --prefix ade/prototype run check
 npm --prefix ade/prototype test
+npm run ade:test
 ```
 
 ## Documentazione

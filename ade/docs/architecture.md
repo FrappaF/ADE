@@ -13,11 +13,13 @@ Usare un modello del software per navigare struttura, comportamenti e interazion
 - `examples/`: modelli di esempio versionabili.
 - `test/`: controlli del modello e della gestione dei contenuti.
 
-## Evoluzione prevista
+## Modello semantico e shell nativa (M1)
 
-Separare modello semantico, layout dei diagrammi e collegamenti al codice. Ogni elemento avrà un identificatore stabile. Le viste di classe, sequenza, attività e stato condivideranno gli elementi semantici senza confondere una vista con l'intero programma.
+Il [contratto v2](semantic-model.md) separa semantica, proiezioni visuali, mappature al codice e record di verifica. `src/vs/workbench/contrib/ade/common/semanticModel.ts` implementa tipi, schema, validatore, migrazione e `SemanticModelService` senza dipendenze da Electron, Node o browser. I test in `ade/test/` lo eseguono direttamente con Node. Gli identificatori sono indipendenti da nomi, contenitori e coordinate.
 
-Per l'editing usare un custom editor VS Code per integrare salvataggio e undo/redo. Per la generazione iniziale limitarsi a un sottoinsieme dichiarato di TypeScript e mostrare un diff prima di applicare cambiamenti. La sincronizzazione bidirezionale arbitraria resta un problema aperto: il codice non rappresentabile nel modello deve essere conservato, con conflitti espliciti.
+`browser/ade.contribution.ts` registra l'editor nativo della home A.D.E, il comando `ade.workbench.open` e la serializzazione dell'editor. La shell legge i documenti tramite `IFileService`, li valida con lo stesso servizio di dominio, segue gli aggiornamenti con watcher correlato e conserva navigazione e selezione tramite `IStorageService`. Non scrive modelli e non implementa ancora il canvas. La verifica desktop è aperta nel [verbale M0](m0-verification.md).
+
+Per M2 integrare l'editor visuale con i servizi nativi di documenti, salvataggio e undo/redo. Per la generazione iniziale limitarsi a un sottoinsieme dichiarato di TypeScript e mostrare un diff prima di applicare cambiamenti. La sincronizzazione bidirezionale arbitraria resta un problema aperto: il codice non rappresentabile nel modello deve essere conservato, con conflitti espliciti.
 
 Il prototipo attuale non esegue codice del workspace, non carica risorse remote e non abilita script nella webview.
 
@@ -25,10 +27,10 @@ Il prototipo attuale non esegue codice del workspace, non carica risorse remote 
 
 Il riferimento di prodotto è [la visione](vision.md). Il modello condiviso deve rappresentare feature, attori, componenti, risorse, viste, controller, contratti, flussi e vincoli con identificatori stabili. Il layout appartiene alle singole viste, mentre la semantica è condivisa.
 
-Componenti previsti, non ancora implementati:
+Stato dei componenti:
 
-- Grafo semantico: elementi, relazioni, requisiti e collegamenti alle implementazioni.
-- Esploratore: navigazione dal sistema al dettaglio, proprietà, dipendenze e impatto delle modifiche.
+- Grafo semantico M1 implementato: elementi, relazioni, comportamenti, layout separato e record di implementazione/verifica. Analisi effettiva del codice e test appartengono alle milestone successive.
+- Shell iniziale implementata: home, selezione elementi, relazioni e proprietà; esplorazione coordinata, ricerca e impatto delle modifiche previsti in M3.
 - Adattatori tecnologici: analisi della codebase e trasformazioni verso linguaggi e framework supportati.
 - Coordinatore IA: pianificazione, modifica e verifica a partire dagli intenti del developer.
 - Motore di riconciliazione: confronto fra versione comune, modello modificato e codice modificato.

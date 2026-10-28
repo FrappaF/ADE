@@ -1,4 +1,4 @@
-name: Validate ADE prototype
+name: Validate ADE domain and prototype
 on: [push, pull_request]
 permissions:
   contents: read
@@ -9,6 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
       - run: npm --prefix ade/prototype run check
       - run: npm --prefix ade/prototype test
+      - run: node --test ade/test/*.test.mjs

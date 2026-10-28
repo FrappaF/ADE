@@ -9,5 +9,5 @@
   "categories": ["Visualization"],
   "activationEvents": ["onCommand:ade.open"],
   "contributes": {"commands": [{"command": "ade.open", "title": "A.D.E: Apri modello visuale"}]},
-  "scripts": {"check": "node --check src/extension.js && node --check src/model.js", "test": "node --test"}
+  "scripts": {"check": "node --check src/extension.js && node --check src/model.js && node --check desktop/smoke.cjs", "test": "node --test"}
 }

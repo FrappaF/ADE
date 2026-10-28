@@ -1,0 +1,34 @@
+{
+	"expectedCode": "missingReference",
+	"model": {
+		"version": 2,
+		"id": "invalid-example",
+		"name": "Esempio non valido",
+		"semantics": {
+			"elements": [
+				{
+					"id": "customer",
+					"kind": "actor",
+					"name": "Cliente"
+				},
+				{
+					"id": "order",
+					"kind": "resource",
+					"name": "Ordine"
+				}
+			],
+			"relations": [
+				{
+					"id": "request",
+					"kind": "dependency",
+					"from": "customer",
+					"to": "missing",
+					"name": "riferimento mancante"
+				}
+			]
+		},
+		"views": [],
+		"codeMappings": [],
+		"verifications": []
+	}
+}

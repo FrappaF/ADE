@@ -1,0 +1,90 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.ade-shell {
+	display: flex;
+	flex-direction: column;
+	color: var(--vscode-editor-foreground);
+	background: var(--vscode-editor-background);
+	font-size: var(--vscode-fontSize-body1);
+	font-weight: var(--vscode-fontWeight-regular);
+}
+
+.ade-shell .ade-navigation {
+	display: flex;
+	flex-wrap: wrap;
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	padding: var(--vscode-spacing-size80);
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-shell button {
+	font: inherit;
+	text-align: left;
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, transparent);
+	border-radius: var(--vscode-cornerRadius-small);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	margin: 0 var(--vscode-spacing-size80) var(--vscode-spacing-size80) 0;
+	cursor: pointer;
+}
+
+.ade-shell button:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ade-shell button:focus-visible {
+	outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.ade-shell button[aria-current="true"],
+.ade-shell button[aria-pressed="true"] {
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+.ade-shell button:disabled {
+	color: var(--vscode-disabledForeground);
+	cursor: default;
+}
+
+.ade-shell .ade-content {
+	padding: var(--vscode-spacing-size240);
+	overflow: auto;
+	flex: 1;
+}
+
+.ade-shell h1 {
+	font-size: var(--vscode-fontSize-heading1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-shell h2 {
+	font-size: var(--vscode-fontSize-heading2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-shell .ade-workspace {
+	display: grid;
+	grid-template-columns: minmax(160px, 1fr) minmax(240px, 3fr);
+	gap: var(--vscode-spacing-size240);
+}
+
+.ade-shell .ade-explorer button,
+.ade-shell .ade-detail button {
+	display: block;
+}
+
+.ade-shell .ade-explorer {
+	background: var(--vscode-sideBar-background);
+	padding: var(--vscode-spacing-size120);
+}
+
+.ade-shell .ade-status {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
