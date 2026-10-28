@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "Acquisto — interazioni attore e sistema",
+  "nodes": [
+    {"id": "customer", "kind": "actor", "label": "Cliente"},
+    {"id": "checkout", "kind": "component", "label": "Checkout"},
+    {"id": "payment", "kind": "component", "label": "Servizio pagamenti"},
+    {"id": "order", "kind": "class", "label": "Ordine"},
+    {"id": "confirmed", "kind": "state", "label": "Confermato"}
+  ],
+  "edges": [
+    {"from": "customer", "to": "checkout", "label": "conferma acquisto"},
+    {"from": "checkout", "to": "payment", "label": "richiede pagamento"},
+    {"from": "checkout", "to": "order", "label": "crea"},
+    {"from": "order", "to": "confirmed", "label": "pagamento riuscito"}
+  ]
+}
