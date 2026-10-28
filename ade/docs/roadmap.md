@@ -2,11 +2,15 @@
 
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
-Le milestone indicano un ordine di sviluppo, non date di consegna. La verifica del 28 ottobre 2026 è registrata nel [verbale M0](m0-verification.md): M0 resta aperto per build e collaudo desktop. M1 dispone ora di contratto, API, migrazione ed esempi verificabili con Node; la sua integrazione nell'applicazione attende il collaudo desktop. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
+Le milestone indicano un ordine di sviluppo, non date di consegna. La verifica del 28 ottobre 2026 è registrata nel [verbale M0](m0-verification.md): Build, ripristino e smoke desktop sul MacBook sono stati confermati dall’utente; restano da registrare CI remota e verifiche manuali aggiuntive. M1 dispone ora di contratto, API, migrazione ed esempi verificabili con Node; la sua integrazione iniziale è stata collaudata dall’utente sul MacBook. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
 
 ## Decisione di base: un prodotto desktop autonomo
 
 A.D.E viene sviluppato modificando direttamente il fork Code OSS. Il workbench visuale, la navigazione del sistema e i servizi di coordinamento sono parti del prodotto. L’estensione in `ade/prototype/` resta un laboratorio di validazione delle interazioni; la sua esecuzione non certifica il funzionamento dell’applicazione desktop.
+
+Il workbench definitivo viene riprogettato intorno a diagrammi e flussi: la barra sinistra parte dal sistema e dalle feature, con i diagrammi pertinenti sotto ciascun elemento; l'area centrale ospita canvas e viste coordinate, le proprietà seguono la selezione. Codice, file, terminale e debugger sono viste secondarie accessibili su richiesta. La home deve aprirsi direttamente nel prodotto, senza comandi di attivazione, installazione di plugin o Extension Development Host. La [decisione sul workbench visuale](decisions/0002-visual-workbench.md) precisa il risultato atteso e i confini della shell attuale.
+
+Il primo percorso di prodotto è progettare un nuovo sistema dai diagrammi: creare progetto e feature, rappresentare struttura e flussi, salvare e riprendere il lavoro. Importazione della codebase e implementazione IA restano nelle milestone dedicate e non sono prerequisiti per questo percorso.
 
 L’editor testuale, il terminale e gli strumenti tecnici restano disponibili per manutenzione e approfondimenti. L’esperienza ordinaria parte dal modello del sistema e permette di completare il percorso supportato senza aprire il sorgente. La [decisione architetturale](decisions/0001-code-oss-fork.md) e la [guida al fork](fork-development.md) definiscono la base adottata.
 
@@ -14,9 +18,9 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 
 | Milestone | Risultato | Dipende da | Stato |
 | --- | --- | --- | --- |
-| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Aperto: shell e CI aggiunte; build e collaudo desktop bloccati |
-| M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio implementato e verificato; integrazione desktop da collaudare |
-| M2 · Editor visuale | Creazione e modifica senza JSON | M1 | Da sviluppare |
+| M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build e smoke locali confermati; CI e verifiche aggiuntive da registrare |
+| M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio verificato; smoke desktop confermato dall’utente |
+| M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Prossima priorità: riprogettazione UI/UX nativa |
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | Da sviluppare |
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Da sviluppare |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Da sviluppare |
@@ -33,7 +37,9 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 **Limiti:** layout fisso, nessuna modifica dal canvas, nessuna analisi della codebase o chiamata IA. La vista attuale non è un editor UML completo.
 
-**Verifica di uscita:** selezionare Node da `.nvmrc`, ripristinare la toolchain nativa, installare le dipendenze, compilare e avviare il desktop A.D.E; controlli Node del prototipo superati; avvio manuale nell'Extension Development Host, apertura dell'esempio e aggiornamento del diagramma verificati. I controlli automatici sono già eseguibili; il collaudo nell'host VS Code resta da effettuare.
+La shell attuale è una prima integrazione nativa aperta in un editor del workbench Code OSS. Il collaudo M0 ne verifica la fondazione tecnica; la trasformazione dell'intera esperienza dell'IDE, inclusi sidebar e percorso di avvio, è una consegna esplicita di M2. Il successo dello smoke non implica che questa riprogettazione sia già disponibile.
+
+**Verifica di uscita:** selezionare Node da `.nvmrc`, ripristinare la toolchain nativa, installare le dipendenze, compilare e avviare il desktop A.D.E; controlli Node del prototipo superati; avvio manuale nell'Extension Development Host, apertura dell'esempio e aggiornamento del diagramma verificati. I controlli automatici sono già eseguibili; lo smoke nell’Extension Host è stato confermato dall’utente; le verifiche aggiuntive restano nel verbale.
 
 ### M0.1 — Toolchain e primo desktop funzionante
 
@@ -49,7 +55,7 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 **Criterio di completamento:** un clone pulito viene compilato e avviato seguendo la guida; lo smoke test del workbench passa. Un workflow che verifica soltanto `ade/prototype/` non soddisfa questo criterio.
 
-**Verifica attuale:** Node 24.22.1 e test leggeri superati su Linux x64. Installazione desktop interrotta sul runtime Foundry; download opzionale Chromium negato dalla policy e prerequisiti grafici Linux incompleti. La CI desktop è predisposta, ma non risulta un'esecuzione riuscita. M0.1 rimane aperto.
+**Verifica attuale:** installazione, build, avvio, ripristino e smoke desktop sul MacBook confermati dall’utente sul commit `d3ceb3d5`, dopo selezione del Node richiesto. Il blocco dell'ambiente Linux non si è riprodotto sul Mac. L'esito della CI desktop e i dettagli di piattaforma restano da registrare nel verbale.
 
 ### M0.2 — Shell e identità del prodotto A.D.E
 
@@ -68,7 +74,7 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 **Criterio di completamento:** aprendo un workspace dimostrativo si accede alla vista A.D.E, si cambia pannello e si ripristina il contesto dopo il riavvio. Le funzionalità future non simulano operazioni riuscite.
 
-**Verifica attuale:** shell nativa implementata e controllata con TypeScript e lint. Apertura del modello, aggiornamento da file, cambio pannello e ripristino richiedono ancora lo smoke e il collaudo manuale del [verbale M0](m0-verification.md). M0.2 non è certificato come completato.
+**Verifica attuale:** TypeScript e lint superati; navigazione, ripristino e smoke desktop confermati dall’utente. Le verifiche manuali aggiuntive non confermate singolarmente sono indicate nel [verbale M0](m0-verification.md).
 
 ### M0.3 — Gestione del fork e integrazione continua
 
@@ -88,7 +94,7 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 ## M1 — Modello semantico e contratti
 
-**Disponibile:** [contratto v2 e API documentati](semantic-model.md), [schema JSON](../schema/model-v2.schema.json), servizio puro in `src/vs/workbench/contrib/ade/common/semanticModel.ts`, esempio completo di acquisto, fixture invalide e migrazione conservativa del prototipo. I test Node coprono identità dopo rinomina/spostamento, indipendenza del layout, riferimenti, compatibilità delle relazioni, cicli, evidenze e migrazione senza sovrascrittura. Il workbench consuma lo stesso servizio; la verifica di esecuzione desktop rimane subordinata a M0.1.
+**Disponibile:** [contratto v2 e API documentati](semantic-model.md), [schema JSON](../schema/model-v2.schema.json), servizio puro in `src/vs/workbench/contrib/ade/common/semanticModel.ts`, esempio completo di acquisto, fixture invalide e migrazione conservativa del prototipo. I test Node coprono identità dopo rinomina/spostamento, indipendenza del layout, riferimenti, compatibilità delle relazioni, cicli, evidenze e migrazione senza sovrascrittura. Il workbench consuma lo stesso servizio; lo smoke desktop sul MacBook è stato confermato dall’utente.
 
 **Obiettivo:** rappresentare il significato del sistema indipendentemente dalla posizione dei nodi e dal framework.
 
@@ -105,24 +111,54 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 
 **Criterio di completamento:** un elemento mantiene identità e relazioni quando viene rinominato o spostato; riferimenti mancanti e relazioni incompatibili producono diagnostiche comprensibili.
 
-## M2 — Editor visuale persistente
+## M2 — Workbench visuale nativo ed editor persistente
 
-**Obiettivo:** progettare senza modificare JSON.
+**Obiettivo:** usare A.D.E come IDE autonomo in cui si apre, esplora e modifica un progetto attraverso diagrammi e flussi. La riprogettazione riguarda il workbench completo: avvio, navigazione, aree di lavoro, comandi e strumenti contestuali.
+
+La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura Code OSS viene riutilizzata per file, editor, temi, accessibilità, cronologia e servizi tecnici; la gerarchia visuale e i percorsi ordinari appartengono al prodotto A.D.E.
+
+### M2.1 — Architettura dell'esperienza e nuova shell
+
+**Attività:**
+
+- Definire come percorso prioritario la creazione di un nuovo sistema: dalla home creare progetto e prima feature, aprire il relativo diagramma, progettare un flusso e salvarlo. Definire anche apertura e ripristino di un progetto esistente.
+- Progettare e rivedere wireframe e stati interattivi prima di implementare il nuovo layout; includere primo avvio, progetto vuoto, caricamento, selezione, errore e ripristino.
+- Sostituire la navigazione iniziale per file con una sidebar nativa organizzata per sistema e feature al primo livello, con i diagrammi pertinenti sotto ciascun elemento. Componenti e risorse sono raggiungibili nel contesto semantico del sistema; la gerarchia fisica dei file resta separata.
+- Portare al centro il canvas del diagramma attivo; usare schede e titoli dei diagrammi, con passaggio fra viste che conserva contesto e selezione.
+- Predisporre proprietà contestuali e strumenti per i flussi; collocare collaborazione IA e risultati delle verifiche come supporto al lavoro sul modello.
+- Rendere sorgenti, terminale, debugger e strumenti Git viste secondarie su richiesta, con accesso contestuale dall'elemento quando esiste una mappatura. Preservare il ritorno al diagramma e la selezione senza introdurre una modalità tecnica separata. Un elemento ancora soltanto progettato non deve mostrare codice o mappature inventate.
+- Integrare l'apertura della home o dell'ultimo diagramma nel ciclo di avvio e ripristino del workbench. Eliminare il bisogno di cercare `ade.workbench.open` per entrare nell'esperienza ordinaria.
+- Adeguare menu, comandi, scorciatoie, focus e messaggi al lavoro sui diagrammi. Le operazioni non disponibili devono restare esplicite.
+- Verificare la shell nativa con un profilo pulito senza caricare `ade/prototype/`; aggiungere un percorso di smoke dedicato al prodotto, distinto dal collaudo storico dell'estensione.
+
+**Consegna:** specifica UI/UX condivisa e prima shell A.D.E con sidebar sistema → feature → diagrammi, area centrale visuale e proprietà contestuali. La creazione e l'editing completi arrivano con M2.2; M2.1 espone solo le operazioni già disponibili.
+
+**Criterio di completamento:** avviare il desktop su un progetto dimostrativo con profilo pulito e vedere direttamente sistema, feature e relativi diagrammi nella sidebar e il canvas al centro; scegliere un diagramma di un'altra feature e riaprire il progetto conservando contesto. L'albero dei file non occupa la sidebar iniziale e il percorso funziona senza estensione di sviluppo. Aprire e richiudere una vista tecnica su richiesta mantiene il contesto del modello.
+
+### M2.2 — Canvas, proprietà ed editing persistente
 
 **Attività:**
 
 - Integrare un editor visuale nel workbench del fork con canvas, selezione, zoom, pan e spostamento dei nodi.
 - Collegare il documento visuale al ciclo di vita degli editor e ai servizi di file, salvataggio e cronologia di Code OSS, riusando le infrastrutture esistenti.
-- Definire home A.D.E, navigazione semantica e layout iniziale del prodotto; usare il prototipo per validare le interazioni.
+- Collegare il canvas alla sidebar e alla shell M2.1, con creazione, rinomina, apertura e gestione dei diagrammi senza esporre i file JSON come interfaccia ordinaria.
+- Implementare dalla home la creazione di un nuovo progetto e, dalla sidebar, di feature e relativi diagrammi, con nomi e identificatori stabili. Gestire progetto vuoto e primo diagramma.
+- Realizzare una prima vista strutturale e una vista di flusso/attività con un sottoinsieme dichiarato di azioni, condizioni e percorsi alternativi. Entrambe fanno riferimento allo stesso modello M1; sequenze e stati completi si ampliano in M3.
 - Aggiungere palette degli elementi, collegamenti e pannello delle proprietà.
 - Integrare salvataggio, stato modificato, undo/redo e riapertura del documento.
 - Offrire layout automatico di base e conservare le posizioni scelte dall'utente.
 - Gestire documento non valido, aggiornamenti esterni e recupero dagli errori.
 - Consentire operazioni principali da tastiera e rispettare tema e contrasto dell'editor.
 
-**Consegna:** editor della vista strutturale con operazioni di creazione, modifica e cancellazione coerenti.
+**Consegna:** creazione di progetto e feature, editor strutturale e primo editor di flusso/attività, con operazioni di creazione, modifica e cancellazione coerenti.
 
-**Criterio di completamento:** creare il modello di acquisto interamente dal canvas, annullare e ripetere una modifica, salvare e riaprire senza perdere proprietà o relazioni. La cancellazione di un elemento deve gestire esplicitamente i riferimenti coinvolti.
+**Criterio di completamento:** dalla home creare un progetto vuoto, aggiungere la feature «Conferma acquisto» e progettarne struttura e flusso, inclusi pagamento riuscito e rifiutato, senza una codebase iniziale. Annullare e ripetere una modifica, salvare e riaprire senza perdere proprietà o relazioni. La cancellazione di un elemento deve gestire esplicitamente i riferimenti coinvolti. I flussi esprimono intento progettuale: non vengono presentati come codice già eseguito o verificato.
+
+### M2.3 — Collaudo del percorso visuale completo
+
+**Attività:** verificare su desktop onboarding, scelta del diagramma, editing, passaggio fra viste, accesso contestuale agli strumenti tecnici e ripristino; controllare tastiera, contrasto, finestre strette ed errori di persistenza. Registrare capacità disponibili e rimandare esplicitamente importazione, generazione IA e diagnostica di esecuzione alle rispettive milestone.
+
+**Criterio di completamento M2:** completare il percorso da nuovo progetto a feature, struttura e flusso salvati senza aprire sorgenti o modificare JSON. L'app si avvia come IDE A.D.E e mantiene sistema, feature, diagramma e selezione come contesto principale anche dopo una consultazione tecnica.
 
 ## M3 — Esplorazione del sistema e viste coordinate
 
@@ -131,8 +167,9 @@ Il primo traguardo end-to-end è completare una feature di acquisto: attore → 
 **Attività:**
 
 - Aggiungere mappa del sistema, ricerca, filtri, breadcrumb e cronologia di navigazione.
+- Ampliare la sidebar sistema → feature → diagrammi di M2 con navigazione fra componenti, risorse e contratti: cambiare prospettiva deve mantenere l'identità semantica e orientare l'utente nel sistema.
 - Collegare schede di dettaglio a responsabilità, contratti, dipendenze, dati ed errori.
-- Introdurre progressivamente viste di struttura/classi, attività, sequenza e stato sullo stesso modello.
+- Ampliare le prime viste strutturali e di flusso M2 e introdurre progressivamente sequenze e stati sullo stesso modello, dichiarando i costrutti supportati.
 - Mostrare percorsi fra attore, interfaccia, logica applicativa e risorse.
 - Visualizzare impatto di una modifica e distinguere elementi progettati, implementati e verificati.
 
@@ -217,6 +254,7 @@ La sincronizzazione universale di qualsiasi linguaggio e framework non è un cri
 **Attività:**
 
 - Integrare onboarding, creazione/importazione del progetto e configurazione dell'adattatore/IA.
+- Collaudare il prodotto installato senza VS Code preinstallato e senza installare un'estensione A.D.E; avvio, sidebar e layout iniziale devono corrispondere al workbench visuale nativo.
 - Verificare persistenza, migrazioni, recupero, accessibilità e prestazioni su progetti campione di dimensioni crescenti.
 - Completare test di integrazione del workbench, dei servizi A.D.E e degli eventuali componenti nell’Extension Host, oltre agli scenari end-to-end del desktop.
 - Documentare capacità supportate, limiti e gestione dei problemi.

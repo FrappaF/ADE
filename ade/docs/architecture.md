@@ -2,6 +2,8 @@
 
 A.D.E è un fork dei sorgenti Code OSS: il workbench e l’applicazione desktop sono modificabili direttamente nella radice. Vedi [ADR 0001](decisions/0001-code-oss-fork.md) e [guida di sviluppo](fork-development.md). L’estensione iniziale è conservata come prototipo separato.
 
+L'[ADR 0002](decisions/0002-visual-workbench.md) definisce la trasformazione del workbench in un IDE centrato su diagrammi e flussi: sidebar sistema → feature → diagrammi, canvas principale, proprietà contestuali e strumenti tecnici come viste secondarie su richiesta. L'interfaccia definitiva viene implementata nei contributi e servizi nativi del fork. L'esecuzione del prodotto non richiede il caricamento di `ade/prototype/`.
+
 ## Obiettivo
 
 Usare un modello del software per navigare struttura, comportamenti e interazioni e, progressivamente, trasformare modifiche visuali in modifiche implementative verificabili.
@@ -17,9 +19,13 @@ Usare un modello del software per navigare struttura, comportamenti e interazion
 
 Il [contratto v2](semantic-model.md) separa semantica, proiezioni visuali, mappature al codice e record di verifica. `src/vs/workbench/contrib/ade/common/semanticModel.ts` implementa tipi, schema, validatore, migrazione e `SemanticModelService` senza dipendenze da Electron, Node o browser. I test in `ade/test/` lo eseguono direttamente con Node. Gli identificatori sono indipendenti da nomi, contenitori e coordinate.
 
-`browser/ade.contribution.ts` registra l'editor nativo della home A.D.E, il comando `ade.workbench.open` e la serializzazione dell'editor. La shell legge i documenti tramite `IFileService`, li valida con lo stesso servizio di dominio, segue gli aggiornamenti con watcher correlato e conserva navigazione e selezione tramite `IStorageService`. Non scrive modelli e non implementa ancora il canvas. La verifica desktop è aperta nel [verbale M0](m0-verification.md).
+`browser/ade.contribution.ts` registra l'editor nativo della home A.D.E, il comando `ade.workbench.open` e la serializzazione dell'editor. La shell legge i documenti tramite `IFileService`, li valida con lo stesso servizio di dominio, segue gli aggiornamenti con watcher correlato e conserva navigazione e selezione tramite `IStorageService`. Non scrive modelli e non implementa ancora il canvas. Lo smoke desktop sul MacBook è stato confermato dall’utente; dettagli e verifiche aggiuntive nel [verbale M0](m0-verification.md).
 
-Per M2 integrare l'editor visuale con i servizi nativi di documenti, salvataggio e undo/redo. Per la generazione iniziale limitarsi a un sottoinsieme dichiarato di TypeScript e mostrare un diff prima di applicare cambiamenti. La sincronizzazione bidirezionale arbitraria resta un problema aperto: il codice non rappresentabile nel modello deve essere conservato, con conflitti espliciti.
+M2.1 riprogetta avvio, sidebar e layout dell'intero workbench; M2.2 integra canvas strutturale e di flusso con i servizi nativi di documenti, salvataggio e undo/redo, partendo dalla creazione di un nuovo progetto e delle sue feature. La selezione di un diagramma nella sidebar usa l'identità della vista M1 e ne mantiene distinto il contenitore semantico. Se il formato v2 non basta a esprimere associazioni fra feature e viste, introdurre un'evoluzione versionata e la relativa migrazione prima dell'editing persistente.
+
+L'accesso a un simbolo sorgente, quando esiste una mappatura, avviene tramite i servizi editor come vista secondaria e conserva feature, diagramma e selezione al ritorno. Terminale e debugger mantengono i servizi upstream, con visibilità su richiesta. Un nuovo progetto può esistere come intento progettuale senza codice generato.
+
+Per la generazione iniziale limitarsi a un sottoinsieme dichiarato di TypeScript e mostrare un diff prima di applicare cambiamenti. La sincronizzazione bidirezionale arbitraria resta un problema aperto: il codice non rappresentabile nel modello deve essere conservato, con conflitti espliciti.
 
 Il prototipo attuale non esegue codice del workspace, non carica risorse remote e non abilita script nella webview.
 

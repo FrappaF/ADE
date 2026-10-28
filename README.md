@@ -2,11 +2,13 @@
 
 A.D.E è un ambiente di sviluppo visuale e collaborativo con l'IA, costruito come **derivazione dei sorgenti Code OSS**, la base open source di Visual Studio Code.
 
+Il prodotto è un **IDE desktop autonomo**: la UI/UX prevista mette sistema e feature nella sidebar, con i relativi diagrammi, canvas e flussi al centro. Codice, terminale e debugger sono viste secondarie su richiesta. La prossima priorità è riprogettare il workbench nativo e consentire di progettare un nuovo sistema dai diagrammi; vedi la [decisione UI/UX](ade/docs/decisions/0002-visual-workbench.md).
+
 Il software engineer progetta struttura, diagrammi, flussi e interazioni fra attori e sistema; l'IA collabora alla realizzazione del codice e alla gestione dei dettagli tecnologici. L'obiettivo è esplorare feature, risorse, viste e controller e mantenere modello e codebase sincronizzati in entrambe le direzioni.
 
 ## Stato attuale
 
-I sorgenti dell'editor sono nella radice. Sono disponibili branding A.D.E, shell nativa (`A.D.E: Open Project Home`) e [modello semantico M1](ade/docs/semantic-model.md) con schema v2, API, esempi e migrazione del prototipo. Il dominio è verificabile con Node senza Electron. IA, editing visuale completo e sincronizzazione bidirezionale sono da sviluppare. **M0 resta aperto:** build e collaudo desktop non sono ancora conclusi; stato ed evidenze nel [verbale M0](ade/docs/m0-verification.md).
+I sorgenti dell'editor sono nella radice. Sono disponibili branding A.D.E, shell nativa (`A.D.E: Open Project Home`) e [modello semantico M1](ade/docs/semantic-model.md) con schema v2, API, esempi e migrazione del prototipo. Il dominio è verificabile con Node senza Electron. IA, editing visuale completo e sincronizzazione bidirezionale sono da sviluppare. Build, ripristino e smoke desktop sul MacBook sono stati confermati dall’utente; CI e verifiche aggiuntive sono tracciate nel [verbale M0](ade/docs/m0-verification.md).
 
 ## Sviluppo
 

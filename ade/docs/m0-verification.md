@@ -4,23 +4,23 @@ Base ADE: `2395c5ad` sul branch `work`. Base Code OSS: `98da3bad3433b6aa1abf5638
 
 ## Esito
 
-**M0 non è completato.** Sono stati aggiunti contributo workbench nativo, navigazione persistente, CI desktop e procedura di manutenzione; mancano ancora una build desktop conclusa e il collaudo dell'interfaccia. M1 è sviluppato e verificato sul dominio indipendente da Electron, con integrazione della shell controllata staticamente.
+**Collaudo desktop locale superato, confermato dall’utente il 28 ottobre 2026.** Sul MacBook, dopo aver sostituito Node 20.6.0 con la versione richiesta, l’utente conferma installazione, compilazione, download di Electron, avvio, ripristino, uscita con ⌘Q e smoke automatico riusciti sul branch `work` con commit pubblicato `d3ceb3d5`. L’agente non ha eseguito direttamente il collaudo sul Mac. Versione macOS, architettura e log completo dello smoke non sono stati forniti. La CI remota e le verifiche manuali aggiuntive elencate sotto restano da registrare.
 
 | Punto | Evidenza | Stato |
 | --- | --- | --- |
 | Versione Node richiesta | Eseguiti controlli con Node 24.22.1 | Verificato su Linux x64 |
 | Prototipo: sintassi e test | Comandi `check` e `test`; validazione, riferimenti e rendering sicuro | Verificato |
-| Dipendenze e build desktop | `npm ci --foreground-scripts` non concluso | Bloccato, dettagli sotto |
+| Dipendenze e build desktop | Installazione e build sul MacBook confermate dall’utente | Superato su Mac; blocco Linux storico sotto |
 | CI desktop iniziale | `.github/workflows/desktop.yml`, build macOS e smoke nell'Extension Host | Aggiunta; esecuzione remota da verificare |
-| Shell A.D.E nativa | `ade.workbench.open`, home, modello, proprietà, IA, ripristino per workspace | Implementata e controllata con TypeScript; collaudo desktop aperto |
+| Shell A.D.E nativa | `ade.workbench.open`, home, modello, proprietà, IA, ripristino per workspace | TypeScript verificato; navigazione e ripristino confermati dall’utente |
 | Funzioni future esplicite | Creazione visuale e importazione indisponibili; nessuna chiamata IA simulata | Implementato; da collaudare |
-| Isolamento dati | Branding `.ade`; guida con `--user-data-dir` e `--extensions-dir` separati | Configurato; ripristino da collaudare |
+| Isolamento dati | Branding `.ade`; guida con `--user-data-dir` e `--extensions-dir` separati | Ripristino confermato; confronto fra due profili da registrare |
 | Inventario core e servizi | [Manutenzione](fork-maintenance.md) | Documentato |
 | Aggiornamento upstream di prova | Branch temporaneo isolato; conflitti nei workflow documentati | Verificato senza cambiare il branch di lavoro |
 
 Controlli locali conclusi: **11 test del dominio** e **3 test del prototipo** superati; `ade:check`, ESLint sui file TypeScript modificati, Stylelint sulla shell e `git diff --check` senza errori. Schema 2020-12 ed entrambi gli esempi validi verificati anche con un validatore JSON Schema indipendente. I workflow sono validi come YAML; non è stata osservata una loro esecuzione GitHub Actions.
 
-## Blocco della build
+## Blocco della build nell’ambiente cloud (precedente al collaudo Mac)
 
 Il primo tentativo nel sandbox senza accesso di rete ha fallito con `EPERM` sul proxy. Con accesso di rete abilitato, il download degli header Electron **43.8.3** è riuscito. I tentativi successivi hanno evidenziato:
 
@@ -42,4 +42,4 @@ Da un clone pulito, selezionare Node da `.nvmrc`, predisporre la toolchain nativ
 5. Selezionare un elemento e una sezione, riavviare con lo stesso profilo e controllare il ripristino di editor, file, sezione e selezione. Aprire un secondo profilo isolato e verificare che non erediti il contesto del primo.
 6. Eseguire `A.D.E: Apri modello visuale` del prototipo, aprire l'esempio v1 e verificare l'aggiornamento della webview dopo una modifica.
 
-Lo smoke automatico verifica apertura workspace, registrazione comandi, attivazione del prototipo e navigazione fra editor. Il ripristino dopo riavvio e il contenuto della webview restano verifiche manuali: non risultano eseguite in questa sessione.
+Lo smoke automatico verifica apertura workspace, registrazione comandi, attivazione del prototipo e navigazione fra editor. Il ripristino dopo riavvio è stato confermato dall’utente. Le verifiche aggiuntive su contenuto della webview, documenti invalidi, accessibilità e confronto fra due profili non sono state confermate singolarmente.
