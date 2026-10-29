@@ -1,10 +1,12 @@
-# Modello semantico v2 (M1)
+# Modello semantico v2/v3 (M1 e M2.2)
 
 Il contratto è implementato in `src/vs/workbench/contrib/ade/common/semanticModel.ts`. Non importa Electron, API del workbench, filesystem o framework. La shell nativa consuma lo stesso servizio, senza duplicare il validatore del dominio nel prototipo.
 
 ## Documento
 
 Lo [schema JSON](../schema/model-v2.schema.json) usa JSON Schema 2020-12, identificatore `urn:ade:model:2`. Si genera con `npm run ade:schema`; i test confrontano l'artefatto con la definizione runtime. Lo schema descrive la struttura; i vincoli del grafo e i riferimenti sono verificati da `validateSemanticModel`.
+
+L'editor M2.2 introduce lo [schema v3](../schema/model-v3.schema.json), identificatore `urn:ade:model:3`, con `views[].featureId` facoltativo e validato come riferimento a una feature. Il resto del dominio resta condiviso. I nuovi progetti sono v3; i documenti v1/v2 sono ancora apribili e un v2 passa a v3 alla prima modifica visuale, conservando identità e dati. La conversione è annullabile e viene scritta solo al salvataggio. Lo schema v2 resta invariato per i documenti storici; i client che supportano solo v2 rifiutano esplicitamente v3.
 
 | Campo | Responsabilità |
 | --- | --- |
@@ -46,7 +48,8 @@ L'[esempio acquisto](../examples/checkout.ade.json) copre tutti i tipi di elemen
 - `validateSemanticModel(value)` restituisce diagnostiche `{ code, severity, path, args }` senza modificare il documento. Prima verifica lo schema, poi i vincoli semantici. Gli errori impediscono il caricamento; gli avvisi richiedono revisione ma conservano il modello.
 - `readSemanticModel(value)` valida e restituisce una copia indipendente oppure solleva `InvalidSemanticModelError` con le diagnostiche.
 - `SemanticModelService` offre snapshot, ricerca di elementi e relazioni incidenti, sostituzione atomica, rinomina, cambio di contenitore e aggiornamento delle coordinate. Ogni modifica valida l'intero candidato prima di sostituire lo stato precedente. Gli snapshot non permettono di modificare lo stato interno.
-- `migrateSemanticModel(value, modelId?)` restituisce modello v2 e diagnostiche, senza scrivere su disco. Un documento v2 valido viene conservato; versioni future e proprietà non riconosciute vengono rifiutate.
+- `migrateSemanticModel(value, modelId?)` converte v1 in v2 e conserva i documenti v2/v3 validi, senza scrivere su disco. Versioni future e proprietà non riconosciute vengono rifiutate.
+- `upgradeVisualModel` e `applyVisualEdit` in `common/visualEditing.ts` producono copie validate per l'editor v3: creazione, rinomina, layout, collegamenti, condizioni e cancellazione dei riferimenti. La persistenza e la cronologia restano nel workbench; dettagli nell'[editor persistente](visual-editing.md).
 
 La shell traduce i codici in messaggi localizzati. I principali errori identificano campo e riferimento coinvolti: `missingReference`, `incompatibleRelation`, `duplicateId`, `containmentCycle`, `missingCriterion`, `missingError`, `viewEndpoint` e `shape`.
 

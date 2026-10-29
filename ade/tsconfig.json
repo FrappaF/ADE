@@ -1,7 +1,8 @@
 {
 	"extends": "../src/tsconfig.json",
-	"include": ["../src/typings", "../src/vs/workbench/contrib/ade/**/*.ts"],
+	"include": ["../src/typings", "../src/vs/monaco.d.ts", "../src/vs/workbench/contrib/ade/**/*.ts"],
 	"compilerOptions": {
+		"types": ["@webgpu/types", "mocha", "node/assert", "semver", "sinon", "trusted-types", "winreg", "wicg-file-system-access"],
 		"rootDir": "../src",
 		"noEmit": true,
 		"incremental": true,

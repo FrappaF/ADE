@@ -8,7 +8,7 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { EditorsOrder, IEditorIdentifier } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { IWorkingCopy, IWorkingCopyIdentifier } from './workingCopy.js';
+import { IWorkingCopyIdentifier } from './workingCopy.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IEditorService } from '../../editor/common/editorService.js';
 
@@ -50,7 +50,7 @@ export interface IWorkingCopyEditorService {
 	/**
 	 * Finds the first editor that can handle the provided working copy.
 	 */
-	findEditor(workingCopy: IWorkingCopy): IEditorIdentifier | undefined;
+	findEditor(workingCopy: IWorkingCopyIdentifier): IEditorIdentifier | undefined;
 }
 
 export class WorkingCopyEditorService extends Disposable implements IWorkingCopyEditorService {
@@ -75,7 +75,7 @@ export class WorkingCopyEditorService extends Disposable implements IWorkingCopy
 		return toDisposable(() => this.handlers.delete(handler));
 	}
 
-	findEditor(workingCopy: IWorkingCopy): IEditorIdentifier | undefined {
+	findEditor(workingCopy: IWorkingCopyIdentifier): IEditorIdentifier | undefined {
 		for (const editorIdentifier of this.editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
 			if (this.isOpen(workingCopy, editorIdentifier.editor)) {
 				return editorIdentifier;
@@ -85,7 +85,7 @@ export class WorkingCopyEditorService extends Disposable implements IWorkingCopy
 		return undefined;
 	}
 
-	private isOpen(workingCopy: IWorkingCopy, editor: EditorInput): boolean {
+	private isOpen(workingCopy: IWorkingCopyIdentifier, editor: EditorInput): boolean {
 		for (const handler of this.handlers) {
 			if (handler.isOpen(workingCopy, editor)) {
 				return true;

@@ -3,12 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, copyFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, copyFile, readFile, readdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
+import { validateSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const product = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(root, 'product.json'), 'utf8'));
@@ -16,10 +18,10 @@ const executablePath = process.env.ADE_ELECTRON_PATH || path.join(root, '.build/
 	? `${product.nameLong}.app/Contents/MacOS/${product.nameShort}`
 	: process.platform === 'win32' ? `${product.nameShort}.exe` : product.applicationName);
 const directory = await mkdtemp(path.join(tmpdir(), 'ade-smoke-'));
-const userData = path.join(directory, 'profile');
+const portable = path.join(directory, 'portable');
+const userData = path.join(portable, 'user-data');
 const workspace = path.join(directory, 'project');
 const evidence = path.join(root, '.build/ade-smoke');
-const portable = path.join(directory, 'portable');
 await mkdir(portable);
 const launchEnv = { ...process.env, VSCODE_DEV: '1', NODE_ENV: 'development', VSCODE_PORTABLE: portable };
 await mkdir(path.join(userData, 'User'), { recursive: true });
@@ -27,64 +29,696 @@ await mkdir(workspace);
 await mkdir(evidence, { recursive: true });
 await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'window.dialogStyle': 'custom',
+	'files.simpleDialog.enable': true,
 	'workbench.startupEditor': 'adeHome',
 	'workbench.secondarySideBar.defaultVisibility': 'hidden',
 	'window.restoreWindows': 'all',
+	'terminal.integrated.gpuAcceleration': 'off',
 	'telemetry.telemetryLevel': 'off',
 	'update.mode': 'none'
 }));
+const navigationOnly = process.argv.includes('--navigation-only');
+const modelFile = path.join(navigationOnly ? directory : workspace, 'checkout.ade.json');
+const emptyFile = path.join(workspace, 'empty.ade.json');
+const invalidFile = path.join(workspace, 'invalid.ade.json');
+const otherFile = path.join(workspace, 'other.ade.json');
+await writeFile(modelFile, JSON.stringify(checkoutModel));
+await writeFile(emptyFile, JSON.stringify({ ...checkoutModel, id: 'empty', name: 'Empty System', semantics: { elements: [], relations: [] }, views: [] }));
+await writeFile(invalidFile, '{"version":99}');
+await writeFile(otherFile, JSON.stringify({ ...checkoutModel, id: 'other', name: 'Other System' }));
 const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=${directory}/extensions`,
 	`--shared-data-dir=${directory}/shared-data`,
 	'--disable-workspace-trust', '--disable-telemetry', '--disable-updates', '--disable-experiments',
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
+const uxOnly = process.argv.includes('--ux-only');
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly) {
+	// Prove the product shell works independently of built-in extension activation too.
+	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
+		if (!entry.isDirectory()) { continue; }
+		const manifest = await readFile(path.join(root, 'extensions', entry.name, 'package.json'), 'utf8').catch(error => {
+			if (error.code === 'ENOENT') { return undefined; }
+			throw error;
+		});
+		if (manifest) {
+			const extension = JSON.parse(manifest);
+			// Theme coverage enables only the declarative built-in themes, which have no executable entry point.
+			if (uxOnly && extension.name === 'theme-defaults') { continue; }
+			args.push(`--disable-extension=${extension.publisher ?? 'vscode'}.${extension.name}`);
+		}
+	}
+}
 let app;
+let electronOutput = '';
 async function launch() {
 	app = await electron.launch({ executablePath, args, cwd: root, env: launchEnv, timeout: 90000 });
+	electronOutput = '';
+	app.process().stderr?.on('data', data => { electronOutput = (electronOutput + data.toString()).slice(-12000); });
 	const window = await app.firstWindow({ timeout: 90000 });
+	window.setDefaultTimeout(30000);
 	await window.locator('.ade-shell').waitFor({ timeout: 90000 });
 	return window;
 }
+
+async function openModelFile(window, file) {
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'Open Model', exact: true }).click();
+	const input = window.locator('.quick-input-widget input:visible');
+	await input.waitFor();
+	await input.fill(path.dirname(file) + path.sep);
+	await window.locator('.quick-input-widget').getByText(path.basename(file), { exact: true }).dblclick();
+	await input.waitFor({ state: 'hidden' });
+}
+async function enterValue(window, title, value) {
+	const widget = window.locator('.quick-input-widget');
+	await widget.getByText(title, { exact: true }).waitFor();
+	await widget.locator('input:visible').fill(value);
+	await window.keyboard.press('Enter');
+}
+async function pickValue(window, title, label) {
+	const widget = window.locator('.quick-input-widget');
+	await widget.getByText(title, { exact: true }).waitFor();
+	await widget.getByText(label, { exact: true }).click();
+}
+async function chooseFolder(window, folder) {
+	const widget = window.locator('.quick-input-widget');
+	await widget.getByText('Choose Project Folder', { exact: true }).waitFor();
+	await widget.locator('input:visible').fill(folder + path.sep);
+	await widget.getByRole('button', { name: 'OK', exact: true }).click();
+	await widget.waitFor({ state: 'hidden' });
+}
+async function addElement(window, kind, name) {
+	await window.locator('.ade-shell').getByRole('button', { name: 'Add Element', exact: true }).click();
+	await pickValue(window, 'Element Type', kind);
+	await enterValue(window, 'Name', name);
+	await window.locator('.ade-canvas').getByRole('button', { name, exact: true }).waitFor();
+}
+async function connect(window, source, target, kind, name, condition) {
+	await window.locator('.ade-canvas').getByRole('button', { name: source, exact: true }).click();
+	await window.locator('.ade-properties').getByRole('button', { name: 'Connect Selection', exact: true }).click();
+	await pickValue(window, 'Relationship Type', kind);
+	await pickValue(window, 'Target Element', target);
+	await enterValue(window, 'Relationship Name', name);
+	await enterValue(window, 'Condition (Optional)', condition);
+	await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
+}
+
+async function runCommand(window, name) {
+	const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+	await window.keyboard.press(`${modifier}+Shift+P`);
+	await window.locator('.quick-input-widget input:visible').fill(`>${name}`);
+	await window.locator('.quick-input-widget .monaco-list-row').getByText(name, { exact: true }).waitFor();
+	await window.keyboard.press('Enter');
+}
+
+async function searchSystem(window, kind, name) {
+	await window.locator('.ade-shell').getByRole('button', { name: 'Search System', exact: true }).click();
+	await pickValue(window, 'Search Filter', kind);
+	await window.locator('.quick-input-widget input:visible').fill(name);
+	await pickValue(window, 'Search System', name);
+}
+
+async function checkSemanticNavigation() {
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await shell.getByRole('button', { name: 'Explore Purchase Example', exact: true }).click();
+	const sidebar = () => window.locator('.ade-sidebar');
+	const cancellationDetails = () => sidebar().locator('section[aria-label="Annullamento acquisto"] > details');
+	const purchaseButton = sidebar().getByRole('button', { name: 'Percorso acquisto', exact: true });
+	await purchaseButton.evaluate(button => { button.dataset.integrationIdentity = 'original'; });
+	await shell.locator('.ade-node').getByText('Richiedi pagamento', { exact: true }).click();
+	assert.equal(await purchaseButton.getAttribute('data-integration-identity'), 'original', 'Selecting a node preserves the sidebar DOM');
+	await sidebar().getByRole('button', { name: 'Percorso annullamento', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Percorso annullamento', exact: true }).waitFor();
+	await shell.locator('.ade-node').getByText('Ordine', { exact: true }).click();
+	await purchaseButton.click();
+	assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'Richiedi pagamento');
+	const cancellationSummary = cancellationDetails().locator(':scope > summary');
+	await cancellationSummary.focus();
+	await window.keyboard.press('Enter');
+	assert.equal(await cancellationDetails().evaluate(details => details.open), false);
+	await shell.getByRole('button', { name: 'System Map', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Acquisto', exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-system-map button').count(), checkoutModel.semantics.elements.length + checkoutModel.views.length);
+	const readMap = shell.getByRole('button', { name: 'Read System Map', exact: true });
+	await readMap.click();
+	await window.locator('.accessible-view:visible').getByText('System Map. Groups follow semantic containment; connections summarize declared relationships.', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await readMap.evaluate(element => element === document.activeElement), true);
+	const mapContract = shell.locator('.ade-system-map').getByRole('button', { name: 'Pagamento', exact: true });
+	await mapContract.focus();
+	await window.keyboard.press('Tab');
+	await window.keyboard.press('Shift+Tab');
+	assert.equal(await mapContract.evaluate(element => element === document.activeElement), true);
+	await window.keyboard.press('Enter');
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await shell.getByRole('navigation', { name: 'Semantic Path', exact: true }).getByRole('button', { name: 'Acquisto', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Acquisto', exact: true }).waitFor();
+	await window.screenshot({ path: path.join(evidence, 'system-map.png') });
+	const connection = shell.locator('summary').getByText('Conferma acquisto → Pagamento (1)', { exact: true });
+	await connection.click();
+	await shell.getByRole('button', { name: 'Target: Pagamento', exact: true }).first().click();
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	assert.equal(await connection.evaluate(element => element.parentElement.open), true, 'Map disclosure survives a semantic visit');
+	await shell.locator('.ade-navigation').getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+	await searchSystem(window, 'Contract', 'Pagamento');
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-canvas').count(), 0);
+	await shell.getByText('This element is not placed in a diagram.', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Read Element Details', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Element Details: Pagamento', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Forward', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Richiedi pagamento → Pagamento: realizza contratto', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'Richiedi pagamento');
+	assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').evaluate(element => element === document.activeElement), true);
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'Richiedi pagamento');
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'Richiedi pagamento');
+	await shell.getByRole('button', { name: 'Forward', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
+	await shell.getByRole('navigation', { name: 'Semantic Path', exact: true }).getByRole('button', { name: 'Conferma acquisto', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Conferma acquisto', exact: true }).waitFor();
+	await shell.getByRole('heading', { name: 'Feature Diagrams', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	await searchSystem(window, 'Diagrams', 'Struttura carrello');
+	await shell.getByRole('heading', { level: 1, name: 'Struttura carrello', exact: true }).waitFor();
+	assert.equal(await shell.getByRole('button', { name: 'Forward', exact: true }).isEnabled(), false, 'New navigation discards the forward branch');
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Search System', exact: true }).click();
+	await window.locator('.quick-input-widget').getByText('Search Filter', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
+	await window.screenshot({ path: path.join(evidence, 'semantic-navigation.png') });
+	assert.equal(await readFile(modelFile, 'utf8'), JSON.stringify(checkoutModel));
+	console.log('PASS: typed semantic search, unplaced contract details, accessible reading, relationship navigation, shared identity across diagrams, breadcrumbs and back/forward branching.');
+	await openModelFile(window, modelFile);
+	assert.equal(await cancellationDetails().evaluate(details => details.open), true, 'Group state is isolated between demo and file, despite equal semantic IDs');
+	await cancellationDetails().locator(':scope > summary').focus();
+	await window.keyboard.press('Space');
+	assert.equal(await cancellationDetails().evaluate(details => details.open), false);
+	await searchSystem(window, 'Contract', 'Pagamento');
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+	await enterValue(window, 'Name', 'Contratto pagamento');
+	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+s`);
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(validateSemanticModel(saved), []);
+	assert.equal(saved.semantics.elements.find(element => element.id === 'payment-contract').name, 'Contratto pagamento');
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	assert.equal(await cancellationDetails().evaluate(details => details.open), false, 'Collapsed groups survive a workspace restart');
+	await cancellationDetails().locator(':scope > summary').focus();
+	await window.keyboard.press('Enter');
+	await cancellationDetails().getByRole('button', { name: 'Percorso annullamento', exact: true }).waitFor();
+	assert.equal(await shell.getByRole('button', { name: 'Back', exact: true }).isEnabled(), false);
+	assert.equal(await window.locator('.tabs-container .tab').filter({ hasText: 'checkout.ade.json' }).count(), 0);
+	await window.screenshot({ path: path.join(evidence, 'semantic-element-details.png') });
+	const removed = structuredClone(saved);
+	removed.semantics.elements = removed.semantics.elements.filter(element => element.id !== 'payment-contract');
+	removed.semantics.relations = removed.semantics.relations.filter(relation => relation.from !== 'payment-contract' && relation.to !== 'payment-contract');
+	const surviving = new Set(removed.semantics.relations.map(relation => relation.id));
+	for (const view of removed.views) { view.relationIds = view.relationIds.filter(id => surviving.has(id)); }
+	await writeFile(modelFile, JSON.stringify(removed));
+	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+	assert.equal(await shell.getByRole('alert').count(), 0);
+	console.log('PASS: semantic inspector edits use native undo/redo/save, restart restores the inspected identity, and external deletion repairs context without stale details.');
+	await shell.getByRole('button', { name: 'System Map', exact: true }).click();
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('button', { name: 'Read System Map', exact: true }).waitFor();
+	assert.equal(await shell.getByRole('button', { name: 'Back', exact: true }).isEnabled(), false);
+	await shell.locator('.ade-system-map').getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+	const routed = await shell.locator('svg path[data-relation-id]').evaluateAll(paths => paths.map(path => ({ id: path.getAttribute('data-relation-id'), d: path.getAttribute('d') })));
+	assert.equal(routed.length, removed.views[1].relationIds.length);
+	assert.ok(routed.every(path => path.d.split(' M ')[0].split(' L ').length >= 2));
+	const labelsClear = await shell.locator('.ade-canvas').evaluate(canvas => {
+		const boxes = [...canvas.querySelectorAll('.ade-node, .ade-connection-label')].map(element => ({ label: element.classList.contains('ade-connection-label'), box: element.getBoundingClientRect() }));
+		return boxes.every((a, index) => boxes.slice(index + 1).every(b => !(a.label || b.label) || !(a.box.left < b.box.right && a.box.right > b.box.left && a.box.top < b.box.bottom && a.box.bottom > b.box.top)));
+	});
+	assert.equal(labelsClear, true, 'Actual rendered labels avoid nodes and one another');
+	await window.screenshot({ path: path.join(evidence, 'routed-connections.png') });
+	console.log('PASS: system map covers all identities, supports keyboard and accessible reading, opens semantic breadcrumbs, restores after restart, and diagram labels do not overlap nodes or one another.');
+	const shared = structuredClone(removed);
+	shared.views.push({ id: 'shared-review', featureId: 'purchase', name: 'Shared Review', kind: 'structure', nodes: [
+		{ elementId: 'payment', x: 0, y: 0 }, { elementId: 'cancel-controller', x: 300, y: 0 }
+	], relationIds: [] });
+	assert.deepEqual(validateSemanticModel(shared), []);
+	await writeFile(modelFile, JSON.stringify(shared));
+	await cancellationDetails().getByText('Related Diagrams', { exact: true }).waitFor();
+	await cancellationDetails().getByRole('button', { name: 'Shared Review', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Shared Review', exact: true }).waitFor();
+	await shell.getByRole('navigation', { name: 'Semantic Path', exact: true }).getByRole('button', { name: 'Conferma acquisto', exact: true }).waitFor();
+	assert.equal(await sidebar().getByRole('button', { name: 'Shared Review', exact: true }).count(), 2, 'Owner and related feature reference the same diagram');
+	await shell.getByText('Diagram Type: Structure', { exact: true }).waitFor();
+	await window.screenshot({ path: path.join(evidence, 'integrated-m2-sidebar.png') });
+	console.log('PASS: integrated M2 cancellation example, persistent keyboard disclosures per document, stable sidebar DOM on selection, and shared references with preserved canonical ownership.');
+	await app.close();
+	app = undefined;
+}
+
+async function checkDiagramAccessibility(window) {
+	const shell = window.locator('.ade-shell');
+	const sidebar = window.locator('.ade-sidebar');
+	const reading = window.locator('.accessible-view:visible');
+	const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+	const openReading = process.platform === 'linux' ? 'Alt+Shift+F2' : 'Alt+F2';
+	const openHelp = process.platform === 'linux' ? 'Alt+Shift+F1' : 'Alt+F1';
+	await sidebar.getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+	const selected = shell.locator('.ade-node[aria-pressed="true"]');
+	await shell.locator('.ade-node').getByText('Pagamento rifiutato', { exact: true }).click();
+	await selected.focus();
+	await window.keyboard.press(openReading);
+	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
+	await reading.getByText('Condition: pagamento non autorizzato', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await selected.evaluate(element => element === document.activeElement), true);
+	await window.keyboard.press(openHelp);
+	await reading.getByText('A.D.E Accessibility Help', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await selected.evaluate(element => element === document.activeElement), true);
+	await runCommand(window, 'Open Accessible View');
+	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await selected.evaluate(element => element === document.activeElement), true);
+	const readButton = shell.getByRole('button', { name: 'Read Diagram', exact: true });
+	await readButton.click();
+	await reading.getByText('Selected Element: Pagamento rifiutato', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await readButton.evaluate(element => element === document.activeElement), true);
+	const navigation = sidebar.getByRole('button', { name: 'Esito pagamento', exact: true });
+	await navigation.focus();
+	await window.keyboard.press(openReading);
+	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await navigation.evaluate(element => element === document.activeElement), true);
+	await selected.focus();
+	await window.keyboard.press(openReading);
+	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
+	const baseline = JSON.stringify(checkoutModel);
+	assert.equal(await readFile(modelFile, 'utf8'), baseline, 'Reading and help never write the source');
+	const updated = structuredClone(checkoutModel);
+	updated.views[1].name = 'Accessible Payment';
+	updated.semantics.elements.find(element => element.id === 'declined').name = 'Refused Payment';
+	await writeFile(modelFile, JSON.stringify(updated));
+	await reading.getByText('Diagram: Accessible Payment', { exact: true }).waitFor();
+	await reading.getByText('Selected Element: Refused Payment', { exact: true }).waitFor();
+	await window.screenshot({ path: path.join(evidence, 'accessible-diagram.png') });
+	await window.keyboard.press('Escape');
+	assert.equal(await selected.evaluate(element => element === document.activeElement), true, 'Restores the replacement node after external updates');
+	await window.keyboard.press(openReading);
+	await reading.getByText('Diagram: Accessible Payment', { exact: true }).waitFor();
+	await writeFile(modelFile, '{"version":99}');
+	await reading.getByText('Expected:', { exact: false }).first().waitFor();
+	assert.equal(await reading.getByText('Diagram: Accessible Payment', { exact: true }).count(), 0, 'Invalid updates do not leave stale diagram text');
+	await writeFile(modelFile, baseline);
+	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	const settingsFile = path.join(userData, 'User/settings.json');
+	const settings = JSON.parse(await readFile(settingsFile, 'utf8'));
+	await writeFile(settingsFile, JSON.stringify({ ...settings, 'accessibility.verbosity.ade': false }));
+	await window.waitForFunction(() => document.querySelector('.ade-shell').getAttribute('aria-description') === '');
+	assert.equal(await sidebar.getAttribute('aria-description'), '');
+	await writeFile(settingsFile, JSON.stringify({ ...settings, 'accessibility.verbosity.ade': true }));
+	await window.waitForFunction(() => document.querySelector('.ade-shell').getAttribute('aria-description').includes('Accessibility Help'));
+	const keybindingsFile = path.join(userData, 'User/keybindings.json');
+	await writeFile(keybindingsFile, JSON.stringify([{ key: 'ctrl+alt+shift+r', command: 'editor.action.accessibleView' }]));
+	await window.waitForFunction(() => document.querySelector('.ade-shell').getAttribute('aria-description').includes('+R'));
+	await selected.focus();
+	await window.keyboard.press('Control+Alt+Shift+r');
+	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await writeFile(keybindingsFile, '[]');
+	await window.waitForFunction(() => !document.querySelector('.ade-shell').getAttribute('aria-description').includes('+R'));
+	await sidebar.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+	await shell.getByRole('heading', { name: 'Percorso acquisto', exact: true }).waitFor();
+	assert.equal(await readFile(modelFile, 'utf8'), baseline);
+	console.log('PASS: ADE reading and help from canvas/sidebar, both payment conditions, live external updates, invalid-state recovery, focus restoration, verbosity and custom keybinding.');
+}
+
+async function checkVisualUX() {
+	const window = await launch();
+	console.log('UX: desktop launched.');
+	const shell = window.locator('.ade-shell');
+	await openModelFile(window, modelFile);
+	await checkDiagramAccessibility(window);
+	console.log('UX: editable model opened.');
+	await shell.locator('.ade-canvas').waitFor();
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
+	await window.locator('.ade-shell.ade-narrow').waitFor();
+	const viewport = shell.locator('.ade-canvas-scroll');
+	await viewport.focus();
+	await window.keyboard.press('ArrowRight');
+	assert.ok(await viewport.evaluate(element => element.scrollLeft) > 0, 'Canvas background supports keyboard pan');
+	await window.keyboard.press('Tab');
+	assert.equal(await shell.locator('.ade-node').first().evaluate(element => element === document.activeElement), true);
+	await window.keyboard.press('Enter');
+	assert.equal(await shell.locator('.ade-node').first().getAttribute('aria-pressed'), 'true');
+	const content = shell.locator('.ade-content');
+	await content.evaluate(element => { element.scrollTop = element.scrollHeight; });
+	const scrollBefore = await content.evaluate(element => element.scrollTop);
+	await shell.locator('.ade-node').last().evaluate(element => element.click());
+	assert.equal(await content.evaluate(element => element.scrollTop), scrollBefore, 'Selection retains the property reading position');
+	await viewport.focus();
+	await window.keyboard.press('ArrowRight');
+	const panBefore = await viewport.evaluate(element => element.scrollLeft);
+	await openModelFile(window, otherFile);
+	await shell.getByText('Other System · Design intent', { exact: true }).waitFor();
+	assert.equal(await viewport.evaluate(element => element.scrollLeft), 0, 'Equal view IDs in different documents do not share scroll');
+	await openModelFile(window, modelFile);
+	await shell.getByText('Acquisto · Design intent', { exact: true }).waitFor();
+	assert.equal(await viewport.evaluate(element => element.scrollLeft), panBefore, 'Returning to a document restores its own scroll');
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	assert.ok(await viewport.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'Fit contains the diagram horizontally');
+	assert.equal(await viewport.evaluate(element => element.scrollLeft), 0);
+	const fittedZoom = await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform);
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	assert.equal(await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform), fittedZoom, 'Fitting twice keeps the same zoom');
+	const layout = await shell.evaluate(element => {
+		const content = element.querySelector('.ade-content');
+		const canvas = element.querySelector('.ade-visual').getBoundingClientRect();
+		const properties = element.querySelector('.ade-properties').getBoundingClientRect();
+		return { overflows: content.scrollWidth > content.clientWidth + 1, stacked: properties.top >= canvas.bottom };
+	});
+	assert.deepEqual(layout, { overflows: false, stacked: true });
+	console.log('UX: canvas keyboard and narrow layout checked.');
+	const options = shell.locator('summary').getByText('Diagram Options', { exact: true });
+	await options.focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('button', { name: 'Rename Diagram', exact: true }).waitFor();
+	await runCommand(window, 'A.D.E: Rename Diagram');
+	await enterValue(window, 'Name', 'Keyboard diagram');
+	await shell.getByRole('heading', { name: 'Keyboard diagram', exact: true }).waitFor();
+	assert.equal(await shell.locator('details', { hasText: 'Diagram Options' }).evaluate(element => element.open), true);
+	const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+	await window.keyboard.press(`${modifier}+s`);
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	console.log('UX: keyboard command edit saved.');
+	const settingsFile = path.join(userData, 'User/settings.json');
+	const settings = JSON.parse(await readFile(settingsFile, 'utf8'));
+	const themes = [['Light Modern', 'Light Modern', 'vs'], ['Dark Modern', 'Dark Modern', 'vs-dark'], ['Dark High Contrast', 'Default High Contrast', 'hc-black'], ['Light High Contrast', 'Default High Contrast Light', 'hc-light']];
+	for (const [name, themeId, themeClass] of themes) {
+		// Exercise the real configuration watcher and theme contributions using an isolated profile.
+		await writeFile(settingsFile, JSON.stringify({ ...settings, 'workbench.colorTheme': themeId }));
+		await window.locator(`.monaco-workbench.${themeClass}`).waitFor();
+		const selected = shell.locator('.ade-node[aria-pressed="true"]');
+		await selected.focus();
+		await window.keyboard.press('Tab');
+		await window.keyboard.press('Shift+Tab');
+		// Resolve translucent surface colors through ancestors instead of comparing token names.
+		const appearance = await selected.evaluate(element => {
+			const rgba = value => value.match(/[\d.]+/g).map(Number);
+			let background = [0, 0, 0, 0];
+			for (let surface = element; surface && background[3] < 1; surface = surface.parentElement) {
+				const color = rgba(getComputedStyle(surface).backgroundColor);
+				const alpha = color[3] ?? 1;
+				for (let index = 0; index < 3; index++) { background[index] += color[index] * alpha * (1 - background[3]); }
+				background[3] += alpha * (1 - background[3]);
+			}
+			const style = getComputedStyle(element);
+			return { foreground: rgba(style.color), background, outline: style.outlineStyle, outlineColor: style.outlineColor };
+		});
+		const luminance = color => color.slice(0, 3).map(channel => channel / 255).map(channel => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+		const light = luminance(appearance.foreground);
+		const dark = luminance(appearance.background);
+		const contrast = (Math.max(light, dark) + 0.05) / (Math.min(light, dark) + 0.05);
+		assert.ok(contrast >= 4.5, `${name}: selected node text contrast ${contrast.toFixed(2)}`);
+		assert.notEqual(appearance.outline, 'none', `${name}: keyboard focus is visible`);
+		assert.notEqual(appearance.outlineColor, 'rgba(0, 0, 0, 0)');
+		await window.screenshot({ path: path.join(evidence, `ux-${themeClass}.png`) });
+		await shell.getByRole('button', { name: 'System Map', exact: true }).click();
+		await shell.getByRole('button', { name: 'Read System Map', exact: true }).waitFor();
+		assert.equal(await shell.locator('.ade-content').evaluate(element => element.scrollWidth > element.clientWidth + 1), false, `${name}: narrow map fits its content area`);
+		const mapElement = shell.locator('.ade-system-map button').first();
+		await mapElement.focus();
+		await window.keyboard.press('Tab');
+		await window.keyboard.press('Shift+Tab');
+		assert.equal(await mapElement.evaluate(element => element === document.activeElement), true, `${name}: map retains keyboard focus`);
+		await window.screenshot({ path: path.join(evidence, `map-${themeClass}.png`) });
+		await shell.getByRole('button', { name: 'Back', exact: true }).click();
+		await selected.waitFor();
+		console.log(`PASS: narrow layout, keyboard focus and selected-node text contrast ${contrast.toFixed(2)}:1 in ${name}.`);
+	}
+	const selection = await shell.locator('.ade-node[aria-pressed="true"]').textContent();
+	await shell.getByRole('button', { name: 'Terminal', exact: true }).click();
+	const terminalInput = window.locator('.terminal .xterm-helper-textarea');
+	await terminalInput.waitFor({ state: 'attached' });
+	await terminalInput.focus();
+	await window.keyboard.type("printf 'ADE_TERMINAL_OK\\n'\n");
+	await window.locator('.terminal .xterm-rows > div').filter({ hasText: /^ADE_TERMINAL_OK\s*$/ }).waitFor();
+	await window.keyboard.press(process.platform === 'linux' ? 'Alt+Shift+F1' : 'Alt+F1');
+	const terminalHelp = window.locator('.accessible-view:visible');
+	await terminalHelp.getByText('The Focus Accessible Terminal View command', { exact: false }).waitFor();
+	assert.equal(await terminalHelp.getByText('A.D.E Accessibility Help', { exact: true }).count(), 0, 'ADE providers do not intercept help in technical tools');
+	await window.keyboard.press('Escape');
+	await window.keyboard.press(`${modifier}+Alt+d`);
+	await window.locator('.ade-sidebar').waitFor();
+	await shell.locator('.ade-properties').getByRole('heading', { name: selection, exact: true }).waitFor();
+	console.log('PASS: integrated terminal executes a command and returns to the same model selection.');
+	await app.close();
+	app = undefined;
+	const restored = await launch();
+	await restored.locator('.ade-shell').getByRole('heading', { name: 'Keyboard diagram', exact: true }).waitFor();
+	assert.equal(await restored.locator('.tabs-container .tab').filter({ hasText: 'checkout.ade.json' }).count(), 0);
+	console.log('PASS: keyboard pan/selection, Fit Diagram, retained scroll, accessible options, command editing and saved context after restart.');
+	await app.close();
+	app = undefined;
+}
+
 try {
-	if (!process.argv.includes('--extension-only')) {
+	if (navigationOnly) { await checkSemanticNavigation(); }
+	if (uxOnly) { await checkVisualUX(); }
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly) {
 		let window = await launch();
-		const shell = window.locator('.ade-shell');
+		let shell = window.locator('.ade-shell');
+		let sidebar = window.locator('.ade-sidebar');
+		await sidebar.waitFor();
+		assert.equal(await window.locator('.explorer-viewlet:visible').count(), 0);
 		await shell.getByRole('button', { name: 'Explore Purchase Example', exact: true }).click();
-		await shell.locator('.ade-explorer').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
-		await shell.locator('.ade-navigation').getByRole('button', { name: 'Properties', exact: true }).click();
-		await shell.getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
-		await window.screenshot({ path: path.join(evidence, 'properties.png') });
-		await shell.getByRole('button', { name: 'AI Collaboration', exact: true }).click();
-		await shell.getByText('Provider configuration and assisted implementation are planned.', { exact: false }).waitFor();
-		await shell.getByRole('button', { name: 'Properties', exact: true }).click();
-		await shell.getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
+		await sidebar.locator('section[aria-label="Conferma acquisto"]')
+			.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
+		await shell.locator('.ade-properties').getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
+		await sidebar.getByRole('button', { name: 'Struttura carrello', exact: true }).click();
+		await shell.getByRole('heading', { name: 'Struttura carrello', exact: true }).waitFor();
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Carrello', exact: true }).click();
+		await sidebar.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+		await shell.locator('.ade-properties').getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
+		await sidebar.getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+		const declined = shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento rifiutato', exact: true });
+		await declined.focus();
+		await window.keyboard.press('Enter');
+		assert.equal(await declined.getAttribute('aria-pressed'), 'true');
+		assert.equal(await declined.evaluate(element => element === document.activeElement), true);
+		await shell.locator('.ade-properties').getByText('Condition: pagamento non autorizzato', { exact: true }).waitFor();
+		await shell.getByRole('button', { name: 'Files', exact: true }).click();
+		await window.locator('.explorer-viewlet').waitFor();
+		await shell.getByRole('button', { name: 'Return to Model', exact: true }).click();
+		await sidebar.waitFor();
+		await shell.locator('.ade-properties').getByRole('heading', { name: 'Pagamento rifiutato', exact: true }).waitFor();
+		for (const [name, selector] of [['Debug', '.debug-viewlet'], ['Git', '.scm-viewlet']]) {
+			await shell.getByRole('button', { name, exact: true }).click();
+			await window.locator(selector).waitFor();
+			await shell.getByRole('button', { name: 'Return to Model', exact: true }).click();
+			await sidebar.waitFor();
+			await shell.locator('.ade-properties').getByRole('heading', { name: 'Pagamento rifiutato', exact: true }).waitFor();
+		}
+		await window.screenshot({ path: path.join(evidence, 'visual-workbench.png') });
 		await app.close();
 		app = undefined;
 		window = await launch();
-		await window.locator('.ade-shell').getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
-		await window.locator('.ade-shell').getByRole('button', { name: 'Home', exact: true }).click();
-		assert.equal(await window.locator('.ade-shell').getByRole('button', { name: 'Create Project', exact: false }).isEnabled(), false);
-		assert.equal(await window.locator('.ade-shell').getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), false);
+		shell = window.locator('.ade-shell');
+		sidebar = window.locator('.ade-sidebar');
+		await sidebar.waitFor();
+		await shell.getByRole('heading', { name: 'Esito pagamento', exact: true }).waitFor();
+		await shell.locator('.ade-properties').getByRole('heading', { name: 'Pagamento rifiutato', exact: true }).waitFor();
+		await sidebar.getByRole('button', { name: 'Struttura carrello', exact: true }).click();
+		await shell.locator('.ade-properties').getByRole('heading', { name: 'Carrello', exact: true }).waitFor();
+		await shell.getByRole('button', { name: 'Home', exact: true }).click();
+		assert.equal(await shell.getByRole('button', { name: 'Create Project', exact: false }).isEnabled(), true);
+		assert.equal(await shell.getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), false);
 		await window.screenshot({ path: path.join(evidence, 'home.png') });
 		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 		await window.keyboard.press(`${modifier}+Shift+P`);
 		await window.locator('.quick-input-widget input').fill('>A.D.E: Open Home');
 		await window.keyboard.press('Enter');
-		await window.locator('.ade-shell').getByRole('heading', { name: 'Your System, in Context', exact: true }).waitFor();
-		console.log('PASS: desktop startup, native home, demo, properties, unavailable actions, command and persisted context after restart.');
+		await shell.getByRole('heading', { name: 'Your System, in Context', exact: true }).waitFor();
+		await openModelFile(window, modelFile);
+		await shell.getByRole('heading', { name: 'Percorso acquisto', exact: true }).waitFor();
+		await sidebar.getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento rifiutato', exact: true }).click();
+		await app.close();
+		app = undefined;
+		window = await launch();
+		shell = window.locator('.ade-shell');
+		await shell.getByRole('heading', { name: 'Esito pagamento', exact: true }).waitFor();
+		await shell.locator('.ade-properties').getByRole('heading', { name: 'Pagamento rifiutato', exact: true }).waitFor();
+		await openModelFile(window, emptyFile);
+		await shell.getByText('This project has no diagrams.', { exact: false }).waitFor();
+		assert.equal(await shell.locator('.ade-node').count(), 0);
+		await openModelFile(window, invalidFile);
+		await shell.getByRole('alert').getByText('Expected:', { exact: false }).waitFor();
+		assert.equal(await shell.locator('.ade-node').count(), 0);
+		await shell.getByRole('button', { name: 'Retry', exact: true }).click();
+		await shell.getByRole('alert').getByText('Expected:', { exact: false }).waitFor();
+		await writeFile(invalidFile, JSON.stringify(checkoutModel));
+		await shell.getByRole('heading', { name: 'Percorso acquisto', exact: true }).waitFor();
+		const changed = structuredClone(checkoutModel);
+		changed.views[0].name = 'Updated Purchase Diagram';
+		await writeFile(invalidFile, JSON.stringify(changed));
+		await shell.getByRole('heading', { name: 'Updated Purchase Diagram', exact: true }).waitFor();
+		await window.screenshot({ path: path.join(evidence, 'external-update.png') });
+		console.log('PASS: native sidebar, cross-feature diagrams, canvas, keyboard selection, technical views and persisted diagram context.');
+		console.log('PASS: file model restore, empty model, validation error, retry and correlated external update.');
+		await shell.getByRole('button', { name: 'Home', exact: true }).click();
+		const newFolder = path.join(workspace, 'new-system');
+		await mkdir(newFolder);
+		await shell.getByRole('button', { name: 'Create Project', exact: true }).click();
+		await enterValue(window, 'Name', 'Nuovo acquisto');
+		await chooseFolder(window, newFolder);
+		await shell.getByRole('heading', { name: 'Nuovo acquisto', exact: true }).waitFor();
+		await shell.getByRole('button', { name: 'Add Feature', exact: true }).click();
+		await enterValue(window, 'Name', 'Conferma acquisto');
+		await shell.getByRole('heading', { name: 'Conferma acquisto · Structure', exact: true }).waitFor();
+		await addElement(window, 'Actor', 'Cliente');
+		await addElement(window, 'Interface', 'Checkout');
+		await addElement(window, 'Controller', 'Conferma ordine');
+		await addElement(window, 'Resource', 'Ordine');
+		await connect(window, 'Cliente', 'Checkout', 'Invocation', 'Conferma acquisto', '');
+		await connect(window, 'Checkout', 'Conferma ordine', 'Invocation', 'Invia', '');
+		await connect(window, 'Conferma ordine', 'Ordine', 'Write', 'Crea ordine', 'pagamento autorizzato');
+		await window.locator('.ade-sidebar').getByRole('button', { name: 'Conferma acquisto · Flow', exact: true }).click();
+		for (const name of ['Richiedi pagamento', 'Ordine confermato', 'Pagamento rifiutato']) { await addElement(window, 'Action', name); }
+		await connect(window, 'Richiedi pagamento', 'Ordine confermato', 'Invocation', 'Conferma ordine', 'pagamento autorizzato');
+		await connect(window, 'Richiedi pagamento', 'Pagamento rifiutato', 'Invocation', 'Mostra errore', 'pagamento rifiutato');
+		console.log('PASS: creates project, feature, structure and conditional success/refusal flow through native UI.');
+		const moved = shell.locator('.ade-canvas').getByRole('button', { name: 'Ordine confermato', exact: true });
+		await moved.click();
+		const before = await moved.evaluate(element => parseFloat(element.style.left));
+		await moved.focus();
+		await window.keyboard.press('ArrowRight');
+		assert.equal(await moved.evaluate(element => parseFloat(element.style.left)), before + 20);
+		await window.keyboard.press(`${modifier}+z`);
+		assert.equal(await moved.evaluate(element => parseFloat(element.style.left)), before);
+		await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+		assert.equal(await moved.evaluate(element => parseFloat(element.style.left)), before + 20);
+		await shell.getByRole('button', { name: 'Zoom Out', exact: true }).click();
+		assert.equal(await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform), 'scale(0.8)');
+		await shell.getByRole('button', { name: 'Reset Zoom', exact: true }).click();
+		const bounds = await moved.boundingBox();
+		await window.mouse.move(bounds.x + 40, bounds.y + 40);
+		await window.mouse.down();
+		await window.mouse.move(bounds.x + 64, bounds.y + 72, { steps: 5 });
+		await window.mouse.up();
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento rifiutato', exact: true }).click();
+		await shell.locator('.ade-properties').getByRole('button', { name: 'Delete Element', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Delete', exact: true }).click();
+		assert.equal(await shell.locator('.ade-canvas .ade-node').count(), 2);
+		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento rifiutato', exact: true }).waitFor();
+		await window.keyboard.press(`${modifier}+s`);
+		await shell.getByText('Saved', { exact: true }).waitFor();
+		const projectFile = path.join(newFolder, '.ade/model.json');
+		const saved = JSON.parse(await readFile(projectFile, 'utf8'));
+		assert.deepEqual(validateSemanticModel(saved), []);
+		assert.equal(saved.version, 3);
+		assert.equal(saved.views.length, 2);
+		assert.equal(saved.semantics.relations.length, 5);
+		const flow = saved.views.find(view => view.kind === 'activity');
+		const confirmed = saved.semantics.elements.find(element => element.name === 'Ordine confermato');
+		assert.deepEqual(flow.nodes.find(node => node.elementId === confirmed.id), { elementId: confirmed.id, x: 304, y: 32 });
+		assert.equal(await window.locator('.tabs-container .tab').filter({ hasText: 'model.json' }).count(), 0);
+		await window.screenshot({ path: path.join(evidence, 'visual-editing.png') });
+		await app.close();
+		app = undefined;
+		window = await launch();
+		shell = window.locator('.ade-shell');
+		await shell.getByRole('heading', { name: 'Conferma acquisto · Flow', exact: true }).waitFor();
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
+		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+		await enterValue(window, 'Name', 'Pagamento aggiornato');
+		await shell.getByText('Unsaved Changes', { exact: true }).waitFor();
+		const external = structuredClone(saved);
+		external.name = 'External system';
+		await writeFile(projectFile, JSON.stringify(external));
+		await shell.getByRole('button', { name: 'Save', exact: true }).click();
+		await shell.getByRole('alert').getByText('could not be saved', { exact: false }).waitFor();
+		assert.equal(JSON.parse(await readFile(projectFile, 'utf8')).name, 'External system');
+		console.log('PASS: native undo/redo, keyboard move, node drag, zoom, safe deletion, save/reopen and external save conflict.');
+		await app.close();
+		app = undefined;
+		window = await launch();
+		shell = window.locator('.ade-shell');
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento aggiornato', exact: true }).waitFor();
+		await shell.getByText('Unsaved Changes', { exact: true }).waitFor();
+		assert.equal(JSON.parse(await readFile(projectFile, 'utf8')).name, 'External system');
+		assert.equal(await window.locator('.tabs-container .tab').filter({ hasText: 'model.json' }).count(), 0);
+		await shell.locator('summary').getByText('Project Options', { exact: true }).click();
+		await shell.getByRole('button', { name: 'Reload Project', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Reload', exact: true }).click();
+		await shell.getByText('External system · Design intent', { exact: true }).waitFor();
+		await shell.getByText('Saved', { exact: true }).waitFor();
+		console.log('PASS: unsaved backup recovery reopens the visual editor, with external file intact and explicit discard/reload.');
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
+		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+		await enterValue(window, 'Name', 'Pagamento in copia');
+		await shell.getByRole('button', { name: 'Save Project Copy', exact: true }).click();
+		const copyPicker = window.locator('.quick-input-widget');
+		await copyPicker.getByText('Save Project Copy', { exact: true }).waitFor();
+		const copyFile = path.join(newFolder, 'copy.ade.json');
+		await copyPicker.locator('input:visible').fill(newFolder + path.sep);
+		await copyPicker.getByText('.ade', { exact: true }).waitFor();
+		await copyPicker.locator('input:visible').fill(copyFile);
+		await copyPicker.getByRole('button', { name: 'OK', exact: true }).click();
+		await copyPicker.waitFor({ state: 'hidden' });
+		await shell.getByText('Saved', { exact: true }).waitFor();
+		assert.deepEqual(JSON.parse(await readFile(projectFile, 'utf8')), external, 'Save Copy preserves the source document');
+		assert.ok(JSON.parse(await readFile(copyFile, 'utf8')).semantics.elements.some(element => element.name === 'Pagamento in copia'));
+		await app.close();
+		app = undefined;
+		window = await launch();
+		await window.locator('.ade-canvas').getByRole('button', { name: 'Pagamento in copia', exact: true }).waitFor();
+		assert.equal(await window.locator('.tabs-container .tab').filter({ hasText: 'copy.ade.json' }).count(), 0);
+		console.log('PASS: Save Project Copy preserves the original and restores the saved copy in the visual editor.');
+
 		await app.close();
 		app = undefined;
 	}
-	await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));
-	await new Promise((resolve, reject) => {
-		const child = spawn(executablePath, [...args, '--skip-welcome',
-			`--extensionDevelopmentPath=${root}/ade/prototype`, `--extensionTestsPath=${root}/ade/prototype/host-test/index.cjs`],
-		{ cwd: root, env: launchEnv, stdio: 'inherit' });
-		const timer = setTimeout(() => { child.kill(); reject(new Error('Extension Host smoke timed out')); }, 120000);
-		child.on('error', error => { clearTimeout(timer); reject(error); });
-		child.on('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`Extension Host exited with ${code}`)); });
-	});
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly) {
+		console.log('PASS: native-only smoke completed without an Extension Development Host.');
+	} else {
+		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));
+		await new Promise((resolve, reject) => {
+			const child = spawn(executablePath, [...args, '--skip-welcome',
+				`--extensionDevelopmentPath=${root}/ade/prototype`, `--extensionTestsPath=${root}/ade/prototype/host-test/index.cjs`],
+			{ cwd: root, env: launchEnv, stdio: 'inherit' });
+			const timer = setTimeout(() => { child.kill(); reject(new Error('Extension Host smoke timed out')); }, 120000);
+			child.on('error', error => { clearTimeout(timer); reject(error); });
+			child.on('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`Extension Host exited with ${code}`)); });
+		});
+	}
 } catch (error) {
+	if (electronOutput) { console.error(electronOutput); }
 	if (app) {
 		for (const [index, window] of app.windows().entries()) {
 			await window.screenshot({ path: path.join(evidence, `failure-${index}.png`) }).catch(() => {});
@@ -92,6 +726,7 @@ try {
 	}
 	throw error;
 } finally {
-	await app?.close();
-	await rm(directory, { recursive: true, force: true });
+	try { await app?.close(); } finally {
+		await rm(directory, { recursive: true, force: true });
+	}
 }

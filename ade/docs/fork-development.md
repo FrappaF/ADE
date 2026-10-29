@@ -35,15 +35,22 @@ Dietro un proxy HTTP mantenere le variabili e la CA fornite dall’ambiente; con
 
 ## Shell e collaudo
 
-L’avvio predefinito apre la home A.D.E se non vengono ripristinati altri editor. `A.D.E: Open Home` la riapre dalla palette. La demo di acquisto è statica e in sola lettura: permette navigazione del modello e delle proprietà, con selezione e pannello memorizzati per workspace. Creazione progetto, importazione semantica e collaborazione IA espongono esplicitamente la loro indisponibilità. Onboarding e funzioni Copilot ereditate sono disabilitati per impostazione predefinita, evitando richieste di autenticazione a un servizio non configurato da A.D.E. Editor testuale, terminale e strumenti upstream rimangono accessibili.
+Con lo startup editor predefinito `adeHome`, l'avvio apre la home A.D.E o il diagramma ripristinato; file aperti esplicitamente da riga di comando e `--skip-welcome` mantengono il loro percorso. `A.D.E: Open Home` riapre la home e la sidebar nativa; `A.D.E: Return to Model` torna al diagramma e alla selezione. La sidebar organizza sistema, feature e diagrammi; il canvas permette progettazione di struttura e flusso, proprietà e salvataggio con undo/redo nativi. **Create Project** inizializza `.ade/model.json` nella cartella scelta, senza sovrascrivere un progetto esistente. Il contesto e le selezioni dei diagrammi sono memorizzati per workspace; backup e conflitti sono gestiti dai servizi documentali upstream. La demo integrata resta in sola lettura. Importazione semantica e collaborazione IA espongono la loro indisponibilità. Onboarding e funzioni Copilot ereditate sono disabilitati per impostazione predefinita. Editor testuale, terminale e strumenti upstream rimangono accessibili.
 
 ```sh
 npm --prefix ade/prototype run check
 npm --prefix ade/prototype test
-node ade/scripts/smoke-desktop.mjs
+node ade/scripts/smoke-desktop.mjs --native-only
+node ade/scripts/smoke-desktop.mjs --ux-only
+node ade/scripts/smoke-desktop.mjs --navigation-only
+node ade/scripts/smoke-desktop.mjs --extension-only
 ```
 
-Su Linux senza display: `xvfb-run -a node ade/scripts/smoke-desktop.mjs`. Lo smoke usa profilo, estensioni e progetto temporanei, verifica riavvio e ripristino, quindi esegue il collaudo del prototipo nell’Extension Host. Le schermate vanno in `.build/ade-smoke/`. Per provare manualmente il laboratorio: `./ade/scripts/dev.sh --extensionDevelopmentPath="$PWD/ade/prototype"`, poi eseguire «A.D.E: Apri modello visuale» e aprire `ade/prototype/examples/checkout.diagram.json`.
+Su Linux senza display, anteporre `xvfb-run -a` ai comandi di smoke. Lo smoke usa profilo portable, estensioni e progetto temporanei. `--native-only` collauda sidebar, canvas, navigazione, creazione di progetto/feature, editing, salvataggio, undo/redo, riavvio, conflitti, recupero delle modifiche non salvate, salvataggio di una copia ed errori. Non usa estensione di sviluppo e disabilita anche l'attivazione delle estensioni integrate, per verificare l'indipendenza del prodotto. `--ux-only` abilita soltanto i contributi dichiarativi dei temi integrati e collauda tastiera, finestra stretta, Fit Diagram, scorrimento distinto per documento e temi chiaro/scuro/ad alto contrasto attraverso il watcher delle impostazioni; verifica anche l'output di un comando nel terminale e il ritorno al modello. Il profilo usa il renderer DOM del terminale per il display Xvfb. `--extension-only` collauda il laboratorio nell'Extension Host. Senza flag esegue percorso nativo e laboratorio con le estensioni integrate disponibili. Le schermate vanno in `.build/ade-smoke/`; gli esiti osservati sono nei verbali [M2.2](m2-2-verification.md) e [M2.3](m2-3-verification.md). Per provare manualmente il laboratorio: `./ade/scripts/dev.sh --extensionDevelopmentPath="$PWD/ade/prototype"`, poi eseguire «A.D.E: Apri modello visuale» e aprire `ade/prototype/examples/checkout.diagram.json`.
+
+Il percorso `--ux-only` include anche lettura testuale e aiuto accessibili: canvas e sidebar, palette, aggiornamenti esterni, stato invalido, ritorno al focus, suggerimenti configurabili e scorciatoia personalizzata. La CI desktop esegue i sette test del contenuto accessibile insieme ai test documentali; non considera questo collaudo equivalente a VoiceOver sul MacBook.
+
+`--navigation-only` verifica l'[esploratore M3](semantic-explorer.md): ricerca per tipo, contratti non collocati, breadcrumb, selezione fra prospettive, Back/Forward, modifica e ripristino delle schede, cancellazione esterna. Il file del modello usato per editing e riavvio si trova fuori dal workspace temporaneo. Gli esiti sono nel [verbale M3.1](m3-1-verification.md). Questo percorso è configurato separatamente su Linux e macOS nella CI desktop.
 
 Il workflow `desktop.yml` compila e collauda su Linux e macOS; `ci.yml` esegue soltanto i controlli leggeri. Le esecuzioni effettive vanno verificate su GitHub: il solo file YAML non dimostra il successo della CI.
 
@@ -68,4 +75,6 @@ I workflow Microsoft restano in `ade/upstream-workflows/*.disabled`. Licenze e a
 
 ## Modello semantico M1
 
-La home usa il servizio semantico v2 per il modello di acquisto e l’apertura dei documenti. `A.D.E: Open Project Home` è un alias del comando `A.D.E: Open Home`. `npm run ade:test` verifica il dominio senza Electron; `npm run ade:check` controlla dominio e shell dopo l’installazione root. Schema, esempi e migrazione sono descritti nel [contratto M1](semantic-model.md). La riprogettazione completa della sidebar è pianificata in [M2](roadmap.md).
+La home usa il dominio condiviso per il modello di acquisto e i documenti v1/v2/v3. `A.D.E: Open Project Home` conserva l'accesso alla home della precedente shell. `npm run ade:test` verifica dominio, navigazione ed editing senza Electron; `npm run ade:check` controlla dominio, shell e test dopo l’installazione root. Dopo la build client, `node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts` verifica servizio e ripristino con cronologia nativa e backend controllato. Schema, esempi e migrazione sono descritti nel [contratto semantico](semantic-model.md); il percorso operativo è nell'[editor persistente](visual-editing.md).
+
+M3.2 estende `--navigation-only` a System Map, lettura accessibile, tastiera, breadcrumb, ripristino dopo il riavvio e misure delle etichette SVG rispetto ai nodi. I test del dominio coprono anche routing, auto-collegamenti, relazioni parallele e sovrapposizioni bloccanti; vedere il [verbale M3.2](m3-2-verification.md).

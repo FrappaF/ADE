@@ -55,6 +55,8 @@ jobs:
       - run: npm run ade:check
       - name: Build desktop client
         run: npm run build-fast -- --client-only
+      - name: Test ADE project lifecycle
+        run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts
       - name: Typecheck production sources
         run: node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
       - name: Build bundled extensions
@@ -62,12 +64,30 @@ jobs:
       - name: Build upstream Copilot extension
         run: npm run compile-copilot
       - run: npm run electron
-      - name: Desktop smoke on Linux
+      - name: Native visual workbench smoke on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs
-      - name: Desktop smoke on macOS
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --native-only
+      - name: Native visual workbench smoke on macOS
         if: runner.os == 'macOS'
-        run: node ade/scripts/smoke-desktop.mjs
+        run: node ade/scripts/smoke-desktop.mjs --native-only
+      - name: Keyboard, narrow window and theme smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --ux-only
+      - name: Keyboard, narrow window and theme smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --ux-only
+      - name: Semantic navigation smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --navigation-only
+      - name: Semantic navigation smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --navigation-only
+      - name: Prototype Extension Host smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --extension-only
+      - name: Prototype Extension Host smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --extension-only
       - name: Upload smoke evidence
         if: always()
         uses: actions/upload-artifact@v4

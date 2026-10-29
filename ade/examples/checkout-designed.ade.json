@@ -1,0 +1,160 @@
+{
+	"version": 3,
+	"id": "purchase-design",
+	"name": "Acquisto progettato",
+	"semantics": {
+		"elements": [
+			{
+				"id": "purchase",
+				"kind": "feature",
+				"name": "Conferma acquisto"
+			},
+			{
+				"id": "customer",
+				"kind": "actor",
+				"name": "Cliente",
+				"parentId": "purchase"
+			},
+			{
+				"id": "checkout",
+				"kind": "view",
+				"name": "Checkout",
+				"parentId": "purchase"
+			},
+			{
+				"id": "controller",
+				"kind": "controller",
+				"name": "Conferma ordine",
+				"parentId": "purchase"
+			},
+			{
+				"id": "order",
+				"kind": "resource",
+				"name": "Ordine",
+				"parentId": "purchase"
+			},
+			{
+				"id": "payment",
+				"kind": "action",
+				"name": "Richiedi pagamento",
+				"parentId": "purchase"
+			},
+			{
+				"id": "confirmed",
+				"kind": "action",
+				"name": "Ordine confermato",
+				"parentId": "purchase"
+			},
+			{
+				"id": "declined",
+				"kind": "action",
+				"name": "Pagamento rifiutato",
+				"parentId": "purchase"
+			}
+		],
+		"relations": [
+			{
+				"id": "customer-checkout",
+				"kind": "invocation",
+				"from": "customer",
+				"to": "checkout",
+				"name": "conferma acquisto"
+			},
+			{
+				"id": "checkout-controller",
+				"kind": "invocation",
+				"from": "checkout",
+				"to": "controller",
+				"name": "invia"
+			},
+			{
+				"id": "controller-order",
+				"kind": "write",
+				"from": "controller",
+				"to": "order",
+				"name": "crea ordine",
+				"condition": "pagamento autorizzato"
+			},
+			{
+				"id": "payment-success",
+				"kind": "invocation",
+				"from": "payment",
+				"to": "confirmed",
+				"name": "conferma ordine",
+				"condition": "pagamento autorizzato"
+			},
+			{
+				"id": "payment-declined",
+				"kind": "invocation",
+				"from": "payment",
+				"to": "declined",
+				"name": "mostra errore",
+				"condition": "pagamento rifiutato"
+			}
+		]
+	},
+	"views": [
+		{
+			"id": "structure",
+			"name": "Struttura acquisto",
+			"kind": "structure",
+			"featureId": "purchase",
+			"nodes": [
+				{
+					"elementId": "customer",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "checkout",
+					"x": 260,
+					"y": 0
+				},
+				{
+					"elementId": "controller",
+					"x": 520,
+					"y": 0
+				},
+				{
+					"elementId": "order",
+					"x": 0,
+					"y": 180
+				}
+			],
+			"relationIds": [
+				"customer-checkout",
+				"checkout-controller",
+				"controller-order"
+			]
+		},
+		{
+			"id": "flow",
+			"name": "Flusso acquisto",
+			"kind": "activity",
+			"featureId": "purchase",
+			"nodes": [
+				{
+					"elementId": "payment",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "confirmed",
+					"x": 260,
+					"y": 0
+				},
+				{
+					"elementId": "declined",
+					"x": 520,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"payment-success",
+				"payment-declined"
+			]
+		}
+	],
+	"codeMappings": [],
+	"verifications": []
+}

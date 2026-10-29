@@ -374,6 +374,14 @@ export abstract class WorkingCopyBackupTracker extends Disposable {
 
 			// Collect already opened editors for backup
 			let hasOpenedEditorForBackup = false;
+			// A specialized editor can use a text-file working copy whose resource
+			// differs from the editor input. Consult all registered associations
+			// before a generic handler creates a second editor for the same backup.
+			const associatedEditor = this.workingCopyEditorService.findEditor(unrestoredBackup);
+			if (associatedEditor) {
+				openedEditorsForBackups.add(associatedEditor.editor);
+				hasOpenedEditorForBackup = true;
+			}
 			for (const { editor } of this.editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
 				const isUnrestoredBackupOpened = handler.isOpen(unrestoredBackup, editor);
 				if (isUnrestoredBackupOpened) {

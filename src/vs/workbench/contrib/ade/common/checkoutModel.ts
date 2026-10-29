@@ -36,7 +36,11 @@ export const checkoutModel: SemanticModel = {
 			{ id: 'order', kind: 'resource', name: 'Ordine' },
 			{ id: 'pending', kind: 'state', name: 'In attesa', parentId: 'order' },
 			{ id: 'confirmed', kind: 'state', name: 'Confermato', parentId: 'order' },
-			{ id: 'declined', kind: 'state', name: 'Pagamento rifiutato', parentId: 'order' }
+			{ id: 'declined', kind: 'state', name: 'Pagamento rifiutato', parentId: 'order' },
+			{ id: 'cart-management', kind: 'feature', name: 'Gestione carrello' },
+			{ id: 'review-cart', kind: 'action', name: 'Rivedi carrello', parentId: 'cart-management' },
+			{ id: 'cancellation', kind: 'feature', name: 'Annullamento acquisto' },
+			{ id: 'cancel-controller', kind: 'controller', name: 'Annulla ordine', parentId: 'cancellation' }
 		],
 		relations: [
 			{ id: 'customer-checkout', kind: 'invocation', from: 'customer', to: 'checkout', name: 'conferma acquisto' },
@@ -50,7 +54,10 @@ export const checkoutModel: SemanticModel = {
 			{ id: 'gateway-contract', kind: 'dependency', from: 'gateway', to: 'payment-contract', name: 'rispetta contratto' },
 			{ id: 'order-confirmed', kind: 'transition', from: 'pending', to: 'confirmed', name: 'pagamento riuscito', condition: 'pagamento autorizzato' },
 			{ id: 'order-declined', kind: 'transition', from: 'pending', to: 'declined', name: 'pagamento rifiutato', condition: 'pagamento non autorizzato' },
-			{ id: 'show-declined', kind: 'invocation', from: 'checkout-controller', to: 'checkout', name: 'mostra errore', errorCode: 'payment-declined' }
+			{ id: 'show-declined', kind: 'invocation', from: 'checkout-controller', to: 'checkout', name: 'mostra errore', errorCode: 'payment-declined' },
+			{ id: 'review-reads-cart', kind: 'read', from: 'review-cart', to: 'cart', name: 'legge carrello' },
+			{ id: 'customer-cancel', kind: 'invocation', from: 'customer', to: 'cancel-controller', name: 'richiede annullamento' },
+			{ id: 'cancel-order', kind: 'write', from: 'cancel-controller', to: 'order', name: 'annulla ordine' }
 		]
 	},
 	views: [{
@@ -62,6 +69,25 @@ export const checkoutModel: SemanticModel = {
 			{ elementId: 'order', x: 780, y: 0 }
 		],
 		relationIds: ['customer-checkout', 'checkout-confirm', 'confirm-payment', 'payment-gateway', 'confirm-cart', 'confirm-order', 'show-declined']
+	}, {
+		id: 'purchase-outcome', name: 'Esito pagamento', kind: 'state',
+		nodes: [
+			{ elementId: 'payment', x: 0, y: 0 }, { elementId: 'pending', x: 260, y: 0 },
+			{ elementId: 'confirmed', x: 520, y: 0 }, { elementId: 'declined', x: 520, y: 180 }
+		],
+		relationIds: ['order-confirmed', 'order-declined']
+	}, {
+		id: 'cart-structure', name: 'Struttura carrello', kind: 'structure',
+		nodes: [{ elementId: 'review-cart', x: 0, y: 0 }, { elementId: 'cart', x: 260, y: 0 }],
+		relationIds: ['review-reads-cart']
+	}, {
+		id: 'cancellation-structure', name: 'Percorso annullamento', kind: 'structure',
+		nodes: [
+			{ elementId: 'customer', x: 0, y: 0 },
+			{ elementId: 'cancel-controller', x: 260, y: 0 },
+			{ elementId: 'order', x: 520, y: 0 }
+		],
+		relationIds: ['customer-cancel', 'cancel-order']
 	}],
 	codeMappings: [],
 	verifications: []

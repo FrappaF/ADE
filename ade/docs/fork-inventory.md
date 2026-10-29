@@ -5,7 +5,12 @@
 | Area | File o percorso | Responsabilità |
 | --- | --- | --- |
 | Identità | `product.json` | Nome, protocollo, cartelle dati, server, tunnel e identificatori desktop separati da Code OSS. |
-| Shell nativa | `src/vs/workbench/contrib/ade/browser/` | Home, demo in sola lettura, proprietà, navigazione persistente e indicazione delle funzioni future. |
+| Shell ed editor nativi | `src/vs/workbench/contrib/ade/browser/` | Home, sidebar, canvas modificabile, proprietà, creazione del progetto e servizio documentale condiviso con cronologia e recupero nativi. |
+| Dominio visuale | `src/vs/workbench/contrib/ade/common/` | Contratti v2/v3, navigazione, migrazione e operazioni atomiche dell'editor, verificabili senza Electron. |
+| Esploratore semantico | `src/vs/workbench/contrib/ade/browser/adeNavigation.ts`, `adeEditor.ts`, `adeProjectService.ts`; `common/visualNavigation.ts`, `systemMap.ts`, `diagramRouting.ts` | Mappa gerarchica, connessioni aggregate e routing ortogonale con etichette misurate. Ricerca nativa, schede degli elementi, percorso semantico, prospettive e cronologia di sessione. Il servizio mantiene un watcher correlato del documento oltre al riferimento al modello testuale. |
+| Accessibilità visuale | `src/vs/workbench/contrib/ade/browser/adeAccessibility*.ts`, `adeAccessibleContent.ts`; registri in `src/vs/platform/accessibility/browser/accessibleView.ts` e `src/vs/workbench/contrib/accessibility/browser/accessibilityConfiguration.ts` | Provider e aiuto nativi, contenuto testuale derivato dal modello, contesti di focus e suggerimenti configurabili. I registri upstream aggiungono ID e impostazione, senza importare il dominio ADE. |
+| Associazioni dei backup | `src/vs/workbench/services/workingCopy/common/workingCopyEditorService.ts`, `workingCopyBackupTracker.ts` | Ricerca dell'editor tramite sola identità del documento e riuso delle associazioni specializzate prima di aprire un editor generico durante il recupero. Nessun import dal dominio ADE. |
+| Sidebar predefinita | `src/vs/workbench/contrib/files/browser/explorerViewlet.ts` | L'esploratore file resta disponibile ma non è più il contenitore predefinito; il contributo ADE registra la sidebar iniziale. |
 | Localizzazione | `build/lib/i18n.resources.json` | Registra le stringhe del contributo A.D.E nel sistema di localizzazione upstream. |
 | Registrazione | `src/vs/workbench/workbench.common.main.ts` | Importa il contributo A.D.E usando il modello di contributi upstream. |
 | Avvio | `src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.contribution.ts` | Aggiunge `adeHome` ai valori dello startup editor; il contributo ADE ne imposta il valore predefinito. |
@@ -21,7 +26,7 @@
 | --- | --- |
 | Electron, Node, npm, GitHub release | Dipendenze di sviluppo. Versioni e checksum restano quelli upstream. |
 | `builtInExtensions` in `product.json` | `ms-vscode.js-debug-companion`, `ms-vscode.js-debug` e `ms-vscode.vscode-js-profile-table` richiedono controllo di licenze, download e redistribuzione. Il collaudo M0 non certifica i debugger. |
-| `extensions/copilot/`, SDK IA e agent host upstream | Codice ereditato. Non costituisce un provider A.D.E configurato; la shell segnala IA non disponibile. Definire provider e dati inviati in M5. |
+| `extensions/copilot/`, SDK IA e agent host upstream | Codice ereditato. Non costituisce un provider A.D.E configurato; la shell segnala IA non disponibile. M4 definisce il primo connettore in sola lettura e M5 l'esecuzione assistita, secondo [ADR 0003](decisions/0003-code-import-sync-and-providers.md). |
 | Autenticazione GitHub/Microsoft, tunnel e remote | Moduli upstream conservati. Credenziali, endpoint e condizioni d’uso vanno valutati prima di offrirli agli utenti. |
 | Marketplace e servizi proprietari | Nessuna autorizzazione aggiunta. Non configurare automaticamente il Marketplace Microsoft. |
 | `webviewContentExternalBaseUrlTemplate` | Endpoint CDN Microsoft conservato dallo snapshot; sostituzione o rimozione da verificare per il runtime distribuito e il web. |
@@ -30,4 +35,6 @@
 
 ## Confini architetturali
 
-Il contributo in `workbench/contrib/ade` usa editor, dialoghi, registri e storage del workbench. Il modello demo è esplicitamente statico e non dichiara allineamento con il codice. M1 introdurrà il dominio semantico in un modulo `common` testabile senza Electron; i servizi di persistenza e gli adattatori useranno contratti separati, con implementazioni specifiche browser/node. L’IA non deve essere implementata nei gestori DOM: il futuro coordinatore sarà un servizio che consuma modello, adattatori e verifiche. Nessuna dipendenza del core upstream deve puntare verso il dominio ADE: soltanto i punti di registrazione importano il contributo.
+Il contributo in `workbench/contrib/ade` usa editor, dialoghi, registri e storage del workbench. Dominio e operazioni visuali sono in `common`, verificabili senza Electron. `AdeProjectService` in `browser` mantiene un riferimento al documento tramite `ITextFileService`/`ITextModelService`, condivide modello e contesto fra sidebar, input ed editor, e registra le modifiche validate nella cronologia nativa. I servizi upstream conservano file, backup e conflitti; il modello non dichiara allineamento con il codice. L’IA non deve essere implementata nei gestori DOM: il futuro coordinatore consumerà modello, adattatori e verifiche. Nessuna dipendenza del core upstream punta al dominio ADE; Explorer e gestione dei backup non importano moduli ADE.
+
+L’[integrazione selettiva M2](m2-branch-integration.md) traccia la provenienza del commit `bbfc2087`, la diagnostica separata, i gruppi della sidebar, i riferimenti condivisi e la compatibilità del profilo in `AdeProjectService`. Non introduce un secondo servizio del modello.
