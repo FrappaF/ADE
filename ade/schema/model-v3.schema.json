@@ -1,0 +1,485 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "urn:ade:model:3",
+	"title": "A.D.E semantic model v3",
+	"type": "object",
+	"properties": {
+		"version": {
+			"type": "integer",
+			"const": 3
+		},
+		"id": {
+			"type": "string",
+			"minLength": 1,
+			"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+		},
+		"name": {
+			"type": "string",
+			"minLength": 1,
+			"pattern": "\\S"
+		},
+		"semantics": {
+			"type": "object",
+			"properties": {
+				"elements": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"minLength": 1,
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+							},
+							"kind": {
+								"type": "string",
+								"enum": [
+									"feature",
+									"actor",
+									"component",
+									"resource",
+									"view",
+									"controller",
+									"contract",
+									"action",
+									"state"
+								]
+							},
+							"name": {
+								"type": "string",
+								"minLength": 1,
+								"pattern": "\\S"
+							},
+							"description": {
+								"type": "string"
+							},
+							"parentId": {
+								"type": "string",
+								"minLength": 1,
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+							},
+							"behavior": {
+								"type": "object",
+								"properties": {
+									"inputs": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"name": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												},
+												"type": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												},
+												"required": {
+													"type": "boolean"
+												}
+											},
+											"required": [
+												"name",
+												"type",
+												"required"
+											],
+											"additionalProperties": false
+										}
+									},
+									"outputs": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"name": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												},
+												"type": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												},
+												"required": {
+													"type": "boolean"
+												}
+											},
+											"required": [
+												"name",
+												"type",
+												"required"
+											],
+											"additionalProperties": false
+										}
+									},
+									"preconditions": {
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1,
+											"pattern": "\\S"
+										}
+									},
+									"postconditions": {
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1,
+											"pattern": "\\S"
+										}
+									},
+									"errors": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"code": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+												},
+												"description": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												}
+											},
+											"required": [
+												"code",
+												"description"
+											],
+											"additionalProperties": false
+										}
+									},
+									"permissions": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"actorId": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+												},
+												"capability": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												}
+											},
+											"required": [
+												"actorId",
+												"capability"
+											],
+											"additionalProperties": false
+										}
+									},
+									"acceptanceCriteria": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"id": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+												},
+												"given": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												},
+												"when": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												},
+												"then": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												}
+											},
+											"required": [
+												"id",
+												"given",
+												"when",
+												"then"
+											],
+											"additionalProperties": false
+										}
+									}
+								},
+								"required": [
+									"inputs",
+									"outputs",
+									"preconditions",
+									"postconditions",
+									"errors",
+									"permissions",
+									"acceptanceCriteria"
+								],
+								"additionalProperties": false
+							},
+							"legacyKind": {
+								"type": "string",
+								"enum": [
+									"class"
+								]
+							}
+						},
+						"required": [
+							"id",
+							"kind",
+							"name"
+						],
+						"additionalProperties": false
+					}
+				},
+				"relations": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"minLength": 1,
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+							},
+							"kind": {
+								"type": "string",
+								"enum": [
+									"invocation",
+									"dependency",
+									"read",
+									"write",
+									"transition",
+									"realization"
+								]
+							},
+							"from": {
+								"type": "string",
+								"minLength": 1,
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+							},
+							"to": {
+								"type": "string",
+								"minLength": 1,
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+							},
+							"name": {
+								"type": "string"
+							},
+							"condition": {
+								"type": "string",
+								"minLength": 1,
+								"pattern": "\\S"
+							},
+							"errorCode": {
+								"type": "string",
+								"minLength": 1,
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+							},
+							"classification": {
+								"type": "string",
+								"enum": [
+									"legacy-unclassified"
+								]
+							}
+						},
+						"required": [
+							"id",
+							"kind",
+							"from",
+							"to",
+							"name"
+						],
+						"additionalProperties": false
+					}
+				}
+			},
+			"required": [
+				"elements",
+				"relations"
+			],
+			"additionalProperties": false
+		},
+		"views": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"featureId": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+					},
+					"id": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+					},
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "\\S"
+					},
+					"kind": {
+						"type": "string",
+						"enum": [
+							"structure",
+							"activity",
+							"sequence",
+							"state"
+						]
+					},
+					"nodes": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"elementId": {
+									"type": "string",
+									"minLength": 1,
+									"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+								},
+								"x": {
+									"type": "number"
+								},
+								"y": {
+									"type": "number"
+								}
+							},
+							"required": [
+								"elementId",
+								"x",
+								"y"
+							],
+							"additionalProperties": false
+						}
+					},
+					"relationIds": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"minLength": 1,
+							"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+						}
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"kind",
+					"nodes",
+					"relationIds"
+				],
+				"additionalProperties": false
+			}
+		},
+		"codeMappings": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+					},
+					"elementId": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+					},
+					"file": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "\\S"
+					},
+					"symbol": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "\\S"
+					},
+					"revision": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "\\S"
+					}
+				},
+				"required": [
+					"id",
+					"elementId",
+					"file",
+					"symbol",
+					"revision"
+				],
+				"additionalProperties": false
+			}
+		},
+		"verifications": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+					},
+					"elementId": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+					},
+					"criterionId": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+					},
+					"outcome": {
+						"type": "string",
+						"enum": [
+							"passed",
+							"failed",
+							"unknown"
+						]
+					},
+					"evidence": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "\\S"
+					},
+					"revision": {
+						"type": "string",
+						"minLength": 1,
+						"pattern": "\\S"
+					}
+				},
+				"required": [
+					"id",
+					"elementId",
+					"criterionId",
+					"outcome",
+					"evidence",
+					"revision"
+				],
+				"additionalProperties": false
+			}
+		}
+	},
+	"required": [
+		"version",
+		"id",
+		"name",
+		"semantics",
+		"views",
+		"codeMappings",
+		"verifications"
+	],
+	"additionalProperties": false
+}

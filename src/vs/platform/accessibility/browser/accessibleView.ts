@@ -14,6 +14,7 @@ import { IDisposable, Disposable, toDisposable } from '../../../base/common/life
 export const IAccessibleViewService = createDecorator<IAccessibleViewService>('accessibleViewService');
 
 export const enum AccessibleViewProviderId {
+	Ade = 'ade',
 	Terminal = 'terminal',
 	TerminalChat = 'terminal-chat',
 	TerminalHelp = 'terminal-help',

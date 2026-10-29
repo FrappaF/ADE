@@ -11,6 +11,9 @@ import { Action2, registerAction2 } from '../../../../platform/actions/common/ac
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
@@ -20,6 +23,80 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { AdeInput } from './adeInput.js';
 import { AdeEditor } from './adeEditor.js';
+import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
+import { ADE_VIEW_CONTAINER_ID, ADE_VIEW_ID, AdeView } from './adeView.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { Extensions as ViewExtensions, IViewContainersRegistry, IViewsRegistry, ViewContainerLocation } from '../../../common/views.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { UndoCommand, RedoCommand } from '../../../../editor/browser/editorExtensions.js';
+import './adeEditing.js';
+import './adeNavigation.js';
+import { AdeAccessibilityHelp, AdeAccessibleView, registerAdeAccessibleStartup } from './adeAccessibility.js';
+import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
+import { IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
+import { IWorkingCopyIdentifier, NO_TYPE_ID } from '../../../services/workingCopy/common/workingCopy.js';
+
+class AdeWorkingCopyEditor extends Disposable {
+	static readonly ID = 'workbench.contrib.adeWorkingCopyEditor';
+	constructor(
+		@IWorkingCopyEditorService workingCopies: IWorkingCopyEditorService,
+		@IAdeProjectService project: AdeProjectService,
+		@IInstantiationService instantiationService: IInstantiationService
+	) {
+		super();
+		const handles = (copy: IWorkingCopyIdentifier) =>
+			copy.typeId === NO_TYPE_ID && copy.resource.toString() === project.modelUri?.toString();
+		this._register(workingCopies.registerHandler({
+			handles,
+			isOpen: (copy, editor) => handles(copy) && editor instanceof AdeInput,
+			createEditor: () => instantiationService.createInstance(AdeInput)
+		}));
+	}
+}
+registerWorkbenchContribution2(AdeWorkingCopyEditor.ID, AdeWorkingCopyEditor, WorkbenchPhase.BlockStartup);
+
+class AdeUndoRedo extends Disposable {
+	static readonly ID = 'workbench.contrib.adeUndoRedo';
+	constructor(
+		@IEditorService editorService: IEditorService,
+		@IAdeProjectService project: AdeProjectService
+	) {
+		super();
+		this._register(UndoCommand.addImplementation(105, 'ade', () => editorService.activeEditor instanceof AdeInput ? project.undo() : false));
+		this._register(RedoCommand.addImplementation(105, 'ade', () => editorService.activeEditor instanceof AdeInput ? project.redo() : false));
+	}
+}
+registerWorkbenchContribution2(AdeUndoRedo.ID, AdeUndoRedo, WorkbenchPhase.AfterRestored);
+
+class AdeAccessibility extends Disposable {
+	static readonly ID = 'workbench.contrib.adeAccessibility';
+	constructor() {
+		super();
+		for (const implementation of [new AdeAccessibleView(), new AdeAccessibilityHelp()]) {
+			this._register(AccessibleViewRegistry.register(implementation));
+			this._register(registerAdeAccessibleStartup(implementation));
+		}
+	}
+}
+registerWorkbenchContribution2(AdeAccessibility.ID, AdeAccessibility, WorkbenchPhase.BlockStartup);
+
+const adeContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
+	id: ADE_VIEW_CONTAINER_ID,
+	title: localize2('ade.systemFeatures', "System and Features"),
+	icon: Codicon.typeHierarchy,
+	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [ADE_VIEW_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
+	storageId: ADE_VIEW_CONTAINER_ID,
+	order: -1
+}, ViewContainerLocation.Sidebar, { isDefault: true });
+
+Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
+	id: ADE_VIEW_ID,
+	name: localize2('ade.systemFeatures', "System and Features"),
+	ctorDescriptor: new SyncDescriptor(AdeView),
+	canToggleVisibility: false,
+	canMoveView: true
+}], adeContainer);
 
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
 	EditorPaneDescriptor.create(AdeEditor, AdeEditor.ID, localize('ade.editor', "A.D.E")), [new SyncDescriptor(AdeInput)]
@@ -51,7 +128,38 @@ registerWorkbenchContribution2(AdeResolver.ID, AdeResolver, WorkbenchPhase.Block
 registerAction2(class extends Action2 {
 	constructor() { super({ id: 'ade.showHome', title: localize2('ade.showHome', "A.D.E: Open Home"), f1: true }); }
 	async run(accessor: ServicesAccessor): Promise<void> {
-		await accessor.get(IEditorService).openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		accessor.get(IAdeProjectService).showHome();
+		const viewsService = accessor.get(IViewsService);
+		const editorService = accessor.get(IEditorService);
+		await viewsService.openViewContainer(ADE_VIEW_CONTAINER_ID, false);
+		await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({ id: 'ade.showDiagram', title: localize2('ade.return', "A.D.E: Return to Model"), f1: true,
+			keybinding: { primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyD, weight: KeybindingWeight.WorkbenchContrib } });
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const project = accessor.get(IAdeProjectService);
+		const viewsService = accessor.get(IViewsService);
+		const editorService = accessor.get(IEditorService);
+		await project.restore();
+		if (project.activeView) { project.showDiagram(project.activeView.id); }
+		await viewsService.openViewContainer(ADE_VIEW_CONTAINER_ID, false);
+		await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+	}
+});
+CommandsRegistry.registerCommandAlias('ade.returnToDiagram', 'ade.showDiagram');
+
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.openModel', title: localize2('ade.openModel', "A.D.E: Open Model"), f1: true }); }
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const project = accessor.get(IAdeProjectService);
+		const editorService = accessor.get(IEditorService);
+		await project.chooseModel();
+		await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 	}
 });
 
@@ -59,6 +167,7 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() { super({ id: 'ade.workbench.open', title: localize2('ade.openProjectHome', "A.D.E: Open Project Home"), f1: true }); }
 	async run(accessor: ServicesAccessor): Promise<void> {
+		accessor.get(IAdeProjectService).showHome();
 		await accessor.get(IEditorService).openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 	}
 });
@@ -79,8 +188,9 @@ class AdeStartup {
 		@IConfigurationService configurationService: IConfigurationService,
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService
 	) {
-		if (!environmentService.skipWelcome && !editorService.activeEditor && configurationService.getValue('workbench.startupEditor') === 'adeHome') {
-			void editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true } });
+		const explicitFiles = environmentService.filesToOpenOrCreate?.length || environmentService.filesToDiff?.length || environmentService.filesToMerge?.length;
+		if (!environmentService.skipWelcome && !explicitFiles && configurationService.getValue('workbench.startupEditor') === 'adeHome') {
+			void editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 		}
 	}
 }

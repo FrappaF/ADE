@@ -48,6 +48,7 @@ export interface SemanticRelation {
 
 export interface ModelView {
 	id: string;
+	featureId?: string;
 	name: string;
 	kind: 'structure' | 'activity' | 'sequence' | 'state';
 	nodes: { elementId: string; x: number; y: number }[];
@@ -72,7 +73,7 @@ export interface Verification {
 }
 
 export interface SemanticModel {
-	version: 2;
+	version: 2 | 3;
 	id: string;
 	name: string;
 	semantics: { elements: SemanticElement[]; relations: SemanticRelation[] };
@@ -121,34 +122,40 @@ const behavior = object({
 });
 
 /** Portable JSON Schema; the committed JSON artifact is checked against this source. */
-export const semanticModelSchema: Schema = {
-	$schema: 'https://json-schema.org/draft/2020-12/schema',
-	$id: 'urn:ade:model:2',
-	title: 'A.D.E semantic model v2',
-	...object({
-		version: { type: 'integer', const: 2 }, id: identifier, name: nonempty,
-		semantics: object({
-			elements: array(object({
-				id: identifier, kind: { type: 'string', enum: elementKinds }, name: nonempty,
-				description: text, parentId: identifier, behavior, legacyKind: { type: 'string', enum: ['class'] }
-			}, ['description', 'parentId', 'behavior', 'legacyKind'])),
-			relations: array(object({
-				id: identifier, kind: { type: 'string', enum: relationKinds }, from: identifier, to: identifier, name: text,
-				condition: nonempty, errorCode: identifier, classification: { type: 'string', enum: ['legacy-unclassified'] }
-			}, ['condition', 'errorCode', 'classification']))
-		}),
-		views: array(object({
-			id: identifier, name: nonempty, kind: { type: 'string', enum: ['structure', 'activity', 'sequence', 'state'] },
-			nodes: array(object({ elementId: identifier, x: { type: 'number' }, y: { type: 'number' } })),
-			relationIds: array(identifier)
-		})),
-		codeMappings: array(object({ id: identifier, elementId: identifier, file: nonempty, symbol: nonempty, revision: nonempty })),
-		verifications: array(object({
-			id: identifier, elementId: identifier, criterionId: identifier,
-			outcome: { type: 'string', enum: ['passed', 'failed', 'unknown'] }, evidence: nonempty, revision: nonempty
-		}))
-	})
-};
+function modelSchema(version: 2 | 3): Schema {
+	return {
+		$schema: 'https://json-schema.org/draft/2020-12/schema',
+		$id: `urn:ade:model:${version}`,
+		title: `A.D.E semantic model v${version}`,
+		...object({
+			version: { type: 'integer', const: version }, id: identifier, name: nonempty,
+			semantics: object({
+				elements: array(object({
+					id: identifier, kind: { type: 'string', enum: elementKinds }, name: nonempty,
+					description: text, parentId: identifier, behavior, legacyKind: { type: 'string', enum: ['class'] }
+				}, ['description', 'parentId', 'behavior', 'legacyKind'])),
+				relations: array(object({
+					id: identifier, kind: { type: 'string', enum: relationKinds }, from: identifier, to: identifier, name: text,
+					condition: nonempty, errorCode: identifier, classification: { type: 'string', enum: ['legacy-unclassified'] }
+				}, ['condition', 'errorCode', 'classification']))
+			}),
+			views: array(object({
+				...(version === 3 ? { featureId: identifier } : {}),
+				id: identifier, name: nonempty, kind: { type: 'string', enum: ['structure', 'activity', 'sequence', 'state'] },
+				nodes: array(object({ elementId: identifier, x: { type: 'number' }, y: { type: 'number' } })),
+				relationIds: array(identifier)
+			}, ['featureId'])),
+			codeMappings: array(object({ id: identifier, elementId: identifier, file: nonempty, symbol: nonempty, revision: nonempty })),
+			verifications: array(object({
+				id: identifier, elementId: identifier, criterionId: identifier,
+				outcome: { type: 'string', enum: ['passed', 'failed', 'unknown'] }, evidence: nonempty, revision: nonempty
+			}))
+		})
+	};
+}
+
+export const semanticModelSchema = modelSchema(2);
+export const semanticModelV3Schema = modelSchema(3);
 
 function checkShape(value: unknown, schema: Schema, path: string, diagnostics: ModelDiagnostic[]): void {
 	const fail = (expected: string) => diagnostics.push({ code: 'shape', severity: 'error', path, args: [expected] });
@@ -212,7 +219,7 @@ export function isCompatibleRelation(kind: RelationKind, from: ElementKind, to: 
 /** Validates structure first, then graph references, containment and evidence. */
 export function validateSemanticModel(value: unknown): ModelDiagnostic[] {
 	const diagnostics: ModelDiagnostic[] = [];
-	checkShape(value, semanticModelSchema, '', diagnostics);
+	checkShape(value, value !== null && typeof value === 'object' && Object.hasOwn(value, 'version') && (value as { version: number }).version === 3 ? semanticModelV3Schema : semanticModelSchema, '', diagnostics);
 	if (diagnostics.length) {
 		return diagnostics;
 	}
@@ -291,6 +298,10 @@ export function validateSemanticModel(value: unknown): ModelDiagnostic[] {
 	});
 	model.views.forEach((view, index) => {
 		const path = `/views/${index}`;
+		if (view.featureId) {
+			const feature = reference(view.featureId, `${path}/featureId`);
+			if (feature && feature.kind !== 'feature') { report('invalidParent', `${path}/featureId`, feature.id, feature.kind); }
+		}
 		unique(view.nodes.map(node => node.elementId), `${path}/nodes`);
 		unique(view.relationIds, `${path}/relationIds`);
 		const nodeIds = new Set(view.nodes.map(node => node.elementId));
@@ -347,7 +358,7 @@ const legacySchema = object({
 
 /** Pure, explicit migration. Never writes files or infers behavior from labels. */
 export function migrateSemanticModel(value: unknown, modelId = 'legacy-model'): { model: SemanticModel; diagnostics: ModelDiagnostic[] } {
-	if (typeof value === 'object' && value !== null && Object.hasOwn(value, 'version') && (value as { version: number }).version === 2) {
+	if (typeof value === 'object' && value !== null && Object.hasOwn(value, 'version') && [2, 3].includes((value as { version: number }).version)) {
 		const model = readSemanticModel(value);
 		return { model, diagnostics: validateSemanticModel(model) };
 	}

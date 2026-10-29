@@ -47,6 +47,7 @@ export const enum ViewDimUnfocusedOpacityProperties {
 }
 
 export const enum AccessibilityVerbositySettingId {
+	Ade = 'accessibility.verbosity.ade',
 	Terminal = 'accessibility.verbosity.terminal',
 	DiffEditor = 'accessibility.verbosity.diffEditor',
 	MultiDiffEditorFileList = 'accessibility.verbosity.multiDiffEditorFileList',
@@ -149,6 +150,10 @@ const configuration: IConfigurationNode = {
 	...accessibilityConfigurationNodeBase,
 	scope: ConfigurationScope.RESOURCE,
 	properties: {
+		[AccessibilityVerbositySettingId.Ade]: {
+			description: localize('verbosity.ade.description', "Provide information about accessibility help and the text version of A.D.E diagrams when the visual workbench is focused."),
+			...baseVerbosityProperty
+		},
 		[AccessibilityVerbositySettingId.Terminal]: {
 			description: localize('verbosity.terminal.description', 'Provide information about how to access the terminal accessibility help menu when the terminal is focused.'),
 			...baseVerbosityProperty

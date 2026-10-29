@@ -118,6 +118,28 @@
 				"kind": "state",
 				"name": "Pagamento rifiutato",
 				"parentId": "order"
+			},
+			{
+				"id": "cart-management",
+				"kind": "feature",
+				"name": "Gestione carrello"
+			},
+			{
+				"id": "review-cart",
+				"kind": "action",
+				"name": "Rivedi carrello",
+				"parentId": "cart-management"
+			},
+			{
+				"id": "cancellation",
+				"kind": "feature",
+				"name": "Annullamento acquisto"
+			},
+			{
+				"id": "cancel-controller",
+				"kind": "controller",
+				"name": "Annulla ordine",
+				"parentId": "cancellation"
 			}
 		],
 		"relations": [
@@ -208,6 +230,27 @@
 				"to": "checkout",
 				"name": "mostra errore",
 				"errorCode": "payment-declined"
+			},
+			{
+				"id": "review-reads-cart",
+				"kind": "read",
+				"from": "review-cart",
+				"to": "cart",
+				"name": "legge carrello"
+			},
+			{
+				"id": "customer-cancel",
+				"kind": "invocation",
+				"from": "customer",
+				"to": "cancel-controller",
+				"name": "richiede annullamento"
+			},
+			{
+				"id": "cancel-order",
+				"kind": "write",
+				"from": "cancel-controller",
+				"to": "order",
+				"name": "annulla ordine"
 			}
 		]
 	},
@@ -261,6 +304,83 @@
 				"confirm-cart",
 				"confirm-order",
 				"show-declined"
+			]
+		},
+		{
+			"id": "purchase-outcome",
+			"name": "Esito pagamento",
+			"kind": "state",
+			"nodes": [
+				{
+					"elementId": "payment",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "pending",
+					"x": 260,
+					"y": 0
+				},
+				{
+					"elementId": "confirmed",
+					"x": 520,
+					"y": 0
+				},
+				{
+					"elementId": "declined",
+					"x": 520,
+					"y": 180
+				}
+			],
+			"relationIds": [
+				"order-confirmed",
+				"order-declined"
+			]
+		},
+		{
+			"id": "cart-structure",
+			"name": "Struttura carrello",
+			"kind": "structure",
+			"nodes": [
+				{
+					"elementId": "review-cart",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "cart",
+					"x": 260,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"review-reads-cart"
+			]
+		},
+		{
+			"id": "cancellation-structure",
+			"name": "Percorso annullamento",
+			"kind": "structure",
+			"nodes": [
+				{
+					"elementId": "customer",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "cancel-controller",
+					"x": 260,
+					"y": 0
+				},
+				{
+					"elementId": "order",
+					"x": 520,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"customer-cancel",
+				"cancel-order"
 			]
 		}
 	],

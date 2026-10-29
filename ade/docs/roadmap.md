@@ -4,6 +4,14 @@ A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engi
 
 Le milestone indicano un ordine di sviluppo, non date di consegna. La verifica del 28 ottobre 2026 è registrata nel [verbale M0](m0-verification.md): Build, ripristino e smoke desktop sul MacBook sono stati confermati dall’utente; la CI della precedente integrazione M0 è documentata in [validazione M0](m0-validation.md); il merge M1 richiede una nuova esecuzione della CI. M1 dispone ora di contratto, API, migrazione ed esempi verificabili con Node; la sua integrazione iniziale è stata collaudata dall’utente sul MacBook. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
 
+Il 29 ottobre 2026 è stata implementata la prima shell M2.1: sidebar nativa sistema/feature/diagrammi, canvas in sola lettura, proprietà contestuali e ripristino per diagramma. Il [verbale M2.1](m2-1-verification.md) registra build e smoke nativo su Linux, distinguendoli dal collaudo macOS e dalla CI remota ancora da eseguire. Questa shell costituisce la base dell'editor M2.2.
+
+La prosecuzione M2.2 aggiunge creazione del progetto e delle feature, diagrammi strutturali e di flusso modificabili, collegamenti condizionati, spostamento, salvataggio, undo/redo e recupero nativo. Il formato v3 conserva l'appartenenza dei diagrammi vuoti alle feature e mantiene l'apertura dei documenti storici. Il [verbale M2.2](m2-2-verification.md) registra le verifiche. M2.3 introduce revisione dei comandi, Fit Diagram, pan da tastiera e conservazione dello scorrimento; il [verbale M2.3](m2-3-verification.md) registra il collaudo Linux su finestra stretta e quattro temi. La chiusura M2 richiede ancora macOS, CI remota e revisione UX dell'utente.
+
+M3.1 avvia l'[esplorazione semantica](semantic-explorer.md): ricerca filtrata di elementi e diagrammi, schede per gli elementi non collocati, breadcrumb, cambio di prospettiva a identità costante e cronologia di sessione. Il [verbale M3.1](m3-1-verification.md) distingue queste verifiche Linux dalle verifiche M2 ancora aperte sulle altre piattaforme. M3.2 aggiunge la mappa gerarchica del sistema, connessioni aggregate e routing ortogonale con etichette misurate; il [verbale M3.2](m3-2-verification.md) registra le verifiche e i limiti.
+
+Il 30 ottobre 2026 la [branch M2 parallela](m2-branch-integration.md), commit `bbfc2087`, è stata confrontata e integrata selettivamente: gruppi della sidebar con persistenza per documento, riferimenti ai diagrammi condivisi, percorso di annullamento acquisto, etichette dei tipi, ritorno al modello da tastiera e compatibilità del profilo storico. Il [verbale macOS M2.1](m2-validation.md) conserva i risultati riportati per la branch sorgente; il collaudo della revisione integrata M2.2/M3 resta distinto. Il prossimo incremento rimane M3.3.
+
 ## Decisione di base: un prodotto desktop autonomo
 
 A.D.E viene sviluppato modificando direttamente il fork Code OSS. Il workbench visuale, la navigazione del sistema e i servizi di coordinamento sono parti del prodotto. L’estensione in `ade/prototype/` resta un laboratorio di validazione delle interazioni; la sua esecuzione non certifica il funzionamento dell’applicazione desktop.
@@ -11,6 +19,8 @@ A.D.E viene sviluppato modificando direttamente il fork Code OSS. Il workbench v
 Il workbench definitivo viene riprogettato intorno a diagrammi e flussi: la barra sinistra parte dal sistema e dalle feature, con i diagrammi pertinenti sotto ciascun elemento; l'area centrale ospita canvas e viste coordinate, le proprietà seguono la selezione. Codice, file, terminale e debugger sono viste secondarie accessibili su richiesta. La home deve aprirsi direttamente nel prodotto, senza comandi di attivazione, installazione di plugin o Extension Development Host. La [decisione sul workbench visuale](decisions/0002-visual-workbench.md) precisa il risultato atteso e i confini della shell attuale.
 
 Il primo percorso di prodotto è progettare un nuovo sistema dai diagrammi: creare progetto e feature, rappresentare struttura e flussi, salvare e riprendere il lavoro. Importazione della codebase e implementazione IA restano nelle milestone dedicate e non sono prerequisiti per questo percorso.
+
+La [decisione su importazione, Sync e provider](decisions/0003-code-import-sync-and-providers.md), adottata il 29 ottobre 2026, prevede analisi del linguaggio affiancata dall'IA, importazione dell'intero perimetro supportato e aggiornamento incrementale su richiesta tramite **Sync**. L'utente sceglie provider e modello; il default sarà il modello più economico disponibile che superi il benchmark del prodotto. Collegamento a un piano personale, API e agente locale sono modalità distinte e vanno implementate secondo i percorsi ammessi dai provider. Queste capacità restano pianificate in M4–M6 e non interrompono il completamento di M2.
 
 L’editor testuale, il terminale e gli strumenti tecnici restano disponibili per manutenzione e approfondimenti. L’esperienza ordinaria parte dal modello del sistema e permette di completare il percorso supportato senza aprire il sorgente. La [decisione architetturale](decisions/0001-code-oss-fork.md) e la [guida al fork](fork-development.md) definiscono la base adottata.
 
@@ -20,8 +30,8 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | --- | --- | --- | --- |
 | M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build e smoke locali confermati; CI M0 Linux/macOS documentata, merge da ricollaudare |
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio verificato; smoke desktop confermato dall’utente |
-| M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Prossima priorità: riprogettazione UI/UX nativa |
-| M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | Da sviluppare |
+| M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Editor e collaudo M2.3 su Linux; macOS, CI e revisione utente aperti |
+| M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.2 implementati; contratti e viste estese da sviluppare |
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Da sviluppare |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Da sviluppare |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Da sviluppare |
@@ -119,6 +129,10 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 ### M2.1 — Architettura dell'esperienza e nuova shell
 
+**Disponibile:** [specifica e wireframe](visual-workbench.md), sidebar nativa predefinita al posto dell'esploratore file, diagrammi raggruppati per contesto semantico, canvas con nodi selezionabili e relazioni, proprietà e condizioni contestuali, accesso agli strumenti tecnici e ritorno al modello, avvio diretto e ripristino di modello/diagramma/selezioni. L'esempio contiene due feature e tre diagrammi. Caricamenti concorrenti, migrazione del contesto M1, modello vuoto, errori e aggiornamenti esterni sono gestiti e verificati. La navigazione inferisce il contesto della feature dai nodi del contratto v2; i diagrammi condivisi rimangono sotto il sistema.
+
+**Verifica:** build del client, controlli mirati e smoke Electron Linux superati; dettagli nel [verbale M2.1](m2-1-verification.md). Il percorso nativo è separato dallo smoke storico del prototipo e funziona anche con le estensioni integrate disabilitate. Restano revisione UX con l'utente, macOS, temi/contrasto e collaudo completo M2.3. Creazione, editing, salvataggio e cronologia del documento arrivano con M2.2; M2.1 resta in sola lettura.
+
 **Attività:**
 
 - Definire come percorso prioritario la creazione di un nuovo sistema: dalla home creare progetto e prima feature, aprire il relativo diagramma, progettare un flusso e salvarlo. Definire anche apertura e ripristino di un progetto esistente.
@@ -136,6 +150,10 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 **Criterio di completamento:** avviare il desktop su un progetto dimostrativo con profilo pulito e vedere direttamente sistema, feature e relativi diagrammi nella sidebar e il canvas al centro; scegliere un diagramma di un'altra feature e riaprire il progetto conservando contesto. L'albero dei file non occupa la sidebar iniziale e il percorso funziona senza estensione di sviluppo. Aprire e richiudere una vista tecnica su richiesta mantiene il contesto del modello.
 
 ### M2.2 — Canvas, proprietà ed editing persistente
+
+**Disponibile:** [creazione ed editing visuale](visual-editing.md), modello v3, progetto senza codebase, feature con struttura e flusso, palette, collegamenti compatibili e condizioni, rinomina, descrizioni, elementi condivisi, cancellazione con impatto esplicito, trascinamento e spostamento da tastiera, zoom/pan e layout a griglia. Le modifiche usano i servizi documentali di Code OSS per stato modificato, salvataggio, undo/redo, backup e conflitti. La demo integrata resta in sola lettura; i progetti creati e i modelli aperti da file sono modificabili secondo i permessi del file.
+
+**Verifica:** test di dominio e servizio, schema indipendente, build client e percorso Electron Linux da progetto vuoto a struttura/flusso salvati e riaperti. Sono verificati anche protezione dalle sovrascritture concorrenti e recupero delle modifiche non salvate nel canvas. Il [verbale M2.2](m2-2-verification.md) delimita il collaudo; macOS e revisione completa dell'esperienza proseguono in M2.3. L'editor supporta un sottoinsieme dichiarato di proprietà e flussi, senza attribuire esecuzione alle condizioni.
 
 **Attività:**
 
@@ -158,6 +176,12 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Attività:** verificare su desktop onboarding, scelta del diagramma, editing, passaggio fra viste, accesso contestuale agli strumenti tecnici e ripristino; controllare tastiera, contrasto, finestre strette ed errori di persistenza. Registrare capacità disponibili e rimandare esplicitamente importazione, generazione IA e diagnostica di esecuzione alle rispettive milestone.
 
+**Disponibile:** comandi secondari in sezioni espandibili, Fit Diagram, canvas raggiungibile da tastiera con pan, focus e scorrimento conservati durante gli aggiornamenti, contesto di scorrimento distinto per documento e diagramma, salvataggio di una copia con conservazione del contesto. Collaudo Linux su finestra 800 × 800 e temi Light Modern, Dark Modern, Dark High Contrast e Light High Contrast; verifica dei colori effettivi del nodo selezionato e del focus, esecuzione di un comando nel terminale con ritorno alla stessa selezione. Percorsi nativo e UX configurati separatamente nella CI desktop.
+
+**Verifica:** il [verbale M2.3](m2-3-verification.md) distingue risultati Linux, controlli di accessibilità circoscritti e limiti del routing. Restano esecuzione macOS corrente, VoiceOver, CI sulla revisione integrata e revisione UX dell'utente. M2 non è dichiarata chiusa sulla base del solo collaudo Linux.
+
+**Prosecuzione accessibilità:** lettura testuale del diagramma e aiuto contestuale integrati in Accessible View nativa, raggiungibili da canvas e sidebar, con aggiornamenti dal documento, ripristino del focus e suggerimenti configurabili tramite `accessibility.verbosity.ade`. L'[accessibilità del workbench](accessibility.md) descrive contenuti, comandi e confini del collaudo; l'integrazione non sostituisce la verifica con VoiceOver.
+
 **Criterio di completamento M2:** completare il percorso da nuovo progetto a feature, struttura e flusso salvati senza aprire sorgenti o modificare JSON. L'app si avvia come IDE A.D.E e mantiene sistema, feature, diagramma e selezione come contesto principale anche dopo una consultazione tecnica.
 
 ## M3 — Esplorazione del sistema e viste coordinate
@@ -177,6 +201,20 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Criterio di completamento:** partendo da «Conferma acquisto», raggiungere pagamento, ordine, errori e relativi contratti senza aprire il codice. Una modifica a un elemento condiviso deve riflettersi in tutte le viste interessate.
 
+### M3.1 — Ricerca, dettaglio e continuità della navigazione
+
+**Disponibile:** ricerca nativa con filtro per tipo semantico o diagrammi; destinazioni per tutti gli elementi, anche non collocati; schede con proprietà, relazioni, figli e diagrammi della feature; breadcrumb semantici; cambio di diagramma mantenendo la selezione; Back/Forward limitati a 100 posizioni della sessione. Schede e selezione corrente sono ripristinate dopo il riavvio; la cronologia viene azzerata fra documenti e sessioni.
+
+**Verifica:** test di dominio e servizio, percorsi Electron e lettura accessibile nel [verbale M3.1](m3-1-verification.md). Il watcher correlato del modello copre anche file esterni al workspace e protegge documenti modificati. Non sono state aggiunte proprietà allo schema semantico per conservare la navigazione.
+
+### M3.2 — Mappa del sistema e relazioni leggibili
+
+**Disponibile:** System Map ricavata dalla gerarchia, con tutte le identità e raggruppamenti diretti delle relazioni; accesso a dettagli, diagrammi e sorgente/destinazione. Breadcrumb del sistema, cronologia, ripristino e lettura accessibile includono la mappa senza modificare lo schema. Routing ortogonale attorno ai nodi, auto-collegamenti e porte differenziate per relazioni parallele; etichette misurate e collocate evitando nodi ed etichette, con linea guida quando manca spazio.
+
+**Verifica e limiti:** [verbale M3.2](m3-2-verification.md). Il routing non elimina tutti gli incroci fra connessioni; i layout completamente sovrapposti sono segnalati. macOS/VoiceOver, CI della revisione integrata e prestazioni su grandi modelli rimangono aperti.
+
+**Prossimo incremento M3.3:** ampliare l'editing dei contratti comportamentali (input/output, precondizioni, esiti ed errori), riutilizzando le identità fra scheda e diagrammi e dichiarando il sottoinsieme supportato. Sequenze, stati estesi e impatto rimangono nei successivi incrementi M3.
+
 ## M4 — Adattatore iniziale e tracciabilità del codice
 
 **Obiettivo:** collegare il modello a una codebase reale prima di delegare modifiche all'IA.
@@ -188,10 +226,14 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 - Mantenere mappature fra identificatori semantici e simboli/file, comprese rinomine e spostamenti.
 - Importare una codebase di esempio e segnalare esplicitamente costrutti non rappresentabili.
 - Rilevare cambiamenti esterni e calcolare un impatto preliminare senza riscrivere i file.
+- Affiancare all'analisi deterministica un connettore IA inizialmente in sola lettura per responsabilità e raggruppamento delle feature; validare output strutturati e associare ogni risultato a simboli e revisioni sorgenti. Questo anticipa la parte dei provider necessaria all'importazione, senza generazione di codice.
+- Percorrere tutto il sorgente pertinente dello stack dichiarato e costruire un indice e viste gerarchiche, rendendo esplicita la copertura dei costrutti. Distinguere fatti estratti, interpretazioni incerte e comportamento runtime non osservato.
+- Introdurre il primo **Sync** su richiesta: hash/revisioni, rianalisi dei simboli modificati e delle dipendenze interessate, cache e riepilogo degli aggiornamenti. La riconciliazione completa delle modifiche concorrenti appartiene a M6.
+- Confrontare modelli economici e più capaci su almeno tre repository campione; misurare accuratezza delle relazioni, copertura, tracciabilità, latenza e consumo. Adottare il modello economico predefinito soltanto dopo averne verificato le soglie.
 
 **Consegna:** primo adattatore di analisi, codebase dimostrativa e mappa modello/codice ispezionabile.
 
-**Criterio di completamento:** importare il progetto campione, navigarne gli elementi e rilevare una modifica manuale a un contratto. Gli elementi non supportati devono rimanere conservati e riconoscibili.
+**Criterio di completamento:** importare il progetto campione, navigarne gli elementi e sincronizzare una modifica manuale a un contratto, una rinomina e una cancellazione senza ricostruire inutilmente le parti invariate. Le relazioni devono avere evidenze ispezionabili; elementi non supportati e interpretazioni incerte restano riconoscibili. Pubblicare risultati del benchmark prima di dichiarare sufficiente un modello economico per il perimetro supportato.
 
 ## M5 — Collaborazione con l'IA e prima implementazione
 
@@ -200,6 +242,8 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 **Attività:**
 
 - Definire un'interfaccia per i provider IA e una configurazione delle credenziali fuori dai file versionati.
+- Estendere il connettore in sola lettura di M4 a esecuzione assistita, con selezione del modello, capacità e limiti per account. Distinguere API, collegamento al piano personale e agente locale: OpenAI/Codex e Claude non condividono automaticamente la stessa modalità di login.
+- Impostare come default il modello più economico disponibile che superi le verifiche; configurare eventuale modello più capace e budget di passaggio. Rispettare quote e preferenze salvate e mostrare costi effettivi soltanto quando disponibili.
 - Fornire all'agente modello, contesto della feature, vincoli e porzioni pertinenti della codebase.
 - Presentare piano, domande sulle ambiguità e impatto sul sistema prima dell'esecuzione.
 - Applicare le modifiche in un ambiente recuperabile, con controlli sulle operazioni eseguibili.
@@ -218,6 +262,8 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 **Attività:**
 
 - Introdurre revisioni comuni, origine delle modifiche e registro delle operazioni.
+- Estendere il comando **Sync** di M4 alla riconciliazione bidirezionale: elaborare differenze e dipendenze coinvolte, conservando identificatori, layout e annotazioni manuali.
+- Rendere annullabili le sincronizzazioni e rifiutare risultati basati su revisioni superate; aggiornare il riferimento comune soltanto dopo un'applicazione riuscita e coerente.
 - Confrontare versione comune, modello corrente e codice corrente per riconciliare cambiamenti concorrenti.
 - Gestire entrambe le direzioni: modello → implementazione e codice → modello/viste.
 - Distinguere trasformazioni deterministiche da interpretazioni IA che richiedono chiarimenti.
@@ -303,6 +349,11 @@ Prima di M4/M5 vanno scelti stack dimostrativo, provider IA e politiche di esecu
 2. **M0.2:** introdurre home e primo contributo nativo A.D.E nel workbench. Risultato: il modello dimostrativo è raggiungibile nell’applicazione dedicata.
 3. **M0.3:** rendere verificabili build e aggiornamenti upstream. Risultato: una base mantenibile prima di ampliare le modifiche al core.
 4. **M1:** definire il modello semantico del checkout e i suoi contratti. Risultato: dati condivisi fra editor, esploratore e futuri agenti.
-5. **Prima porzione di M2:** creare, collegare, modificare e salvare attore, feature e risorsa dal canvas. Risultato: prima sessione di progettazione senza modificare JSON.
+5. **M2.1:** introdurre sidebar semantica, canvas e proprietà nella shell nativa. Prima implementazione e smoke Linux disponibili; completare revisione UX e collaudo macOS.
+6. **M2.2:** creare progetto, feature e diagrammi; collegare, modificare e salvare gli elementi dal canvas con undo/redo. Percorso implementato e verificato su Linux, con i limiti dichiarati nel verbale.
+7. **M2.3:** collaudo Linux, tastiera, quattro temi e finestra stretta eseguiti; completare macOS/VoiceOver, revisione UX dell'utente e nuova CI prima della chiusura M2.
+8. **M3.1:** ricerca, schede, breadcrumb, cronologia e cambio di prospettiva implementati e verificati su Linux; mantenere aperte le verifiche di piattaforma.
+9. **M3.2:** mappa complessiva, routing ortogonale ed etichette implementati; verifiche e limiti nel verbale.
+10. **M3.3:** editing dei contratti comportamentali e coerenza fra dettagli e viste.
 
-La prima dimostrazione utile sarà quindi un’applicazione A.D.E compilata dal fork in cui il developer apre un progetto, disegna un piccolo flusso e lo ritrova dopo il riavvio. L’implementazione assistita dall’IA e la sincronizzazione con il codice saranno aggiunte nelle milestone successive, con i rispettivi criteri di verifica.
+Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. L’implementazione assistita dall’IA e la sincronizzazione con il codice saranno aggiunte nelle milestone successive, con i rispettivi criteri di verifica.
