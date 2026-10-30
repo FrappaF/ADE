@@ -26,6 +26,10 @@ import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 import { getDiagramGroups, getElementPath } from '../common/visualNavigation.js';
 import { getSystemMap } from '../common/systemMap.js';
 import { DiagramBox, placeConnectionLabel, routeDiagramConnection } from '../common/diagramRouting.js';
+import { getSequenceDiagram } from '../common/sequenceDiagram.js';
+import { renderAdeSequence } from './adeSequence.js';
+import { renderAdeState, stateTransitionLabel } from './adeState.js';
+import { renderChangeImpact, renderRecordedEvidence } from './adeImpact.js';
 
 export class AdeEditor extends EditorPane {
 	static readonly ID = AdeInput.ID;
@@ -100,7 +104,7 @@ export class AdeEditor extends EditorPane {
 		}
 		this.canvasViewport = undefined;
 		this.canvasContent = undefined;
-		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
+		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
 		this.interactions.clear();
 		this.controls.render(this.root, () => {
 			dom.clearNode(this.root);
@@ -133,6 +137,8 @@ export class AdeEditor extends EditorPane {
 				this.renderSystemMap(content);
 			} else if (this.project.section === 'element') {
 				this.renderElement(content);
+			} else if (this.project.section === 'impact') {
+				this.renderImpact(content);
 			} else {
 				this.renderDiagram(content);
 			}
@@ -178,16 +184,24 @@ export class AdeEditor extends EditorPane {
 		}
 		for (const diagnostic of this.project.diagnostics) { this.paragraph(content, diagnostic); }
 		if (!view) {
-			this.paragraph(content, localize('ade.noDiagrams', "This project has no diagrams. Add a feature to begin designing its structure and flow."));
+			if (model.semantics.elements.some(element => element.kind === 'feature')) {
+				this.paragraph(content, localize('ade.noDiagramsExistingFeatures', "This project has no diagrams. Add a diagram to an existing feature to continue."));
+				this.button(content, localize('ade.addDiagram', "Add Diagram"), () => { void this.commandService.executeCommand('ade.addDiagram'); });
+			} else { this.paragraph(content, localize('ade.noDiagrams', "This project has no diagrams. Add a feature to begin designing its structure and flow.")); }
 			this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
 			return;
 		}
+		if (view.kind === 'state') { renderAdeState(content, model, view, this.controls, id => this.project.inspectElement(id), id => { this.project.selectElement(id); this.focusSelection(); }); }
 		const workspace = dom.append(content, dom.$('.ade-workspace'));
 		const visual = dom.append(workspace, dom.$('section.ade-visual'));
+		if (view.kind === 'sequence') { this.paragraph(visual, localize('ade.sequence.intent', "Declared sequence: invocations, reads and writes, one occurrence per relationship. Order is local to this diagram, not observed execution.")); }
 		this.renderCanvas(dom.append(visual, dom.$('.ade-canvas-scroll')), model, view);
 		const help = dom.append(visual, dom.$('p'));
 		help.id = 'ade-canvas-help';
-		help.textContent = this.project.editable
+		help.textContent = view.kind === 'sequence' && this.project.editable
+			? localize('ade.sequence.help', "Select a participant or message to inspect its shared contract. Use Properties to order participants and messages or remove them from this diagram. Focus the background and use arrow keys to pan.")
+			: view.kind === 'sequence' ? localize('ade.sequence.readonlyHelp', "Select a participant or message to inspect its shared contract. Read Diagram presents the sequence as text. Focus the background and use arrow keys to pan.")
+			: this.project.editable
 			? localize('ade.editableCanvasHelp', "Tab to an element and press Enter to select it. Arrow keys move the focused element; Shift increases the step. Focus the diagram background and use arrow keys to pan. Relationships and conditions appear in Properties.")
 			: localize('ade.canvasHelp', "Tab to an element and press Enter to select it. Focus the diagram background and use arrow keys to pan. Relationships and conditions appear in Properties.");
 		const accessibilityHint = getAdeAccessibilityHint(this.configurationService, this.keybindingService);
@@ -254,7 +268,7 @@ export class AdeEditor extends EditorPane {
 		const breadcrumbs = dom.append(parent, dom.$('nav.ade-breadcrumbs'));
 		breadcrumbs.setAttribute('aria-label', localize('ade.breadcrumbs', "Semantic Path"));
 		this.button(breadcrumbs, model.name, () => this.project.showSystemMap(), 'breadcrumb:system');
-		if (this.project.section === 'element') {
+		if (this.project.section === 'element' || this.project.section === 'impact') {
 			for (const element of getElementPath(model, this.project.selectedId)) {
 				if (element.id === this.project.selectedId) {
 					const current = dom.append(breadcrumbs, dom.$('span'));
@@ -274,13 +288,10 @@ export class AdeEditor extends EditorPane {
 		}
 	}
 
-	private renderElement(content: HTMLElement): void {
-		const model = this.project.model;
-		const element = model.semantics.elements.find(element => element.id === this.project.selectedId);
-		if (!element) { return; }
+	private renderInspectionHeader(content: HTMLElement, title: string, intent: string): void {
 		this.renderBreadcrumbs(content);
-		dom.append(content, dom.$('h1')).textContent = element.name;
-		this.paragraph(content, localize('ade.elementDetailsIntent', "Element Details · {0} · Design intent", model.name));
+		dom.append(content, dom.$('h1')).textContent = title;
+		this.paragraph(content, intent);
 		this.renderEditingToolbar(content);
 		if (this.project.saveError) {
 			const error = dom.append(content, dom.$('p.ade-status'));
@@ -288,6 +299,23 @@ export class AdeEditor extends EditorPane {
 			error.textContent = this.project.saveError;
 		}
 		for (const diagnostic of this.project.diagnostics) { this.paragraph(content, diagnostic); }
+	}
+
+	private renderImpact(content: HTMLElement): void {
+		const model = this.project.model;
+		const element = model.semantics.elements.find(element => element.id === this.project.selectedId);
+		if (!element) { return; }
+		this.renderInspectionHeader(content, localize('ade.impact.title', "Change Impact: {0}", element.name), localize('ade.impact.intent', "{0} · Declared Model Review", model.name));
+		this.button(content, localize('ade.elementDetails', "Element Details"), () => this.project.inspectElement(element.id), 'impact-details');
+		renderChangeImpact(content, model, element.id, this.controls, id => this.project.inspectElement(id), id => this.project.showDiagram(id));
+		this.renderProperties(dom.append(content, dom.$('section.ade-properties')), model);
+	}
+
+	private renderElement(content: HTMLElement): void {
+		const model = this.project.model;
+		const element = model.semantics.elements.find(element => element.id === this.project.selectedId);
+		if (!element) { return; }
+		this.renderInspectionHeader(content, element.name, localize('ade.elementDetailsIntent', "Element Details · {0} · Design intent", model.name));
 		if (element.kind === 'feature') {
 			const diagrams = getDiagramGroups(model).find(group => group.featureId === element.id)?.views ?? [];
 			dom.append(content, dom.$('h2')).textContent = localize('ade.featureDiagrams', "Feature Diagrams");
@@ -311,6 +339,23 @@ export class AdeEditor extends EditorPane {
 		parent.setAttribute('aria-label', localize('ade.canvas', "Diagram: {0}", view.name));
 		if (!view.nodes.length) {
 			this.paragraph(parent, localize('ade.emptyDiagram', "This diagram has no elements."));
+			return;
+		}
+		if (view.kind === 'sequence') {
+			const frame = dom.append(parent, dom.$('.ade-canvas'));
+			const canvas = dom.append(frame, dom.$('.ade-canvas-content'));
+			this.canvasContent = canvas;
+			const size = renderAdeSequence(canvas, model, view, this.controls, this.project.selectedId, id => this.project.selectElement(id));
+			dom.size(canvas, size.width, size.height);
+			dom.size(frame, size.width * this.zoom, size.height * this.zoom);
+			canvas.style.transformOrigin = '0 0';
+			canvas.style.transform = `scale(${this.zoom})`;
+			this.installPan(parent);
+			const sequence = getSequenceDiagram(model, view);
+			if (!sequence.messages.length) { this.paragraph(parent, localize('ade.sequence.empty', "No messages. Add an existing interaction or connect participants.")); }
+			if (sequence.unsupported.length) {
+				this.paragraph(parent, localize('ade.sequence.unsupported', "Not rendered as sequence messages: {0}. These relationships remain in Properties and Read Diagram.", sequence.unsupported.map(relation => relation.name || relationLabels[relation.kind]).join(', ')));
+			}
 			return;
 		}
 		const width = 192;
@@ -355,7 +400,7 @@ export class AdeEditor extends EditorPane {
 			paths.appendChild(path);
 			const label = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'text');
 			label.setAttribute('class', 'ade-connection-label');
-			label.textContent = relation.condition || relation.name;
+			label.textContent = view.kind === 'state' && relation.kind === 'transition' ? stateTransitionLabel(relation) : relation.condition || relation.name;
 			labels.appendChild(label);
 			const placement = placeConnectionLabel(route, label.getComputedTextLength() + 12, occupied);
 			occupied.push(placement.box);
@@ -409,6 +454,11 @@ export class AdeEditor extends EditorPane {
 		if (!element) { return; }
 		dom.append(detail, dom.$('h3')).textContent = element.name;
 		this.paragraph(detail, localize('ade.elementKind', "Type: {0}", elementLabels[element.kind]));
+		if (this.project.section !== 'impact') { this.button(detail, localize('ade.showImpact.button', "Show Change Impact"), () => this.project.showImpact(element.id), 'show-impact'); }
+		if (element.kind === 'state' && element.parentId) {
+			const resource = model.semantics.elements.find(candidate => candidate.id === element.parentId && candidate.kind === 'resource');
+			if (resource) { this.button(detail, localize('ade.state.resource', "Resource: {0}", resource.name), () => this.project.inspectElement(resource.id), `state-owner:${resource.id}`); }
+		}
 		if (this.project.section === 'diagram') {
 			this.button(detail, localize('ade.elementDetails', "Element Details"), () => this.project.inspectElement(element.id));
 		}
@@ -421,23 +471,35 @@ export class AdeEditor extends EditorPane {
 			}
 		} else if (element.kind !== 'feature') { this.paragraph(detail, localize('ade.notPlaced', "This element is not placed in a diagram.")); }
 		if (this.project.editable) {
+			if (view?.kind === 'state') {
+				this.button(detail, element.kind === 'state' ? localize('ade.state.removeState', "Remove State from Diagram") : localize('ade.state.removeContext', "Remove Element from Diagram"), () => this.project.edit({ kind: 'exclude', viewId: view.id, id: element.id, target: 'element' }));
+			}
+			if (view?.kind === 'sequence') {
+				const index = view.nodes.findIndex(node => node.elementId === element.id);
+				this.button(detail, localize('ade.sequence.left', "Move Participant Left"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: element.id, target: 'participant', direction: -1 })).disabled = index <= 0;
+				this.button(detail, localize('ade.sequence.right', "Move Participant Right"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: element.id, target: 'participant', direction: 1 })).disabled = index === view.nodes.length - 1;
+				this.button(detail, localize('ade.sequence.removeParticipant', "Remove Participant from Diagram"), () => this.project.edit({ kind: 'sequenceRemove', viewId: view.id, id: element.id, target: 'participant' }));
+			}
 			for (const [label, command] of [
 				[localize('ade.renameElement', "Rename Element"), 'ade.renameElement'],
 				[localize('ade.editDescription', "Edit Description"), 'ade.description'],
+				[localize('ade.editBehavior', "Edit Behavioral Contract"), 'ade.behavior'],
 				[localize('ade.connectSelection', "Connect Selection"), 'ade.connect'],
 				[localize('ade.deleteElement', "Delete Element"), 'ade.deleteElement']
 			]) {
 				if (command === 'ade.connect' && !view) { continue; }
-				this.button(detail, label, () => { void this.commandService.executeCommand(command); });
+				this.button(detail, label, () => { void this.commandService.executeCommand(command); }).disabled = command === 'ade.connect' && view?.kind === 'state' && element.kind !== 'state';
 			}
 		}
 		if (element.description) { this.paragraph(detail, element.description); }
 		if (element.behavior) {
-			for (const field of element.behavior.inputs) { this.paragraph(detail, localize('ade.input', "Input: {0} ({1})", field.name, field.type)); }
-			for (const field of element.behavior.outputs) { this.paragraph(detail, localize('ade.output', "Output: {0} ({1})", field.name, field.type)); }
+			dom.append(detail, dom.$('h3')).textContent = localize('ade.behavior.heading', "Behavioral Contract");
+			this.paragraph(detail, localize('ade.behavior.intent', "Contract declarations describe expected behavior."));
+			for (const field of element.behavior.inputs) { this.paragraph(detail, localize('ade.input', "Input: {0} ({1}), {2}", field.name, field.type, field.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional"))); }
+			for (const field of element.behavior.outputs) { this.paragraph(detail, localize('ade.output', "Output: {0} ({1}), {2}", field.name, field.type, field.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional"))); }
 			for (const condition of element.behavior.preconditions) { this.paragraph(detail, localize('ade.precondition', "Precondition: {0}", condition)); }
 			for (const condition of element.behavior.postconditions) { this.paragraph(detail, localize('ade.postcondition', "Postcondition: {0}", condition)); }
-			for (const error of element.behavior.errors) { this.paragraph(detail, error.description); }
+			for (const error of element.behavior.errors) { this.paragraph(detail, localize('ade.behavior.error', "Error {0}: {1}", error.code, error.description)); }
 			for (const permission of element.behavior.permissions) {
 				this.paragraph(detail, localize('ade.permission', "Authorization: {0} · {1}", model.semantics.elements.find(element => element.id === permission.actorId)!.name, permission.capability));
 			}
@@ -451,16 +513,29 @@ export class AdeEditor extends EditorPane {
 			const to = model.semantics.elements.find(element => element.id === relation.to)!;
 			const label = localize('ade.relation', "{0} → {1}: {2}", from.name, to.name, relation.name || relation.kind);
 			this.button(detail, label, () => this.revealElement(targetId), `relation:${relation.id}`);
-			if (this.project.editable && view?.relationIds.includes(relation.id)) {
+			if (this.project.editable && view?.kind === 'sequence' && view.relationIds.includes(relation.id)) {
+				const messages = getSequenceDiagram(model, view).messages;
+				const index = messages.findIndex(message => message.id === relation.id);
+				const actions = this.controls.details(detail, localize('ade.sequence.messageOptions', "Sequence Message Options: {0}", relation.name || relationLabels[relation.kind]), `sequence-options:${relation.id}`);
+				this.button(actions, localize('ade.sequence.earlier', "Move Message Earlier"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: relation.id, target: 'message', direction: -1 }), `earlier:${relation.id}`).disabled = index <= 0;
+				this.button(actions, localize('ade.sequence.later', "Move Message Later"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: relation.id, target: 'message', direction: 1 }), `later:${relation.id}`).disabled = index < 0 || index === messages.length - 1;
+				this.button(actions, localize('ade.sequence.removeMessage', "Remove Message from Diagram"), () => this.project.edit({ kind: 'sequenceRemove', viewId: view.id, id: relation.id, target: 'message' }), `remove-message:${relation.id}`);
+			}
+			if (this.project.editable) {
+				if (relation.kind === 'transition') {
+					this.button(detail, localize('ade.state.editEvent', "Edit Transition Event"), () => { void this.commandService.executeCommand('ade.renameRelation', relation.id); }, `event:${relation.id}`);
+				}
+				if (view?.kind === 'state' && view.relationIds.includes(relation.id)) {
+					this.button(detail, localize('ade.state.removeTransition', "Remove Relationship from Diagram"), () => this.project.edit({ kind: 'exclude', viewId: view.id, id: relation.id, target: 'relation' }), `exclude:${relation.id}`);
+				}
 				this.button(detail, localize('ade.editCondition', "Edit Condition"), () => { void this.commandService.executeCommand('ade.condition', relation.id); }, `condition:${relation.id}`);
+				this.button(detail, localize('ade.editRelationError', "Edit Relationship Error"), () => { void this.commandService.executeCommand('ade.relationError', relation.id); }, `error:${relation.id}`);
 				this.button(detail, localize('ade.deleteRelationship', "Delete Relationship"), () => { void this.commandService.executeCommand('ade.deleteRelation', relation.id); }, `delete:${relation.id}`);
 			}
 			if (relation.condition) { this.paragraph(detail, localize('ade.condition', "Condition: {0}", relation.condition)); }
 			if (relation.errorCode) { this.paragraph(detail, localize('ade.errorCodeLabel', "Error: {0}", relation.errorCode)); }
 		}
-		this.paragraph(detail, localize('ade.evidence', "Code mappings: {0} · Verification records: {1}",
-			model.codeMappings.filter(mapping => mapping.elementId === element.id).length,
-			model.verifications.filter(verification => verification.elementId === element.id).length));
+		renderRecordedEvidence(detail, model, element.id, this.controls);
 	}
 
 	private renderEditingToolbar(parent: HTMLElement): void {
@@ -475,18 +550,28 @@ export class AdeEditor extends EditorPane {
 			this.button(actions, localize('ade.saveCopy', "Save Project Copy"), () => { void this.commandService.executeCommand('ade.saveCopy'); });
 			this.paragraph(toolbar, this.project.dirty ? localize('ade.unsaved', "Unsaved Changes") : localize('ade.saved', "Saved"));
 		}
-		if (this.project.editable && this.project.section !== 'element') {
+		if (this.project.editable && this.project.section !== 'element' && this.project.section !== 'impact') {
 			if (this.project.section === 'map') {
 				this.button(toolbar, localize('ade.addFeature', "Add Feature"), () => { void this.commandService.executeCommand('ade.addFeature'); });
 			} else {
-				this.button(toolbar, localize('ade.addElement', "Add Element"), () => { void this.commandService.executeCommand('ade.addElement'); }).disabled = !this.project.activeView;
+				this.button(toolbar, this.project.activeView?.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => { void this.commandService.executeCommand('ade.addElement'); }).disabled = !this.project.activeView;
 				const actions = this.controls.details(toolbar, localize('ade.diagramOptions', "Diagram Options"), 'diagram-options');
 				for (const [label, command] of [
 					[localize('ade.addExisting', "Add Existing Element"), 'ade.addExisting'],
 					[localize('ade.renameDiagram', "Rename Diagram"), 'ade.renameDiagram'],
 					[localize('ade.deleteDiagram', "Delete Diagram"), 'ade.deleteDiagram'],
 					[localize('ade.layout', "Arrange Diagram"), 'ade.layout']
-				]) { this.button(actions, label, () => { void this.commandService.executeCommand(command); }); }
+				]) {
+					if (command !== 'ade.layout' || this.project.activeView?.kind !== 'sequence') { this.button(actions, label, () => { void this.commandService.executeCommand(command); }); }
+				}
+				if (this.project.activeView?.kind === 'sequence') {
+					this.button(toolbar, localize('ade.sequence.addMessage', "Add Existing Message"), () => { void this.commandService.executeCommand('ade.addSequenceMessage'); });
+				}
+				if (this.project.activeView?.kind === 'state') {
+					this.button(toolbar, localize('ade.state.addExisting', "Add Existing State"), () => { void this.commandService.executeCommand('ade.addExistingState'); });
+					this.button(toolbar, localize('ade.state.addTransition', "Add Existing Transition"), () => { void this.commandService.executeCommand('ade.addTransition'); });
+					this.button(actions, localize('ade.state.includeLifecycle', "Include Resource Lifecycle"), () => { void this.commandService.executeCommand('ade.includeLifecycle'); });
+				}
 				if (this.project.activeView) {
 					this.button(actions, localize('ade.addFeature', "Add Feature"), () => { void this.commandService.executeCommand('ade.addFeature'); });
 				}
@@ -503,6 +588,8 @@ export class AdeEditor extends EditorPane {
 			this.button(toolbar, localize('ade.zoomIn', "Zoom In"), () => { this.zoom = Math.min(2, this.zoom + 0.2); this.render(); });
 		} else if (this.project.section === 'element') {
 			this.button(toolbar, localize('ade.readElement', "Read Element Details"), () => { void this.commandService.executeCommand('ade.readContext'); });
+		} else if (this.project.section === 'impact') {
+			this.button(toolbar, localize('ade.readImpact', "Read Change Impact"), () => { void this.commandService.executeCommand('ade.readContext'); });
 		} else if (this.project.section === 'map') {
 			this.button(toolbar, localize('ade.readMap', "Read System Map"), () => { void this.commandService.executeCommand('ade.readContext'); });
 		}

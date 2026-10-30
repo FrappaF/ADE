@@ -20,6 +20,7 @@ import { InMemoryStorageService, StorageScope, StorageTarget } from '../../../..
 import { AdeProjectService } from '../../browser/adeProjectService.js';
 import { projectDocuments } from './testProjectDocuments.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
+import { libraryModel, observatoryModel } from '../common/independentProjects.js';
 
 class ModelDialogs extends mock<IFileDialogService>() {
 	selected: URI | undefined;
@@ -253,6 +254,186 @@ suite('A.D.E project context', () => {
 		assert.strictEqual(await project.save(), true);
 		await project.retry();
 		assert.deepStrictEqual([project.model.semantics.elements.find(element => element.id === 'payment')!.name, project.model.views[0].nodes.find(node => node.elementId === 'payment')!.x, project.dirty], ['Autorizza pagamento', -100, false]);
+	});
+
+	test('contract editing shares identity across details and diagrams with native undo, redo and persistence', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.inspectElement('payment-contract');
+		const behavior = { inputs: [{ name: 'amount', type: 'Money', required: true }], outputs: [], preconditions: ['Amount is positive'], postconditions: [], errors: [], permissions: [], acceptanceCriteria: [] };
+		project.edit({ kind: 'behavior', id: 'payment-contract', behavior });
+		const edited = structuredClone(project.model);
+		await project.undo();
+		assert.deepStrictEqual([project.model.version, project.model.semantics.elements.find(element => element.id === 'payment-contract')!.behavior, project.dirty], [2, undefined, false]);
+		await project.redo();
+		assert.deepStrictEqual(project.model, edited);
+		project.edit({ kind: 'include', id: 'payment-contract', viewId: 'purchase-structure' });
+		project.revealElement('payment-contract', 'purchase-structure');
+		assert.deepStrictEqual([project.section, project.selectedId, project.model.semantics.elements.find(element => element.id === project.selectedId)!.behavior], ['diagram', 'payment-contract', behavior]);
+		await project.save();
+		await project.retry();
+		assert.deepStrictEqual([project.model.semantics.elements.find(element => element.id === 'payment-contract')!.behavior, project.dirty], [behavior, false]);
+	});
+
+	test('sequence order and shared messages use native undo, save, restart and context repair', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.editBatch([
+			{ kind: 'diagram', id: 'sequence', name: 'Purchase Sequence', viewKind: 'sequence', featureId: 'purchase' },
+			{ kind: 'sequenceMessage', viewId: 'sequence', id: 'checkout-confirm' },
+			{ kind: 'sequenceMessage', viewId: 'sequence', id: 'confirm-order' }
+		]);
+		project.showDiagram('sequence');
+		project.selectElement('checkout-controller');
+		project.edit({ kind: 'sequenceOrder', viewId: 'sequence', id: 'confirm-order', target: 'message', direction: -1 });
+		await project.undo();
+		assert.deepStrictEqual(project.activeView!.relationIds, ['checkout-confirm', 'confirm-order']);
+		await project.redo();
+		project.edit({ kind: 'condition', id: 'confirm-order', condition: 'Authorized payment' });
+		await project.save();
+		await storage.flush();
+		project.dispose();
+		const restarted = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await restarted.restore();
+		assert.deepStrictEqual([restarted.activeView!.kind, restarted.activeView!.relationIds, restarted.selectedId, restarted.dirty], ['sequence', ['confirm-order', 'checkout-confirm'], 'checkout-controller', false]);
+		restarted.showDiagram('purchase-structure');
+		assert.strictEqual(restarted.model.semantics.relations.find(relation => relation.id === 'confirm-order')!.condition, 'Authorized payment');
+		restarted.showDiagram('sequence');
+		restarted.edit({ kind: 'sequenceRemove', viewId: 'sequence', id: 'checkout-controller', target: 'participant' });
+		assert.deepStrictEqual([restarted.activeView!.relationIds, restarted.model.semantics.elements.length, restarted.model.semantics.relations.length, restarted.selectedId], [[], checkoutModel.semantics.elements.length, checkoutModel.semantics.relations.length, 'checkout']);
+	});
+
+	test('resource state views share transitions and persist native history and repaired selection', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.editBatch([
+			{ kind: 'stateDiagram', id: 'states', name: 'Order States', featureId: 'purchase', resourceId: 'order' },
+			{ kind: 'stateLifecycle', viewId: 'states', resourceId: 'order' }
+		]);
+		await project.undo();
+		assert.strictEqual(project.model.version, 2);
+		await project.redo();
+		project.showDiagram('states');
+		project.selectElement('pending');
+		project.edit({ kind: 'renameRelation', id: 'order-confirmed', name: 'Payment Accepted' });
+		await project.save();
+		await storage.flush();
+		project.dispose();
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await restored.restore();
+		assert.deepStrictEqual([restored.activeView!.kind, restored.activeView!.relationIds, restored.selectedId, restored.dirty], ['state', ['order-confirmed', 'order-declined'], 'pending', false]);
+		const semantics = structuredClone(restored.model.semantics);
+		restored.edit({ kind: 'exclude', viewId: 'states', id: 'pending', target: 'element' });
+		assert.deepStrictEqual([restored.model.semantics, restored.activeView!.relationIds, restored.selectedId], [semantics, [], 'order']);
+		await restored.undo();
+		assert.deepStrictEqual(restored.activeView!.relationIds, ['order-confirmed', 'order-declined']);
+		restored.showDiagram('purchase-outcome');
+		assert.strictEqual(restored.model.semantics.relations.find(relation => relation.id === 'order-confirmed')!.name, 'Payment Accepted');
+	});
+
+	test('resource creation and its state diagram are atomic when a later batch edit is invalid', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		const before = structuredClone(project.model);
+		assert.throws(() => project.editBatch([
+			{ kind: 'resource', id: 'shipment', name: 'Shipment', parentId: 'purchase' },
+			{ kind: 'stateDiagram', id: 'shipment-state', name: 'Shipment States', featureId: 'missing', resourceId: 'shipment' }
+		]));
+		assert.deepStrictEqual([project.model, project.dirty, project.canUndo], [before, false, false]);
+	});
+
+	test('impact is a read-only navigation destination that restores through history, save copy and restart', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.showImpact('payment-contract');
+		assert.deepStrictEqual([project.section, project.selectedId, project.activeView, project.dirty, project.model.version], ['impact', 'payment-contract', undefined, false, 2]);
+		project.goBack();
+		assert.strictEqual(project.section, 'diagram');
+		project.goForward();
+		assert.strictEqual(project.section, 'impact');
+		project.edit({ kind: 'rename', id: 'payment-contract', target: 'element', name: 'Payment Contract Updated' });
+		dialogs.saveTarget = URI.parse('test:/impact-copy.json');
+		assert.strictEqual(await project.saveAs(), true);
+		await storage.flush();
+		project.dispose();
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await restored.restore();
+		assert.deepStrictEqual([restored.section, restored.selectedId, restored.activeView, restored.modelUri!.toString(), restored.model.semantics.elements.find(element => element.id === 'payment-contract')!.name, restored.dirty], ['impact', 'payment-contract', undefined, dialogs.saveTarget.toString(), 'Payment Contract Updated', false]);
+		restored.edit({ kind: 'deleteElement', id: 'payment-contract' });
+		assert.strictEqual(restored.section, 'diagram');
+	});
+
+	test('changing documents clears impact even when identities coincide and failed loads do not expose the old report', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.showImpact('payment-contract');
+		const other = URI.parse('test:/other-impact.json');
+		await files.writeFile(other, VSBuffer.fromString(JSON.stringify({ ...checkoutModel, id: 'other' })));
+		dialogs.selected = other;
+		await project.chooseModel();
+		assert.deepStrictEqual([project.section, project.canGoBack, project.dirty], ['diagram', false, false]);
+		project.showImpact('payment-contract');
+		await files.writeFile(other, VSBuffer.fromString('{"version":99}'));
+		await project.retry();
+		assert.ok(project.error);
+	});
+
+	test('independent project files with overlapping IDs retain their own topology and inspector context', async () => {
+		const library = URI.parse('test:/independent-library.json');
+		const observatory = URI.parse('test:/independent-observatory.json');
+		await files.writeFile(library, VSBuffer.fromString(JSON.stringify(libraryModel)));
+		await files.writeFile(observatory, VSBuffer.fromString(JSON.stringify(observatoryModel)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = library;
+		await project.chooseModel();
+		assert.deepStrictEqual(project.model, libraryModel);
+		project.showDiagram('states');
+		project.selectElement('active');
+		project.showImpact('contract');
+		dialogs.saveTarget = URI.parse('test:/independent-copy.json');
+		await project.saveAs();
+		await storage.flush();
+		project.dispose();
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await restored.restore();
+		assert.deepStrictEqual([restored.model, restored.section, restored.selectedId, restored.dirty], [libraryModel, 'impact', 'contract', false]);
+		dialogs.selected = observatory;
+		await restored.chooseModel();
+		assert.deepStrictEqual([restored.model, restored.section, restored.activeView, restored.selectedId, restored.canGoBack], [observatoryModel, 'diagram', undefined, '', false]);
+		restored.edit({ kind: 'diagram', id: 'structure', name: 'Acquisizioni', featureId: 'feature', viewKind: 'structure' });
+		restored.edit({ kind: 'include', viewId: 'structure', id: 'scheduler' });
+		await restored.save();
+		dialogs.selected = library;
+		await restored.chooseModel();
+		assert.deepStrictEqual(restored.model, libraryModel);
+	});
+
+	test('empty projects create independent resource lifecycles with native undo and round-trip persistence', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await project.createProject('Stazione oceanografica', URI.parse('test:/marine-laboratory'));
+		assert.deepStrictEqual([project.model.semantics.elements, project.model.views, project.model.codeMappings, project.model.verifications], [[], [], [], []]);
+		project.editBatch([
+			{ kind: 'feature', id: 'acquisition', name: 'Acquisizione' },
+			{ kind: 'resource', id: 'sample', name: 'Campione', parentId: 'acquisition' },
+			{ kind: 'stateDiagram', id: 'sample-states', name: 'Stati del campione', featureId: 'acquisition', resourceId: 'sample' },
+			{ kind: 'element', id: 'fresh', name: 'Nuovo', elementKind: 'state', parentId: 'sample', viewId: 'sample-states' },
+			{ kind: 'element', id: 'archived', name: 'Archiviato', elementKind: 'state', parentId: 'sample', viewId: 'sample-states' },
+			{ kind: 'relation', id: 'archive', name: 'Archivia', relationKind: 'transition', from: 'fresh', to: 'archived', condition: 'Misura valida', viewId: 'sample-states' }
+		]);
+		project.showDiagram('sample-states');
+		project.selectElement('archived');
+		await project.undo();
+		assert.strictEqual(project.model.semantics.elements.length, 0);
+		await project.redo();
+		await project.save();
+		await project.retry();
+		assert.deepStrictEqual([project.model.name, project.model.semantics.elements.map(element => element.id), project.model.semantics.relations.map(relation => relation.id), project.dirty], ['Stazione oceanografica', ['acquisition', 'sample', 'fresh', 'archived'], ['archive'], false]);
 	});
 
 	test('saving a copy preserves diagram and selections across source revert and workspace restart', async () => {

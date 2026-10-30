@@ -38,21 +38,27 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'update.mode': 'none'
 }));
 const navigationOnly = process.argv.includes('--navigation-only');
-const modelFile = path.join(navigationOnly ? directory : workspace, 'checkout.ade.json');
+const sequenceOnly = process.argv.includes('--sequence-only');
+const stateOnly = process.argv.includes('--state-only');
+const impactOnly = process.argv.includes('--impact-only');
+const projectsOnly = process.argv.includes('--projects-only');
+const modelFile = path.join(navigationOnly || sequenceOnly || stateOnly || impactOnly ? directory : workspace, 'checkout.ade.json');
 const emptyFile = path.join(workspace, 'empty.ade.json');
 const invalidFile = path.join(workspace, 'invalid.ade.json');
 const otherFile = path.join(workspace, 'other.ade.json');
-await writeFile(modelFile, JSON.stringify(checkoutModel));
-await writeFile(emptyFile, JSON.stringify({ ...checkoutModel, id: 'empty', name: 'Empty System', semantics: { elements: [], relations: [] }, views: [] }));
-await writeFile(invalidFile, '{"version":99}');
-await writeFile(otherFile, JSON.stringify({ ...checkoutModel, id: 'other', name: 'Other System' }));
+if (!projectsOnly) {
+	await writeFile(modelFile, JSON.stringify(checkoutModel));
+	await writeFile(emptyFile, JSON.stringify({ ...checkoutModel, id: 'empty', name: 'Empty System', semantics: { elements: [], relations: [] }, views: [] }));
+	await writeFile(invalidFile, '{"version":99}');
+	await writeFile(otherFile, JSON.stringify({ ...checkoutModel, id: 'other', name: 'Other System' }));
+}
 const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=${directory}/extensions`,
 	`--shared-data-dir=${directory}/shared-data`,
 	'--disable-workspace-trust', '--disable-telemetry', '--disable-updates', '--disable-experiments',
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -63,7 +69,7 @@ if (process.argv.includes('--native-only') || uxOnly || navigationOnly) {
 		if (manifest) {
 			const extension = JSON.parse(manifest);
 			// Theme coverage enables only the declarative built-in themes, which have no executable entry point.
-			if (uxOnly && extension.name === 'theme-defaults') { continue; }
+			if ((uxOnly || sequenceOnly || stateOnly || impactOnly) && extension.name === 'theme-defaults') { continue; }
 			args.push(`--disable-extension=${extension.publisher ?? 'vscode'}.${extension.name}`);
 		}
 	}
@@ -135,6 +141,529 @@ async function searchSystem(window, kind, name) {
 	await pickValue(window, 'Search Filter', kind);
 	await window.locator('.quick-input-widget input:visible').fill(name);
 	await pickValue(window, 'Search System', name);
+}
+
+async function contractEntry(window, name, section, entry = 'Add Entry') {
+	await window.locator('.ade-properties').getByRole('button', { name: 'Edit Behavioral Contract', exact: true }).click();
+	await pickValue(window, `Behavioral Contract: ${name}`, section);
+	await pickValue(window, section, entry);
+	if (entry !== 'Add Entry') { await pickValue(window, `Contract Entry: ${entry}`, 'Edit Entry'); }
+}
+
+async function checkContractEditing(window) {
+	const shell = window.locator('.ade-shell');
+	await contractEntry(window, 'Contratto pagamento', 'Inputs');
+	await enterValue(window, 'Field Name', 'amount');
+	await enterValue(window, 'Field Type', 'Money');
+	await pickValue(window, 'Field Presence', 'Required');
+	await shell.getByText('Input: amount (Money), Required', { exact: true }).waitFor();
+	await contractEntry(window, 'Contratto pagamento', 'Inputs');
+	await enterValue(window, 'Field Name', 'amount');
+	await window.locator('.quick-input-widget').getByText('A field with this name already exists.', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await contractEntry(window, 'Contratto pagamento', 'Outputs');
+	await enterValue(window, 'Field Name', 'receipt');
+	await window.locator('.quick-input-widget').getByText('Field Type', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await shell.getByText('Output:', { exact: false }).count(), 0, 'Escape cancels the partially entered field');
+	await contractEntry(window, 'Contratto pagamento', 'Outputs');
+	await enterValue(window, 'Field Name', 'receipt');
+	await enterValue(window, 'Field Type', 'Receipt');
+	await pickValue(window, 'Field Presence', 'Optional');
+	await shell.getByText('Output: receipt (Receipt), Optional', { exact: true }).waitFor();
+	for (const [section, value] of [['Preconditions', 'Amount is positive'], ['Postconditions', 'At most one payment is authorized']]) {
+		await contractEntry(window, 'Contratto pagamento', section);
+		await enterValue(window, section, value);
+	}
+	await contractEntry(window, 'Contratto pagamento', 'Errors');
+	await enterValue(window, 'Error Code', 'payment-declined');
+	await enterValue(window, 'Error Description', 'No order is confirmed');
+	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).waitFor();
+	await contractEntry(window, 'Contratto pagamento', 'Outputs', 'receipt');
+	await enterValue(window, 'Field Name', 'receipt');
+	await enterValue(window, 'Field Type', 'PaymentReceipt');
+	await pickValue(window, 'Field Presence', 'Required');
+	await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByText('Output: receipt (Receipt), Optional', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Behavioral Contract', exact: true }).click();
+	await pickValue(window, 'Behavioral Contract: Contratto pagamento', 'Preconditions');
+	await pickValue(window, 'Preconditions', 'Amount is positive');
+	await pickValue(window, 'Contract Entry: Amount is positive', 'Remove Entry');
+	await shell.getByText('Precondition: Amount is positive', { exact: true }).waitFor({ state: 'hidden' });
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByText('Precondition: Amount is positive', { exact: true }).waitFor();
+	for (const diagram of ['Esito pagamento', 'Percorso acquisto']) {
+		await window.locator('.ade-sidebar').getByRole('button', { name: diagram, exact: true }).click();
+		const options = shell.locator('details').filter({ hasText: 'Diagram Options' });
+		if (!await options.evaluate(element => element.open)) { await options.locator('summary').click(); }
+		await shell.getByRole('button', { name: 'Add Existing Element', exact: true }).click();
+		await pickValue(window, 'Add Existing Element', 'Contratto pagamento');
+		await shell.locator('.ade-node[aria-pressed="true"]').filter({ hasText: 'Contratto pagamento' }).waitFor();
+		await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	}
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Element Details', exact: true }).click();
+	await shell.getByRole('button', { name: 'Read Element Details', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
+	await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
+	console.log('PASS: native contract creation, validation, cancellation, editing, removal, undo/redo and shared details across two diagrams with accessible reading.');
+}
+
+async function checkIndependentProjects() {
+	const folder = path.join(workspace, 'from-zero');
+	await mkdir(folder);
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await shell.getByRole('button', { name: 'Create Project', exact: true }).click();
+	await enterValue(window, 'Name', 'Laboratorio da zero');
+	await chooseFolder(window, folder);
+	await shell.getByText('This project has no diagrams.', { exact: false }).waitFor();
+	const projectFile = path.join(folder, '.ade/model.json');
+	const empty = JSON.parse(await readFile(projectFile, 'utf8'));
+	assert.deepEqual([empty.semantics.elements, empty.semantics.relations, empty.views], [[], [], []]);
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'Add Feature', exact: true }).click();
+	await enterValue(window, 'Name', 'Acquisizione dati');
+	await shell.getByRole('heading', { level: 1, name: 'Acquisizione dati · Structure', exact: true }).waitFor();
+	for (const [kind, name] of [['Actor', 'Tecnico'], ['Interface', 'Console'], ['Controller', 'Raccoglitore'], ['Resource', 'Campione']]) { await addElement(window, kind, name); }
+	await connect(window, 'Tecnico', 'Console', 'Invocation', 'Invia', '');
+	await connect(window, 'Console', 'Raccoglitore', 'Invocation', 'Acquisisci', '');
+	await connect(window, 'Raccoglitore', 'Campione', 'Write', 'Registra', 'Misura valida');
+	await shell.locator('.ade-node').getByText('Raccoglitore', { exact: true }).click();
+	await contractEntry(window, 'Raccoglitore', 'Inputs');
+	await enterValue(window, 'Field Name', 'sensorId');
+	await enterValue(window, 'Field Type', 'SensorId');
+	await pickValue(window, 'Field Presence', 'Required');
+	await shell.getByText('Input: sensorId (SensorId), Required', { exact: true }).waitFor();
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'Acquisizione dati · Flow', exact: true }).click();
+	await runCommand(window, 'A.D.E: Add Existing Element');
+	await pickValue(window, 'Add Existing Element', 'Raccoglitore');
+	await addElement(window, 'Action', 'Valida misura');
+	await connect(window, 'Raccoglitore', 'Valida misura', 'Invocation', 'Valida', 'Valore non negativo');
+	await shell.getByText('Input: sensorId (SensorId), Required', { exact: true }).waitFor();
+	await runCommand(window, 'A.D.E: Add Diagram');
+	await pickValue(window, 'Choose Feature', 'Acquisizione dati');
+	await pickValue(window, 'Diagram Type', 'Sequence Diagram');
+	await enterValue(window, 'Name', 'Sequenza dati');
+	for (const label of ['Tecnico → Console: Invia', 'Console → Raccoglitore: Acquisisci', 'Raccoglitore → Campione: Registra']) {
+		await shell.getByRole('button', { name: 'Add Existing Message', exact: true }).click();
+		await pickValue(window, 'Add Existing Message', label);
+	}
+	await shell.locator('.ade-node').getByText('Campione', { exact: true }).click();
+	const messages = () => shell.locator('.ade-sequence-message').evaluateAll(buttons => buttons.map(button => button.dataset.relationId));
+	const before = await messages();
+	const options = shell.locator('details').filter({ hasText: 'Sequence Message Options: Registra' });
+	await options.locator('summary').click();
+	await options.getByRole('button', { name: 'Move Message Earlier', exact: true }).click();
+	assert.deepEqual(await messages(), [before[0], before[2], before[1]]);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.deepEqual(await messages(), before);
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	await runCommand(window, 'A.D.E: Add Diagram');
+	await pickValue(window, 'Choose Feature', 'Acquisizione dati');
+	await pickValue(window, 'Diagram Type', 'State Diagram');
+	await pickValue(window, 'Resource Lifecycle', 'Campione');
+	await enterValue(window, 'Name', 'Ciclo campioni');
+	for (const name of ['Nuovo', 'Archiviato']) {
+		await shell.getByRole('button', { name: 'Add State', exact: true }).click();
+		await enterValue(window, 'Name', name);
+		await shell.locator('.ade-node').getByText(name, { exact: true }).waitFor();
+	}
+	await connect(window, 'Nuovo', 'Archiviato', 'Transition', 'Archivia', 'Misura valida');
+	await shell.locator('.ade-state-summary details summary').click();
+	await shell.getByRole('table', { name: 'Transition Table: Campione', exact: true }).getByRole('cell', { name: 'Archivia', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Resource: Campione. Visible states: 2 of 2. Visible transitions: 1.', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await shell.locator('.ade-node').getByText('Campione', { exact: true }).click();
+	await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Campione', exact: true }).waitFor();
+	await shell.getByRole('heading', { name: 'Potential Dependents: 3', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Read Change Impact', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Potential Dependents: 3', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const saved = JSON.parse(await readFile(projectFile, 'utf8'));
+	assert.deepEqual(validateSemanticModel(saved), []);
+	assert.deepEqual(saved.semantics.elements.map(element => element.name).sort(), ['Acquisizione dati', 'Archiviato', 'Campione', 'Console', 'Nuovo', 'Raccoglitore', 'Tecnico', 'Valida misura'].sort());
+	assert.deepEqual([saved.codeMappings, saved.verifications], [[], []]);
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Campione', exact: true }).waitFor();
+	console.log('PASS: a project created from an empty folder supports native design, contracts, sequences, states, impact, undo/redo, save and restart without demo data.');
+	const libraryFile = path.join(directory, 'library.ade.json');
+	const observatoryFile = path.join(directory, 'observatory.ade.json');
+	await copyFile(path.join(root, 'ade/examples/library.ade.json'), libraryFile);
+	await copyFile(path.join(root, 'ade/examples/observatory.ade.json'), observatoryFile);
+	await openModelFile(window, libraryFile);
+	await shell.getByRole('heading', { level: 1, name: 'Servizio prestiti', exact: true }).waitFor();
+	assert.equal(await window.locator('.ade-sidebar').getByRole('button', { name: 'Ciclo campioni', exact: true }).count(), 0);
+	await runCommand(window, 'A.D.E: Search System');
+	await enterValue(window, 'Search Filter', 'Contract');
+	await enterValue(window, 'Search System', 'Regole del prestito');
+	await shell.getByText('This element is not placed in a diagram.', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).click();
+	await shell.getByRole('heading', { name: 'Potential Dependents: 3', exact: true }).waitFor();
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'Stati della copia', exact: true }).click();
+	await shell.getByText('2 of 2 declared states visible · 2 visible transitions', { exact: true }).waitFor();
+	await shell.locator('.ade-node').getByText('Copia', { exact: true }).click();
+	await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).click();
+	await shell.getByRole('heading', { name: 'Potential Dependents: 4', exact: true }).waitFor();
+	await window.screenshot({ path: path.join(evidence, 'independent-library.png') });
+	await openModelFile(window, observatoryFile);
+	await shell.getByText('This project has no diagrams. Add a diagram to an existing feature to continue.', { exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-impact, .ade-canvas').count(), 0);
+	await shell.getByRole('button', { name: 'Add Diagram', exact: true }).click();
+	await pickValue(window, 'Choose Feature', 'Acquisizioni notturne');
+	await pickValue(window, 'Diagram Type', 'State Diagram');
+	await window.locator('.quick-input-widget').getByText('Resource Lifecycle', { exact: true }).waitFor();
+	const resource = window.locator('.quick-input-widget .monaco-list-row').filter({ hasText: 'Coordinatore' });
+	await resource.getByText('Esposizione', { exact: true }).click();
+	await enterValue(window, 'Name', 'Stati esposizione');
+	await runCommand(window, 'A.D.E: Include Resource Lifecycle');
+	await shell.getByText('2 of 2 declared states visible · 1 visible transitions', { exact: true }).waitFor();
+	await runCommand(window, 'A.D.E: Search System');
+	await enterValue(window, 'Search Filter', 'Contract');
+	await enterValue(window, 'Search System', 'Vincoli ottici');
+	await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Vincoli ottici', exact: true }).waitFor();
+	await shell.getByRole('heading', { name: 'Potential Dependents: 3', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const updated = JSON.parse(await readFile(observatoryFile, 'utf8'));
+	assert.deepEqual(validateSemanticModel(updated), []);
+	assert.deepEqual(updated.semantics, JSON.parse(await readFile(path.join(root, 'ade/examples/observatory.ade.json'), 'utf8')).semantics);
+	await window.screenshot({ path: path.join(evidence, 'independent-observatory.png') });
+	console.log('PASS: independently authored library and observatory projects support shared resources, unplaced contracts, empty views, no initial diagrams, cycles, homonyms and document-scoped identities.');
+	await app.close();
+	app = undefined;
+}
+
+async function checkModelImpact() {
+	const fixture = structuredClone(checkoutModel);
+	fixture.name = 'Synthetic Evidence Fixture';
+	fixture.codeMappings.push({ id: 'fixture-mapping', elementId: 'checkout-controller', file: 'fixture.ts', symbol: 'confirm', revision: 'fixture-rev-1' });
+	fixture.verifications.push(
+		{ id: 'fixture-pass', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'passed', evidence: 'fixture-passed', revision: 'fixture-rev-1' },
+		{ id: 'fixture-fail', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'failed', evidence: 'fixture-failed', revision: 'fixture-rev-2' },
+		{ id: 'fixture-unknown', elementId: 'checkout-controller', criterionId: 'purchase-declined', outcome: 'unknown', evidence: 'fixture-unknown', revision: 'fixture-rev-3' });
+	fixture.semantics.relations.push({ id: 'fixture-unclassified', kind: 'dependency', from: 'cart', to: 'payment-contract', name: 'Unclassified fixture', classification: 'legacy-unclassified' });
+	await writeFile(modelFile, JSON.stringify(fixture));
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await openModelFile(window, modelFile);
+	await searchSystem(window, 'Contract', 'Pagamento');
+	await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-canvas').count(), 0);
+	const dependents = () => shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Potential Dependents: 5', exact: true }) });
+	assert.equal(await dependents().locator('.ade-impact-entry').count(), 5);
+	assert.equal(await dependents().locator('[data-element-id="cart"]').count(), 0);
+	await shell.getByText('Unclassified Relationships Not Propagated: 1', { exact: true }).waitFor();
+	const links = shell.locator('.ade-impact > details');
+	await links.locator('summary').click();
+	await links.getByText('Unclassified relationship: excluded from propagation.', { exact: true }).waitFor();
+	await links.getByRole('button', { name: 'Target: Pagamento', exact: true }).first().click();
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	const evidenceGroup = shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Evidence to Review', exact: true }) });
+	const controller = evidenceGroup.locator('[data-element-id="checkout-controller"]');
+	await controller.getByText('Inspect Recorded Evidence', { exact: true }).click();
+	await controller.getByText('Recorded Passed · Criterion: purchase-success · Evidence: fixture-passed · Revision: fixture-rev-1', { exact: true }).waitFor();
+	await controller.getByText('Recorded Failed · Criterion: purchase-success · Evidence: fixture-failed · Revision: fixture-rev-2', { exact: true }).waitFor();
+	await controller.getByText('Recorded Unknown · Criterion: purchase-declined · Evidence: fixture-unknown · Revision: fixture-rev-3', { exact: true }).waitFor();
+	await controller.getByText('Different Outcomes Recorded for Criteria: purchase-success. Review each revision; no latest result is inferred.', { exact: true }).waitFor();
+	assert.equal(await readFile(modelFile, 'utf8'), JSON.stringify(fixture), 'Impact navigation and record inspection never edit the document');
+	await controller.scrollIntoViewIfNeeded();
+	await window.screenshot({ path: path.join(evidence, 'recorded-evidence.png') });
+	await shell.getByRole('button', { name: 'Read Change Impact', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Change Impact: Pagamento', { exact: true }).waitFor();
+	await window.locator('.accessible-view:visible').getByText('Potential Dependents: 5', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await dependents().getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Richiedi pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Forward', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Richiedi pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	const diagrams = shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Diagrams to Review: 3', exact: true }) });
+	await diagrams.getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	await shell.getByRole('button', { name: 'Element Details', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await runCommand(window, 'A.D.E: Show Change Impact');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+	await enterValue(window, 'Name', 'Contratto pagamento');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).scrollIntoViewIfNeeded();
+	await window.screenshot({ path: path.join(evidence, 'model-impact.png') });
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(validateSemanticModel(saved).filter(diagnostic => diagnostic.severity === 'error'), []);
+	assert.deepEqual([saved.codeMappings, saved.verifications], [fixture.codeMappings, fixture.verifications]);
+	console.log('PASS: model-only impact, reverse reasons, uncertain links, recorded outcomes/revisions, semantic navigation, reading and native undo/redo/save.');
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
+	await shell.getByRole('button', { name: 'Element Details', exact: true }).focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
+	const updated = structuredClone(saved);
+	updated.semantics.relations = updated.semantics.relations.filter(relation => relation.id !== 'gateway-contract');
+	await writeFile(modelFile, JSON.stringify(updated));
+	await shell.getByRole('heading', { name: 'Potential Dependents: 4', exact: true }).waitFor();
+	const removed = structuredClone(updated);
+	removed.semantics.elements = removed.semantics.elements.filter(element => element.id !== 'payment-contract');
+	removed.semantics.relations = removed.semantics.relations.filter(relation => relation.from !== 'payment-contract' && relation.to !== 'payment-contract');
+	await writeFile(modelFile, JSON.stringify(removed));
+	await shell.locator('.ade-canvas').waitFor();
+	assert.equal(await shell.locator('.ade-impact').count(), 0);
+	await openModelFile(window, otherFile);
+	assert.equal(await shell.locator('.ade-impact').count(), 0);
+	await openModelFile(window, invalidFile);
+	await shell.getByRole('alert').waitFor();
+	assert.equal(await shell.locator('.ade-impact').count(), 0);
+	console.log('PASS: impact restores after restart, supports narrow-window keyboard navigation and recomputes on external edits/deletion without stale reports across documents.');
+	await app.close();
+	app = undefined;
+}
+
+async function checkStateDiagram() {
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await openModelFile(window, modelFile);
+	await runCommand(window, 'A.D.E: Add Diagram');
+	await pickValue(window, 'Choose Feature', 'Conferma acquisto');
+	await pickValue(window, 'Diagram Type', 'State Diagram');
+	await pickValue(window, 'Resource Lifecycle', 'Ordine');
+	await enterValue(window, 'Name', 'Order Lifecycle');
+	await shell.getByRole('heading', { level: 1, name: 'Order Lifecycle', exact: true }).waitFor();
+	await shell.getByText('0 of 3 declared states visible · 0 visible transitions', { exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-node').count(), 1);
+	await shell.getByRole('button', { name: 'Add Existing Transition', exact: true }).click();
+	await pickValue(window, 'Add Existing Transition', 'In attesa → Confermato: pagamento riuscito');
+	assert.equal(await shell.locator('.ade-node').count(), 3);
+	await runCommand(window, 'A.D.E: Include Resource Lifecycle');
+	await shell.getByText('3 of 3 declared states visible · 2 visible transitions', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Add State', exact: true }).click();
+	await enterValue(window, 'Name', 'Annullato');
+	await shell.locator('.ade-node').getByText('Annullato', { exact: true }).waitFor();
+	await connect(window, 'In attesa', 'Annullato', 'Transition', 'Richiesta annullamento', 'ordine annullabile');
+	await connect(window, 'Annullato', 'Annullato', 'Transition', 'Riprova', 'richiesta valida');
+	await shell.locator('.ade-node').getByText('Confermato', { exact: true }).click();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Transition Event', exact: true }).click();
+	await enterValue(window, 'Transition Event (Optional)', 'Ricevuta conferma pagamento');
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Condition', exact: true }).click();
+	await enterValue(window, 'Condition (Optional)', 'pagamento verificato');
+	await shell.locator('.ade-connection-label').filter({ hasText: 'Ricevuta conferma pagamento · [pagamento verificato]' }).waitFor();
+	await shell.locator('.ade-node').getByText('In attesa', { exact: true }).click();
+	await contractEntry(window, 'In attesa', 'Errors');
+	await enterValue(window, 'Error Code', 'payment-declined');
+	await enterValue(window, 'Error Description', 'Nessun ordine confermato');
+	await shell.locator('.ade-node').getByText('Pagamento rifiutato', { exact: true }).click();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Relationship Error', exact: true }).click();
+	await pickValue(window, 'Relationship Error', 'payment-declined');
+	const tableDetails = shell.locator('.ade-state-summary details');
+	await tableDetails.locator('summary').click();
+	const table = tableDetails.getByRole('table', { name: 'Transition Table: Ordine', exact: true });
+	assert.equal(await table.locator('tbody tr').count(), 4);
+	await table.locator('tr[data-relation-id="order-confirmed"]').getByRole('cell', { name: 'Ricevuta conferma pagamento', exact: true }).waitFor();
+	await table.locator('tr[data-relation-id="order-declined"]').getByRole('cell', { name: 'payment-declined', exact: true }).waitFor();
+	await table.screenshot({ path: path.join(evidence, 'state-transition-table.png') });
+	await table.locator('tr[data-relation-id="order-confirmed"]').getByRole('button', { name: 'In attesa', exact: true }).click();
+	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Resource: Ordine. Visible states: 4 of 4. Visible transitions: 4.', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await tableDetails.locator('summary').click();
+	await shell.locator('.ade-node').getByText('Confermato', { exact: true }).click();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Remove Relationship from Diagram', exact: true }).click();
+	assert.equal(await shell.locator('svg path[data-relation-id="order-confirmed"]').count(), 0);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.locator('svg path[data-relation-id="order-confirmed"]').waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+	await enterValue(window, 'Name', 'Ordine confermato');
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+	await shell.locator('.ade-node').getByText('Ordine confermato', { exact: true }).click();
+	await shell.locator('.ade-connection-label').filter({ hasText: 'Ricevuta conferma pagamento · [pagamento verificato]' }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Order Lifecycle', exact: true }).click();
+	const cancelled = shell.locator('.ade-node').getByText('Annullato', { exact: true });
+	await cancelled.focus();
+	await window.keyboard.press('Enter');
+	const before = await cancelled.evaluate(element => parseFloat(element.style.left));
+	await window.keyboard.press('ArrowRight');
+	assert.equal(await cancelled.evaluate(element => parseFloat(element.style.left)), before + 20);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.equal(await cancelled.evaluate(element => parseFloat(element.style.left)), before);
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	await shell.locator('.ade-canvas-scroll').scrollIntoViewIfNeeded();
+	await window.screenshot({ path: path.join(evidence, 'state-diagram.png') });
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(validateSemanticModel(saved), []);
+	assert.equal(saved.semantics.elements.length, checkoutModel.semantics.elements.length + 1);
+	assert.equal(saved.semantics.relations.length, checkoutModel.semantics.relations.length + 2);
+	console.log('PASS: resource lifecycle, state creation, guarded/self transitions, shared event/error editing, table, native reading, move, undo/redo and save.');
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { level: 1, name: 'Order Lifecycle', exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('heading', { name: 'Annullato', exact: true }).waitFor();
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
+	await shell.getByRole('button', { name: 'Remove State from Diagram', exact: true }).focus();
+	await window.keyboard.press('Enter');
+	assert.equal(await shell.locator('.ade-node').getByText('Annullato', { exact: true }).count(), 0);
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const removed = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(removed.semantics, saved.semantics);
+	assert.deepEqual(removed.views.slice(0, 4), saved.views.slice(0, 4));
+	await shell.getByRole('button', { name: 'Add Existing State', exact: true }).click();
+	await window.locator('.quick-input-widget').getByText('Add Existing State', { exact: true }).waitFor();
+	await window.locator('.quick-input-widget input:visible').fill('Annullato');
+	await window.locator('.quick-input-widget .monaco-list-row').getByText('Annullato', { exact: true }).waitFor();
+	await window.keyboard.press('Enter');
+	await shell.locator('.ade-node').getByText('Annullato', { exact: true }).waitFor();
+	await runCommand(window, 'A.D.E: Add Diagram');
+	await pickValue(window, 'Choose Feature', 'Conferma acquisto');
+	await pickValue(window, 'Diagram Type', 'State Diagram');
+	await pickValue(window, 'Resource Lifecycle', 'Create New Resource');
+	await enterValue(window, 'Resource Name', 'Spedizione');
+	await enterValue(window, 'Name', 'Shipment Lifecycle');
+	await shell.getByRole('heading', { level: 1, name: 'Shipment Lifecycle', exact: true }).waitFor();
+	await shell.locator('.ade-node').getByText('Spedizione', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.equal(await window.locator('.ade-sidebar').getByRole('button', { name: 'Shipment Lifecycle', exact: true }).count(), 0);
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const final = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(final.semantics, saved.semantics);
+	console.log('PASS: state diagram/resource creation, lifecycle reuse, guarded/self transitions, event/error/contract editing across views, transition table, native reading, keyboard move, local removal, undo/redo, save/restart and narrow-window interaction.');
+	await app.close();
+	app = undefined;
+}
+
+async function checkSequenceDiagram() {
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await openModelFile(window, modelFile);
+	await runCommand(window, 'A.D.E: Add Diagram');
+	await pickValue(window, 'Choose Feature', 'Conferma acquisto');
+	await pickValue(window, 'Diagram Type', 'Sequence Diagram');
+	await enterValue(window, 'Name', 'Purchase Sequence');
+	await shell.getByRole('heading', { name: 'Purchase Sequence', exact: true, level: 1 }).waitFor();
+	await shell.getByText('This diagram has no elements.', { exact: true }).waitFor();
+	const ids = ['customer-checkout', 'checkout-confirm', 'confirm-payment', 'payment-gateway', 'confirm-order', 'show-declined', 'confirm-cart'];
+	const names = new Map(checkoutModel.semantics.elements.map(element => [element.id, element.name]));
+	for (const id of ids) {
+		const relation = checkoutModel.semantics.relations.find(relation => relation.id === id);
+		await shell.getByRole('button', { name: 'Add Existing Message', exact: true }).click();
+		await pickValue(window, 'Add Existing Message', `${names.get(relation.from)} → ${names.get(relation.to)}: ${relation.name}`);
+		await shell.locator(`.ade-sequence-message[data-relation-id="${id}"]`).waitFor();
+	}
+	const messageIds = () => shell.locator('.ade-sequence-message').evaluateAll(buttons => buttons.map(button => button.dataset.relationId));
+	const participants = () => shell.locator('.ade-sequence .ade-node').allTextContents();
+	assert.deepEqual(await messageIds(), ids);
+	await shell.locator('.ade-sequence .ade-node').getByText('Conferma ordine', { exact: true }).click();
+	await shell.getByRole('button', { name: 'Move Participant Left', exact: true }).click();
+	assert.deepEqual((await participants()).slice(0, 3), ['Cliente', 'Conferma ordine', 'Checkout']);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.deepEqual((await participants()).slice(0, 3), ['Cliente', 'Checkout', 'Conferma ordine']);
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	const options = shell.locator('details').filter({ has: window.getByText('Sequence Message Options: crea ordine', { exact: true }) });
+	await options.locator('summary').click();
+	await options.getByRole('button', { name: 'Move Message Earlier', exact: true }).click();
+	const reordered = [...ids];
+	[reordered[3], reordered[4]] = [reordered[4], reordered[3]];
+	assert.deepEqual(await messageIds(), reordered);
+	await options.getByRole('button', { name: 'Remove Message from Diagram', exact: true }).click();
+	assert.equal((await messageIds()).includes('confirm-order'), false);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.deepEqual(await messageIds(), reordered);
+	await connect(window, 'Conferma ordine', 'Conferma ordine', 'Invocation', 'Controlla carrello', 'carrello valido');
+	assert.equal(await shell.locator('.ade-sequence-message').count(), 8);
+	await contractEntry(window, 'Conferma ordine', 'Outputs', 'orderId');
+	await enterValue(window, 'Field Name', 'orderId');
+	await enterValue(window, 'Field Type', 'OrderReference');
+	await pickValue(window, 'Field Presence', 'Required');
+	await shell.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
+	const reading = window.locator('.accessible-view:visible');
+	await reading.getByText('Message 1', { exact: true }).waitFor();
+	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End');
+	await reading.getByText('Message 8', { exact: true }).waitFor();
+	await reading.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+	await shell.locator('.ade-node').getByText('Conferma ordine', { exact: true }).click();
+	await shell.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Purchase Sequence', exact: true }).click();
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	const firstZoom = await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform);
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	assert.equal(await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform), firstZoom);
+	const labelsClear = await shell.locator('.ade-sequence-message').evaluateAll(labels => labels.every((label, index) => {
+		const a = label.getBoundingClientRect();
+		return labels.slice(index + 1).every(other => { const b = other.getBoundingClientRect(); return a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left; });
+	}));
+	assert.equal(labelsClear, true, 'Measured message labels do not overlap');
+	await window.screenshot({ path: path.join(evidence, 'sequence-diagram.png') });
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
+	await shell.locator('.ade-sequence .ade-node').getByText('Conferma ordine', { exact: true }).focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('button', { name: 'Move Participant Right', exact: true }).focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByRole('button', { name: 'Reset Zoom', exact: true }).click();
+	await shell.locator('.ade-canvas-scroll').focus();
+	await window.keyboard.press('ArrowRight');
+	assert.ok(await shell.locator('.ade-canvas-scroll').evaluate(element => element.scrollLeft > 0));
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
+	const sequence = saved.views.find(view => view.kind === 'sequence');
+	assert.deepEqual(validateSemanticModel(saved), []);
+	assert.equal(saved.semantics.relations.length, checkoutModel.semantics.relations.length + 1);
+	assert.deepEqual(saved.views.slice(0, 4).map(view => ({ ...view, featureId: undefined })), checkoutModel.views.map(view => ({ ...view, featureId: undefined })));
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { name: 'Purchase Sequence', exact: true, level: 1 }).waitFor();
+	assert.deepEqual(await messageIds(), sequence.relationIds);
+	await shell.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Remove Participant from Diagram', exact: true }).click();
+	assert.equal((await participants()).includes('Conferma ordine'), false);
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const removed = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(removed.semantics, saved.semantics);
+	assert.deepEqual(removed.views.slice(0, 4), saved.views.slice(0, 4));
+	console.log('PASS: sequence creation, shared interactions, participant/message order, view-only removal, self messages, contracts across views, accessible reading, measured labels, stable Fit Diagram, narrow-window keyboard pan, save and restart.');
+	await app.close();
+	app = undefined;
 }
 
 async function checkSemanticNavigation() {
@@ -235,16 +764,19 @@ async function checkSemanticNavigation() {
 	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
 	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
 	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	await checkContractEditing(window);
 	await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+s`);
 	await shell.getByText('Saved', { exact: true }).waitFor();
 	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
 	assert.deepEqual(validateSemanticModel(saved), []);
 	assert.equal(saved.semantics.elements.find(element => element.id === 'payment-contract').name, 'Contratto pagamento');
+	assert.deepEqual(saved.semantics.elements.find(element => element.id === 'payment-contract').behavior.outputs, [{ name: 'receipt', type: 'PaymentReceipt', required: true }]);
 	await app.close();
 	app = undefined;
 	window = await launch();
 	shell = window.locator('.ade-shell');
 	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
 	assert.equal(await cancellationDetails().evaluate(details => details.open), false, 'Collapsed groups survive a workspace restart');
 	await cancellationDetails().locator(':scope > summary').focus();
 	await window.keyboard.press('Enter');
@@ -256,7 +788,10 @@ async function checkSemanticNavigation() {
 	removed.semantics.elements = removed.semantics.elements.filter(element => element.id !== 'payment-contract');
 	removed.semantics.relations = removed.semantics.relations.filter(relation => relation.from !== 'payment-contract' && relation.to !== 'payment-contract');
 	const surviving = new Set(removed.semantics.relations.map(relation => relation.id));
-	for (const view of removed.views) { view.relationIds = view.relationIds.filter(id => surviving.has(id)); }
+	for (const view of removed.views) {
+		view.relationIds = view.relationIds.filter(id => surviving.has(id));
+		view.nodes = view.nodes.filter(node => node.elementId !== 'payment-contract');
+	}
 	await writeFile(modelFile, JSON.stringify(removed));
 	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
 	assert.equal(await shell.getByRole('alert').count(), 0);
@@ -506,9 +1041,13 @@ async function checkVisualUX() {
 }
 
 try {
+	if (projectsOnly) { await checkIndependentProjects(); }
+	if (impactOnly) { await checkModelImpact(); }
+	if (stateOnly) { await checkStateDiagram(); }
+	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -704,7 +1243,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));

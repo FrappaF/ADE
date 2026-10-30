@@ -2,6 +2,8 @@
 
 Il primo incremento M3 consente di raggiungere elementi e diagrammi del modello senza aprire il codice o il JSON. M2 resta soggetta al collaudo macOS e VoiceOver già registrato: l'avvio di M3 sul percorso Linux non chiude quelle verifiche.
 
+Le funzioni usano il modello A.D.E corrente e sono verificate anche su [progetti indipendenti dal demo](project-generality-verification.md). L'importazione automatica di una codebase esistente resta in M4.
+
 ## Ricerca e destinazioni
 
 **Search System**, disponibile nella sidebar, nella navigazione dell'editor e come **A.D.E: Search System** nella palette, apre due scelte native. La prima filtra tutti i risultati, i soli diagrammi oppure uno dei tipi semantici; la seconda cerca nomi, tipi, antenati e nomi dei diagrammi. La ricerca usa il documento corrente, comprese le modifiche non ancora salvate.
@@ -10,7 +12,7 @@ Un elemento già rappresentato viene selezionato nella prospettiva corrente quan
 
 Un elemento non collocato, per esempio il contratto «Pagamento», apre **Element Details**. La scheda mostra tipo, descrizione, proprietà comportamentali, relazioni ed evidenze presenti; le relazioni aprono a loro volta la destinazione semantica. Non viene creato un diagramma fittizio. Una feature mostra i diagrammi di cui è proprietaria e gli elementi contenuti; un elemento con figli consente di raggiungerli direttamente.
 
-Nei documenti scrivibili la scheda usa le stesse operazioni di rinomina, descrizione, cancellazione, undo/redo e salvataggio dell'editor. Le azioni che richiedono un diagramma, come collegare due nodi, rimangono nel contesto del canvas. Contratti estesi, editor di sequenze e stati completi non fanno parte di questo incremento.
+Nei documenti scrivibili la scheda usa le stesse operazioni di rinomina, descrizione, cancellazione, undo/redo e salvataggio dell'editor. Le azioni che richiedono un diagramma, come collegare due nodi, rimangono nel contesto del canvas. M3.3 aggiunge l'editing dei contratti descritto sotto; editor di sequenze e stati completi restano successivi.
 
 ## Percorso e cronologia
 
@@ -34,10 +36,93 @@ Le connessioni usano segmenti ortogonali che evitano i rettangoli dei nodi, con 
 
 Il router conserva il layout manuale e viene ricalcolato dopo gli spostamenti. Se nodi sovrapposti bloccano tutte le porte, un messaggio segnala le connessioni non disegnabili e invita a separare i nodi. Tutte le relazioni rimangono nelle proprietà e nel lettore. Il router evita i nodi; non garantisce l'assenza di incroci fra connessioni, di incroci con linee guida o la separazione completa di numeri arbitrari di relazioni parallele. I grafi molto grandi richiedono ancora misure e ottimizzazioni dedicate.
 
+## Contratti comportamentali M3.3
+
+**Edit Behavioral Contract**, nelle proprietà del diagramma e di Element Details, oppure come comando **A.D.E: Edit Behavioral Contract**, modifica il comportamento dell'identità selezionata. È disponibile per tutti i tipi semantici ammessi dallo schema, anche senza un contratto preesistente e senza collocazione visuale. La demo integrata e i file in sola lettura rimangono consultabili.
+
+Le scelte native **Inputs**, **Outputs**, **Preconditions**, **Postconditions** ed **Errors** permettono di aggiungere, modificare e rimuovere una voce alla volta. Un campo conserva nome, tipo dichiarato e presenza **Required**/**Optional**; i tipi sono testo libero, senza risoluzione verso un linguaggio. Precondizioni e postcondizioni descrivono aspettative, non espressioni eseguibili. Un errore conserva codice univoco e descrizione. Valori vuoti, campi omonimi nella stessa lista e codici duplicati vengono rifiutati. Escape annulla l'intera voce corrente; una voce completata è un'unica operazione undo/redo. Un documento cambiato durante i dialoghi richiede di ricominciare sullo stato corrente.
+
+**Edit Relationship Error**, accanto a ogni relazione nelle proprietà, assegna un errore dichiarato dall'elemento sorgente, oppure **No Error** per rimuovere l'associazione. Le stesse proprietà permettono di modificare condizioni e cancellare relazioni anche dalla scheda di dettaglio. Un errore ancora referenziato non può essere rinominato o rimosso: prima occorre cambiare o liberare le associazioni. La validazione del dominio applica lo stesso vincolo alle operazioni atomiche.
+
+Scheda, proprietà nei diversi diagrammi e lettore accessibile usano lo stesso contratto semantico. Le proprietà mostrano anche obbligatorietà dei campi e codici degli errori. L'editing conserva layout, autorizzazioni, criteri di accettazione, mappature e verifiche esistenti; autorizzazioni e criteri rimangono consultabili e non sono modificabili da questo editor. Nessun risultato runtime viene dedotto dalla modifica di una dichiarazione.
+
+Il formato resta v3 con apertura dei documenti v2; non servono nuove proprietà nello schema. L'[esempio progettato](../examples/checkout-designed.ade.json) include ora il contratto di Richiedi pagamento e il relativo percorso di errore. Verifiche automatiche e limiti dello smoke sono nel [verbale M3.3](m3-3-verification.md).
+
+## Sequenze coordinate M3.4
+
+**Add Diagram → Sequence Diagram** crea una sequenza nella feature scelta. **Add Existing Element** aggiunge un'identità come partecipante; **Add Existing Message** riusa una relazione `invocation`, `read` o `write` del sistema e include automaticamente i suoi endpoint. I partecipanti non vengono duplicati né spostati nella gerarchia. **Add Element** e **Connect Selection** restano disponibili per progettare nuovi elementi e interazioni, compresa un'invocazione verso lo stesso partecipante. Una nuova relazione appartiene al sistema; le altre viste la mostrano solo se la includono, mentre le proprietà ne conservano l'accesso semantico.
+
+Le intestazioni dei partecipanti seguono l'ordine locale della sequenza; le linee di vita e i messaggi numerati si dispongono automaticamente. Le etichette mostrano direzione, tipo della relazione, condizioni ed errori; le righe vengono misurate prima dello zoom per lasciare spazio al testo. Selezionare un partecipante o un messaggio apre le proprietà dell'identità sorgente e il suo contratto M3.3. Il cambio di prospettiva conserva l'identità e riflette nomi, condizioni e contratti modificati nelle altre viste.
+
+Nelle proprietà **Move Participant Left/Right** cambia l'ordine dei partecipanti. **Sequence Message Options** raccoglie **Move Message Earlier/Later** e **Remove Message from Diagram**; **Remove Participant from Diagram** rimuove dalla sola sequenza il partecipante e le sue occorrenze collegate. Elementi, relazioni e altre viste restano conservati. **Delete Element** e **Delete Relationship** mantengono invece il loro significato di cancellazione dall'intero sistema, con la conferma già prevista. Tutte queste operazioni passano dalla cronologia e dal salvataggio nativi.
+
+Il renderer non usa trascinamento e coordinate manuali: l'ordine viene conservato negli array della vista esistente, senza nuovi campi nel formato v3. Il lettore accessibile presenta partecipanti da sinistra a destra e messaggi numerati nello stesso ordine; pan, Fit Diagram, zoom, focus e ripristino del documento riusano il workbench.
+
+| Costrutto | Sottoinsieme M3.4 |
+| --- | --- |
+| Partecipanti | Una linea di vita per identità semantica, senza istanze runtime distinte |
+| Messaggi | Invocazioni, letture e scritture dichiarate, una occorrenza per relazione; auto-messaggi supportati |
+| Condizioni ed errori | Etichette dichiarative condivise; nessuna valutazione delle condizioni |
+| Alternative, loop, parallelismo | Non sono frammenti UML `alt`, `loop` o `par`; un'etichetta condizionata non ne simula l'esecuzione |
+| Risposte, attivazioni e tempi | Non dedotti né rappresentati da costrutti dedicati |
+| Altre relazioni | Dipendenze, realizzazioni, transizioni e relazioni legacy non classificate non sono messaggi; nei documenti storici restano segnalate, nelle proprietà e nel lettore |
+
+L'[esempio progettato](../examples/checkout-designed.ade.json) riusa nella sequenza di pagamento le identità e i due messaggi condizionati del flusso. L'ordine rappresenta una dichiarazione della vista, non una traccia che dimostra entrambi gli esiti. Build, test, smoke Linux e verifiche di piattaforma aperte sono registrati nel [verbale M3.4](m3-4-verification.md).
+
+## Stati e transizioni M3.5
+
+**Add Diagram → State Diagram** sceglie la feature e la risorsa del ciclo di vita. **Create New Resource** consente di creare la risorsa insieme al diagramma in un'unica operazione annullabile; annullare un dialogo non lascia risorse o diagrammi parziali. La nuova vista include un riferimento alla risorsa esistente, senza cambiare gerarchia o formato del documento.
+
+**Add State** crea uno stato della risorsa rappresentata; se un documento storico contiene più risorse viene chiesto quale usare. **Add Existing State** mostra gli stati delle risorse già rappresentate e **Add Existing Transition** riusa una transizione dichiarata, includendo i due endpoint se necessario. **Include Resource Lifecycle**, in Diagram Options e nella palette, include tutti gli stati e le transizioni dichiarati della risorsa scelta, preservando coordinate e riferimenti già presenti. Per estendere una vista storica senza risorse riconoscibili, includere prima la risorsa tramite **Add Existing Element**. Includere un'altra risorsa consente di affiancarne il ciclo di vita, mantenendo separate le transizioni.
+
+**Connect Selection** collega stati della stessa risorsa con una transizione, compresi auto-collegamenti. Nome/evento e condizione sono dichiarazioni testuali. **Edit Transition Event**, **Edit Condition** ed **Edit Relationship Error** nelle proprietà aggiornano la relazione condivisa fra tutte le viste. Gli errori devono essere dichiarati nel contratto dello stato sorgente e usano la validazione M3.3. Sul canvas evento e condizione rimangono entrambi visibili, insieme all'eventuale codice di errore; non vengono sostituiti l'uno dall'altra.
+
+Il riepilogo **Resource Lifecycles** collega le risorse alle loro schede e distingue stati visibili, stati dichiarati e transizioni incluse. **Transition Table** espone sorgente, destinazione, evento, condizione ed errore; i pulsanti degli endpoint selezionano il corrispondente stato nel canvas. **Read Diagram** mantiene gli stessi riferimenti e nomina esplicitamente risorsa e appartenenza di ogni stato.
+
+**Remove State from Diagram** rimuove dalla sola vista lo stato e le relazioni che vi sono collegate. **Remove Relationship from Diagram** conserva la transizione nel sistema e negli altri diagrammi. Queste operazioni sono distinte dalle cancellazioni semantiche **Delete Element/Relationship**, che mantengono conferma e pulizia globale dei riferimenti. Spostamenti, aggiunta/rimozione locale, modifica di eventi e contratti usano undo/redo, salvataggio e ripristino nativi.
+
+Il formato v3 resta invariato: l'appartenenza è `state.parentId → resource`, gli eventi usano `relation.name`, le guardie `condition` e gli errori `errorCode`. I documenti storici possono contenere elementi di contesto, relazioni aggiuntive o stati senza risorsa: vengono segnalati e conservati nel grafo e nel lettore, senza assegnazioni automatiche. Le nuove transizioni delle viste di stato richiedono una risorsa effettiva condivisa dagli endpoint.
+
+Il sottoinsieme M3.5 rappresenta stati semplici, eventi dichiarati, guardie testuali, errori e auto-transizioni. Non deduce stati iniziali/finali, stati compositi, regioni parallele, azioni entry/exit o esecuzione runtime. L'[esempio progettato](../examples/checkout-designed.ade.json) contiene ora anche il ciclo di vita dell'ordine: le azioni del flusso e gli stati della risorsa hanno identità distinte, senza dedurre automaticamente causalità fra loro. Verifiche e limiti di piattaforma sono nel [verbale M3.5](m3-5-verification.md).
+
+## Impatto ed evidenze M3.6
+
+**Show Change Impact**, nelle proprietà e come **A.D.E: Show Change Impact** nella palette, apre un report dell'identità selezionata, anche senza collocazione in un diagramma. Il report non modifica il documento e non aggiunge campi al formato semantico. **Element Details** riapre la scheda; Back/Forward, riavvio e salvataggio di una copia conservano la destinazione come contesto del workspace. Il report viene ricalcolato sul documento corrente, comprese le modifiche non salvate. Modifiche esterne aggiornano il report pulito; eliminare l'identità ripara il contesto e un documento invalido non lascia un report obsoleto presentato come corrente.
+
+Il perimetro selezionato comprende l'elemento e i suoi discendenti per contenimento. Da quel perimetro l'analisi risale i riferimenti diretti: per ogni relazione `sorgente → destinazione`, una destinazione inclusa rende la sorgente un possibile elemento da rivedere. Sono comprese le relazioni tipizzate del modello e i riferimenti di autorizzazione verso gli attori. Le condizioni non vengono valutate. La ricerca evita i cicli, conserva le identità e assegna a ogni elemento una distanza minima e un motivo rappresentativo; i collegamenti da rivedere restano consultabili anche quando esistono altri percorsi equivalenti. I nomi uguali non fondono elementi distinti.
+
+**Ownership Context** mostra separatamente gli antenati degli elementi inclusi: appartenere alla stessa feature non rende automaticamente dipendente ogni altro figlio. Analogamente, un riferimento uscente verso una risorsa non rende quella risorsa un dipendente del chiamante. **Diagrams to Review** collega le viste che rappresentano gli elementi o i riferimenti inclusi, comprese le viste vuote di una feature selezionata. **Relationships to Review** conserva direzione, tipo, condizioni ed errori, con accesso a sorgente e destinazione. I collegamenti legacy non classificati vengono indicati esplicitamente e non propagano il perimetro.
+
+Il risultato è un elenco potenziale di revisione nel modello dichiarato. Non descrive una modifica già applicata, non sostituisce il riepilogo esatto della cancellazione e non predice effetti nel codice. **Read Change Impact** ne presenta lo stesso contenuto nel lettore nativo.
+
+**Recorded Evidence**, nelle proprietà e per gli elementi inclusi nel report, distingue tre fatti senza trasformarli in un unico stato di avanzamento:
+
+| Fatto | Interpretazione disponibile |
+| --- | --- |
+| Design Declaration | L'identità è dichiarata nel modello |
+| Code References | Mappature registrate con file, simbolo e revisione; la versione corrente del codice non viene ispezionata |
+| Verification Records | Esiti `passed`/`failed`/`unknown`, criterio, riferimento all'evidenza e revisione registrati nel documento |
+
+**Inspect Recorded Evidence** mostra tutti i record, i conteggi per esito, i criteri privi di registrazioni e i criteri con esiti diversi. L'ordine degli array non stabilisce quale esito sia il più recente. Un record passato, una revisione coincidente o l'assenza di fallimenti non certificano implementazione corrente, freschezza o copertura completa. Questa vista non esegue test e non apre i percorsi delle evidenze. Le evidenze possono essere già presenti nei documenti; importazione e aggiornamento automatico appartengono alle milestone successive.
+
+Percorso di revisione sull'esempio integrato: **Conferma acquisto → Richiedi pagamento → Pagamento** apre il contratto non collocato; Show Change Impact risale pagamento, servizio pagamenti, controller, interfaccia e attore. I diagrammi coinvolti restano raggiungibili dal report. Ordine, errori e relativi contratti restano consultabili dalle proprietà e dalle viste di stato. Gli esempi di prodotto conservano l'assenza di mappature o verifiche inventate; i record usati nei test sono fixture sintetiche separate. Il [percorso completo sugli esempi](../examples/impact-review.md) precisa risultati e limiti; le verifiche sono nel [verbale M3.6](m3-6-verification.md).
+
+## Copertura visuale M3
+
+| Vista | Sottoinsieme disponibile | Costrutti non certificati da questa implementazione |
+| --- | --- | --- |
+| Struttura | Identità tipizzate, relazioni dichiarate, contenimento, contratti e riferimenti condivisi | Notazione UML completa e corrispondenza con una codebase non importata |
+| Flusso | Azioni e collegamenti con condizioni ed errori dichiarati | Esecuzione, valutazione delle guardie e nodi UML avanzati di fork/join |
+| Sequenza | Partecipanti semantici, invocazioni/letture/scritture ordinate e auto-messaggi | Istanze runtime multiple, frammenti `alt`/`loop`/`par`, risposte, attivazioni e tempi |
+| Stato | Stati semplici per risorsa, eventi, guardie, errori e auto-transizioni | Stati iniziali/finali dedotti, compositi, regioni parallele ed entry/exit |
+| Impatto | Contenimento, riferimenti inversi, autorizzazioni e metadati delle evidenze | Analisi del codice, previsione runtime, freschezza dei risultati e riconciliazione |
+
+Gli incrementi M3.1–M3.6 coprono questo percorso funzionale su Linux. La chiusura delle verifiche di piattaforma, CI remota e revisione UX resta distinta dalla disponibilità delle funzioni; vedere i verbali per gli esiti effettivi.
+
 ## Accessibilità e aggiornamenti esterni
 
 **Read Element Details** usa lo stesso lettore nativo di **Read Diagram**. L'aiuto accessibile descrive ricerca, breadcrumb, schede e cronologia. La lettura non presenta la scheda come un diagramma e non deduce esecuzione o verifiche del codice.
 
 Il servizio mantiene un watcher correlato sul file del modello, anche fuori dalla cartella del workspace. Un aggiornamento esterno ricarica soltanto il documento pulito; le modifiche non salvate restano protette dal backend nativo. Se viene eliminato l'elemento ispezionato, il contesto torna a un diagramma valido. Errori di lettura non lasciano il vecchio contenuto presentato come stato corrente. Watcher e richieste superate vengono rilasciati o ignorati quando cambia il documento.
 
-Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md) e [M3.2](m3-2-verification.md).
+Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md), [M3.2](m3-2-verification.md), [M3.3](m3-3-verification.md), [M3.4](m3-4-verification.md), [M3.5](m3-5-verification.md) e [M3.6](m3-6-verification.md).

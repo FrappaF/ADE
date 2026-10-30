@@ -74,7 +74,7 @@ export function normalizeDiagramContext(model: SemanticModel, context: DiagramCo
 	};
 }
 
-export type SemanticLocation = { section: 'home' } | { section: 'map' } | { section: 'diagram'; viewId: string; elementId?: string } | { section: 'element'; elementId: string };
+export type SemanticLocation = { section: 'home' } | { section: 'map' } | { section: 'diagram'; viewId: string; elementId?: string } | { section: 'element'; elementId: string } | { section: 'impact'; elementId: string };
 
 /** Semantic ancestry is independent of file names and diagram placement. */
 export function getElementPath(model: SemanticModel, id: string): SemanticElement[] {
@@ -100,7 +100,7 @@ export function resolveElementLocation(model: SemanticModel, elementId: string, 
 
 function normalizeLocation(model: SemanticModel, location: SemanticLocation): SemanticLocation | undefined {
 	if (location.section === 'home' || location.section === 'map') { return location; }
-	if (location.section === 'element') { return model.semantics.elements.some(element => element.id === location.elementId) ? location : undefined; }
+	if (location.section === 'element' || location.section === 'impact') { return model.semantics.elements.some(element => element.id === location.elementId) ? location : undefined; }
 	const view = model.views.find(view => view.id === location.viewId);
 	if (!view) { return undefined; }
 	const elementId = view.nodes.some(node => node.elementId === location.elementId) ? location.elementId : view.nodes[0]?.elementId;
@@ -111,6 +111,7 @@ function sameLocation(left: SemanticLocation | undefined, right: SemanticLocatio
 	if (!left || !right || left.section !== right.section) { return left === right; }
 	if (left.section === 'home' || left.section === 'map') { return true; }
 	if (left.section === 'element') { return right.section === 'element' && left.elementId === right.elementId; }
+	if (left.section === 'impact') { return right.section === 'impact' && left.elementId === right.elementId; }
 	return right.section === 'diagram' && left.viewId === right.viewId && left.elementId === right.elementId;
 }
 

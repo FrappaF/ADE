@@ -19,6 +19,25 @@ import { AdeEditor } from './adeEditor.js';
 interface SearchItem extends IQuickPickItem { elementId?: string; viewId?: string }
 
 registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.showImpact', title: localize2('ade.showImpact', "A.D.E: Show Change Impact"), f1: true }); }
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const project = accessor.get(IAdeProjectService);
+		const quickInput = accessor.get(IQuickInputService);
+		const editors = accessor.get(IEditorService);
+		if (project.loading || project.error) { return; }
+		let id = project.selectedId;
+		if (!id || project.section === 'map' || project.section === 'home') {
+			const version = project.documentVersion;
+			const picked = await quickInput.pick(project.model.semantics.elements.map(element => ({ label: element.name, description: elementLabels[element.kind], id: element.id })), { title: localize('ade.impact.choose', "Change Impact of Element") });
+			if (!picked || version !== project.documentVersion) { return; }
+			id = picked.id;
+		}
+		project.showImpact(id);
+		await editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+	}
+});
+
+registerAction2(class extends Action2 {
 	constructor() { super({ id: 'ade.search', title: localize2('ade.search', "A.D.E: Search System"), f1: true }); }
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const project = accessor.get(IAdeProjectService);

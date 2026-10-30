@@ -322,6 +322,63 @@
 	overflow-wrap: anywhere;
 }
 
+.ade-shell .ade-sequence-participant {
+	min-height: 88px;
+}
+
+.ade-shell .ade-sequence-message {
+	position: absolute;
+	box-sizing: border-box;
+	margin: 0;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	background: var(--vscode-editor-background);
+	color: var(--vscode-editor-foreground);
+	text-align: center;
+}
+
+.ade-shell .ade-canvas .ade-sequence-lifeline {
+	stroke: var(--vscode-descriptionForeground);
+	stroke-dasharray: 4 4;
+}
+
+.ade-shell .ade-sequence-message:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
 .ade-shell.ade-narrow .ade-workspace {
 	grid-template-columns: minmax(0, 1fr);
+}
+
+.ade-state-summary {
+	margin-block: var(--vscode-spacing-size160);
+	overflow-wrap: anywhere;
+}
+
+.ade-transition-table-wrap {
+	overflow-x: auto;
+}
+
+.ade-transition-table {
+	width: 100%;
+	border-collapse: collapse;
+	text-align: left;
+}
+
+.ade-transition-table th,
+.ade-transition-table td {
+	padding: var(--vscode-spacing-size80);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-impact-group,
+.ade-recorded-evidence {
+	margin-block: var(--vscode-spacing-size160);
+	overflow-wrap: anywhere;
+}
+
+.ade-impact-entry {
+	margin-block: var(--vscode-spacing-size120);
+	padding-inline-start: var(--vscode-spacing-size120);
+	border-inline-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
 }

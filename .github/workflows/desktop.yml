@@ -56,7 +56,7 @@ jobs:
       - name: Build desktop client
         run: npm run build-fast -- --client-only
       - name: Test ADE project lifecycle
-        run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts
+        run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeBehaviorEditing.test.ts
       - name: Typecheck production sources
         run: node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
       - name: Build bundled extensions
@@ -82,6 +82,30 @@ jobs:
       - name: Semantic navigation smoke on macOS
         if: runner.os == 'macOS'
         run: node ade/scripts/smoke-desktop.mjs --navigation-only
+      - name: Sequence diagram smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --sequence-only
+      - name: Sequence diagram smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --sequence-only
+      - name: State diagram smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --state-only
+      - name: State diagram smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --state-only
+      - name: Model impact smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --impact-only
+      - name: Model impact smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --impact-only
+      - name: Independent projects smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --projects-only
+      - name: Independent projects smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --projects-only
       - name: Prototype Extension Host smoke on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --extension-only

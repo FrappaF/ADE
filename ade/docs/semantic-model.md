@@ -19,6 +19,8 @@ L'editor M2.2 introduce lo [schema v3](../schema/model-v3.schema.json), identifi
 
 Una vista semantica (`kind: view`) rappresenta un'interfaccia del sistema. Una voce in `views` è invece una proiezione del modello: i due concetti hanno identità e responsabilità distinte. M1 definisce i formati delle proiezioni, senza implementarne gli editor UML.
 
+M3.4 interpreta le viste `sequence` con il sottoinsieme descritto nell'[esploratore](semantic-explorer.md): `nodes` ordina i partecipanti da sinistra a destra e `relationIds` ordina le interazioni dall'alto al basso. Ogni relazione può comparire una sola volta; un partecipante è l'identità semantica esistente, non un'istanza runtime distinta. Le coordinate restano conservate nel documento ma il renderer di sequenza ricava la geometria dall'ordine e dalle etichette. Questa interpretazione non aggiunge campi né modifica lo schema v2/v3. Le altre proiezioni mantengono coordinate e riferimenti indipendenti.
+
 Gli identificatori sono stringhe opache, indipendenti da nome, posizione e percorso del file. Sono univoci nel rispettivo insieme: elementi, relazioni, viste, mappature e verifiche. Accettano lettere ASCII, numeri, punto, trattino, underscore e due punti; il primo carattere è alfanumerico. Il chiamante assegna l'ID una volta e lo conserva nelle modifiche. Criteri di accettazione e codici di errore sono univoci all'interno dell'elemento che li dichiara.
 
 `parentId` esprime contenimento semantico e non coordinate. Può riferirsi a feature, component, resource, controller o action. Sono vietati riferimenti mancanti e cicli. Gli stati dello stesso ciclo di vita condividono il contenitore.
@@ -34,6 +36,8 @@ Gli identificatori sono stringhe opache, indipendenti da nome, posizione e perco
 | `realization` | component, controller, action, resource, view | feature, contract |
 
 La matrice è esposta da `isCompatibleRelation` per i futuri editor. Gli endpoint sono sempre ID di elementi. `condition` è testo dichiarativo e non viene eseguito. `errorCode`, quando presente, deve essere dichiarato dal comportamento dell'origine. Una proiezione può mostrare un sottoinsieme del modello; ogni relazione visibile deve avere entrambi gli endpoint nella stessa proiezione.
+
+L'editor degli stati M3.5 richiede, per le nuove transizioni nelle viste di stato, due stati con la stessa risorsa effettiva come `parentId`. I documenti storici che lo schema ammette con contenimento diverso o assente restano leggibili e non vengono normalizzati. Nome della relazione, condizione e codice di errore rappresentano rispettivamente evento dichiarato, guardia testuale ed errore della sorgente. Non vengono aggiunti campi allo schema né dedotti stati iniziali/finali o risultati di esecuzione. Il riepilogo dei cicli di vita è ricavato dai riferimenti alle risorse e dai genitori degli stati presenti nella vista.
 
 ## Comportamenti ed evidenze
 
@@ -66,6 +70,8 @@ Il comando crea un nuovo file e rifiuta di sovrascrivere sorgente o destinazione
 Le etichette v1 non permettono di dedurre con certezza il tipo della relazione. La migrazione usa `dependency` con `classification: legacy-unclassified` e un avviso per ciascun collegamento. Gli ID delle relazioni sono deterministici rispetto all'ordine originale; una volta migrato il file, gli ID vengono conservati. Prima di una seconda migrazione non riordinare il vecchio file aspettandosi gli stessi ID. La classificazione esplicita dell'esempio completo è separata dalla migrazione conservativa.
 
 ## Verifica
+
+M3.6 ricava impatto e riepiloghi delle evidenze dai riferimenti già presenti, senza proprietà aggiuntive nello schema. Il contenimento definisce il perimetro selezionato; riferimenti diretti e autorizzazioni vengono percorsi al contrario per trovare possibili utilizzatori. Le relazioni `legacy-unclassified` restano consultabili ma non propagano l'analisi. Contesto dei proprietari e dipendenti rimangono distinti. I record di verifica non hanno un ordinamento temporale garantito: i riepiloghi mantengono tutti gli esiti e le revisioni senza dedurre risultato più recente, freschezza o implementazione corrente. Il contesto della vista Impact risiede nello storage del workspace e segue le stesse identità di schede e diagrammi.
 
 Con il Node di `.nvmrc`:
 

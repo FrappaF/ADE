@@ -43,6 +43,10 @@ npm --prefix ade/prototype test
 node ade/scripts/smoke-desktop.mjs --native-only
 node ade/scripts/smoke-desktop.mjs --ux-only
 node ade/scripts/smoke-desktop.mjs --navigation-only
+node ade/scripts/smoke-desktop.mjs --sequence-only
+node ade/scripts/smoke-desktop.mjs --state-only
+node ade/scripts/smoke-desktop.mjs --impact-only
+node ade/scripts/smoke-desktop.mjs --projects-only
 node ade/scripts/smoke-desktop.mjs --extension-only
 ```
 
@@ -53,6 +57,8 @@ Il percorso `--ux-only` include anche lettura testuale e aiuto accessibili: canv
 `--navigation-only` verifica l'[esploratore M3](semantic-explorer.md): ricerca per tipo, contratti non collocati, breadcrumb, selezione fra prospettive, Back/Forward, modifica e ripristino delle schede, cancellazione esterna. Il file del modello usato per editing e riavvio si trova fuori dal workspace temporaneo. Gli esiti sono nel [verbale M3.1](m3-1-verification.md). Questo percorso è configurato separatamente su Linux e macOS nella CI desktop.
 
 Il workflow `desktop.yml` compila e collauda su Linux e macOS; `ci.yml` esegue soltanto i controlli leggeri. Le esecuzioni effettive vanno verificate su GitHub: il solo file YAML non dimostra il successo della CI.
+
+`--projects-only` crea un progetto da una cartella vuota e apre due modelli indipendenti dal checkout, senza predisporre file demo nel workspace. Copre struttura, flusso, contratti, sequenze, stati, impatto, salvataggio, riavvio e cambio documento. Perimetro, correzioni e limiti sono nel [verbale sui progetti indipendenti](project-generality-verification.md).
 
 ## Aggiornamenti upstream e ritorno alla base
 
@@ -78,3 +84,11 @@ I workflow Microsoft restano in `ade/upstream-workflows/*.disabled`. Licenze e a
 La home usa il dominio condiviso per il modello di acquisto e i documenti v1/v2/v3. `A.D.E: Open Project Home` conserva l'accesso alla home della precedente shell. `npm run ade:test` verifica dominio, navigazione ed editing senza Electron; `npm run ade:check` controlla dominio, shell e test dopo l’installazione root. Dopo la build client, `node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts` verifica servizio e ripristino con cronologia nativa e backend controllato. Schema, esempi e migrazione sono descritti nel [contratto semantico](semantic-model.md); il percorso operativo è nell'[editor persistente](visual-editing.md).
 
 M3.2 estende `--navigation-only` a System Map, lettura accessibile, tastiera, breadcrumb, ripristino dopo il riavvio e misure delle etichette SVG rispetto ai nodi. I test del dominio coprono anche routing, auto-collegamenti, relazioni parallele e sovrapposizioni bloccanti; vedere il [verbale M3.2](m3-2-verification.md).
+
+M3.3 estende lo stesso percorso a creazione/modifica/rimozione di voci dei contratti, validazione dei campi, cancellazione dei dialoghi, undo/redo, lettura accessibile e coerenza fra scheda e due diagrammi. La CI desktop include anche `adeBehaviorEditing.test.ts` nel runner nativo. Build, test automatici e smoke Linux sono registrati nel [verbale M3.3](m3-3-verification.md), distinti da macOS e CI remota ancora da eseguire.
+
+M3.4 aggiunge `--sequence-only`, configurato separatamente su Linux e macOS nella CI desktop: creazione di una sequenza, riuso delle interazioni, ordine di partecipanti/messaggi, rimozione dalla sola vista, auto-messaggi, contratto condiviso, lettura accessibile, etichette misurate, Fit Diagram, finestra stretta, salvataggio e riavvio. Il [verbale M3.4](m3-4-verification.md) registra gli esiti Linux e distingue macOS/VoiceOver e CI remota ancora aperti.
+
+M3.5 aggiunge `--state-only`, separato in CI su Linux e macOS: creazione di viste e risorse, riuso dei cicli di vita, eventi, condizioni, errori, auto-transizioni, tabella, modifica condivisa fra viste, lettura accessibile, rimozione locale, tastiera, salvataggio e riavvio. Il [verbale M3.5](m3-5-verification.md) distingue gli esiti Linux dalle verifiche di piattaforma e CI remota ancora aperte.
+
+M3.6 aggiunge `--impact-only`, separato in CI su Linux e macOS: report del modello, riferimenti incerti, motivi, navigazione verso elementi/diagrammi, evidenze sintetiche con esiti e revisioni diverse, lettura accessibile, cronologia, modifica con undo/redo, riavvio, finestra stretta e aggiornamenti/cancellazioni esterne. Il [verbale M3.6](m3-6-verification.md) registra gli esiti locali; il [percorso sugli esempi](../examples/impact-review.md) usa soltanto dichiarazioni presenti nei modelli di prodotto.

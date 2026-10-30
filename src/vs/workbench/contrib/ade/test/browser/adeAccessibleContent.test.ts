@@ -65,6 +65,35 @@ suite('A.D.E accessible content', () => {
 			{ details: true, unplaced: true, related: true, staleDiagram: false });
 	});
 
+	test('sequence reading preserves participant and message order and identifies unsupported relationships', () => {
+		const model = structuredClone(checkoutModel);
+		const view = { id: 'sequence', name: 'Purchase Sequence', kind: 'sequence' as const, nodes: [...model.views[0].nodes].reverse(), relationIds: ['show-declined', 'checkout-confirm', 'confirm-order'] };
+		model.views.push(view);
+		const content = describeAdeDiagram(state({ model, activeView: view, selectedId: 'checkout-controller' }));
+		assert.deepStrictEqual({ declared: content.includes('not observed execution'), firstParticipant: content.includes('1. Ordine (Resource)'), orderedMessages: content.indexOf('mostra errore') < content.indexOf('invia'), condition: content.includes('Condition: pagamento riuscito'), error: content.includes('Error: payment-declined'), contract: content.includes('Input: cartId (CartId), Required') },
+			{ declared: true, firstParticipant: true, orderedMessages: true, condition: true, error: true, contract: true });
+		view.relationIds.push('confirm-feature');
+		view.nodes.push({ elementId: 'purchase', x: 0, y: 0 });
+		assert.ok(describeAdeDiagram(state({ model, activeView: view })).includes('Not Rendered as a Sequence Message:'));
+	});
+
+	test('state reading names resource ownership and events while preserving historical context', () => {
+		const content = describeAdeDiagram(state());
+		assert.deepStrictEqual({ resource: content.includes('Resource: Ordine. Visible states: 3 of 3. Visible transitions: 2.'), ownership: content.includes('State In attesa belongs to resource Ordine.'), context: content.includes('Additional context: 1 elements and 0 relationships'), event: content.includes('Transition Event: pagamento riuscito'), guard: content.includes('Condition: pagamento autorizzato'), intent: content.includes('no initial or final state is inferred') },
+			{ resource: true, ownership: true, context: true, event: true, guard: true, intent: true });
+	});
+
+	test('impact reading explains reverse reasons and recorded revisions without stale diagrams or current verification claims', () => {
+		const model = structuredClone(checkoutModel);
+		model.codeMappings.push({ id: 'fixture-mapping', elementId: 'checkout-controller', file: 'fixture.ts', symbol: 'confirm', revision: 'fixture-rev-1' });
+		model.verifications.push({ id: 'fixture-passed', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'passed', evidence: 'fixture-result', revision: 'fixture-rev-1' },
+			{ id: 'fixture-failed', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'failed', evidence: 'fixture-other-result', revision: 'fixture-rev-2' });
+		const content = describeAdeDiagram(state({ model, section: 'impact', selectedId: 'payment-contract' }));
+		assert.deepStrictEqual({ impact: content.includes('Change Impact: Pagamento'), reason: content.includes('Realization to Pagamento'), revision: content.includes('Revision: fixture-rev-2'), failed: content.includes('Recorded Failed'), passed: content.includes('Recorded Passed'), mixed: content.includes('Different Outcomes Recorded'), missing: content.includes('No Records for Criterion purchase-declined'), limits: content.includes('do not establish the current implementation'), stale: content.includes('Diagram: Esito pagamento') },
+			{ impact: true, reason: true, revision: true, failed: true, passed: true, mixed: true, missing: true, limits: true, stale: false });
+		assert.ok(!describeAdeDiagram(state({ model, section: 'impact', selectedId: 'payment-contract', loading: true })).includes('Potential Dependents'));
+	});
+
 	test('help distinguishes read-only navigation from editing and uses resolvable command keybindings', () => {
 		const readOnly = describeAdeHelp(state());
 		const editable = describeAdeHelp(state({ editable: true }));
