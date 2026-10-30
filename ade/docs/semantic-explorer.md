@@ -83,10 +83,44 @@ Il formato v3 resta invariato: l'appartenenza è `state.parentId → resource`, 
 
 Il sottoinsieme M3.5 rappresenta stati semplici, eventi dichiarati, guardie testuali, errori e auto-transizioni. Non deduce stati iniziali/finali, stati compositi, regioni parallele, azioni entry/exit o esecuzione runtime. L'[esempio progettato](../examples/checkout-designed.ade.json) contiene ora anche il ciclo di vita dell'ordine: le azioni del flusso e gli stati della risorsa hanno identità distinte, senza dedurre automaticamente causalità fra loro. Verifiche e limiti di piattaforma sono nel [verbale M3.5](m3-5-verification.md).
 
+## Impatto ed evidenze M3.6
+
+**Show Change Impact**, nelle proprietà e come **A.D.E: Show Change Impact** nella palette, apre un report dell'identità selezionata, anche senza collocazione in un diagramma. Il report non modifica il documento e non aggiunge campi al formato semantico. **Element Details** riapre la scheda; Back/Forward, riavvio e salvataggio di una copia conservano la destinazione come contesto del workspace. Il report viene ricalcolato sul documento corrente, comprese le modifiche non salvate. Modifiche esterne aggiornano il report pulito; eliminare l'identità ripara il contesto e un documento invalido non lascia un report obsoleto presentato come corrente.
+
+Il perimetro selezionato comprende l'elemento e i suoi discendenti per contenimento. Da quel perimetro l'analisi risale i riferimenti diretti: per ogni relazione `sorgente → destinazione`, una destinazione inclusa rende la sorgente un possibile elemento da rivedere. Sono comprese le relazioni tipizzate del modello e i riferimenti di autorizzazione verso gli attori. Le condizioni non vengono valutate. La ricerca evita i cicli, conserva le identità e assegna a ogni elemento una distanza minima e un motivo rappresentativo; i collegamenti da rivedere restano consultabili anche quando esistono altri percorsi equivalenti. I nomi uguali non fondono elementi distinti.
+
+**Ownership Context** mostra separatamente gli antenati degli elementi inclusi: appartenere alla stessa feature non rende automaticamente dipendente ogni altro figlio. Analogamente, un riferimento uscente verso una risorsa non rende quella risorsa un dipendente del chiamante. **Diagrams to Review** collega le viste che rappresentano gli elementi o i riferimenti inclusi, comprese le viste vuote di una feature selezionata. **Relationships to Review** conserva direzione, tipo, condizioni ed errori, con accesso a sorgente e destinazione. I collegamenti legacy non classificati vengono indicati esplicitamente e non propagano il perimetro.
+
+Il risultato è un elenco potenziale di revisione nel modello dichiarato. Non descrive una modifica già applicata, non sostituisce il riepilogo esatto della cancellazione e non predice effetti nel codice. **Read Change Impact** ne presenta lo stesso contenuto nel lettore nativo.
+
+**Recorded Evidence**, nelle proprietà e per gli elementi inclusi nel report, distingue tre fatti senza trasformarli in un unico stato di avanzamento:
+
+| Fatto | Interpretazione disponibile |
+| --- | --- |
+| Design Declaration | L'identità è dichiarata nel modello |
+| Code References | Mappature registrate con file, simbolo e revisione; la versione corrente del codice non viene ispezionata |
+| Verification Records | Esiti `passed`/`failed`/`unknown`, criterio, riferimento all'evidenza e revisione registrati nel documento |
+
+**Inspect Recorded Evidence** mostra tutti i record, i conteggi per esito, i criteri privi di registrazioni e i criteri con esiti diversi. L'ordine degli array non stabilisce quale esito sia il più recente. Un record passato, una revisione coincidente o l'assenza di fallimenti non certificano implementazione corrente, freschezza o copertura completa. Questa vista non esegue test e non apre i percorsi delle evidenze. Le evidenze possono essere già presenti nei documenti; importazione e aggiornamento automatico appartengono alle milestone successive.
+
+Percorso di revisione sull'esempio integrato: **Conferma acquisto → Richiedi pagamento → Pagamento** apre il contratto non collocato; Show Change Impact risale pagamento, servizio pagamenti, controller, interfaccia e attore. I diagrammi coinvolti restano raggiungibili dal report. Ordine, errori e relativi contratti restano consultabili dalle proprietà e dalle viste di stato. Gli esempi di prodotto conservano l'assenza di mappature o verifiche inventate; i record usati nei test sono fixture sintetiche separate. Il [percorso completo sugli esempi](../examples/impact-review.md) precisa risultati e limiti; le verifiche sono nel [verbale M3.6](m3-6-verification.md).
+
+## Copertura visuale M3
+
+| Vista | Sottoinsieme disponibile | Costrutti non certificati da questa implementazione |
+| --- | --- | --- |
+| Struttura | Identità tipizzate, relazioni dichiarate, contenimento, contratti e riferimenti condivisi | Notazione UML completa e corrispondenza con una codebase non importata |
+| Flusso | Azioni e collegamenti con condizioni ed errori dichiarati | Esecuzione, valutazione delle guardie e nodi UML avanzati di fork/join |
+| Sequenza | Partecipanti semantici, invocazioni/letture/scritture ordinate e auto-messaggi | Istanze runtime multiple, frammenti `alt`/`loop`/`par`, risposte, attivazioni e tempi |
+| Stato | Stati semplici per risorsa, eventi, guardie, errori e auto-transizioni | Stati iniziali/finali dedotti, compositi, regioni parallele ed entry/exit |
+| Impatto | Contenimento, riferimenti inversi, autorizzazioni e metadati delle evidenze | Analisi del codice, previsione runtime, freschezza dei risultati e riconciliazione |
+
+Gli incrementi M3.1–M3.6 coprono questo percorso funzionale su Linux. La chiusura delle verifiche di piattaforma, CI remota e revisione UX resta distinta dalla disponibilità delle funzioni; vedere i verbali per gli esiti effettivi.
+
 ## Accessibilità e aggiornamenti esterni
 
 **Read Element Details** usa lo stesso lettore nativo di **Read Diagram**. L'aiuto accessibile descrive ricerca, breadcrumb, schede e cronologia. La lettura non presenta la scheda come un diagramma e non deduce esecuzione o verifiche del codice.
 
 Il servizio mantiene un watcher correlato sul file del modello, anche fuori dalla cartella del workspace. Un aggiornamento esterno ricarica soltanto il documento pulito; le modifiche non salvate restano protette dal backend nativo. Se viene eliminato l'elemento ispezionato, il contesto torna a un diagramma valido. Errori di lettura non lasciano il vecchio contenuto presentato come stato corrente. Watcher e richieste superate vengono rilasciati o ignorati quando cambia il documento.
 
-Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md), [M3.2](m3-2-verification.md), [M3.3](m3-3-verification.md), [M3.4](m3-4-verification.md) e [M3.5](m3-5-verification.md).
+Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md), [M3.2](m3-2-verification.md), [M3.3](m3-3-verification.md), [M3.4](m3-4-verification.md), [M3.5](m3-5-verification.md) e [M3.6](m3-6-verification.md).

@@ -10,13 +10,14 @@ import { getSystemMap } from '../common/systemMap.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
 import { getStateDiagram } from '../common/stateDiagram.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
+import { describeChangeImpact, describeRecordedEvidence } from './adeImpactContent.js';
 
 /** Presentation state only: reading the diagram never edits or saves its document. */
 export interface AdeReadingState {
 	readonly model: SemanticModel;
 	readonly activeView: ModelView | undefined;
 	readonly selectedId: string;
-	readonly section: 'home' | 'diagram' | 'element' | 'map';
+	readonly section: 'home' | 'diagram' | 'element' | 'map' | 'impact';
 	readonly loading: boolean;
 	readonly error: string | undefined;
 	readonly saveError: string | undefined;
@@ -36,12 +37,16 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 	if (state.error) { return [title, state.error, localize('ade.reading.recovery', "Use Retry or Open Model to recover.")].join('\n'); }
 	const model = state.model;
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
-	const view = state.section === 'element' || state.section === 'map' ? undefined : state.activeView;
+	const view = state.section === 'element' || state.section === 'impact' || state.section === 'map' ? undefined : state.activeView;
 	const lines = [title, localize('ade.reading.system', "System: {0}", model.name),
 		state.editable ? (state.dirty ? localize('ade.reading.dirty', "Unsaved Changes") : localize('ade.reading.saved', "Saved")) : localize('ade.reading.readonly', "Read-only"),
 		localize('ade.reading.intent', "Design intent. Conditions are declarations, not execution results.")];
 	if (state.saveError) { lines.push(state.saveError); }
 	lines.push(...state.diagnostics);
+	if (state.section === 'impact') {
+		if (elements.has(state.selectedId)) { lines.push(...describeChangeImpact(model, state.selectedId)); }
+		return lines.join('\n');
+	}
 	const describeRelation = (relation: SemanticRelation): void => {
 		lines.push(localize('ade.reading.relation', "{0} to {1}: {2}. {3}", elements.get(relation.from)!.name, elements.get(relation.to)!.name, relationLabels[relation.kind], relation.name));
 		if (relation.condition) { lines.push(localize('ade.reading.condition', "Condition: {0}", relation.condition)); }
@@ -144,6 +149,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 			for (const relation of related) { describeRelation(relation); }
 		}
 		lines.push(localize('ade.reading.evidence', "Code mappings: {0}. Verification records: {1}.", model.codeMappings.filter(mapping => mapping.elementId === selected.id).length, model.verifications.filter(verification => verification.elementId === selected.id).length));
+		lines.push(...describeRecordedEvidence(model, selected.id));
 	}
 	return lines.join('\n');
 }
@@ -158,12 +164,14 @@ export function describeAdeHelp(state: AdeReadingState): string {
 		localize('ade.help.behavior', "Edit Behavioral Contract in Properties edits inputs, outputs, preconditions, postconditions and errors through native choices. Escape cancels the current entry. Each completed change can be undone. Edit Relationship Error assigns or clears a declared source error; clear references before removing or renaming an error."),
 		localize('ade.help.sequence', "Sequence diagrams show participants and ordered declared messages. Add Existing Message reuses an invocation, read or write and includes its endpoints. Properties moves participants left or right and Sequence Message Options moves messages earlier or later. Removing a participant or message from this diagram preserves the system and other views. Participant positions are derived from their order; use the background to pan and Fit Diagram to zoom."),
 		localize('ade.help.states', "State diagrams group declared states by their resource. Add State creates a state for a resource in the diagram; Add Existing State and Add Existing Transition reuse identities. Include Resource Lifecycle adds the resource's declared states and transitions without moving existing nodes. Transition Table lists sources, targets, events, conditions and errors. Properties edits shared events and contracts; removing a state or relationship from the diagram preserves the system and other views. Initial/final states, nested states and execution are not inferred."),
+		localize('ade.help.impact', "Show Change Impact in Properties reviews containment, reverse directed relationships and authorization references. Each potential dependent includes a reason; ownership context is separate. Follow elements and diagrams with Enter or Space. Recorded Evidence preserves every code reference, outcome and revision without establishing current implementation or freshness. Read Change Impact reads the current report; Back and Forward include this view."),
 		localize('ade.help.reading', "Use <keybinding:editor.action.accessibleView> to read the current diagram as text. The view includes elements, relationships, conditions and details of the selected element. Escape returns to the previous control."),
 		state.section === 'home'
 			? localize('ade.help.home', "On Home, choose Create Project, Open Project, Open Model or Explore Purchase Example. The purchase example is read-only.")
 			: localize('ade.help.selection', "Focus an element and press Enter or Space to select it and update Properties. Each diagram keeps its own selection."),
 		state.loading ? localize('ade.help.loading', "The model is loading. Wait for it to finish before selecting or editing elements.")
 			: state.error ? localize('ade.help.invalid', "The model is unavailable or invalid. Use Retry or Open Model. The previous diagram is not current.")
+			: state.section === 'impact' ? localize('ade.help.impactContext', "You are reviewing model change impact. The report updates with the current document and does not edit the model or run tests. Inspect Recorded Evidence opens metadata; its paths are not executed. Element Details returns to the selected identity.")
 			: state.section === 'element' ? localize('ade.help.details', "You are in Element Details. Follow relationships or contained elements, or choose a diagram containing this element. Writable projects allow renaming, description changes, behavioral contract editing and deletion from the Properties actions.")
 			: state.editable && state.activeView?.kind === 'sequence' ? localize('ade.help.sequenceContext', "Select a participant or message with Enter or Space. Participants are ordered from Properties rather than dragged. Sequence Message Options orders or removes message occurrences. Message conditions and errors remain shared across all diagrams.")
 			: state.editable

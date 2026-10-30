@@ -40,7 +40,8 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 const navigationOnly = process.argv.includes('--navigation-only');
 const sequenceOnly = process.argv.includes('--sequence-only');
 const stateOnly = process.argv.includes('--state-only');
-const modelFile = path.join(navigationOnly || sequenceOnly || stateOnly ? directory : workspace, 'checkout.ade.json');
+const impactOnly = process.argv.includes('--impact-only');
+const modelFile = path.join(navigationOnly || sequenceOnly || stateOnly || impactOnly ? directory : workspace, 'checkout.ade.json');
 const emptyFile = path.join(workspace, 'empty.ade.json');
 const invalidFile = path.join(workspace, 'invalid.ade.json');
 const otherFile = path.join(workspace, 'other.ade.json');
@@ -54,7 +55,7 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -65,7 +66,7 @@ if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequen
 		if (manifest) {
 			const extension = JSON.parse(manifest);
 			// Theme coverage enables only the declarative built-in themes, which have no executable entry point.
-			if ((uxOnly || sequenceOnly || stateOnly) && extension.name === 'theme-defaults') { continue; }
+			if ((uxOnly || sequenceOnly || stateOnly || impactOnly) && extension.name === 'theme-defaults') { continue; }
 			args.push(`--disable-extension=${extension.publisher ?? 'vscode'}.${extension.name}`);
 		}
 	}
@@ -207,6 +208,109 @@ async function checkContractEditing(window) {
 	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
 	await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
 	console.log('PASS: native contract creation, validation, cancellation, editing, removal, undo/redo and shared details across two diagrams with accessible reading.');
+}
+
+async function checkModelImpact() {
+	const fixture = structuredClone(checkoutModel);
+	fixture.name = 'Synthetic Evidence Fixture';
+	fixture.codeMappings.push({ id: 'fixture-mapping', elementId: 'checkout-controller', file: 'fixture.ts', symbol: 'confirm', revision: 'fixture-rev-1' });
+	fixture.verifications.push(
+		{ id: 'fixture-pass', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'passed', evidence: 'fixture-passed', revision: 'fixture-rev-1' },
+		{ id: 'fixture-fail', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'failed', evidence: 'fixture-failed', revision: 'fixture-rev-2' },
+		{ id: 'fixture-unknown', elementId: 'checkout-controller', criterionId: 'purchase-declined', outcome: 'unknown', evidence: 'fixture-unknown', revision: 'fixture-rev-3' });
+	fixture.semantics.relations.push({ id: 'fixture-unclassified', kind: 'dependency', from: 'cart', to: 'payment-contract', name: 'Unclassified fixture', classification: 'legacy-unclassified' });
+	await writeFile(modelFile, JSON.stringify(fixture));
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await openModelFile(window, modelFile);
+	await searchSystem(window, 'Contract', 'Pagamento');
+	await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-canvas').count(), 0);
+	const dependents = () => shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Potential Dependents: 5', exact: true }) });
+	assert.equal(await dependents().locator('.ade-impact-entry').count(), 5);
+	assert.equal(await dependents().locator('[data-element-id="cart"]').count(), 0);
+	await shell.getByText('Unclassified Relationships Not Propagated: 1', { exact: true }).waitFor();
+	const links = shell.locator('.ade-impact > details');
+	await links.locator('summary').click();
+	await links.getByText('Unclassified relationship: excluded from propagation.', { exact: true }).waitFor();
+	await links.getByRole('button', { name: 'Target: Pagamento', exact: true }).first().click();
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	const evidenceGroup = shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Evidence to Review', exact: true }) });
+	const controller = evidenceGroup.locator('[data-element-id="checkout-controller"]');
+	await controller.getByText('Inspect Recorded Evidence', { exact: true }).click();
+	await controller.getByText('Recorded Passed · Criterion: purchase-success · Evidence: fixture-passed · Revision: fixture-rev-1', { exact: true }).waitFor();
+	await controller.getByText('Recorded Failed · Criterion: purchase-success · Evidence: fixture-failed · Revision: fixture-rev-2', { exact: true }).waitFor();
+	await controller.getByText('Recorded Unknown · Criterion: purchase-declined · Evidence: fixture-unknown · Revision: fixture-rev-3', { exact: true }).waitFor();
+	await controller.getByText('Different Outcomes Recorded for Criteria: purchase-success. Review each revision; no latest result is inferred.', { exact: true }).waitFor();
+	assert.equal(await readFile(modelFile, 'utf8'), JSON.stringify(fixture), 'Impact navigation and record inspection never edit the document');
+	await controller.scrollIntoViewIfNeeded();
+	await window.screenshot({ path: path.join(evidence, 'recorded-evidence.png') });
+	await shell.getByRole('button', { name: 'Read Change Impact', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Change Impact: Pagamento', { exact: true }).waitFor();
+	await window.locator('.accessible-view:visible').getByText('Potential Dependents: 5', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await dependents().getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Richiedi pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Forward', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Richiedi pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	const diagrams = shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Diagrams to Review: 3', exact: true }) });
+	await diagrams.getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Back', exact: true }).click();
+	await shell.getByRole('button', { name: 'Element Details', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
+	await runCommand(window, 'A.D.E: Show Change Impact');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+	await enterValue(window, 'Name', 'Contratto pagamento');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).scrollIntoViewIfNeeded();
+	await window.screenshot({ path: path.join(evidence, 'model-impact.png') });
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(validateSemanticModel(saved).filter(diagnostic => diagnostic.severity === 'error'), []);
+	assert.deepEqual([saved.codeMappings, saved.verifications], [fixture.codeMappings, fixture.verifications]);
+	console.log('PASS: model-only impact, reverse reasons, uncertain links, recorded outcomes/revisions, semantic navigation, reading and native undo/redo/save.');
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
+	await shell.getByRole('button', { name: 'Element Details', exact: true }).focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
+	const updated = structuredClone(saved);
+	updated.semantics.relations = updated.semantics.relations.filter(relation => relation.id !== 'gateway-contract');
+	await writeFile(modelFile, JSON.stringify(updated));
+	await shell.getByRole('heading', { name: 'Potential Dependents: 4', exact: true }).waitFor();
+	const removed = structuredClone(updated);
+	removed.semantics.elements = removed.semantics.elements.filter(element => element.id !== 'payment-contract');
+	removed.semantics.relations = removed.semantics.relations.filter(relation => relation.from !== 'payment-contract' && relation.to !== 'payment-contract');
+	await writeFile(modelFile, JSON.stringify(removed));
+	await shell.locator('.ade-canvas').waitFor();
+	assert.equal(await shell.locator('.ade-impact').count(), 0);
+	await openModelFile(window, otherFile);
+	assert.equal(await shell.locator('.ade-impact').count(), 0);
+	await openModelFile(window, invalidFile);
+	await shell.getByRole('alert').waitFor();
+	assert.equal(await shell.locator('.ade-impact').count(), 0);
+	console.log('PASS: impact restores after restart, supports narrow-window keyboard navigation and recomputes on external edits/deletion without stale reports across documents.');
+	await app.close();
+	app = undefined;
 }
 
 async function checkStateDiagram() {
@@ -802,11 +906,12 @@ async function checkVisualUX() {
 }
 
 try {
+	if (impactOnly) { await checkModelImpact(); }
 	if (stateOnly) { await checkStateDiagram(); }
 	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -1002,7 +1107,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));

@@ -83,6 +83,17 @@ suite('A.D.E accessible content', () => {
 			{ resource: true, ownership: true, context: true, event: true, guard: true, intent: true });
 	});
 
+	test('impact reading explains reverse reasons and recorded revisions without stale diagrams or current verification claims', () => {
+		const model = structuredClone(checkoutModel);
+		model.codeMappings.push({ id: 'fixture-mapping', elementId: 'checkout-controller', file: 'fixture.ts', symbol: 'confirm', revision: 'fixture-rev-1' });
+		model.verifications.push({ id: 'fixture-passed', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'passed', evidence: 'fixture-result', revision: 'fixture-rev-1' },
+			{ id: 'fixture-failed', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'failed', evidence: 'fixture-other-result', revision: 'fixture-rev-2' });
+		const content = describeAdeDiagram(state({ model, section: 'impact', selectedId: 'payment-contract' }));
+		assert.deepStrictEqual({ impact: content.includes('Change Impact: Pagamento'), reason: content.includes('Realization to Pagamento'), revision: content.includes('Revision: fixture-rev-2'), failed: content.includes('Recorded Failed'), passed: content.includes('Recorded Passed'), mixed: content.includes('Different Outcomes Recorded'), missing: content.includes('No Records for Criterion purchase-declined'), limits: content.includes('do not establish the current implementation'), stale: content.includes('Diagram: Esito pagamento') },
+			{ impact: true, reason: true, revision: true, failed: true, passed: true, mixed: true, missing: true, limits: true, stale: false });
+		assert.ok(!describeAdeDiagram(state({ model, section: 'impact', selectedId: 'payment-contract', loading: true })).includes('Potential Dependents'));
+	});
+
 	test('help distinguishes read-only navigation from editing and uses resolvable command keybindings', () => {
 		const readOnly = describeAdeHelp(state());
 		const editable = describeAdeHelp(state({ editable: true }));

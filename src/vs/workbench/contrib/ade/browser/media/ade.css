@@ -370,3 +370,15 @@
 	padding: var(--vscode-spacing-size80);
 	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
 }
+
+.ade-impact-group,
+.ade-recorded-evidence {
+	margin-block: var(--vscode-spacing-size160);
+	overflow-wrap: anywhere;
+}
+
+.ade-impact-entry {
+	margin-block: var(--vscode-spacing-size120);
+	padding-inline-start: var(--vscode-spacing-size120);
+	border-inline-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}

@@ -65,7 +65,7 @@ export class AdeProjectService extends Disposable {
 		} catch { /* Ignore corrupt state from the read-only shell. */ }
 		const section = storageService.get('ade.shell.section', StorageScope.WORKSPACE)
 			?? (storageService.getBoolean('ade.visual.home', StorageScope.WORKSPACE, true) ? 'home' : 'diagram');
-		this._section = section === 'home' || section === 'map' || section === 'element' ? section : 'diagram';
+		this._section = section === 'home' || section === 'map' || section === 'element' || section === 'impact' ? section : 'diagram';
 		this.inspectionId = storageService.get('ade.shell.inspection', StorageScope.WORKSPACE, '');
 		let selections: Record<string, string> = {};
 		try {
@@ -105,13 +105,14 @@ export class AdeProjectService extends Disposable {
 	get error(): string | undefined { return this._error; }
 	get diagnostics(): readonly string[] { return this._diagnostics; }
 	get model() { return this.semantics.getSnapshot(); }
-	get activeView() { return this.section === 'element' || this.section === 'map' ? undefined : this.model.views.find(view => view.id === this.context.viewId); }
-	get selectedId(): string { return this.section === 'element' ? this.inspectionId : this.context.selections[this.context.viewId] ?? ''; }
+	get activeView() { return this.section === 'element' || this.section === 'impact' || this.section === 'map' ? undefined : this.model.views.find(view => view.id === this.context.viewId); }
+	get selectedId(): string { return this.section === 'element' || this.section === 'impact' ? this.inspectionId : this.context.selections[this.context.viewId] ?? ''; }
 	get canGoBack(): boolean { return !this.loading && !this.error && this.navigation.canGo(this.model, -1); }
 	get canGoForward(): boolean { return !this.loading && !this.error && this.navigation.canGo(this.model, 1); }
 	private get location(): SemanticLocation {
 		if (this.section === 'home' || this.section === 'map') { return { section: this.section }; }
 		if (this.section === 'element') { return { section: 'element', elementId: this.inspectionId }; }
+		if (this.section === 'impact') { return { section: 'impact', elementId: this.inspectionId }; }
 		return { section: 'diagram', viewId: this.context.viewId, ...(this.selectedId ? { elementId: this.selectedId } : {}) };
 	}
 	private publishNavigation(): void { this.navigation.push(this.location); this.changeEmitter.fire(); }
@@ -130,9 +131,14 @@ export class AdeProjectService extends Disposable {
 		this.applyLocation({ section: 'element', elementId: id });
 		this.publishNavigation();
 	}
+	showImpact(id = this.selectedId): void {
+		if (this.loading || this.error || !this.model.semantics.elements.some(element => element.id === id)) { return; }
+		this.applyLocation({ section: 'impact', elementId: id });
+		this.publishNavigation();
+	}
 	private applyLocation(location: SemanticLocation): void {
 		this._section = location.section;
-		if (location.section === 'element') { this.inspectionId = location.elementId; }
+		if (location.section === 'element' || location.section === 'impact') { this.inspectionId = location.elementId; }
 		if (location.section === 'diagram') {
 			this.context.viewId = location.viewId;
 			if (location.elementId) { this.context.selections[location.viewId] = location.elementId; }
@@ -154,7 +160,7 @@ export class AdeProjectService extends Disposable {
 				this.restoring = this.loadModel(this._modelUri);
 			} else {
 				this.context = normalizeDiagramContext(this.model, this.context);
-				if (this.section === 'element' && !this.model.semantics.elements.some(element => element.id === this.inspectionId)) { this._section = 'diagram'; }
+				if ((this.section === 'element' || this.section === 'impact') && !this.model.semantics.elements.some(element => element.id === this.inspectionId)) { this._section = 'diagram'; }
 				this.navigation.replace(this.location);
 			}
 		}
@@ -311,7 +317,7 @@ export class AdeProjectService extends Disposable {
 			const result = migrateSemanticModel(JSON.parse(document.textEditorModel.getValue()));
 			this.semantics.replace(result.model);
 			this.context = normalizeDiagramContext(result.model, this.context);
-			if (this.section === 'element' && !result.model.semantics.elements.some(element => element.id === this.inspectionId)) {
+			if ((this.section === 'element' || this.section === 'impact') && !result.model.semantics.elements.some(element => element.id === this.inspectionId)) {
 				this._section = 'diagram';
 				this.inspectionId = '';
 			}
@@ -335,7 +341,7 @@ export class AdeProjectService extends Disposable {
 			this.context = copiedContext?.diagram ?? { viewId: '', selections: {} };
 			this.inspectionId = '';
 			if (copiedContext) { this.applyLocation(copiedContext.location); }
-			else if (this.section === 'element') { this._section = 'diagram'; }
+			else if (this.section === 'element' || this.section === 'impact') { this._section = 'diagram'; }
 		}
 		this.initialized = true;
 		this.restoring = undefined;

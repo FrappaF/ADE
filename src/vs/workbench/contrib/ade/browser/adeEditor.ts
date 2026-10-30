@@ -29,6 +29,7 @@ import { DiagramBox, placeConnectionLabel, routeDiagramConnection } from '../com
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
 import { renderAdeSequence } from './adeSequence.js';
 import { renderAdeState, stateTransitionLabel } from './adeState.js';
+import { renderChangeImpact, renderRecordedEvidence } from './adeImpact.js';
 
 export class AdeEditor extends EditorPane {
 	static readonly ID = AdeInput.ID;
@@ -103,7 +104,7 @@ export class AdeEditor extends EditorPane {
 		}
 		this.canvasViewport = undefined;
 		this.canvasContent = undefined;
-		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
+		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
 		this.interactions.clear();
 		this.controls.render(this.root, () => {
 			dom.clearNode(this.root);
@@ -136,6 +137,8 @@ export class AdeEditor extends EditorPane {
 				this.renderSystemMap(content);
 			} else if (this.project.section === 'element') {
 				this.renderElement(content);
+			} else if (this.project.section === 'impact') {
+				this.renderImpact(content);
 			} else {
 				this.renderDiagram(content);
 			}
@@ -262,7 +265,7 @@ export class AdeEditor extends EditorPane {
 		const breadcrumbs = dom.append(parent, dom.$('nav.ade-breadcrumbs'));
 		breadcrumbs.setAttribute('aria-label', localize('ade.breadcrumbs', "Semantic Path"));
 		this.button(breadcrumbs, model.name, () => this.project.showSystemMap(), 'breadcrumb:system');
-		if (this.project.section === 'element') {
+		if (this.project.section === 'element' || this.project.section === 'impact') {
 			for (const element of getElementPath(model, this.project.selectedId)) {
 				if (element.id === this.project.selectedId) {
 					const current = dom.append(breadcrumbs, dom.$('span'));
@@ -282,13 +285,10 @@ export class AdeEditor extends EditorPane {
 		}
 	}
 
-	private renderElement(content: HTMLElement): void {
-		const model = this.project.model;
-		const element = model.semantics.elements.find(element => element.id === this.project.selectedId);
-		if (!element) { return; }
+	private renderInspectionHeader(content: HTMLElement, title: string, intent: string): void {
 		this.renderBreadcrumbs(content);
-		dom.append(content, dom.$('h1')).textContent = element.name;
-		this.paragraph(content, localize('ade.elementDetailsIntent', "Element Details · {0} · Design intent", model.name));
+		dom.append(content, dom.$('h1')).textContent = title;
+		this.paragraph(content, intent);
 		this.renderEditingToolbar(content);
 		if (this.project.saveError) {
 			const error = dom.append(content, dom.$('p.ade-status'));
@@ -296,6 +296,23 @@ export class AdeEditor extends EditorPane {
 			error.textContent = this.project.saveError;
 		}
 		for (const diagnostic of this.project.diagnostics) { this.paragraph(content, diagnostic); }
+	}
+
+	private renderImpact(content: HTMLElement): void {
+		const model = this.project.model;
+		const element = model.semantics.elements.find(element => element.id === this.project.selectedId);
+		if (!element) { return; }
+		this.renderInspectionHeader(content, localize('ade.impact.title', "Change Impact: {0}", element.name), localize('ade.impact.intent', "{0} · Declared Model Review", model.name));
+		this.button(content, localize('ade.elementDetails', "Element Details"), () => this.project.inspectElement(element.id), 'impact-details');
+		renderChangeImpact(content, model, element.id, this.controls, id => this.project.inspectElement(id), id => this.project.showDiagram(id));
+		this.renderProperties(dom.append(content, dom.$('section.ade-properties')), model);
+	}
+
+	private renderElement(content: HTMLElement): void {
+		const model = this.project.model;
+		const element = model.semantics.elements.find(element => element.id === this.project.selectedId);
+		if (!element) { return; }
+		this.renderInspectionHeader(content, element.name, localize('ade.elementDetailsIntent', "Element Details · {0} · Design intent", model.name));
 		if (element.kind === 'feature') {
 			const diagrams = getDiagramGroups(model).find(group => group.featureId === element.id)?.views ?? [];
 			dom.append(content, dom.$('h2')).textContent = localize('ade.featureDiagrams', "Feature Diagrams");
@@ -434,6 +451,7 @@ export class AdeEditor extends EditorPane {
 		if (!element) { return; }
 		dom.append(detail, dom.$('h3')).textContent = element.name;
 		this.paragraph(detail, localize('ade.elementKind', "Type: {0}", elementLabels[element.kind]));
+		if (this.project.section !== 'impact') { this.button(detail, localize('ade.showImpact.button', "Show Change Impact"), () => this.project.showImpact(element.id), 'show-impact'); }
 		if (element.kind === 'state' && element.parentId) {
 			const resource = model.semantics.elements.find(candidate => candidate.id === element.parentId && candidate.kind === 'resource');
 			if (resource) { this.button(detail, localize('ade.state.resource', "Resource: {0}", resource.name), () => this.project.inspectElement(resource.id), `state-owner:${resource.id}`); }
@@ -514,9 +532,7 @@ export class AdeEditor extends EditorPane {
 			if (relation.condition) { this.paragraph(detail, localize('ade.condition', "Condition: {0}", relation.condition)); }
 			if (relation.errorCode) { this.paragraph(detail, localize('ade.errorCodeLabel', "Error: {0}", relation.errorCode)); }
 		}
-		this.paragraph(detail, localize('ade.evidence', "Code mappings: {0} · Verification records: {1}",
-			model.codeMappings.filter(mapping => mapping.elementId === element.id).length,
-			model.verifications.filter(verification => verification.elementId === element.id).length));
+		renderRecordedEvidence(detail, model, element.id, this.controls);
 	}
 
 	private renderEditingToolbar(parent: HTMLElement): void {
@@ -531,7 +547,7 @@ export class AdeEditor extends EditorPane {
 			this.button(actions, localize('ade.saveCopy', "Save Project Copy"), () => { void this.commandService.executeCommand('ade.saveCopy'); });
 			this.paragraph(toolbar, this.project.dirty ? localize('ade.unsaved', "Unsaved Changes") : localize('ade.saved', "Saved"));
 		}
-		if (this.project.editable && this.project.section !== 'element') {
+		if (this.project.editable && this.project.section !== 'element' && this.project.section !== 'impact') {
 			if (this.project.section === 'map') {
 				this.button(toolbar, localize('ade.addFeature', "Add Feature"), () => { void this.commandService.executeCommand('ade.addFeature'); });
 			} else {
@@ -569,6 +585,8 @@ export class AdeEditor extends EditorPane {
 			this.button(toolbar, localize('ade.zoomIn', "Zoom In"), () => { this.zoom = Math.min(2, this.zoom + 0.2); this.render(); });
 		} else if (this.project.section === 'element') {
 			this.button(toolbar, localize('ade.readElement', "Read Element Details"), () => { void this.commandService.executeCommand('ade.readContext'); });
+		} else if (this.project.section === 'impact') {
+			this.button(toolbar, localize('ade.readImpact', "Read Change Impact"), () => { void this.commandService.executeCommand('ade.readContext'); });
 		} else if (this.project.section === 'map') {
 			this.button(toolbar, localize('ade.readMap', "Read System Map"), () => { void this.commandService.executeCommand('ade.readContext'); });
 		}

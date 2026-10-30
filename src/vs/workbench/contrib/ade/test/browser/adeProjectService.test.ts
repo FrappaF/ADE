@@ -345,6 +345,44 @@ suite('A.D.E project context', () => {
 		assert.deepStrictEqual([project.model, project.dirty, project.canUndo], [before, false, false]);
 	});
 
+	test('impact is a read-only navigation destination that restores through history, save copy and restart', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.showImpact('payment-contract');
+		assert.deepStrictEqual([project.section, project.selectedId, project.activeView, project.dirty, project.model.version], ['impact', 'payment-contract', undefined, false, 2]);
+		project.goBack();
+		assert.strictEqual(project.section, 'diagram');
+		project.goForward();
+		assert.strictEqual(project.section, 'impact');
+		project.edit({ kind: 'rename', id: 'payment-contract', target: 'element', name: 'Payment Contract Updated' });
+		dialogs.saveTarget = URI.parse('test:/impact-copy.json');
+		assert.strictEqual(await project.saveAs(), true);
+		await storage.flush();
+		project.dispose();
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await restored.restore();
+		assert.deepStrictEqual([restored.section, restored.selectedId, restored.activeView, restored.modelUri!.toString(), restored.model.semantics.elements.find(element => element.id === 'payment-contract')!.name, restored.dirty], ['impact', 'payment-contract', undefined, dialogs.saveTarget.toString(), 'Payment Contract Updated', false]);
+		restored.edit({ kind: 'deleteElement', id: 'payment-contract' });
+		assert.strictEqual(restored.section, 'diagram');
+	});
+
+	test('changing documents clears impact even when identities coincide and failed loads do not expose the old report', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.showImpact('payment-contract');
+		const other = URI.parse('test:/other-impact.json');
+		await files.writeFile(other, VSBuffer.fromString(JSON.stringify({ ...checkoutModel, id: 'other' })));
+		dialogs.selected = other;
+		await project.chooseModel();
+		assert.deepStrictEqual([project.section, project.canGoBack, project.dirty], ['diagram', false, false]);
+		project.showImpact('payment-contract');
+		await files.writeFile(other, VSBuffer.fromString('{"version":99}'));
+		await project.retry();
+		assert.ok(project.error);
+	});
+
 	test('saving a copy preserves diagram and selections across source revert and workspace restart', async () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
 		dialogs.selected = resource;

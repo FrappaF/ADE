@@ -45,6 +45,7 @@ node ade/scripts/smoke-desktop.mjs --ux-only
 node ade/scripts/smoke-desktop.mjs --navigation-only
 node ade/scripts/smoke-desktop.mjs --sequence-only
 node ade/scripts/smoke-desktop.mjs --state-only
+node ade/scripts/smoke-desktop.mjs --impact-only
 node ade/scripts/smoke-desktop.mjs --extension-only
 ```
 
@@ -86,3 +87,5 @@ M3.3 estende lo stesso percorso a creazione/modifica/rimozione di voci dei contr
 M3.4 aggiunge `--sequence-only`, configurato separatamente su Linux e macOS nella CI desktop: creazione di una sequenza, riuso delle interazioni, ordine di partecipanti/messaggi, rimozione dalla sola vista, auto-messaggi, contratto condiviso, lettura accessibile, etichette misurate, Fit Diagram, finestra stretta, salvataggio e riavvio. Il [verbale M3.4](m3-4-verification.md) registra gli esiti Linux e distingue macOS/VoiceOver e CI remota ancora aperti.
 
 M3.5 aggiunge `--state-only`, separato in CI su Linux e macOS: creazione di viste e risorse, riuso dei cicli di vita, eventi, condizioni, errori, auto-transizioni, tabella, modifica condivisa fra viste, lettura accessibile, rimozione locale, tastiera, salvataggio e riavvio. Il [verbale M3.5](m3-5-verification.md) distingue gli esiti Linux dalle verifiche di piattaforma e CI remota ancora aperte.
+
+M3.6 aggiunge `--impact-only`, separato in CI su Linux e macOS: report del modello, riferimenti incerti, motivi, navigazione verso elementi/diagrammi, evidenze sintetiche con esiti e revisioni diverse, lettura accessibile, cronologia, modifica con undo/redo, riavvio, finestra stretta e aggiornamenti/cancellazioni esterne. Il [verbale M3.6](m3-6-verification.md) registra gli esiti locali; il [percorso sugli esempi](../examples/impact-review.md) usa soltanto dichiarazioni presenti nei modelli di prodotto.

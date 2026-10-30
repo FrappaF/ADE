@@ -71,6 +71,8 @@ Le etichette v1 non permettono di dedurre con certezza il tipo della relazione. 
 
 ## Verifica
 
+M3.6 ricava impatto e riepiloghi delle evidenze dai riferimenti già presenti, senza proprietà aggiuntive nello schema. Il contenimento definisce il perimetro selezionato; riferimenti diretti e autorizzazioni vengono percorsi al contrario per trovare possibili utilizzatori. Le relazioni `legacy-unclassified` restano consultabili ma non propagano l'analisi. Contesto dei proprietari e dipendenti rimangono distinti. I record di verifica non hanno un ordinamento temporale garantito: i riepiloghi mantengono tutti gli esiti e le revisioni senza dedurre risultato più recente, freschezza o implementazione corrente. Il contesto della vista Impact risiede nello storage del workspace e segue le stesse identità di schede e diagrammi.
+
 Con il Node di `.nvmrc`:
 
 ```sh
