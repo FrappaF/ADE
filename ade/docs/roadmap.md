@@ -28,7 +28,7 @@ Il workbench definitivo viene riprogettato intorno a diagrammi e flussi: la barr
 
 Il primo percorso di prodotto è progettare un nuovo sistema dai diagrammi: creare progetto e feature, rappresentare struttura e flussi, salvare e riprendere il lavoro. Importazione della codebase e implementazione IA restano nelle milestone dedicate e non sono prerequisiti per questo percorso.
 
-La [decisione su importazione, Sync e provider](decisions/0003-code-import-sync-and-providers.md), adottata il 29 ottobre 2026, prevede analisi del linguaggio affiancata dall'IA, importazione dell'intero perimetro supportato e aggiornamento incrementale su richiesta tramite **Sync**. L'utente sceglie provider e modello; il default sarà il modello più economico disponibile che superi il benchmark del prodotto. Collegamento a un piano personale, API e agente locale sono modalità distinte e vanno implementate secondo i percorsi ammessi dai provider. Queste capacità restano pianificate in M4–M6 e non interrompono il completamento di M2.
+La [decisione su importazione, Sync e provider](decisions/0003-code-import-sync-and-providers.md), aggiornata il 30 ottobre 2026, assegna a M4 analisi deterministica multilinguaggio, importazione del perimetro supportato e aggiornamento incrementale su richiesta tramite **Sync**. L'IA viene integrata in M5 per interpretazioni non risolte dagli strumenti del linguaggio e implementazione assistita. L'utente sceglierà provider e modello; il default sarà il modello più economico disponibile che superi il benchmark del prodotto. Collegamento a un piano personale, API e agente locale sono modalità distinte e vanno implementate secondo i percorsi ammessi dai provider.
 
 L’editor testuale, il terminale e gli strumenti tecnici restano disponibili per manutenzione e approfondimenti. L’esperienza ordinaria parte dal modello del sistema e permette di completare il percorso supportato senza aprire il sorgente. La [decisione architetturale](decisions/0001-code-oss-fork.md) e la [guida al fork](fork-development.md) definiscono la base adottata.
 
@@ -40,7 +40,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio verificato; smoke desktop confermato dall’utente |
 | M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Editor e collaudo M2.3 su Linux; macOS, CI e revisione utente aperti |
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.6 implementati e verificati su Linux; macOS/VoiceOver, CI e revisione UX restano aperti |
-| M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Da sviluppare |
+| M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | M4.1: importatore sintattico multilinguaggio Node; risoluzione semantica, percorso nativo e Sync da sviluppare |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Da sviluppare |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Da sviluppare |
 | M7 · Ambiente dinamico | Esecuzione e diagnostica nel modello | M3, M5, M6 | Da sviluppare |
@@ -251,21 +251,23 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Obiettivo:** collegare il modello a una codebase reale prima di delegare modifiche all'IA.
 
+**M4.1 disponibile:** [importatore deterministico multilinguaggio](code-import.md) eseguibile con Node, indice delle dichiarazioni e degli import non risolti, hash e posizioni sorgenti, modello v3 con mappa cartelle/moduli e diagrammi per file. Include un esempio TypeScript/Python/Java e fixture per JavaScript/TypeScript/TSX, Python, Java, C#, C/C++, Go, Rust, PHP, Ruby, Swift e Dart. Il [verbale M4.1](m4-1-verification.md) distingue l'analisi sintattica dalla risoluzione semantica, dall'integrazione desktop e da Sync ancora da sviluppare. Non effettua chiamate IA.
+
 **Attività:**
 
-- Scegliere un primo perimetro TypeScript e un solo stack dimostrativo; documentarne le capacità.
+- Coprire i linguaggi più usati tramite una base comune e adattatori specifici; documentare separatamente dichiarazioni sintattiche, risoluzione semantica e stack dimostrativi verificati per ciascun linguaggio.
 - Analizzare la struttura sintattica del codice per ricavare simboli, dipendenze e contratti supportati.
 - Mantenere mappature fra identificatori semantici e simboli/file, comprese rinomine e spostamenti.
 - Importare una codebase di esempio e segnalare esplicitamente costrutti non rappresentabili.
 - Rilevare cambiamenti esterni e calcolare un impatto preliminare senza riscrivere i file.
-- Affiancare all'analisi deterministica un connettore IA inizialmente in sola lettura per responsabilità e raggruppamento delle feature; validare output strutturati e associare ogni risultato a simboli e revisioni sorgenti. Questo anticipa la parte dei provider necessaria all'importazione, senza generazione di codice.
+- Riutilizzare parser, indicizzatori semantici e regole esplicite senza IA per tutto ciò che possono ricavare in modo affidabile. Responsabilità e raggruppamenti non dimostrabili restano incerti; l'eventuale interpretazione IA viene integrata in M5, senza diventare un prerequisito dell'importazione.
 - Percorrere tutto il sorgente pertinente dello stack dichiarato e costruire un indice e viste gerarchiche, rendendo esplicita la copertura dei costrutti. Distinguere fatti estratti, interpretazioni incerte e comportamento runtime non osservato.
 - Introdurre il primo **Sync** su richiesta: hash/revisioni, rianalisi dei simboli modificati e delle dipendenze interessate, cache e riepilogo degli aggiornamenti. La riconciliazione completa delle modifiche concorrenti appartiene a M6.
-- Confrontare modelli economici e più capaci su almeno tre repository campione; misurare accuratezza delle relazioni, copertura, tracciabilità, latenza e consumo. Adottare il modello economico predefinito soltanto dopo averne verificato le soglie.
+- Misurare copertura, accuratezza delle relazioni, tracciabilità, latenza e risorse su repository rappresentativi dei linguaggi dichiarati, includendo casi non supportati. Il benchmark dei modelli IA appartiene a M5.
 
 **Consegna:** primo adattatore di analisi, codebase dimostrativa e mappa modello/codice ispezionabile.
 
-**Criterio di completamento:** importare il progetto campione, navigarne gli elementi e sincronizzare una modifica manuale a un contratto, una rinomina e una cancellazione senza ricostruire inutilmente le parti invariate. Le relazioni devono avere evidenze ispezionabili; elementi non supportati e interpretazioni incerte restano riconoscibili. Pubblicare risultati del benchmark prima di dichiarare sufficiente un modello economico per il perimetro supportato.
+**Criterio di completamento:** importare progetti campione dei linguaggi dichiarati, navigarne gli elementi e sincronizzare una modifica manuale a un contratto, una rinomina e una cancellazione senza ricostruire inutilmente le parti invariate. Le relazioni devono avere evidenze ispezionabili; elementi non supportati e interpretazioni incerte restano riconoscibili. Il percorso di importazione funziona senza account o chiamate IA. M4.1 non chiude questo criterio.
 
 ## M5 — Collaborazione con l'IA e prima implementazione
 
@@ -274,7 +276,8 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 **Attività:**
 
 - Definire un'interfaccia per i provider IA e una configurazione delle credenziali fuori dai file versionati.
-- Estendere il connettore in sola lettura di M4 a esecuzione assistita, con selezione del modello, capacità e limiti per account. Distinguere API, collegamento al piano personale e agente locale: OpenAI/Codex e Claude non condividono automaticamente la stessa modalità di login.
+- Introdurre il connettore IA per interpretazioni residue dell'importazione e implementazione assistita, con selezione del modello, capacità e limiti per account. Validare output strutturati e collegarli alle evidenze deterministiche e alle revisioni di M4. Distinguere API, collegamento al piano personale e agente locale: OpenAI/Codex e Claude non condividono automaticamente la stessa modalità di login.
+- Confrontare modelli economici e più capaci su almeno tre repository campione, misurando accuratezza, attribuzione alle feature, tracciabilità, latenza e consumo. Pubblicare soglie e risultati prima di adottare un modello economico predefinito.
 - Impostare come default il modello più economico disponibile che superi le verifiche; configurare eventuale modello più capace e budget di passaggio. Rispettare quote e preferenze salvate e mostrare costi effettivi soltanto quando disponibili.
 - Fornire all'agente modello, contesto della feature, vincoli e porzioni pertinenti della codebase.
 - Presentare piano, domande sulle ambiguità e impatto sul sistema prima dell'esecuzione.
@@ -373,7 +376,7 @@ Ogni milestone deve aggiornare documentazione ed esempi e includere verifiche pr
 
 ## Decisioni da prendere e prossimo incremento
 
-Prima di M4/M5 vanno scelti stack dimostrativo, provider IA e politiche di esecuzione e invio dei dati. Prima della beta vanno definiti licenza, distribuzione e obiettivi misurabili di prestazione. Le decisioni architetturali saranno registrate con motivazione e conseguenze.
+Durante M4 vanno verificati gli adattatori semantici e gli stack dimostrativi per i linguaggi dichiarati. Provider IA e politiche di esecuzione e invio dei dati appartengono a M5. Prima della beta vanno definiti licenza, distribuzione e obiettivi misurabili di prestazione. Le decisioni architetturali saranno registrate con motivazione e conseguenze.
 
 ## Ordine operativo dei prossimi incrementi
 
@@ -390,6 +393,6 @@ Prima di M4/M5 vanno scelti stack dimostrativo, provider IA e politiche di esecu
 11. **M3.4:** prima sequenza coordinata con struttura, flusso e contratti implementata e verificata su Linux; completare verifiche di piattaforma e CI remota.
 12. **M3.5:** viste di stato e transizioni sulle risorse implementate e verificate su Linux; completare verifiche di piattaforma e CI remota.
 13. **M3.6:** analisi dell'impatto nel modello dichiarato ed evidenze registrate implementate e verificate su Linux; completare le verifiche di piattaforma e CI prima della chiusura complessiva M3.
-14. **M4:** definire il primo perimetro TypeScript/stack dimostrativo e avviare importazione e tracciabilità secondo i criteri della milestone.
+14. **M4.1:** base sintattica multilinguaggio e tracciabilità disponibili via Node; proseguire con adattatori semantici, importazione nativa, configurazione del perimetro e Sync deterministico secondo i criteri della milestone.
 
 Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. L’implementazione assistita dall’IA e la sincronizzazione con il codice saranno aggiunte nelle milestone successive, con i rispettivi criteri di verifica.

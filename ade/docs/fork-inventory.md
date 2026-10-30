@@ -20,6 +20,7 @@
 | Avvio | `src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.contribution.ts` | Aggiunge `adeHome` ai valori dello startup editor; il contributo ADE ne imposta il valore predefinito. |
 | Avvio isolato e collaudo | `ade/scripts/` | Profilo di sviluppo separato, smoke desktop e preparazione aggiornamenti upstream. |
 | Laboratorio | `ade/prototype/` | Estensione sperimentale e validatore del vecchio JSON; non è il servizio semantico M1. |
+| Importazione codice M4.1 | `ade/code-import/`, `ade/examples/code-import/` | Tool Node deterministico multilinguaggio con grammatiche WASM fissate nel proprio lockfile; proietta dichiarazioni nel formato M1/M3 e conserva un indice delle evidenze. Non introduce dipendenze nel renderer o chiamate IA. |
 | Installazione | `build/npm/postinstall.ts`, `build/lib/npmNetworkRetry.ts` | Ripete soltanto la sottocartella npm fallita per errori di rete transitori, con massimo tre tentativi; i fallimenti permanenti restano visibili. |
 | CI | `.github/workflows/ci.yml`, `.github/workflows/desktop.yml` | Verifiche leggere separate da build e smoke desktop Linux/macOS. |
 | Provenienza | `ade/upstream.json`, `ade/upstream-workflows/` | Snapshot di base e workflow Microsoft disattivati. |
@@ -30,7 +31,7 @@
 | --- | --- |
 | Electron, Node, npm, GitHub release | Dipendenze di sviluppo. Versioni e checksum restano quelli upstream. |
 | `builtInExtensions` in `product.json` | `ms-vscode.js-debug-companion`, `ms-vscode.js-debug` e `ms-vscode.vscode-js-profile-table` richiedono controllo di licenze, download e redistribuzione. Il collaudo M0 non certifica i debugger. |
-| `extensions/copilot/`, SDK IA e agent host upstream | Codice ereditato. Non costituisce un provider A.D.E configurato; la shell segnala IA non disponibile. M4 definisce il primo connettore in sola lettura e M5 l'esecuzione assistita, secondo [ADR 0003](decisions/0003-code-import-sync-and-providers.md). |
+| `extensions/copilot/`, SDK IA e agent host upstream | Codice ereditato. Non costituisce un provider A.D.E configurato; la shell segnala IA non disponibile. M4 è deterministico; M5 integra provider e assistenza IA, secondo [ADR 0003](decisions/0003-code-import-sync-and-providers.md). |
 | Autenticazione GitHub/Microsoft, tunnel e remote | Moduli upstream conservati. Credenziali, endpoint e condizioni d’uso vanno valutati prima di offrirli agli utenti. |
 | Marketplace e servizi proprietari | Nessuna autorizzazione aggiunta. Non configurare automaticamente il Marketplace Microsoft. |
 | `webviewContentExternalBaseUrlTemplate` | Endpoint CDN Microsoft conservato dallo snapshot; sostituzione o rimozione da verificare per il runtime distribuito e il web. |
