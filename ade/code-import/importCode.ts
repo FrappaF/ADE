@@ -6,11 +6,16 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { basename, extname, join, relative, sep, posix } from 'node:path';
-import { Language, Parser, type Node } from 'web-tree-sitter';
+import { Language, Parser } from 'web-tree-sitter';
+import { parseLegacy, type SyntaxNode as Node } from './legacyParser.ts';
 import { languageAdapters, type LanguageAdapter } from './languages.ts';
 import { validateSemanticGraph, type SemanticGraph } from './semanticGraph.ts';
+import { defaultScope, readSourceScope, directoryIgnores, excludedPath, type SourceScope, type IgnoreContext } from './sourceScope.ts';
+import { applyRenameHints, type RenameHint } from './identity.ts';
 import { validateSemanticModel, type SemanticElement, type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
 
 export interface SourceEvidence {
@@ -67,29 +72,31 @@ export interface CodeImport {
 	/** Content manifest; neither a Git commit nor a runtime verification. */
 	revision: string;
 	excludedDirectories: string[];
+	scope?: SourceScope;
 	files: IndexedFile[];
 	model: SemanticModel;
 	semantic?: SemanticGraph;
-	analysis: { parsed: string[]; reused: string[]; renamed: { from: string; to: string }[]; ambiguousRenames: { from: string[]; to: string[] }[]; semanticInvalidated?: boolean };
+	analysis: { parsed: string[]; reused: string[]; renamed: { from: string; to: string }[]; ambiguousRenames: { from: string[]; to: string[] }[]; semanticInvalidated?: boolean; symbolRenames?: { fromId: string; toSourceId: string; fromName: string; toName: string; fromFile: string; toFile: string }[]; semanticWork?: { analyzed: string[]; reused: string[] }; compilerDiagnostics?: string[]; syntaxOnly?: boolean };
 }
 
 export interface ImportOptions {
 	previous?: CodeImport;
 	signal?: AbortSignal;
+	scope?: SourceScope;
+	renameHints?: RenameHint[];
 }
 
 const require = createRequire(import.meta.url);
-const adapterVersion = 'tree-sitter-syntax-v3:web-tree-sitter@0.27.1:grammars@0.1.17';
+const adapterVersion = 'tree-sitter-syntax-v4:web-tree-sitter@0.27.1:grammars@0.1.17';
 const loadedLanguages = new Map<string, Promise<Language>>();
 let parserInitialization: Promise<void> | undefined;
-const excludedDirectories = ['.git', '.ade', 'node_modules', 'vendor', 'dist', 'build', 'out', 'target', 'bin', 'obj', '__pycache__', '.venv', 'venv', '.next', '.build'];
 const knownSourceExtensions = new Set(['.kt', '.kts', '.scala', '.sc', '.vb', '.sql', '.sh', '.bash', '.ps1', '.r', '.lua', '.ex', '.exs', '.vue', '.svelte', '.html', '.css', '.m', '.mm']);
 const maxFileBytes = 2 * 1024 * 1024;
 const maxEntries = 10000;
 
 /** Configuration consumed by common indexers participates in semantic invalidation. */
 function isConfiguration(name: string): boolean {
-	return /^(?:package(?:-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|(?:tsconfig|jsconfig)(?:\.[^.]+)*\.json|pyrightconfig\.json|pyproject\.toml|Pipfile(?:\.lock)?|requirements(?:[-.][^.]+)?\.txt|poetry\.lock|uv\.lock|go\.(?:mod|sum)|Cargo\.(?:toml|lock)|pom\.xml|build\.gradle(?:\.kts)?|settings\.gradle(?:\.kts)?|gradle\.properties|Gemfile(?:\.lock)?|composer\.(?:json|lock)|Package\.(?:swift|resolved)|pubspec\.(?:yaml|lock)|CMakeLists\.txt|compile_commands\.json|.*\.(?:csproj|fsproj|sln|props|targets))$/.test(name);
+	return name === '.gitignore' || name === '.adeignore' || /^(?:package(?:-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|(?:tsconfig|jsconfig)(?:\.[^.]+)*\.json|pyrightconfig\.json|pyproject\.toml|Pipfile(?:\.lock)?|requirements(?:[-.][^.]+)?\.txt|poetry\.lock|uv\.lock|go\.(?:mod|sum)|Cargo\.(?:toml|lock)|pom\.xml|build\.gradle(?:\.kts)?|settings\.gradle(?:\.kts)?|gradle\.properties|Gemfile(?:\.lock)?|composer\.(?:json|lock)|Package\.(?:swift|resolved)|pubspec\.(?:yaml|lock)|CMakeLists\.txt|compile_commands\.json|.*\.(?:csproj|fsproj|sln|props|targets))$/.test(name);
 }
 
 /** Namespaced hashes avoid unstable offsets and platform-specific absolute paths. */
@@ -104,6 +111,7 @@ function evidence(file: string, revision: string, node: Node): SourceEvidence {
 /** Declarator wrappers are language-specific; never use an arbitrary descendant identifier. */
 function declarationName(node: Node, adapter: LanguageAdapter): Node | null {
 	let current: Node | null = node;
+	if (adapter.id === 'kotlin') { return node.namedChildren.find(child => ['type_identifier', 'simple_identifier'].includes(child.type)) ?? null; }
 	if (adapter.id === 'dart' && node.type === 'method_signature') {
 		current = node.namedChildren.find(child => child.type === 'function_signature') ?? null;
 	}
@@ -124,11 +132,16 @@ async function parseFile(file: string, source: string, adapter: LanguageAdapter,
 	const result: IndexedFile = { file, status: 'parsed', language: adapter.id, revision, declarations: [], syntaxKinds: {}, imports: [], diagnostics: [] };
 	const parser = new Parser();
 	try {
-		const grammar = require.resolve(`@repomix/tree-sitter-wasms/out/tree-sitter-${adapter.grammar}.wasm`);
-		let language = loadedLanguages.get(grammar);
-		if (!language) { language = Language.load(grammar); loadedLanguages.set(grammar, language); }
-		parser.setLanguage(await language);
-		const tree = parser.parse(source);
+		const bundled = fileURLToPath(new URL(`./grammars/tree-sitter-${adapter.grammar}.wasm`, import.meta.url));
+		const grammar = existsSync(bundled) ? bundled : require.resolve(`${adapter.grammarPackage ?? '@repomix/tree-sitter-wasms'}/out/tree-sitter-${adapter.grammar}.wasm`);
+		let tree: { rootNode: Node; delete(): void } | null;
+		if (adapter.grammarPackage === 'tree-sitter-wasms') { tree = await parseLegacy(grammar, source); }
+		else {
+			let language = loadedLanguages.get(grammar);
+			if (!language) { language = Language.load(grammar); loadedLanguages.set(grammar, language); }
+			parser.setLanguage(await language);
+			tree = parser.parse(source);
+		}
 		if (!tree) { throw new Error(`Parser did not produce a tree: ${file}`); }
 		try {
 			if (tree.rootNode.hasError) { result.status = 'partial'; }
@@ -264,7 +277,8 @@ function relocateFile(projectId: string, previous: IndexedFile, path: string): I
 
 /** Checks the baseline projection before any cached facts can be consumed. */
 export function validateProjection(snapshot: CodeImport): void {
-	const revision = hash(JSON.stringify(snapshot.files.map(file => [file.file, file.status, file.revision ?? ''])));
+	const manifest = snapshot.files.map(file => [file.file, file.status, file.revision ?? '']);
+	const revision = hash(JSON.stringify(snapshot.scope ? { scope: snapshot.scope, files: manifest } : manifest));
 	if (revision !== snapshot.revision) { throw new Error('Import state has an inconsistent source manifest'); }
 	for (const file of snapshot.files.filter(file => file.declarations.length)) {
 		const expected = relocateFile(snapshot.projectId, file, file.file);
@@ -282,9 +296,10 @@ export async function importCode(root: string, projectId: string, options: Impor
 	root = await realpath(root);
 	const adapter = `${adapterVersion}:${hash(JSON.stringify(languageAdapters))}`;
 	const previous = options.previous;
+	const scope = readSourceScope(options.scope ?? previous?.scope ?? defaultScope);
 	if (previous && (previous.projectId !== projectId || previous.sourceRoot !== root)) { throw new Error('Import state belongs to a different source root or project'); }
 	if (previous) { validateProjection(previous); }
-	const cacheCompatible = previous?.adapter === adapter && isDeepStrictEqual(previous.excludedDirectories, excludedDirectories);
+	const cacheCompatible = previous?.adapter === adapter && isDeepStrictEqual(previous.scope ?? defaultScope, scope);
 	const cachedFiles = new Map(cacheCompatible ? previous.files.map(file => [file.file, file]) : []);
 	const reserved = new Set(previous?.model.semantics.elements.map(element => element.id));
 	const previousFiles = new Map(previous?.files.map(file => [file.file, file]));
@@ -301,20 +316,24 @@ export async function importCode(root: string, projectId: string, options: Impor
 	let entries = 0;
 	parserInitialization ??= Parser.init();
 	await parserInitialization;
-	const visit = async (directory: string): Promise<void> => {
+	const visit = async (directory: string, inherited: IgnoreContext[] = []): Promise<void> => {
+		const contexts = await directoryIgnores(directory, relative(root, directory).split(sep).join('/'), scope, inherited);
 		for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
 			options.signal?.throwIfAborted();
 			if (++entries > maxEntries) { throw new Error(`Source inventory exceeds ${maxEntries} entries`); }
 			const path = join(directory, entry.name);
 			const file = relative(root, path).split(sep).join('/');
 			const empty = (status: IndexedFile['status'], diagnostics: ImportDiagnostic[] = []): IndexedFile => ({ file, status, declarations: [], syntaxKinds: {}, imports: [], diagnostics });
+			if (entry.name === '.ade') { continue; }
 			if (entry.isSymbolicLink()) { files.push(empty('excluded', [{ code: 'symlink', file, count: 1 }])); }
+			else if (entry.name === '.git' || (!isConfiguration(entry.name) && excludedPath(file, entry.isDirectory(), scope, contexts))) { files.push(empty('excluded')); }
 			else if (entry.isDirectory()) {
-				if (excludedDirectories.includes(entry.name)) { files.push(empty('excluded')); }
-				else { await visit(path); }
+				if (scope.excludedDirectories.includes(entry.name)) { files.push(empty('excluded')); }
+				else { await visit(path, contexts); }
 			} else if (entry.isFile()) {
 				const extension = extname(entry.name).toLowerCase();
-				const adapter = languageAdapters.find(adapter => adapter.extensions.includes(extension));
+				const override = scope.languageOverrides[extension];
+				const adapter = languageAdapters.find(adapter => override ? adapter.id === override : adapter.extensions.includes(extension));
 				if (isConfiguration(entry.name)) {
 					if ((await stat(path)).size > maxFileBytes) { throw new Error(`Configuration file exceeds 2 MiB: ${file}`); }
 					files.push({ ...empty('configuration'), revision: hash(await readFile(path, 'utf8')) });
@@ -381,8 +400,12 @@ export async function importCode(root: string, projectId: string, options: Impor
 		analysis.parsed.push(path);
 	}
 	options.signal?.throwIfAborted();
-	const revision = hash(JSON.stringify(files.map(file => [file.file, file.status, file.revision ?? ''])));
+	if (options.renameHints?.length) {
+		if (!previous) { throw new Error('Rename hints require an import baseline'); }
+		applyRenameHints(previous, files, analysis, options.renameHints);
+	}
+	const revision = hash(JSON.stringify({ scope, files: files.map(file => [file.file, file.status, file.revision ?? '']) }));
 	const semantic = previous?.semantic && cacheCompatible && previous.revision === revision ? structuredClone(previous.semantic) : undefined;
 	if (previous?.semantic && !semantic) { analysis.semanticInvalidated = true; }
-	return { version: 1, adapter, projectId, sourceRoot: root, revision, excludedDirectories: [...excludedDirectories], files, model: projectModel(projectId, basename(root), files, semantic), analysis, ...(semantic ? { semantic } : {}) };
+	return { version: 1, adapter, projectId, sourceRoot: root, revision, scope, excludedDirectories: [...scope.excludedDirectories], files, model: projectModel(projectId, basename(root), files, semantic), analysis, ...(semantic ? { semantic } : {}) };
 }

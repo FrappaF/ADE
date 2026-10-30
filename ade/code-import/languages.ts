@@ -7,6 +7,7 @@
 export interface LanguageAdapter {
 	id: string;
 	grammar: string;
+	grammarPackage?: string;
 	extensions: string[];
 	containers: string[];
 	contracts: string[];
@@ -31,5 +32,7 @@ export const languageAdapters: readonly LanguageAdapter[] = [
 	{ id: 'php', grammar: 'php', extensions: ['.php'], containers: ['class_declaration', 'trait_declaration', 'enum_declaration'], contracts: ['interface_declaration'], callables: ['function_definition', 'method_declaration'], imports: ['namespace_use_declaration'], unsupported: ['function_call_expression', 'member_call_expression', 'scoped_call_expression', 'include_expression', 'require_expression'] },
 	{ id: 'ruby', grammar: 'ruby', extensions: ['.rb', '.rake'], containers: ['class', 'module', 'singleton_class'], contracts: [], callables: ['method', 'singleton_method'], imports: [], unsupported: ['call'] },
 	{ id: 'swift', grammar: 'swift', extensions: ['.swift'], containers: ['class_declaration'], contracts: ['protocol_declaration'], callables: ['function_declaration', 'init_declaration'], imports: ['import_declaration'], unsupported: ['call_expression', 'macro_invocation'] },
-	{ id: 'dart', grammar: 'dart', extensions: ['.dart'], containers: ['class_definition', 'enum_declaration', 'extension_declaration', 'mixin_declaration'], contracts: ['type_alias'], callables: ['function_signature', 'method_signature'], imports: ['import_or_export'], unsupported: ['selector'] }
+	{ id: 'dart', grammar: 'dart', extensions: ['.dart'], containers: ['class_definition', 'enum_declaration', 'extension_declaration', 'mixin_declaration'], contracts: ['type_alias'], callables: ['function_signature', 'method_signature'], imports: ['import_or_export'], unsupported: ['selector'] },
+	{ id: 'kotlin', grammar: 'kotlin', grammarPackage: 'tree-sitter-wasms', extensions: ['.kt', '.kts'], containers: ['class_declaration', 'object_declaration'], contracts: ['type_alias'], callables: ['function_declaration'], imports: ['import_header'], unsupported: ['call_expression'] },
+	{ id: 'scala', grammar: 'scala', grammarPackage: 'tree-sitter-wasms', extensions: ['.scala', '.sc'], containers: ['class_definition', 'object_definition'], contracts: ['trait_definition', 'type_definition'], callables: ['function_definition', 'function_declaration'], imports: ['import_declaration'], unsupported: ['call_expression'] }
 ];

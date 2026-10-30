@@ -10,6 +10,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "ade:bundle-code": "node ade/scripts/build-code-import.mjs",
     "ade:check": "tsc6 --project ade/tsconfig.json --noEmit",
     "ade:test": "node --test ade/test/*.test.mjs",
     "ade:schema": "node ade/scripts/export-schema.mjs",

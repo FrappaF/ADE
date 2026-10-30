@@ -9,7 +9,9 @@
 | `src/vs/workbench/contrib/ade/` | Shell browser, dominio semantico puro, esempio dimostrativo |
 | `src/vs/workbench/workbench.common.main.ts` | Importazione del contributo A.D.E |
 | `build/lib/i18n.resources.json` | Registrazione delle stringhe localizzate del contributo |
-| `package.json` | Comandi `ade:check`, `ade:test`, `ade:schema` |
+| `package.json` | Comandi `ade:check`, `ade:test`, `ade:schema`, `ade:bundle-code` |
+| `ade/code-import/`, `build/lib/adeCode.ts`, integrazioni in `build/next/`, `build/gulpfile.ts`, `build/npm/dirs.ts` | Motore deterministico M4, installazione, bundle e asset desktop |
+| `src/vs/workbench/workbench.desktop.main.ts` | Registrazione del servizio nativo M4, separato dal fallback browser |
 | `ade/schema/`, `ade/examples/`, `ade/scripts/`, `ade/test/`, `ade/tsconfig.json` | Contratti, migrazione, verifica e manutenzione |
 | `ade/prototype/` | Laboratorio separato e smoke dell'Extension Host |
 | `.github/workflows/ci.yml`, `.github/workflows/desktop.yml` | Controlli ADE attivi |

@@ -33,13 +33,13 @@ test('all language profiles reuse unmodified syntax and parse only the changed f
 	const { root } = await workspace(t, samples.map(([, file, source]) => [file, source]));
 	const base = await importCode(root, 'languages');
 	const unchanged = await importCode(root, 'languages', { previous: base });
-	assert.deepEqual({ parsed: unchanged.analysis.parsed, reused: unchanged.analysis.reused.length, model: unchanged.model, revision: unchanged.revision }, { parsed: [], reused: 14, model: base.model, revision: base.revision });
+	assert.deepEqual({ parsed: unchanged.analysis.parsed, reused: unchanged.analysis.reused.length, model: unchanged.model, revision: unchanged.revision }, { parsed: [], reused: samples.length, model: base.model, revision: base.revision });
 	const annotated = structuredClone(base.model);
 	annotated.semantics.elements[0].description = 'Manual annotation';
 	assert.deepEqual(prepareSync(base, annotated, unchanged).model, annotated);
 	await writeFile(join(root, 'checkout.py'), samples.find(([language]) => language === 'python')[2] + '\n');
 	const changed = await importCode(root, 'languages', { previous: base });
-	assert.deepEqual({ parsed: changed.analysis.parsed, reused: changed.analysis.reused.length, conflicts: prepareSync(base, base.model, changed).report.conflicts }, { parsed: ['checkout.py'], reused: 13, conflicts: [] });
+	assert.deepEqual({ parsed: changed.analysis.parsed, reused: changed.analysis.reused.length, conflicts: prepareSync(base, base.model, changed).report.conflicts }, { parsed: ['checkout.py'], reused: samples.length - 1, conflicts: [] });
 	assert.deepEqual(base.files.find(file => file.language === 'python').declarations.map(item => item.id), changed.files.find(file => file.language === 'python').declarations.map(item => item.id));
 });
 

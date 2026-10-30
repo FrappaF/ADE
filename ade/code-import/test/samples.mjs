@@ -18,5 +18,7 @@ export const samples = [
 	['php', 'checkout.php', '<?php\nuse Payments\\Gateway;\nclass Checkout { public function pay(float $amount): bool { return Gateway::charge($amount); } }'],
 	['ruby', 'checkout.rb', 'require "gateway"\nclass Checkout\n  def pay(amount)\n    charge(amount)\n  end\nend\n'],
 	['swift', 'checkout.swift', 'import Payments\nclass Checkout { func pay(amount: Double) -> Bool { return charge(amount) } }'],
-	['dart', 'checkout.dart', 'import "gateway.dart";\nclass Checkout { bool pay(double amount) { return charge(amount); } }']
+	['dart', 'checkout.dart', 'import "gateway.dart";\nclass Checkout { bool pay(double amount) { return charge(amount); } }'],
+	['kotlin', 'Checkout.kt', 'import payments.charge\nclass Checkout {\n fun pay(amount: Double): Boolean {\n  return charge(amount)\n }\n}\n'],
+	['scala', 'Checkout.scala', 'import payments.charge\nclass Checkout {\n def pay(amount: Double): Boolean = { charge(amount) }\n}\n']
 ];

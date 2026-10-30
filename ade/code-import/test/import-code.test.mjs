@@ -76,7 +76,7 @@ test('ambiguous overloads, computed names, malformed and unsupported sources sta
 		['overloads.java', 'class Checkout { void pay(int amount) {} void pay(double amount) {} }'],
 		['computed.ts', 'class Checkout { [methodName]() {} }'],
 		['broken.py', 'def pay(\n'],
-		['other.kt', 'class Checkout'],
+		['other.vb', 'class Checkout'],
 		['notes.md', '# Project notes'],
 		['large.ts', ' '.repeat(2 * 1024 * 1024 + 1)],
 		['node_modules/external.ts', 'throw new Error("do not read");'],
@@ -92,7 +92,7 @@ test('ambiguous overloads, computed names, malformed and unsupported sources sta
 		['large.ts', 'unsupported', ['fileTooLarge']],
 		['node_modules', 'excluded', []],
 		['notes.md', 'unclassified', []],
-		['other.kt', 'unsupported', ['unsupportedLanguage']],
+		['other.vb', 'unsupported', ['unsupportedLanguage']],
 		['overloads.java', 'parsed', ['duplicateName']]
 	]);
 	assert.deepEqual(validateSemanticModel(result.model), []);

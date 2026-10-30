@@ -185,7 +185,7 @@ suite('build-fast planning', () => {
 			createBuildFastState({ ...state(), recipe: 1 }, environment, snapshot, true),
 			createBuildFastState({ ...state(), schema: 1 }, environment, snapshot, true),
 		], Array.from({ length: 3 }, () => ({
-			schema: 2, recipe: 4, environment, client: snapshot, extensions: undefined, copilot: undefined,
+			schema: 2, recipe: 5, environment, client: snapshot, extensions: undefined, copilot: undefined,
 		})));
 	});
 
@@ -272,6 +272,12 @@ suite('build-fast orchestration', () => {
 						writeFileSync(new URL('src/main.ts', root), 'export const value: number = 3;\\n');
 					}
 				`);
+			await write(repoRoot, 'ade/scripts/build-code-import.mjs', `
+				import { mkdirSync, writeFileSync } from 'node:fs';
+				const root = new URL('../../out/vs/workbench/contrib/ade/node/', import.meta.url);
+				mkdirSync(new URL('typescript/', root), { recursive: true });
+				for (const name of ['adeCodeEngine.js', 'web-tree-sitter.wasm', 'legacy-runtime.cjs', 'typescript/lib.d.ts']) { writeFileSync(new URL(name, root), 'fixture'); }
+			`);
 			runGit(repoRoot, ['add', '.']);
 			runGit(repoRoot, ['commit', '-m', 'initial']);
 			const tasksFile = path.join(repoRoot, '.build/tasks');
@@ -485,7 +491,7 @@ function state(dirty: Readonly<Record<string, string | null>> = {}): BuildFastSt
 	const snapshot: BuildFastSnapshot = { head: 'saved', dirty };
 	return {
 		schema: 2,
-		recipe: 4,
+		recipe: 5,
 		environment,
 		client: snapshot,
 		extensions: snapshot,

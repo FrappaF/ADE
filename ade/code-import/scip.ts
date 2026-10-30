@@ -166,7 +166,7 @@ function ownerResolver(declarations: CodeDeclaration[]): (source: SourceEvidence
 }
 
 /** Binds exact definition-name spans and projects static references as dependencies, never runtime calls. */
-export async function applyScipBundles(state: CodeImport, inputs: ScipBundle[], signal?: AbortSignal): Promise<CodeImport> {
+export async function applyScipBundles(state: CodeImport, inputs: ScipBundle[], signal?: AbortSignal, allowEmpty = false): Promise<CodeImport> {
 	validateProjection(state);
 	const bundles = inputs.map(input => readScipBundle(input));
 	const graph: SemanticGraph = { version: 1, sourceRevision: state.revision, providers: [], indexedFiles: [], bindings: [], dependencies: [], diagnostics: [] };
@@ -238,7 +238,7 @@ export async function applyScipBundles(state: CodeImport, inputs: ScipBundle[], 
 		for (const declaration of file.declarations.filter(item => !boundIds.has(item.id))) { graph.diagnostics.push({ code: 'missingDefinition', file: file.file, symbol: declaration.name, provider: 0, evidence: declaration.nameEvidence }); }
 	}
 	graph.dependencies = [...edges.values()].sort((a, b) => a.id.localeCompare(b.id));
-	if (!graph.bindings.length) { throw new Error('SCIP index has no matching declarations in the selected scope'); }
+	if (!allowEmpty && !graph.bindings.length) { throw new Error('SCIP index has no matching declarations in the selected scope'); }
 	validateSemanticGraph(graph, state.files, state.revision, state.projectId);
 	signal?.throwIfAborted();
 	const result = structuredClone(state);

@@ -72,6 +72,24 @@ suite('A.D.E project context', () => {
 		documents = projectDocuments(files, disposables);
 	});
 
+	test('opens the active imported snapshot from a code project folder and rejects pointer traversal', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const folder = URI.parse('test:/codebase');
+		const version = '11111111-1111-4111-8111-111111111111';
+		const directory = URI.joinPath(folder, '.ade', 'imports', version);
+		await files.createFolder(directory);
+		const model = URI.joinPath(directory, 'model.ade.json');
+		await files.writeFile(model, VSBuffer.fromString(JSON.stringify(checkoutModel)));
+		const pointer = URI.joinPath(folder, '.ade', 'code-project.json');
+		await files.writeFile(pointer, VSBuffer.fromString(JSON.stringify({ version: 1, active: version })));
+		await project.openProject(folder);
+		assert.strictEqual(project.modelUri?.toString(), model.toString());
+		assert.strictEqual(project.model.id, checkoutModel.id);
+		await files.writeFile(pointer, VSBuffer.fromString(JSON.stringify({ version: 1, active: '../../other' })));
+		await assert.rejects(project.openProject(folder), /Invalid code project snapshot/);
+		assert.strictEqual(project.modelUri?.toString(), model.toString());
+	});
+
 	test('restores diagram and independent selections after a workspace restart', async () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
 		await project.restore();

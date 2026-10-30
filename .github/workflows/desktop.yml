@@ -106,6 +106,12 @@ jobs:
       - name: Independent projects smoke on macOS
         if: runner.os == 'macOS'
         run: node ade/scripts/smoke-desktop.mjs --projects-only
+      - name: Native code bridge smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --code-only
+      - name: Native code bridge smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --code-only
       - name: Prototype Extension Host smoke on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --extension-only

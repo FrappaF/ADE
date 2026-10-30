@@ -1,0 +1,108 @@
+{
+	"date": "2026-10-30",
+	"method": "One measured cold import, unchanged import and leading-newline change; separate sequential processes per repository; no project scripts executed. Not a latency percentile or a model comparison.",
+	"sourceEvidence": "Exact declaration name token comparison; not semantic edge precision.",
+	"repositories": [
+		{
+			"label": "redux-v5.0.1",
+			"node": "v24.22.1",
+			"platform": "linux",
+			"arch": "x64",
+			"include": [
+				"src/**"
+			],
+			"sourceFiles": 17,
+			"partialFiles": [
+				"src/types/store.ts"
+			],
+			"declarations": 77,
+			"nameEvidence": {
+				"inspected": 77,
+				"exact": 77
+			},
+			"coverageDiagnostics": 23,
+			"coldMs": 205.64,
+			"warmMs": 94.62,
+			"warmParsed": 0,
+			"warmReused": 17,
+			"oneFileChange": {
+				"ms": 72.78,
+				"parsed": 1,
+				"reused": 16
+			},
+			"semantic": {
+				"coldMs": 649.3,
+				"warmMs": 18.7,
+				"warmAnalyzed": 0,
+				"warmReused": 16,
+				"dependencies": 124,
+				"diagnostics": 8,
+				"coverageDiagnostics": 1002
+			},
+			"maxRssMiB": 291,
+			"heapMiB": 86,
+			"archiveUrl": "https://codeload.github.com/reduxjs/redux/tar.gz/refs/tags/v5.0.1",
+			"archiveSha256": "81ae5c7e7b04175bcae912d5b2e335cfde9ee02b80465291d0d68d27f0391ea0"
+		},
+		{
+			"label": "click-8.1.8",
+			"node": "v24.22.1",
+			"platform": "linux",
+			"arch": "x64",
+			"include": [
+				"src/**"
+			],
+			"sourceFiles": 16,
+			"partialFiles": [],
+			"declarations": 579,
+			"nameEvidence": {
+				"inspected": 579,
+				"exact": 579
+			},
+			"coverageDiagnostics": 32,
+			"coldMs": 212.68,
+			"warmMs": 32.66,
+			"warmParsed": 0,
+			"warmReused": 16,
+			"oneFileChange": {
+				"ms": 50.25,
+				"parsed": 1,
+				"reused": 15
+			},
+			"maxRssMiB": 178,
+			"heapMiB": 31,
+			"archiveUrl": "https://codeload.github.com/pallets/click/tar.gz/refs/tags/8.1.8",
+			"archiveSha256": "33b16b4899d3deda7be154c0be415d898511abf928c988972cd97c4d90444a18"
+		},
+		{
+			"label": "chi-v5.2.1",
+			"node": "v24.22.1",
+			"platform": "linux",
+			"arch": "x64",
+			"include": [
+				"**/*.go"
+			],
+			"sourceFiles": 73,
+			"partialFiles": [],
+			"declarations": 402,
+			"nameEvidence": {
+				"inspected": 402,
+				"exact": 402
+			},
+			"coverageDiagnostics": 72,
+			"coldMs": 258.29,
+			"warmMs": 38.26,
+			"warmParsed": 0,
+			"warmReused": 73,
+			"oneFileChange": {
+				"ms": 30.31,
+				"parsed": 1,
+				"reused": 72
+			},
+			"maxRssMiB": 176,
+			"heapMiB": 28,
+			"archiveUrl": "https://codeload.github.com/go-chi/chi/tar.gz/refs/tags/v5.2.1",
+			"archiveSha256": "c66789b45e00def4339a65bfe0f7d8ac6895bfa0bdc5f15e4f9d901ec64ac880"
+		}
+	]
+}
