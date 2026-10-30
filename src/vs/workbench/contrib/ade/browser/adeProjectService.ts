@@ -224,6 +224,12 @@ export class AdeProjectService extends Disposable {
 		}
 	}
 
+	async openModelResource(resource: URI): Promise<boolean> {
+		if (!await this.prepareToReplace()) { return false; }
+		await this.loadModel(resource);
+		return !this.error;
+	}
+
 	async retry(): Promise<void> {
 		if (this._modelUri) { await this.loadModel(this._modelUri); }
 	}
@@ -308,7 +314,14 @@ export class AdeProjectService extends Disposable {
 	async openProject(folder: URI): Promise<void> {
 		if (await this.prepareToReplace()) {
 			this._section = 'diagram';
-			await this.loadModel(URI.joinPath(folder, '.ade', 'model.json'));
+			const pointer = URI.joinPath(folder, '.ade', 'code-project.json');
+			let resource = URI.joinPath(folder, '.ade', 'model.json');
+			if (await this.fileService.exists(pointer)) {
+				const value = JSON.parse((await this.fileService.readFile(pointer)).value.toString());
+				if (value.version !== 1 || typeof value.active !== 'string' || !/^[a-f0-9-]{36}$/.test(value.active)) { throw new Error(localize('ade.code.invalidPointer', "Invalid code project snapshot.")); }
+				resource = URI.joinPath(folder, '.ade', 'imports', value.active, 'model.ade.json');
+			}
+			await this.loadModel(resource);
 		}
 	}
 

@@ -1,0 +1,29 @@
+{
+	"name": "ade-code-import",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=24.22.1 <25"
+	},
+	"scripts": {
+		"check": "tsc --project tsconfig.json",
+		"test": "node --test test/*.test.mjs",
+		"import": "node cli.mjs"
+	},
+	"dependencies": {
+		"@repomix/tree-sitter-wasms": "0.1.17",
+		"ajv": "8.17.1",
+		"ignore": "7.0.14",
+		"legacy-tree-sitter": "npm:web-tree-sitter@0.20.8",
+		"minimatch": "11.0.3",
+		"proper-lockfile": "4.1.2",
+		"tree-sitter-wasms": "0.1.13",
+		"typescript": "6.0.2",
+		"web-tree-sitter": "0.27.1"
+	},
+	"devDependencies": {
+		"@types/node": "24.10.1",
+		"@types/proper-lockfile": "4.1.4"
+	}
+}

@@ -41,6 +41,7 @@ const navigationOnly = process.argv.includes('--navigation-only');
 const sequenceOnly = process.argv.includes('--sequence-only');
 const stateOnly = process.argv.includes('--state-only');
 const impactOnly = process.argv.includes('--impact-only');
+const codeOnly = process.argv.includes('--code-only');
 const projectsOnly = process.argv.includes('--projects-only');
 const modelFile = path.join(navigationOnly || sequenceOnly || stateOnly || impactOnly ? directory : workspace, 'checkout.ade.json');
 const emptyFile = path.join(workspace, 'empty.ade.json');
@@ -58,7 +59,7 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -211,6 +212,70 @@ async function checkContractEditing(window) {
 	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
 	await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
 	console.log('PASS: native contract creation, validation, cancellation, editing, removal, undo/redo and shared details across two diagrams with accessible reading.');
+}
+
+async function checkCodeBridge() {
+	const sourceRoot = path.join(workspace, 'codebase');
+	await mkdir(sourceRoot);
+	await writeFile(path.join(sourceRoot, 'gateway.ts'), 'export function charge(amount: number): boolean { return amount > 0; }');
+	await writeFile(path.join(sourceRoot, 'checkout.ts'), 'import {charge as pay} from "./gateway"; export function checkout(amount: number): boolean { return pay(amount); }');
+	await writeFile(path.join(sourceRoot, 'obsolete.py'), 'def obsolete():\n    return 1\n');
+	await writeFile(path.join(sourceRoot, 'unsupported.vb'), 'Class Unsupported\nEnd Class\n');
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await shell.getByRole('button', { name: 'Import Codebase', exact: true }).click();
+	const widget = window.locator('.quick-input-widget');
+	await widget.locator('input:visible').fill(sourceRoot + path.sep);
+	await widget.getByRole('button', { name: 'OK', exact: true }).click();
+	await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
+	await shell.getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	const snapshot = async () => {
+		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
+		const folder = path.join(sourceRoot, '.ade/imports', pointer.active);
+		return { folder, state: JSON.parse(await readFile(path.join(folder, 'import-state.json'), 'utf8')), model: JSON.parse(await readFile(path.join(folder, 'model.ade.json'), 'utf8')) };
+	};
+	const initial = await snapshot();
+	assert.ok(initial.state.semantic.dependencies.length >= 1);
+	assert.equal(initial.state.files.find(file => file.file === 'unsupported.vb').status, 'unsupported');
+	const previous = initial.state.files.flatMap(file => file.declarations).find(item => item.name === 'checkout');
+	await writeFile(path.join(sourceRoot, 'checkout.ts'), 'import {charge as pay} from "./gateway"; export function purchase(amount: number, tag: string): boolean { return pay(amount); }');
+	await rm(path.join(sourceRoot, 'obsolete.py'));
+	await shell.getByRole('button', { name: 'Sync', exact: true }).click();
+	await pickValue(window, 'Sync Preview', 'Confirm a Symbol Rename');
+	await pickValue(window, 'Choose the Previous Declaration', 'checkout');
+	await pickValue(window, 'Choose the Renamed Declaration', 'purchase');
+	await pickValue(window, 'Sync Preview', 'Apply Sync');
+	await window.waitForFunction(() => {
+		// UI state is exposed through the rendered, accessible system map.
+		return document.querySelector('.ade-shell')?.textContent.includes('purchase');
+	});
+	const updated = await snapshot();
+	assert.notEqual(updated.folder, initial.folder);
+	assert.ok(updated.state.files.flatMap(file => file.declarations).some(item => item.id === previous.id && item.name === 'purchase'));
+	assert.deepEqual(updated.state.analysis.parsed, ['checkout.ts']);
+	assert.ok(updated.state.analysis.reused.includes('gateway.ts'));
+	assert.ok(!updated.state.files.some(file => file.file === 'obsolete.py'));
+	await runCommand(window, 'A.D.E: Inspect Code Evidence');
+	await widget.locator('input:visible').fill('purchase');
+	await window.keyboard.press('Enter');
+	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'purchase' }).first().waitFor();
+	await runCommand(window, 'A.D.E: Return to Model');
+	await window.screenshot({ path: path.join(evidence, 'm4-code-sync.png') });
+	await app.close(); app = undefined;
+	window = await launch(); shell = window.locator('.ade-shell');
+	await shell.getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Home', exact: true }).click();
+	await shell.getByRole('button', { name: 'Open Project', exact: true }).click();
+	await chooseFolder(window, sourceRoot);
+	await shell.getByRole('button', { name: 'Sync', exact: true }).waitFor();
+	await runCommand(window, 'A.D.E: Restore Code Model Snapshot');
+	await window.locator('.quick-input-widget').getByText(path.basename(initial.folder), { exact: true }).click();
+	await shell.getByRole('button', { name: 'Sync', exact: true }).waitFor();
+	assert.equal((await snapshot()).folder, initial.folder);
+	assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('purchase'));
+	await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true }, null, 2));
+	await app.close(); app = undefined;
+	console.log('PASS: native code import, compiler references, contract/rename/delete Sync, source navigation, restart and recovery.');
 }
 
 async function checkIndependentProjects() {
@@ -1041,13 +1106,14 @@ async function checkVisualUX() {
 }
 
 try {
+	if (codeOnly) { await checkCodeBridge(); }
 	if (projectsOnly) { await checkIndependentProjects(); }
 	if (impactOnly) { await checkModelImpact(); }
 	if (stateOnly) { await checkStateDiagram(); }
 	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -1243,7 +1309,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));
@@ -1257,6 +1323,7 @@ try {
 		});
 	}
 } catch (error) {
+	console.error(error);
 	if (electronOutput) { console.error(electronOutput); }
 	if (app) {
 		for (const [index, window] of app.windows().entries()) {

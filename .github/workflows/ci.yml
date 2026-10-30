@@ -13,3 +13,15 @@ jobs:
       - run: npm --prefix ade/prototype run check
       - run: npm --prefix ade/prototype test
       - run: node --test ade/test/*.test.mjs
+  code-import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: ade/code-import/package-lock.json
+      - run: npm --prefix ade/code-import ci --ignore-scripts
+      - run: npm --prefix ade/code-import run check
+      - run: npm --prefix ade/code-import test

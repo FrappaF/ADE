@@ -224,3 +224,6 @@ import './contrib/keybindings/electron-browser/systemWideKeybindings.contributio
 
 
 export { main } from './electron-browser/desktop.main.js';
+
+// Native deterministic code bridge.
+import './contrib/ade/electron-browser/adeCodeService.js';

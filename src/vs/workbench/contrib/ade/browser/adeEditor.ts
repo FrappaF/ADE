@@ -14,6 +14,7 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { ModelView, SemanticModel } from '../common/semanticModel.js';
+import { IAdeCodeService } from './adeCodeService.js';
 import { AdeInput } from './adeInput.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { AdeControls } from './adeControls.js';
@@ -54,8 +55,10 @@ export class AdeEditor extends EditorPane {
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
+		@IAdeCodeService private readonly code: IAdeCodeService,
 	) {
 		super(AdeEditor.ID, group, telemetryService, themeService, storageService);
+		this._register(code.onDidChange(() => { if (this.root) { this.render(); } }));
 		this._register(project.onDidChange(() => { if (this.root) { this.render(); } }));
 		this._register(configurationService.onDidChangeConfiguration(event => {
 			if (this.root && event.affectsConfiguration(AccessibilityVerbositySettingId.Ade)) { this.render(); }
@@ -165,7 +168,7 @@ export class AdeEditor extends EditorPane {
 		this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
 		this.button(content, localize('ade.demo', "Explore Purchase Example"), () => { void this.project.useDemo(); });
 		this.button(content, localize('ade.createProject', "Create Project"), () => { void this.commandService.executeCommand('ade.createProject'); });
-		this.button(content, localize('ade.importFuture', "Import Codebase — Planned"), () => { }).disabled = true;
+		this.button(content, localize('ade.importCode', "Import Codebase"), () => { void this.code.importCodebase(); }).disabled = !this.code.available || this.code.busy;
 		this.paragraph(content, localize('ade.editingFuture', "Create a project, add a feature, and design its structure and flow. The purchase example is read-only."));
 	}
 
@@ -675,6 +678,11 @@ export class AdeEditor extends EditorPane {
 
 	private renderTools(toolbar: HTMLElement): void {
 		toolbar.setAttribute('aria-label', localize('ade.tools', "Technical Tools"));
+		if (this.code.context) {
+			this.button(toolbar, localize('ade.code.syncButton', "Sync"), () => { void this.code.sync(); }).disabled = this.code.busy;
+			this.button(toolbar, localize('ade.code.inspectButton', "Code Evidence"), () => { void this.code.inspect(this.project.selectedId || undefined); }).disabled = this.code.busy;
+			this.paragraph(toolbar, this.code.changed ? localize('ade.code.changed', "Source Changes Detected · Run Sync to Review") : localize('ade.code.snapshot', "Code Snapshot · {0} Files", this.code.context.files.length));
+		}
 		for (const [label, command] of [
 			[localize('ade.files', "Files"), 'workbench.view.explorer'],
 			[localize('ade.terminal', "Terminal"), 'workbench.action.terminal.toggleTerminal'],

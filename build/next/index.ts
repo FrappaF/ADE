@@ -19,6 +19,7 @@ import { getBootstrapEntryPointsForTarget, type BuildTarget } from '../lib/esbui
 import product from '../../product.json' with { type: 'json' };
 import packageJson from '../../package.json' with { type: 'json' };
 import { isWebExtension, type IScannedBuiltinExtension } from '../lib/extensions.ts';
+import { buildAdeCode } from '../lib/adeCode.ts';
 import { runBuildFast } from './build-fast.ts';
 import { bundleDevTunnelsWeb, devTunnelsWebOutDir } from './devTunnelsWeb.ts';
 import { agentHostCryptoOutDir, bundleAgentHostCrypto } from './agentHostCrypto.ts';
@@ -107,6 +108,7 @@ const desktopEntryPoints = [
 	'vs/workbench/contrib/debug/node/telemetryApp',
 	'vs/platform/files/node/watcher/watcherMain',
 	'vs/platform/localTranscription/node/localTranscriptionMain',
+	'vs/workbench/contrib/ade/node/adeCodeWorkerMain',
 	'vs/platform/terminal/node/ptyHostMain',
 	'vs/platform/agentHost/node/agentHostMain',
 	'vs/platform/agentHost/node/diffWorkerMain',
@@ -714,6 +716,7 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 
 	// Finish emitted assets and copied resources before packaging computes integrity data.
 	await optimizeSvgFiles(outDirPath, doMinify);
+	if (target === 'desktop') { await buildAdeCode(outDir); }
 
 	console.log(`[bundle] Done in ${Date.now() - t1}ms (${bundled} bundles)`);
 }
@@ -737,6 +740,7 @@ async function watch(): Promise<void> {
 		await transpile(outDir, false);
 		await copyAllNonTsFiles(outDir, false);
 		await bundleAgentHostCrypto({ outDir: path.join(outDir, agentHostCryptoOutDir) });
+					await buildAdeCode(outDir);
 		console.log(`Finished transpilation with 0 errors after ${Date.now() - t1} ms`);
 	} catch (err) {
 		console.error('[watch] Initial build failed:', err);
@@ -893,6 +897,7 @@ async function main(): Promise<void> {
 					await transpile(outDir, options.excludeTests);
 					await copyAllNonTsFiles(outDir, options.excludeTests);
 					await bundleAgentHostCrypto({ outDir: path.join(outDir, agentHostCryptoOutDir) });
+					await buildAdeCode(outDir);
 					console.log(`[transpile] Done in ${Date.now() - t1}ms`);
 				}
 				break;

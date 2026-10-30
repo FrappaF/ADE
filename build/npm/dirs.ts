@@ -11,6 +11,7 @@ import { existsSync } from 'fs';
 export const dirs = [
 	'',
 	'build',
+	'ade/code-import',
 	'build/rspack',
 	'build/vite',
 	'extensions',
