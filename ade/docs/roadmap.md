@@ -14,7 +14,9 @@ Il 30 ottobre 2026 la [branch M2 parallela](m2-branch-integration.md), commit `b
 
 M3.3 aggiunge l'editing dei contratti comportamentali dalle proprietà e dalle schede: input/output, precondizioni, postcondizioni, errori e associazioni degli errori alle relazioni, con validazione, undo/redo e persistenza condivisi. Il [verbale M3.3](m3-3-verification.md) registra build, test automatici e smoke grafico su Linux; macOS e CI remota rimangono da eseguire.
 
-M3.4 introduce la prima sequenza coordinata: partecipanti condivisi, invocazioni/letture/scritture ordinate nella vista, auto-messaggi, condizioni ed errori dichiarati, con ordinamento e rimozione locale, lettura accessibile e persistenza nativa. Il [verbale M3.4](m3-4-verification.md) registra il collaudo Linux e il sottoinsieme supportato. Il prossimo incremento funzionale è M3.5, viste di stato e transizioni estese.
+M3.4 introduce la prima sequenza coordinata: partecipanti condivisi, invocazioni/letture/scritture ordinate nella vista, auto-messaggi, condizioni ed errori dichiarati, con ordinamento e rimozione locale, lettura accessibile e persistenza nativa. Il [verbale M3.4](m3-4-verification.md) registra il collaudo Linux e il sottoinsieme supportato.
+
+M3.5 aggiunge viste di stato per le risorse, riuso dei cicli di vita, creazione di stati e transizioni, eventi/guardie/errori condivisi, tabella delle transizioni e rimozione locale con cronologia nativa. Il [verbale M3.5](m3-5-verification.md) registra verifiche automatiche e smoke Linux, mantenendo aperti macOS/VoiceOver e CI remota. Il prossimo incremento funzionale è M3.6, analisi dell'impatto sul modello dichiarato.
 
 ## Decisione di base: un prodotto desktop autonomo
 
@@ -35,7 +37,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build e smoke locali confermati; CI M0 Linux/macOS documentata, merge da ricollaudare |
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio verificato; smoke desktop confermato dall’utente |
 | M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Editor e collaudo M2.3 su Linux; macOS, CI e revisione utente aperti |
-| M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.4 implementati e verificati su Linux; stati estesi e impatto da sviluppare |
+| M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.5 implementati e verificati su Linux; impatto sul modello da sviluppare |
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Da sviluppare |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Da sviluppare |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Da sviluppare |
@@ -229,7 +231,13 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Verifica e limiti:** [verbale M3.4](m3-4-verification.md). Una sola occorrenza per relazione e una linea di vita per identità semantica. Il sottoinsieme non introduce frammenti UML, risposte, attivazioni, istanze runtime o tracce di esecuzione. Le relazioni storiche non supportate sono segnalate e conservate. macOS/VoiceOver e CI remota restano aperti.
 
-**Prossimo incremento M3.5:** ampliare viste di stato e transizioni sulle risorse esistenti, con identità e contratti condivisi. L'analisi dell'impatto rimane in un incremento M3 successivo.
+### M3.5 — Stati e transizioni delle risorse
+
+**Disponibile:** creazione di un diagramma di stato per una risorsa esistente o nuova, aggiunta/riuso di stati e transizioni, importazione del ciclo di vita dichiarato e auto-transizioni. Eventi, condizioni, errori e contratti restano condivisi; il riepilogo per risorsa e la tabella delle transizioni affiancano canvas e lettore accessibile. Le rimozioni dalla sola vista conservano semantica e altri diagrammi. Undo/redo, layout, salvataggio e riavvio usano il servizio documentale nativo. Il formato resta v3.
+
+**Verifica e limiti:** [verbale M3.5](m3-5-verification.md). Stati semplici di risorse effettive e transizioni dichiarate, senza deduzione di stato iniziale/finale, stati compositi, regioni parallele o esecuzione. Contesto e stati storici senza risorsa vengono conservati e segnalati. macOS/VoiceOver, tastiera fisica e CI remota restano aperti.
+
+**Prossimo incremento M3.6:** mostrare l'impatto di una modifica nel grafo dichiarato e distinguere intento progettuale, mappature al codice ed evidenze di verifica disponibili. L'analisi della codebase e la riconciliazione restano nelle milestone M4–M6.
 
 ## M4 — Adattatore iniziale e tracciabilità del codice
 
@@ -372,6 +380,7 @@ Prima di M4/M5 vanno scelti stack dimostrativo, provider IA e politiche di esecu
 9. **M3.2:** mappa complessiva, routing ortogonale ed etichette implementati; verifiche e limiti nel verbale.
 10. **M3.3:** editing dei contratti comportamentali e coerenza fra dettagli e viste implementati e verificati su Linux; completare verifiche di piattaforma e CI remota.
 11. **M3.4:** prima sequenza coordinata con struttura, flusso e contratti implementata e verificata su Linux; completare verifiche di piattaforma e CI remota.
-12. **M3.5:** ampliare viste di stato e transizioni sulle risorse esistenti.
+12. **M3.5:** viste di stato e transizioni sulle risorse implementate e verificate su Linux; completare verifiche di piattaforma e CI remota.
+13. **M3.6:** aggiungere l'analisi dell'impatto nel modello dichiarato e la distinzione fra progetto ed evidenze disponibili.
 
 Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. L’implementazione assistita dall’IA e la sincronizzazione con il codice saranno aggiunte nelle milestone successive, con i rispettivi criteri di verifica.

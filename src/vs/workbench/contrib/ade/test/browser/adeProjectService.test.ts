@@ -304,6 +304,47 @@ suite('A.D.E project context', () => {
 		assert.deepStrictEqual([restarted.activeView!.relationIds, restarted.model.semantics.elements.length, restarted.model.semantics.relations.length, restarted.selectedId], [[], checkoutModel.semantics.elements.length, checkoutModel.semantics.relations.length, 'checkout']);
 	});
 
+	test('resource state views share transitions and persist native history and repaired selection', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.editBatch([
+			{ kind: 'stateDiagram', id: 'states', name: 'Order States', featureId: 'purchase', resourceId: 'order' },
+			{ kind: 'stateLifecycle', viewId: 'states', resourceId: 'order' }
+		]);
+		await project.undo();
+		assert.strictEqual(project.model.version, 2);
+		await project.redo();
+		project.showDiagram('states');
+		project.selectElement('pending');
+		project.edit({ kind: 'renameRelation', id: 'order-confirmed', name: 'Payment Accepted' });
+		await project.save();
+		await storage.flush();
+		project.dispose();
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await restored.restore();
+		assert.deepStrictEqual([restored.activeView!.kind, restored.activeView!.relationIds, restored.selectedId, restored.dirty], ['state', ['order-confirmed', 'order-declined'], 'pending', false]);
+		const semantics = structuredClone(restored.model.semantics);
+		restored.edit({ kind: 'exclude', viewId: 'states', id: 'pending', target: 'element' });
+		assert.deepStrictEqual([restored.model.semantics, restored.activeView!.relationIds, restored.selectedId], [semantics, [], 'order']);
+		await restored.undo();
+		assert.deepStrictEqual(restored.activeView!.relationIds, ['order-confirmed', 'order-declined']);
+		restored.showDiagram('purchase-outcome');
+		assert.strictEqual(restored.model.semantics.relations.find(relation => relation.id === 'order-confirmed')!.name, 'Payment Accepted');
+	});
+
+	test('resource creation and its state diagram are atomic when a later batch edit is invalid', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		const before = structuredClone(project.model);
+		assert.throws(() => project.editBatch([
+			{ kind: 'resource', id: 'shipment', name: 'Shipment', parentId: 'purchase' },
+			{ kind: 'stateDiagram', id: 'shipment-state', name: 'Shipment States', featureId: 'missing', resourceId: 'shipment' }
+		]));
+		assert.deepStrictEqual([project.model, project.dirty, project.canUndo], [before, false, false]);
+	});
+
 	test('saving a copy preserves diagram and selections across source revert and workspace restart', async () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
 		dialogs.selected = resource;

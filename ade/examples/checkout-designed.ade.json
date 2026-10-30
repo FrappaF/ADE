@@ -59,7 +59,20 @@
 				"kind": "action",
 				"name": "Pagamento rifiutato",
 				"parentId": "purchase"
-			}
+			},
+			{
+				"id": "order-awaiting",
+				"kind": "state",
+				"name": "In attesa",
+				"parentId": "order",
+				"behavior": {
+					"inputs": [], "outputs": [], "preconditions": [], "postconditions": [],
+					"errors": [{ "code": "payment-declined", "description": "Pagamento non autorizzato" }],
+					"permissions": [], "acceptanceCriteria": []
+				}
+			},
+			{ "id": "order-confirmed", "kind": "state", "name": "Confermato", "parentId": "order" },
+			{ "id": "order-declined", "kind": "state", "name": "Pagamento rifiutato", "parentId": "order" }
 		],
 		"relations": [
 			{
@@ -100,6 +113,14 @@
 				"name": "mostra errore",
 				"condition": "pagamento rifiutato",
 				"errorCode": "payment-declined"
+			},
+			{
+				"id": "order-payment-accepted", "kind": "transition", "from": "order-awaiting", "to": "order-confirmed",
+				"name": "Conferma pagamento", "condition": "pagamento autorizzato"
+			},
+			{
+				"id": "order-payment-refused", "kind": "transition", "from": "order-awaiting", "to": "order-declined",
+				"name": "Rifiuto pagamento", "condition": "pagamento non autorizzato", "errorCode": "payment-declined"
 			}
 		]
 	},
@@ -175,6 +196,16 @@
 				{ "elementId": "declined", "x": 520, "y": 0 }
 			],
 			"relationIds": ["payment-success", "payment-declined"]
+		},
+		{
+			"id": "order-states", "name": "Stati ordine", "kind": "state", "featureId": "purchase",
+			"nodes": [
+				{ "elementId": "order", "x": 0, "y": 0 },
+				{ "elementId": "order-awaiting", "x": 260, "y": 0 },
+				{ "elementId": "order-confirmed", "x": 520, "y": 0 },
+				{ "elementId": "order-declined", "x": 260, "y": 180 }
+			],
+			"relationIds": ["order-payment-accepted", "order-payment-refused"]
 		}
 	],
 	"codeMappings": [],

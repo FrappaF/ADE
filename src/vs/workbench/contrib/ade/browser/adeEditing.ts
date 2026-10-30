@@ -18,6 +18,7 @@ import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { elementLabels, relationLabels } from './adeLabels.js';
 import { editAdeBehavior } from './adeBehaviorEditing.js';
 import { isSequenceMessage } from '../common/sequenceDiagram.js';
+import { getStateDiagram, isResourceTransition } from '../common/stateDiagram.js';
 
 /** Native dialogs collect intent; atomic edits and persistence remain in the project service. */
 class EditingUI {
@@ -34,8 +35,8 @@ class EditingUI {
 		this.project.editBatch(Array.isArray(edit) ? edit : [edit]);
 	}
 
-	private name(value?: string): Promise<string | undefined> {
-		return this.quickInput.input({ title: localize('ade.name', "Name"), value,
+	private name(value?: string, title = localize('ade.name', "Name")): Promise<string | undefined> {
+		return this.quickInput.input({ title, value,
 			validateInput: async value => value.trim() ? undefined : localize('ade.nameRequired', "Enter a name.") });
 	}
 
@@ -84,13 +85,31 @@ class EditingUI {
 			const kind = await this.quickInput.pick([
 				{ label: localize('ade.structure', "Structure Diagram"), kind: 'structure' as const },
 				{ label: localize('ade.activity', "Activity Flow"), kind: 'activity' as const },
-				{ label: localize('ade.sequence', "Sequence Diagram"), kind: 'sequence' as const }
+				{ label: localize('ade.sequence', "Sequence Diagram"), kind: 'sequence' as const },
+				{ label: localize('ade.stateDiagram', "State Diagram"), kind: 'state' as const }
 			], { title: localize('ade.diagramType', "Diagram Type") });
 			if (!kind) { return; }
+			const edits: VisualEdit[] = [];
+			let resourceId: string | undefined;
+			if (kind.kind === 'state') {
+				const resource = await this.quickInput.pick([
+					...model.semantics.elements.filter(element => element.kind === 'resource').map(resource => ({ label: resource.name, resource })),
+					{ label: localize('ade.state.createResource', "Create New Resource"), resource: undefined }
+				], { title: localize('ade.state.pickResource', "Resource Lifecycle") });
+				if (!resource) { return; }
+				resourceId = resource.resource?.id;
+				if (!resourceId) {
+					const name = await this.name(undefined, localize('ade.state.resourceName', "Resource Name"));
+					if (!name) { return; }
+					resourceId = generateUuid();
+					edits.push({ kind: 'resource', id: resourceId, name, parentId: feature.id });
+				}
+			}
 			const name = await this.name();
 			if (!name) { return; }
 			const viewId = generateUuid();
-			this.edit({ kind: 'diagram', id: viewId, name, featureId: feature.id, viewKind: kind.kind });
+			edits.push(kind.kind === 'state' ? { kind: 'stateDiagram', id: viewId, name, featureId: feature.id, resourceId: resourceId! } : { kind: 'diagram', id: viewId, name, featureId: feature.id, viewKind: kind.kind });
+			this.edit(edits);
 			this.project.showDiagram(viewId);
 		} else if (command === 'renameFeature' || command === 'deleteFeature') {
 			const feature = await this.feature(id);
@@ -100,24 +119,41 @@ class EditingUI {
 				if (name) { this.edit({ kind: 'rename', target: 'element', id: feature.id, name }); }
 			}
 		} else if (command === 'addElement' && view) {
-			const kind = await this.quickInput.pick((Object.keys(elementLabels) as ElementKind[]).filter(kind => kind !== 'feature').map(kind => ({ label: elementLabels[kind], kind })), { title: localize('ade.elementType', "Element Type") });
+			const kind = view.kind === 'state' ? { kind: 'state' as const } : await this.quickInput.pick((Object.keys(elementLabels) as ElementKind[]).filter(kind => kind !== 'feature').map(kind => ({ label: elementLabels[kind], kind })), { title: localize('ade.elementType', "Element Type") });
 			if (!kind) { return; }
 			let parentId: string | undefined;
 			if (kind.kind === 'state') {
-				const resource = await this.quickInput.pick(model.semantics.elements.filter(element => element.kind === 'resource').map(element => ({ label: element.name, element })), { title: localize('ade.stateOwner', "Resource Whose State Is Represented") });
+				const resources = view.kind === 'state' ? getStateDiagram(model, view).groups.map(group => group.resource) : model.semantics.elements.filter(element => element.kind === 'resource');
+				const resource = resources.length === 1 ? resources[0] : (await this.quickInput.pick(resources.map(element => ({ label: element.name, element })), { title: localize('ade.stateOwner', "Resource Whose State Is Represented") }))?.element;
 				if (!resource) { return; }
-				parentId = resource.element.id;
+				parentId = resource.id;
 			}
 			const name = await this.name();
 			if (!name) { return; }
 			const elementId = generateUuid();
 			this.edit({ kind: 'element', id: elementId, viewId: view.id, name, elementKind: kind.kind, parentId });
 			this.project.selectElement(elementId);
-		} else if (command === 'addExisting' && view) {
-			const picked = await this.quickInput.pick(model.semantics.elements.filter(element => !view.nodes.some(node => node.elementId === element.id)).map(element => ({ label: element.name, description: elementLabels[element.kind], element })), { title: localize('ade.include', "Add Existing Element") });
+		} else if ((command === 'addExisting' || command === 'addExistingState') && view) {
+			const resources = view.kind === 'state' ? new Set(getStateDiagram(model, view).groups.map(group => group.resource.id)) : undefined;
+			const picked = await this.quickInput.pick(model.semantics.elements.filter(element => !view.nodes.some(node => node.elementId === element.id)
+				&& (command !== 'addExistingState' || element.kind === 'state')
+				&& (!resources || element.kind !== 'state' || resources.has(element.parentId ?? ''))).map(element => ({ label: element.name, description: elementLabels[element.kind], element })), { title: command === 'addExistingState' ? localize('ade.state.addExisting', "Add Existing State") : localize('ade.include', "Add Existing Element") });
 			if (picked) {
 				this.edit({ kind: 'include', id: picked.element.id, viewId: view.id });
 				this.project.selectElement(picked.element.id);
+			}
+		} else if (command === 'includeLifecycle' && view?.kind === 'state') {
+			const resources = getStateDiagram(model, view).groups.map(group => group.resource);
+			const resource = resources.length === 1 ? resources[0] : (await this.quickInput.pick(resources.map(resource => ({ label: resource.name, resource })), { title: localize('ade.state.pickResource', "Resource Lifecycle") }))?.resource;
+			if (resource) { this.edit({ kind: 'stateLifecycle', viewId: view.id, resourceId: resource.id }); }
+		} else if (command === 'addTransition' && view?.kind === 'state') {
+			const resources = new Set(getStateDiagram(model, view).groups.map(group => group.resource.id));
+			const names = new Map(model.semantics.elements.map(element => [element.id, element.name]));
+			const picked = await this.quickInput.pick(model.semantics.relations.filter(relation => isResourceTransition(model, relation) && !view.relationIds.includes(relation.id)
+				&& resources.has(model.semantics.elements.find(element => element.id === relation.from)!.parentId!)).map(relation => ({ label: localize('ade.state.existingTransition', "{0} → {1}: {2}", names.get(relation.from)!, names.get(relation.to)!, relation.name), relation })), { title: localize('ade.state.addTransition', "Add Existing Transition") });
+			if (picked) {
+				this.edit({ kind: 'stateTransition', viewId: view.id, id: picked.relation.id });
+				this.project.selectElement(picked.relation.from);
 			}
 		} else if (command === 'addSequenceMessage' && view?.kind === 'sequence') {
 			const names = new Map(model.semantics.elements.map(element => [element.id, element.name]));
@@ -129,13 +165,14 @@ class EditingUI {
 				this.project.selectElement(picked.relation.from);
 			}
 		} else if (command === 'connect' && view && selected) {
-			const kinds = (Object.keys(relationLabels) as RelationKind[]).filter(kind => (view.kind !== 'sequence' || isSequenceMessage({ kind })) && view.nodes.some(node => {
+			const kinds = (Object.keys(relationLabels) as RelationKind[]).filter(kind => (view.kind !== 'sequence' || isSequenceMessage({ kind })) && (view.kind !== 'state' || kind === 'transition') && view.nodes.some(node => {
 				const target = model.semantics.elements.find(element => element.id === node.elementId)!;
-				return (target.id !== selected.id || view.kind === 'sequence') && isCompatibleRelation(kind, selected.kind, target.kind) && (kind !== 'transition' || target.parentId === selected.parentId);
+				return (target.id !== selected.id || view.kind === 'sequence' || view.kind === 'state') && isCompatibleRelation(kind, selected.kind, target.kind) && (kind !== 'transition' || target.parentId === selected.parentId)
+					&& (view.kind !== 'state' || isResourceTransition(model, { id: '', kind, from: selected.id, to: target.id, name: '' }));
 			}));
 			const kind = await this.quickInput.pick(kinds.map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") });
 			if (!kind) { return; }
-			const targets = model.semantics.elements.filter(target => (target.id !== selected.id || view.kind === 'sequence') && view.nodes.some(node => node.elementId === target.id)
+			const targets = model.semantics.elements.filter(target => (target.id !== selected.id || view.kind === 'sequence' || view.kind === 'state') && view.nodes.some(node => node.elementId === target.id)
 				&& isCompatibleRelation(kind.kind, selected.kind, target.kind) && (kind.kind !== 'transition' || target.parentId === selected.parentId));
 			const target = await this.quickInput.pick(targets.map(element => ({ label: element.name, element })), { title: localize('ade.target', "Target Element") });
 			if (!target) { return; }
@@ -167,6 +204,11 @@ class EditingUI {
 			if (!relation) { return; }
 			const condition = await this.quickInput.input({ title: localize('ade.conditionInput', "Condition (Optional)"), value: relation.condition });
 			if (condition !== undefined) { this.edit({ kind: 'condition', id, condition }); }
+		} else if (command === 'renameRelation' && id) {
+			const relation = model.semantics.relations.find(relation => relation.id === id);
+			if (!relation) { return; }
+			const name = await this.quickInput.input({ title: localize('ade.state.eventInput', "Transition Event (Optional)"), value: relation.name });
+			if (name !== undefined) { this.edit({ kind: 'renameRelation', id, name }); }
 		} else if (command === 'relationError' && id) {
 			const relation = model.semantics.relations.find(relation => relation.id === id);
 			if (!relation) { return; }
@@ -202,6 +244,10 @@ for (const [command, title] of [
 	['addDiagram', localize2('ade.addDiagram', "A.D.E: Add Diagram")],
 	['addElement', localize2('ade.addElement', "A.D.E: Add Element")],
 	['addExisting', localize2('ade.addExisting', "A.D.E: Add Existing Element")],
+	['addExistingState', localize2('ade.state.addExisting.command', "A.D.E: Add Existing State")],
+	['includeLifecycle', localize2('ade.state.includeLifecycle.command', "A.D.E: Include Resource Lifecycle")],
+	['addTransition', localize2('ade.state.addTransition.command', "A.D.E: Add Existing Transition")],
+	['renameRelation', localize2('ade.state.event.command', "A.D.E: Edit Transition Event")],
 	['addSequenceMessage', localize2('ade.sequence.addMessage.command', "A.D.E: Add Existing Message")],
 	['connect', localize2('ade.connect', "A.D.E: Connect Selection")],
 	['renameFeature', localize2('ade.renameFeature', "A.D.E: Rename Feature")],

@@ -77,6 +77,12 @@ suite('A.D.E accessible content', () => {
 		assert.ok(describeAdeDiagram(state({ model, activeView: view })).includes('Not Rendered as a Sequence Message:'));
 	});
 
+	test('state reading names resource ownership and events while preserving historical context', () => {
+		const content = describeAdeDiagram(state());
+		assert.deepStrictEqual({ resource: content.includes('Resource: Ordine. Visible states: 3 of 3. Visible transitions: 2.'), ownership: content.includes('State In attesa belongs to resource Ordine.'), context: content.includes('Additional context: 1 elements and 0 relationships'), event: content.includes('Transition Event: pagamento riuscito'), guard: content.includes('Condition: pagamento autorizzato'), intent: content.includes('no initial or final state is inferred') },
+			{ resource: true, ownership: true, context: true, event: true, guard: true, intent: true });
+	});
+
 	test('help distinguishes read-only navigation from editing and uses resolvable command keybindings', () => {
 		const readOnly = describeAdeHelp(state());
 		const editable = describeAdeHelp(state({ editable: true }));

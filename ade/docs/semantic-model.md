@@ -37,6 +37,8 @@ Gli identificatori sono stringhe opache, indipendenti da nome, posizione e perco
 
 La matrice è esposta da `isCompatibleRelation` per i futuri editor. Gli endpoint sono sempre ID di elementi. `condition` è testo dichiarativo e non viene eseguito. `errorCode`, quando presente, deve essere dichiarato dal comportamento dell'origine. Una proiezione può mostrare un sottoinsieme del modello; ogni relazione visibile deve avere entrambi gli endpoint nella stessa proiezione.
 
+L'editor degli stati M3.5 richiede, per le nuove transizioni nelle viste di stato, due stati con la stessa risorsa effettiva come `parentId`. I documenti storici che lo schema ammette con contenimento diverso o assente restano leggibili e non vengono normalizzati. Nome della relazione, condizione e codice di errore rappresentano rispettivamente evento dichiarato, guardia testuale ed errore della sorgente. Non vengono aggiunti campi allo schema né dedotti stati iniziali/finali o risultati di esecuzione. Il riepilogo dei cicli di vita è ricavato dai riferimenti alle risorse e dai genitori degli stati presenti nella vista.
+
 ## Comportamenti ed evidenze
 
 `behavior` è facoltativo; se presente contiene tutti gli insiemi, anche vuoti: input/output (`name`, tipo dichiarativo, obbligatorietà), pre/postcondizioni, errori, autorizzazioni e criteri `given/when/then`. Le autorizzazioni fanno riferimento a un elemento `actor`. Tipi e condizioni restano dichiarativi: non implicano esecuzione né controlli su uno specifico linguaggio.

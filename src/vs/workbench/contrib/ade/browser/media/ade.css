@@ -349,3 +349,24 @@
 .ade-shell.ade-narrow .ade-workspace {
 	grid-template-columns: minmax(0, 1fr);
 }
+
+.ade-state-summary {
+	margin-block: var(--vscode-spacing-size160);
+	overflow-wrap: anywhere;
+}
+
+.ade-transition-table-wrap {
+	overflow-x: auto;
+}
+
+.ade-transition-table {
+	width: 100%;
+	border-collapse: collapse;
+	text-align: left;
+}
+
+.ade-transition-table th,
+.ade-transition-table td {
+	padding: var(--vscode-spacing-size80);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}

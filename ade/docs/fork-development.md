@@ -44,6 +44,7 @@ node ade/scripts/smoke-desktop.mjs --native-only
 node ade/scripts/smoke-desktop.mjs --ux-only
 node ade/scripts/smoke-desktop.mjs --navigation-only
 node ade/scripts/smoke-desktop.mjs --sequence-only
+node ade/scripts/smoke-desktop.mjs --state-only
 node ade/scripts/smoke-desktop.mjs --extension-only
 ```
 
@@ -83,3 +84,5 @@ M3.2 estende `--navigation-only` a System Map, lettura accessibile, tastiera, br
 M3.3 estende lo stesso percorso a creazione/modifica/rimozione di voci dei contratti, validazione dei campi, cancellazione dei dialoghi, undo/redo, lettura accessibile e coerenza fra scheda e due diagrammi. La CI desktop include anche `adeBehaviorEditing.test.ts` nel runner nativo. Build, test automatici e smoke Linux sono registrati nel [verbale M3.3](m3-3-verification.md), distinti da macOS e CI remota ancora da eseguire.
 
 M3.4 aggiunge `--sequence-only`, configurato separatamente su Linux e macOS nella CI desktop: creazione di una sequenza, riuso delle interazioni, ordine di partecipanti/messaggi, rimozione dalla sola vista, auto-messaggi, contratto condiviso, lettura accessibile, etichette misurate, Fit Diagram, finestra stretta, salvataggio e riavvio. Il [verbale M3.4](m3-4-verification.md) registra gli esiti Linux e distingue macOS/VoiceOver e CI remota ancora aperti.
+
+M3.5 aggiunge `--state-only`, separato in CI su Linux e macOS: creazione di viste e risorse, riuso dei cicli di vita, eventi, condizioni, errori, auto-transizioni, tabella, modifica condivisa fra viste, lettura accessibile, rimozione locale, tastiera, salvataggio e riavvio. Il [verbale M3.5](m3-5-verification.md) distingue gli esiti Linux dalle verifiche di piattaforma e CI remota ancora aperte.

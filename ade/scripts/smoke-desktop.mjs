@@ -39,7 +39,8 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 }));
 const navigationOnly = process.argv.includes('--navigation-only');
 const sequenceOnly = process.argv.includes('--sequence-only');
-const modelFile = path.join(navigationOnly || sequenceOnly ? directory : workspace, 'checkout.ade.json');
+const stateOnly = process.argv.includes('--state-only');
+const modelFile = path.join(navigationOnly || sequenceOnly || stateOnly ? directory : workspace, 'checkout.ade.json');
 const emptyFile = path.join(workspace, 'empty.ade.json');
 const invalidFile = path.join(workspace, 'invalid.ade.json');
 const otherFile = path.join(workspace, 'other.ade.json');
@@ -53,7 +54,7 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -64,7 +65,7 @@ if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequen
 		if (manifest) {
 			const extension = JSON.parse(manifest);
 			// Theme coverage enables only the declarative built-in themes, which have no executable entry point.
-			if ((uxOnly || sequenceOnly) && extension.name === 'theme-defaults') { continue; }
+			if ((uxOnly || sequenceOnly || stateOnly) && extension.name === 'theme-defaults') { continue; }
 			args.push(`--disable-extension=${extension.publisher ?? 'vscode'}.${extension.name}`);
 		}
 	}
@@ -206,6 +207,123 @@ async function checkContractEditing(window) {
 	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
 	await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
 	console.log('PASS: native contract creation, validation, cancellation, editing, removal, undo/redo and shared details across two diagrams with accessible reading.');
+}
+
+async function checkStateDiagram() {
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await openModelFile(window, modelFile);
+	await runCommand(window, 'A.D.E: Add Diagram');
+	await pickValue(window, 'Choose Feature', 'Conferma acquisto');
+	await pickValue(window, 'Diagram Type', 'State Diagram');
+	await pickValue(window, 'Resource Lifecycle', 'Ordine');
+	await enterValue(window, 'Name', 'Order Lifecycle');
+	await shell.getByRole('heading', { level: 1, name: 'Order Lifecycle', exact: true }).waitFor();
+	await shell.getByText('0 of 3 declared states visible · 0 visible transitions', { exact: true }).waitFor();
+	assert.equal(await shell.locator('.ade-node').count(), 1);
+	await shell.getByRole('button', { name: 'Add Existing Transition', exact: true }).click();
+	await pickValue(window, 'Add Existing Transition', 'In attesa → Confermato: pagamento riuscito');
+	assert.equal(await shell.locator('.ade-node').count(), 3);
+	await runCommand(window, 'A.D.E: Include Resource Lifecycle');
+	await shell.getByText('3 of 3 declared states visible · 2 visible transitions', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Add State', exact: true }).click();
+	await enterValue(window, 'Name', 'Annullato');
+	await shell.locator('.ade-node').getByText('Annullato', { exact: true }).waitFor();
+	await connect(window, 'In attesa', 'Annullato', 'Transition', 'Richiesta annullamento', 'ordine annullabile');
+	await connect(window, 'Annullato', 'Annullato', 'Transition', 'Riprova', 'richiesta valida');
+	await shell.locator('.ade-node').getByText('Confermato', { exact: true }).click();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Transition Event', exact: true }).click();
+	await enterValue(window, 'Transition Event (Optional)', 'Ricevuta conferma pagamento');
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Condition', exact: true }).click();
+	await enterValue(window, 'Condition (Optional)', 'pagamento verificato');
+	await shell.locator('.ade-connection-label').filter({ hasText: 'Ricevuta conferma pagamento · [pagamento verificato]' }).waitFor();
+	await shell.locator('.ade-node').getByText('In attesa', { exact: true }).click();
+	await contractEntry(window, 'In attesa', 'Errors');
+	await enterValue(window, 'Error Code', 'payment-declined');
+	await enterValue(window, 'Error Description', 'Nessun ordine confermato');
+	await shell.locator('.ade-node').getByText('Pagamento rifiutato', { exact: true }).click();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Relationship Error', exact: true }).click();
+	await pickValue(window, 'Relationship Error', 'payment-declined');
+	const tableDetails = shell.locator('.ade-state-summary details');
+	await tableDetails.locator('summary').click();
+	const table = tableDetails.getByRole('table', { name: 'Transition Table: Ordine', exact: true });
+	assert.equal(await table.locator('tbody tr').count(), 4);
+	await table.locator('tr[data-relation-id="order-confirmed"]').getByRole('cell', { name: 'Ricevuta conferma pagamento', exact: true }).waitFor();
+	await table.locator('tr[data-relation-id="order-declined"]').getByRole('cell', { name: 'payment-declined', exact: true }).waitFor();
+	await table.screenshot({ path: path.join(evidence, 'state-transition-table.png') });
+	await table.locator('tr[data-relation-id="order-confirmed"]').getByRole('button', { name: 'In attesa', exact: true }).click();
+	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Resource: Ordine. Visible states: 4 of 4. Visible transitions: 4.', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await tableDetails.locator('summary').click();
+	await shell.locator('.ade-node').getByText('Confermato', { exact: true }).click();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Remove Relationship from Diagram', exact: true }).click();
+	assert.equal(await shell.locator('svg path[data-relation-id="order-confirmed"]').count(), 0);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.locator('svg path[data-relation-id="order-confirmed"]').waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+	await enterValue(window, 'Name', 'Ordine confermato');
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'Esito pagamento', exact: true }).click();
+	await shell.locator('.ade-node').getByText('Ordine confermato', { exact: true }).click();
+	await shell.locator('.ade-connection-label').filter({ hasText: 'Ricevuta conferma pagamento · [pagamento verificato]' }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Order Lifecycle', exact: true }).click();
+	const cancelled = shell.locator('.ade-node').getByText('Annullato', { exact: true });
+	await cancelled.focus();
+	await window.keyboard.press('Enter');
+	const before = await cancelled.evaluate(element => parseFloat(element.style.left));
+	await window.keyboard.press('ArrowRight');
+	assert.equal(await cancelled.evaluate(element => parseFloat(element.style.left)), before + 20);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.equal(await cancelled.evaluate(element => parseFloat(element.style.left)), before);
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	await shell.locator('.ade-canvas-scroll').scrollIntoViewIfNeeded();
+	await window.screenshot({ path: path.join(evidence, 'state-diagram.png') });
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(validateSemanticModel(saved), []);
+	assert.equal(saved.semantics.elements.length, checkoutModel.semantics.elements.length + 1);
+	assert.equal(saved.semantics.relations.length, checkoutModel.semantics.relations.length + 2);
+	console.log('PASS: resource lifecycle, state creation, guarded/self transitions, shared event/error editing, table, native reading, move, undo/redo and save.');
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { level: 1, name: 'Order Lifecycle', exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('heading', { name: 'Annullato', exact: true }).waitFor();
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
+	await shell.getByRole('button', { name: 'Remove State from Diagram', exact: true }).focus();
+	await window.keyboard.press('Enter');
+	assert.equal(await shell.locator('.ade-node').getByText('Annullato', { exact: true }).count(), 0);
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const removed = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(removed.semantics, saved.semantics);
+	assert.deepEqual(removed.views.slice(0, 4), saved.views.slice(0, 4));
+	await shell.getByRole('button', { name: 'Add Existing State', exact: true }).click();
+	await window.locator('.quick-input-widget').getByText('Add Existing State', { exact: true }).waitFor();
+	await window.locator('.quick-input-widget input:visible').fill('Annullato');
+	await window.locator('.quick-input-widget .monaco-list-row').getByText('Annullato', { exact: true }).waitFor();
+	await window.keyboard.press('Enter');
+	await shell.locator('.ade-node').getByText('Annullato', { exact: true }).waitFor();
+	await runCommand(window, 'A.D.E: Add Diagram');
+	await pickValue(window, 'Choose Feature', 'Conferma acquisto');
+	await pickValue(window, 'Diagram Type', 'State Diagram');
+	await pickValue(window, 'Resource Lifecycle', 'Create New Resource');
+	await enterValue(window, 'Resource Name', 'Spedizione');
+	await enterValue(window, 'Name', 'Shipment Lifecycle');
+	await shell.getByRole('heading', { level: 1, name: 'Shipment Lifecycle', exact: true }).waitFor();
+	await shell.locator('.ade-node').getByText('Spedizione', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.equal(await window.locator('.ade-sidebar').getByRole('button', { name: 'Shipment Lifecycle', exact: true }).count(), 0);
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const final = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(final.semantics, saved.semantics);
+	console.log('PASS: state diagram/resource creation, lifecycle reuse, guarded/self transitions, event/error/contract editing across views, transition table, native reading, keyboard move, local removal, undo/redo, save/restart and narrow-window interaction.');
+	await app.close();
+	app = undefined;
 }
 
 async function checkSequenceDiagram() {
@@ -684,10 +802,11 @@ async function checkVisualUX() {
 }
 
 try {
+	if (stateOnly) { await checkStateDiagram(); }
 	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -883,7 +1002,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));

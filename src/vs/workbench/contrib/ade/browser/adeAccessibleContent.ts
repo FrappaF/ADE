@@ -8,6 +8,7 @@ import { ModelView, SemanticModel, SemanticRelation } from '../common/semanticMo
 import { getDiagramGroups } from '../common/visualNavigation.js';
 import { getSystemMap } from '../common/systemMap.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
+import { getStateDiagram } from '../common/stateDiagram.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 
 /** Presentation state only: reading the diagram never edits or saves its document. */
@@ -45,6 +46,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 		lines.push(localize('ade.reading.relation', "{0} to {1}: {2}. {3}", elements.get(relation.from)!.name, elements.get(relation.to)!.name, relationLabels[relation.kind], relation.name));
 		if (relation.condition) { lines.push(localize('ade.reading.condition', "Condition: {0}", relation.condition)); }
 		if (relation.errorCode) { lines.push(localize('ade.reading.error', "Error: {0}", relation.errorCode)); }
+		if (relation.kind === 'transition') { lines.push(localize('ade.reading.stateEvent', "Transition Event: {0}", relation.name || localize('ade.reading.noEvent', "Not Declared"))); }
 	};
 	if (state.section === 'map') {
 		const overview = getSystemMap(model);
@@ -76,6 +78,16 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 			? localize('ade.reading.feature', "Feature: {0}", group.name) : localize('ade.reading.systemDiagram', "System Diagram"));
 		lines.push(localize('ade.diagramType', "Diagram Type: {0}", viewLabels[view.kind]));
 		if (view.kind === 'sequence') { lines.push(localize('ade.reading.sequence', "Declared sequence. Participants follow their left-to-right order; numbered messages follow this diagram's order, not observed execution. One occurrence per relationship; no inferred replies, timing or combined fragments.")); }
+		if (view.kind === 'state') {
+			const lifecycle = getStateDiagram(model, view);
+			lines.push(localize('ade.reading.stateIntent', "Declared resource lifecycles, not observed runtime states. Events and guards are declarations; no initial or final state is inferred."));
+			for (const group of lifecycle.groups) {
+				lines.push(localize('ade.reading.stateGroup', "Resource: {0}. Visible states: {1} of {2}. Visible transitions: {3}.", group.resource.name, group.states.length, group.allStates.length, group.transitions.length));
+				for (const element of group.states) { lines.push(localize('ade.reading.stateOwner', "State {0} belongs to resource {1}.", element.name, group.resource.name)); }
+			}
+			if (lifecycle.unscopedStates.length) { lines.push(localize('ade.reading.unscopedStates', "States without a declared resource: {0}.", lifecycle.unscopedStates.map(element => element.name).join(', '))); }
+			if (lifecycle.contextElements.length || lifecycle.contextRelations.length) { lines.push(localize('ade.reading.stateContext', "Additional context: {0} elements and {1} relationships; all are preserved below.", lifecycle.contextElements.length, lifecycle.contextRelations.length)); }
+		}
 		lines.push('', localize('ade.reading.elements', "Elements in This Diagram: {0}", view.nodes.length));
 		for (const [index, node] of view.nodes.entries()) {
 			const element = elements.get(node.elementId)!;
@@ -145,6 +157,7 @@ export function describeAdeHelp(state: AdeReadingState): string {
 		localize('ade.help.navigation', "Tab and Shift+Tab move between navigation, diagram controls, elements, properties and technical tools. Enter or Space activates a button or opens an options section."),
 		localize('ade.help.behavior', "Edit Behavioral Contract in Properties edits inputs, outputs, preconditions, postconditions and errors through native choices. Escape cancels the current entry. Each completed change can be undone. Edit Relationship Error assigns or clears a declared source error; clear references before removing or renaming an error."),
 		localize('ade.help.sequence', "Sequence diagrams show participants and ordered declared messages. Add Existing Message reuses an invocation, read or write and includes its endpoints. Properties moves participants left or right and Sequence Message Options moves messages earlier or later. Removing a participant or message from this diagram preserves the system and other views. Participant positions are derived from their order; use the background to pan and Fit Diagram to zoom."),
+		localize('ade.help.states', "State diagrams group declared states by their resource. Add State creates a state for a resource in the diagram; Add Existing State and Add Existing Transition reuse identities. Include Resource Lifecycle adds the resource's declared states and transitions without moving existing nodes. Transition Table lists sources, targets, events, conditions and errors. Properties edits shared events and contracts; removing a state or relationship from the diagram preserves the system and other views. Initial/final states, nested states and execution are not inferred."),
 		localize('ade.help.reading', "Use <keybinding:editor.action.accessibleView> to read the current diagram as text. The view includes elements, relationships, conditions and details of the selected element. Escape returns to the previous control."),
 		state.section === 'home'
 			? localize('ade.help.home', "On Home, choose Create Project, Open Project, Open Model or Explore Purchase Example. The purchase example is read-only.")

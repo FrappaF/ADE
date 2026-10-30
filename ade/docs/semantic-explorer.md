@@ -67,10 +67,26 @@ Il renderer non usa trascinamento e coordinate manuali: l'ordine viene conservat
 
 L'[esempio progettato](../examples/checkout-designed.ade.json) riusa nella sequenza di pagamento le identità e i due messaggi condizionati del flusso. L'ordine rappresenta una dichiarazione della vista, non una traccia che dimostra entrambi gli esiti. Build, test, smoke Linux e verifiche di piattaforma aperte sono registrati nel [verbale M3.4](m3-4-verification.md).
 
+## Stati e transizioni M3.5
+
+**Add Diagram → State Diagram** sceglie la feature e la risorsa del ciclo di vita. **Create New Resource** consente di creare la risorsa insieme al diagramma in un'unica operazione annullabile; annullare un dialogo non lascia risorse o diagrammi parziali. La nuova vista include un riferimento alla risorsa esistente, senza cambiare gerarchia o formato del documento.
+
+**Add State** crea uno stato della risorsa rappresentata; se un documento storico contiene più risorse viene chiesto quale usare. **Add Existing State** mostra gli stati delle risorse già rappresentate e **Add Existing Transition** riusa una transizione dichiarata, includendo i due endpoint se necessario. **Include Resource Lifecycle**, in Diagram Options e nella palette, include tutti gli stati e le transizioni dichiarati della risorsa scelta, preservando coordinate e riferimenti già presenti. Per estendere una vista storica senza risorse riconoscibili, includere prima la risorsa tramite **Add Existing Element**. Includere un'altra risorsa consente di affiancarne il ciclo di vita, mantenendo separate le transizioni.
+
+**Connect Selection** collega stati della stessa risorsa con una transizione, compresi auto-collegamenti. Nome/evento e condizione sono dichiarazioni testuali. **Edit Transition Event**, **Edit Condition** ed **Edit Relationship Error** nelle proprietà aggiornano la relazione condivisa fra tutte le viste. Gli errori devono essere dichiarati nel contratto dello stato sorgente e usano la validazione M3.3. Sul canvas evento e condizione rimangono entrambi visibili, insieme all'eventuale codice di errore; non vengono sostituiti l'uno dall'altra.
+
+Il riepilogo **Resource Lifecycles** collega le risorse alle loro schede e distingue stati visibili, stati dichiarati e transizioni incluse. **Transition Table** espone sorgente, destinazione, evento, condizione ed errore; i pulsanti degli endpoint selezionano il corrispondente stato nel canvas. **Read Diagram** mantiene gli stessi riferimenti e nomina esplicitamente risorsa e appartenenza di ogni stato.
+
+**Remove State from Diagram** rimuove dalla sola vista lo stato e le relazioni che vi sono collegate. **Remove Relationship from Diagram** conserva la transizione nel sistema e negli altri diagrammi. Queste operazioni sono distinte dalle cancellazioni semantiche **Delete Element/Relationship**, che mantengono conferma e pulizia globale dei riferimenti. Spostamenti, aggiunta/rimozione locale, modifica di eventi e contratti usano undo/redo, salvataggio e ripristino nativi.
+
+Il formato v3 resta invariato: l'appartenenza è `state.parentId → resource`, gli eventi usano `relation.name`, le guardie `condition` e gli errori `errorCode`. I documenti storici possono contenere elementi di contesto, relazioni aggiuntive o stati senza risorsa: vengono segnalati e conservati nel grafo e nel lettore, senza assegnazioni automatiche. Le nuove transizioni delle viste di stato richiedono una risorsa effettiva condivisa dagli endpoint.
+
+Il sottoinsieme M3.5 rappresenta stati semplici, eventi dichiarati, guardie testuali, errori e auto-transizioni. Non deduce stati iniziali/finali, stati compositi, regioni parallele, azioni entry/exit o esecuzione runtime. L'[esempio progettato](../examples/checkout-designed.ade.json) contiene ora anche il ciclo di vita dell'ordine: le azioni del flusso e gli stati della risorsa hanno identità distinte, senza dedurre automaticamente causalità fra loro. Verifiche e limiti di piattaforma sono nel [verbale M3.5](m3-5-verification.md).
+
 ## Accessibilità e aggiornamenti esterni
 
 **Read Element Details** usa lo stesso lettore nativo di **Read Diagram**. L'aiuto accessibile descrive ricerca, breadcrumb, schede e cronologia. La lettura non presenta la scheda come un diagramma e non deduce esecuzione o verifiche del codice.
 
 Il servizio mantiene un watcher correlato sul file del modello, anche fuori dalla cartella del workspace. Un aggiornamento esterno ricarica soltanto il documento pulito; le modifiche non salvate restano protette dal backend nativo. Se viene eliminato l'elemento ispezionato, il contesto torna a un diagramma valido. Errori di lettura non lasciano il vecchio contenuto presentato come stato corrente. Watcher e richieste superate vengono rilasciati o ignorati quando cambia il documento.
 
-Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md), [M3.2](m3-2-verification.md), [M3.3](m3-3-verification.md) e [M3.4](m3-4-verification.md).
+Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md), [M3.2](m3-2-verification.md), [M3.3](m3-3-verification.md), [M3.4](m3-4-verification.md) e [M3.5](m3-5-verification.md).
