@@ -40,7 +40,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio verificato; smoke desktop confermato dall’utente |
 | M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Editor e collaudo M2.3 su Linux; macOS, CI e revisione utente aperti |
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.6 implementati e verificati su Linux; macOS/VoiceOver, CI e revisione UX restano aperti |
-| M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | M4.1: importatore sintattico multilinguaggio Node; risoluzione semantica, percorso nativo e Sync da sviluppare |
+| M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | M4.1–M4.2: importatore multilinguaggio e Sync sintattico via Node; risoluzione semantica e percorso nativo da sviluppare |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Da sviluppare |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Da sviluppare |
 | M7 · Ambiente dinamico | Esecuzione e diagnostica nel modello | M3, M5, M6 | Da sviluppare |
@@ -253,6 +253,8 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **M4.1 disponibile:** [importatore deterministico multilinguaggio](code-import.md) eseguibile con Node, indice delle dichiarazioni e degli import non risolti, hash e posizioni sorgenti, modello v3 con mappa cartelle/moduli e diagrammi per file. Include un esempio TypeScript/Python/Java e fixture per JavaScript/TypeScript/TSX, Python, Java, C#, C/C++, Go, Rust, PHP, Ruby, Swift e Dart. Il [verbale M4.1](m4-1-verification.md) distingue l'analisi sintattica dalla risoluzione semantica, dall'integrazione desktop e da Sync ancora da sviluppare. Non effettua chiamate IA.
 
+**M4.2 disponibile:** cache per hash/versione dell'adattatore, comando `status` in sola lettura e primo `sync` verso una nuova versione recuperabile. Conserva identità degli spostamenti univoci a contenuto identico, layout e annotazioni compatibili, aggiorna evidenze e contratti testuali, riusa l'impatto M3 sulle relazioni dichiarate e blocca conflitti, input incompleti e revisioni superate. Il [verbale M4.2](m4-2-verification.md) registra test e limiti: rinomine dei simboli, dipendenze semantiche, configurazione del perimetro e integrazione nativa restano da sviluppare.
+
 **Attività:**
 
 - Coprire i linguaggi più usati tramite una base comune e adattatori specifici; documentare separatamente dichiarazioni sintattiche, risoluzione semantica e stack dimostrativi verificati per ciascun linguaggio.
@@ -267,7 +269,7 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Consegna:** primo adattatore di analisi, codebase dimostrativa e mappa modello/codice ispezionabile.
 
-**Criterio di completamento:** importare progetti campione dei linguaggi dichiarati, navigarne gli elementi e sincronizzare una modifica manuale a un contratto, una rinomina e una cancellazione senza ricostruire inutilmente le parti invariate. Le relazioni devono avere evidenze ispezionabili; elementi non supportati e interpretazioni incerte restano riconoscibili. Il percorso di importazione funziona senza account o chiamate IA. M4.1 non chiude questo criterio.
+**Criterio di completamento:** importare progetti campione dei linguaggi dichiarati, navigarne gli elementi e sincronizzare una modifica manuale a un contratto, una rinomina e una cancellazione senza ricostruire inutilmente le parti invariate. Le relazioni devono avere evidenze ispezionabili; elementi non supportati e interpretazioni incerte restano riconoscibili. Il percorso di importazione funziona senza account o chiamate IA. M4.1–M4.2 non chiudono questo criterio.
 
 ## M5 — Collaborazione con l'IA e prima implementazione
 
@@ -394,5 +396,6 @@ Durante M4 vanno verificati gli adattatori semantici e gli stack dimostrativi pe
 12. **M3.5:** viste di stato e transizioni sulle risorse implementate e verificate su Linux; completare verifiche di piattaforma e CI remota.
 13. **M3.6:** analisi dell'impatto nel modello dichiarato ed evidenze registrate implementate e verificate su Linux; completare le verifiche di piattaforma e CI prima della chiusura complessiva M3.
 14. **M4.1:** base sintattica multilinguaggio e tracciabilità disponibili via Node; proseguire con adattatori semantici, importazione nativa, configurazione del perimetro e Sync deterministico secondo i criteri della milestone.
+15. **M4.2:** stato e Sync sintattico incrementale con recupero e conservazione delle modifiche manuali disponibili via Node; proseguire con dipendenze semantiche, rinomine dei simboli e percorso nativo.
 
 Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. L’implementazione assistita dall’IA e la sincronizzazione con il codice saranno aggiunte nelle milestone successive, con i rispettivi criteri di verifica.
