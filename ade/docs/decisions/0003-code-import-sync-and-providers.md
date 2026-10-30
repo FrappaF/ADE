@@ -1,6 +1,6 @@
 # ADR 0003 — Importazione assistita, Sync incrementale e provider configurabili
 
-Stato: adottata il 29 ottobre 2026; aggiornata su richiesta dell'utente il 30 ottobre 2026: M4 deterministico e multilinguaggio, integrazione IA in M5. Pianifica M4–M6; [importazione M4.1 e Sync M4.2](../code-import.md) descrivono gli incrementi disponibili via Node.
+Stato: adottata il 29 ottobre 2026; aggiornata su richiesta dell'utente il 30 ottobre 2026: M4 deterministico e multilinguaggio, integrazione IA in M5. Pianifica M4–M6; [importazione M4.1, Sync M4.2 e ponte SCIP M4.3](../code-import.md) descrivono gli incrementi disponibili via Node.
 
 ## Decisione
 
@@ -36,4 +36,4 @@ Le condizioni dei provider vanno ricontrollate prima dell'implementazione e dell
 
 ## Conseguenze sulla roadmap
 
-M2 completa l'esperienza di progettazione. M4 sviluppa importazione e tracciabilità deterministiche multilinguaggio, risoluzione semantica specifica e Sync senza IA. M4.1 fornisce la base sintattica Node; M4.2 aggiunge cache, stato e Sync verso versioni recuperabili con conservazione delle modifiche manuali compatibili. Il grafo semantico e il percorso nativo restano incrementi successivi. M5 introduce connessioni ai provider, interpretazioni residue e modifica assistita del codice, insieme al benchmark dei modelli. M6 implementa riconciliazione e risoluzione dei conflitti fra codice e modello. L'efficacia del modello economico e la copertura semantica di ogni linguaggio restano risultati da verificare.
+M2 completa l'esperienza di progettazione. M4 sviluppa importazione e tracciabilità deterministiche multilinguaggio, risoluzione semantica specifica e Sync senza IA. M4.1 fornisce la base sintattica Node; M4.2 aggiunge cache, stato e Sync verso versioni recuperabili; M4.3 collega indici SCIP acquisiti esplicitamente a definizioni e riferimenti con evidenze, con i primi produttori TypeScript/Python verificati. Altri backend, invalidazione selettiva, rinomine dei simboli e percorso nativo restano incrementi successivi. M5 introduce connessioni ai provider, interpretazioni residue e modifica assistita del codice, insieme al benchmark dei modelli. M6 implementa riconciliazione e risoluzione dei conflitti fra codice e modello. L'efficacia del modello economico e la copertura semantica di ogni linguaggio restano risultati da verificare.

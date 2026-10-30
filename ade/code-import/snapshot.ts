@@ -5,34 +5,31 @@
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { readSemanticModel, semanticModelV3Schema, type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
 import { importCode, validateProjection, type CodeImport } from './importCode.ts';
 import type { SyncReport } from './syncCode.ts';
+import { array, object, text, identifier, digest, evidence, semanticGraphSchema } from './schemas.ts';
+import { isSourcePath, outputOutsideSource } from './paths.ts';
 
 const hash = (text: string): string => createHash('sha256').update(text).digest('hex');
-const text = { type: 'string', minLength: 1 };
-const identifier = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]*$' };
-const digest = { type: 'string', pattern: '^[a-f0-9]{64}$' };
-const array = (items: object): object => ({ type: 'array', items });
-const object = (properties: Record<string, object>, optional: string[] = []): object => ({ type: 'object', properties, required: Object.keys(properties).filter(key => !optional.includes(key)), additionalProperties: false });
-const evidence = object({ file: text, revision: digest, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 0 }, line: { type: 'integer', minimum: 1 }, endLine: { type: 'integer', minimum: 1 } });
 const rename = object({ from: text, to: text });
 const ajv = new Ajv2020({ allErrors: true });
 ajv.addSchema(semanticModelV3Schema);
 const validateState = ajv.compile<CodeImport>(object({
 	version: { const: 1 }, adapter: text, projectId: identifier, sourceRoot: text, revision: digest,
 	excludedDirectories: array(text), model: { $ref: 'urn:ade:model:3' },
-	analysis: object({ parsed: array(text), reused: array(text), renamed: array(rename), ambiguousRenames: array(object({ from: array(text), to: array(text) })) }),
+	semantic: semanticGraphSchema,
+	analysis: object({ parsed: array(text), reused: array(text), renamed: array(rename), ambiguousRenames: array(object({ from: array(text), to: array(text) })), semanticInvalidated: { type: 'boolean' } }, ['semanticInvalidated']),
 	files: array(object({
-		file: text, moduleId: identifier, status: { enum: ['parsed', 'partial', 'unsupported', 'unclassified', 'excluded'] }, language: text, revision: digest,
-		declarations: array(object({ id: identifier, sourceId: identifier, parentId: identifier, name: text, kind: { enum: ['component', 'contract', 'action'] }, syntaxKind: text, header: { type: 'string' }, evidence })),
+		file: text, moduleId: identifier, status: { enum: ['parsed', 'partial', 'unsupported', 'unclassified', 'excluded', 'configuration'] }, language: text, revision: digest,
+		declarations: array(object({ id: identifier, sourceId: identifier, parentId: identifier, name: text, kind: { enum: ['component', 'contract', 'action'] }, syntaxKind: text, header: { type: 'string' }, evidence, nameEvidence: evidence }, ['nameEvidence'])),
 		syntaxKinds: { type: 'object', additionalProperties: { type: 'integer', minimum: 1 } },
 		imports: array(object({ text, evidence })),
 		diagnostics: array(object({ code: { enum: ['syntaxError', 'unresolvedConstruct', 'unnamedDeclaration', 'duplicateName', 'unsupportedLanguage', 'fileTooLarge', 'symlink'] }, file: text, syntaxKind: text, count: { type: 'integer', minimum: 1 }, evidence }, ['syntaxKind', 'evidence']))
 	}, ['moduleId', 'language', 'revision']))
-}));
+}, ['semantic']));
 const validateMarker = ajv.compile<{ version: 1; state: string; index: string }>(object({ version: { const: 1 }, state: digest, index: digest }));
 const filenames = ['snapshot.json', 'import-state.json', 'code-index.json', 'model.ade.json'] as const;
 const maxArtifactBytes = 64 * 1024 * 1024;
@@ -51,12 +48,16 @@ export function readImportState(value: unknown): CodeImport {
 	if (!isAbsolute(value.sourceRoot) || value.model.id !== value.projectId) { throw new Error('Invalid source root or project in import state'); }
 	const paths = new Set<string>();
 	for (const file of value.files) {
-		if (paths.has(file.file) || posix.normalize(file.file) !== file.file || file.file === '.' || file.file.startsWith('../') || file.file.startsWith('/') || file.file.includes('\\')) { throw new Error('Invalid or duplicate source path in import state'); }
+		if (paths.has(file.file) || !isSourcePath(file.file)) { throw new Error('Invalid or duplicate source path in import state'); }
 		paths.add(file.file);
 		if ((file.status === 'parsed' || file.status === 'partial') && (!file.revision || !file.moduleId || !file.language)) { throw new Error('Incomplete source record in import state'); }
 		for (const item of [...file.declarations, ...file.imports, ...file.diagnostics]) {
 			const source = item.evidence;
 			if (source && (source.file !== file.file || source.revision !== file.revision || source.start > source.end || source.line > source.endLine)) { throw new Error('Inconsistent source evidence in import state'); }
+		}
+		for (const declaration of file.declarations) {
+			const name = declaration.nameEvidence;
+			if (name && (name.file !== file.file || name.revision !== file.revision || name.start < declaration.evidence.start || name.end > declaration.evidence.end || name.start > name.end)) { throw new Error('Inconsistent declaration-name evidence'); }
 		}
 	}
 	readSemanticModel(value.model);
@@ -93,9 +94,8 @@ export async function writeSnapshot(destination: string, state: CodeImport, mode
 	readImportState(state);
 	readSemanticModel(model);
 	if (model.id !== state.projectId) { throw new Error('Snapshot model belongs to a different project'); }
-	const output = join(await realpath(dirname(resolve(destination))), basename(resolve(destination)));
-	const distance = relative(state.sourceRoot, output);
-	if (!distance || (!distance.startsWith('..' + sep) && distance !== '..' && !isAbsolute(distance))) { throw new Error('Output directory must be outside the source tree'); }
+	if (state.analysis.semanticInvalidated) { throw new Error('Semantic index must be regenerated before publication'); }
+	const output = await outputOutsideSource(destination, state.sourceRoot);
 	const { model: generated, ...index } = state;
 	const serialize = (value: object): string => JSON.stringify(value, null, '\t') + '\n';
 	const stateText = serialize(state);

@@ -9,7 +9,7 @@ import { getModelImpact } from '../../src/vs/workbench/contrib/ade/common/modelI
 import { validateProjection, type CodeImport } from './importCode.ts';
 
 export interface SyncConflict {
-	code: 'manualEdit' | 'identityAmbiguity' | 'incompleteSource' | 'invalidModel';
+	code: 'manualEdit' | 'identityAmbiguity' | 'incompleteSource' | 'invalidModel' | 'incompleteSemantic';
 	path: string;
 }
 
@@ -18,6 +18,7 @@ export interface SyncReport {
 	toRevision: string;
 	files: { added: string[]; changed: string[]; removed: string[]; unchanged: string[]; renamed: { from: string; to: string }[] };
 	declarations: { added: string[]; changed: string[]; removed: string[] };
+	dependencies: { added: string[]; changed: string[]; removed: string[] };
 	analysis: CodeImport['analysis'];
 	/** Review scope from declared model relationships, not resolved code dependencies. */
 	impact: { elementIds: string[]; viewIds: string[] };
@@ -84,12 +85,20 @@ export function prepareSync(previous: CodeImport, currentValue: SemanticModel, n
 	const current = readSemanticModel(currentValue);
 	if (current.id !== previous.projectId || next.projectId !== previous.projectId || next.sourceRoot !== previous.sourceRoot) { throw new Error('Sync inputs belong to different projects'); }
 	const conflicts: SyncConflict[] = [];
+	if (next.analysis.semanticInvalidated || (previous.semantic && !next.semantic)) { conflicts.push({ code: 'incompleteSemantic', path: '/semantic' }); }
 	const oldFiles = new Map(previous.files.map(file => [file.file, file]));
 	const nextFiles = new Map(next.files.map(file => [file.file, file]));
 	const renamedFrom = new Set(next.analysis.renamed.map(item => item.from));
 	const renamedTo = new Set(next.analysis.renamed.map(item => item.to));
 	const oldDeclarations = new Map(previous.files.flatMap(file => file.declarations).map(item => [item.id, item]));
 	const nextDeclarations = new Map(next.files.flatMap(file => file.declarations).map(item => [item.id, item]));
+	const oldDependencies = new Map(previous.semantic?.dependencies.map(edge => [edge.id, edge]));
+	const nextDependencies = new Map(next.semantic?.dependencies.map(edge => [edge.id, edge]));
+	const dependencies = {
+		added: [...nextDependencies.keys()].filter(id => !oldDependencies.has(id)),
+		removed: [...oldDependencies.keys()].filter(id => !nextDependencies.has(id)),
+		changed: [...nextDependencies.keys()].filter(id => oldDependencies.has(id) && !isDeepStrictEqual(oldDependencies.get(id), nextDependencies.get(id)))
+	};
 	const files: SyncReport['files'] = {
 		added: next.files.filter(file => !oldFiles.has(file.file) && !renamedTo.has(file.file)).map(file => file.file),
 		removed: previous.files.filter(file => !nextFiles.has(file.file) && !renamedFrom.has(file.file)).map(file => file.file),
@@ -105,12 +114,27 @@ export function prepareSync(previous: CodeImport, currentValue: SemanticModel, n
 	const impactElements = new Set<string>();
 	const impactViews = new Set<string>();
 	const currentIds = new Set(current.semantics.elements.map(element => element.id));
+	const impactSeeds = new Set<string>();
 	for (const path of [...files.changed, ...files.removed, ...files.renamed.map(item => item.from)]) {
 		const file = oldFiles.get(path)!;
 		const moduleId = previous.model.codeMappings.find(mapping => mapping.file === path && mapping.symbol === '<module>')?.elementId;
 		if (!file.revision || !moduleId || !currentIds.has(moduleId)) { continue; }
-		const impact = getModelImpact(current, moduleId);
-		for (const element of [...impact.scope, ...impact.dependents.map(item => item.element), ...impact.owners]) { impactElements.add(element.id); }
+		impactSeeds.add(moduleId);
+	}
+	for (const id of [...dependencies.added, ...dependencies.changed, ...dependencies.removed]) {
+		const edge = oldDependencies.get(id) ?? nextDependencies.get(id)!;
+		for (const subject of [edge.from, edge.to]) {
+			if (!currentIds.has(subject)) { continue; }
+			impactSeeds.add(subject);
+		}
+	}
+	const parents = new Map(current.semantics.elements.map(element => [element.id, element.parentId]));
+	for (const subject of impactSeeds) {
+		let parent = parents.get(subject);
+		while (parent && !impactSeeds.has(parent)) { parent = parents.get(parent); }
+		if (parent) { continue; }
+		const impact = getModelImpact(current, subject);
+		for (const item of [...impact.scope, ...impact.dependents.map(entry => entry.element), ...impact.owners]) { impactElements.add(item.id); }
 		for (const view of impact.views) { impactViews.add(view.id); }
 	}
 	const report: SyncReport = {
@@ -120,7 +144,7 @@ export function prepareSync(previous: CodeImport, currentValue: SemanticModel, n
 			removed: [...oldDeclarations.keys()].filter(key => !nextDeclarations.has(key)),
 			changed: [...nextDeclarations.values()].filter(item => oldDeclarations.has(item.id) && !isDeepStrictEqual(oldDeclarations.get(item.id), item)).map(item => item.id)
 		},
-		analysis: next.analysis, impact: { elementIds: [...impactElements], viewIds: [...impactViews] }, conflicts
+		dependencies, analysis: next.analysis, impact: { elementIds: [...impactElements], viewIds: [...impactViews] }, conflicts
 	};
 	if (conflicts.length) { return { report }; }
 	const base = previous.model;
@@ -129,7 +153,7 @@ export function prepareSync(previous: CodeImport, currentValue: SemanticModel, n
 		...current,
 		semantics: {
 			elements: mergeList(base.semantics.elements, current.semantics.elements, updated.semantics.elements, '/semantics/elements', conflicts),
-			relations: current.semantics.relations
+			relations: mergeList(base.semantics.relations, current.semantics.relations, updated.semantics.relations, '/semantics/relations', conflicts)
 		},
 		views: mergeList(base.views, current.views, updated.views, '/views', conflicts, mergeView),
 		codeMappings: mergeList(base.codeMappings, current.codeMappings, updated.codeMappings, '/codeMappings', conflicts)

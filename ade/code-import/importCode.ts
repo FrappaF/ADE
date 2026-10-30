@@ -10,6 +10,7 @@ import { createRequire } from 'node:module';
 import { basename, extname, join, relative, sep, posix } from 'node:path';
 import { Language, Parser, type Node } from 'web-tree-sitter';
 import { languageAdapters, type LanguageAdapter } from './languages.ts';
+import { validateSemanticGraph, type SemanticGraph } from './semanticGraph.ts';
 import { validateSemanticModel, type SemanticElement, type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
 
 export interface SourceEvidence {
@@ -33,6 +34,7 @@ export interface CodeDeclaration {
 	/** Verbatim header (or full type contract), not an inferred behavioral contract. */
 	header: string;
 	evidence: SourceEvidence;
+	nameEvidence?: SourceEvidence;
 }
 
 export interface ImportDiagnostic {
@@ -46,7 +48,7 @@ export interface ImportDiagnostic {
 export interface IndexedFile {
 	file: string;
 	moduleId?: string;
-	status: 'parsed' | 'partial' | 'unsupported' | 'unclassified' | 'excluded';
+	status: 'parsed' | 'partial' | 'unsupported' | 'unclassified' | 'excluded' | 'configuration';
 	language?: string;
 	revision?: string;
 	declarations: CodeDeclaration[];
@@ -67,7 +69,8 @@ export interface CodeImport {
 	excludedDirectories: string[];
 	files: IndexedFile[];
 	model: SemanticModel;
-	analysis: { parsed: string[]; reused: string[]; renamed: { from: string; to: string }[]; ambiguousRenames: { from: string[]; to: string[] }[] };
+	semantic?: SemanticGraph;
+	analysis: { parsed: string[]; reused: string[]; renamed: { from: string; to: string }[]; ambiguousRenames: { from: string[]; to: string[] }[]; semanticInvalidated?: boolean };
 }
 
 export interface ImportOptions {
@@ -76,13 +79,18 @@ export interface ImportOptions {
 }
 
 const require = createRequire(import.meta.url);
-const adapterVersion = 'tree-sitter-syntax-v2:web-tree-sitter@0.27.1:grammars@0.1.17';
+const adapterVersion = 'tree-sitter-syntax-v3:web-tree-sitter@0.27.1:grammars@0.1.17';
 const loadedLanguages = new Map<string, Promise<Language>>();
 let parserInitialization: Promise<void> | undefined;
 const excludedDirectories = ['.git', '.ade', 'node_modules', 'vendor', 'dist', 'build', 'out', 'target', 'bin', 'obj', '__pycache__', '.venv', 'venv', '.next', '.build'];
 const knownSourceExtensions = new Set(['.kt', '.kts', '.scala', '.sc', '.vb', '.sql', '.sh', '.bash', '.ps1', '.r', '.lua', '.ex', '.exs', '.vue', '.svelte', '.html', '.css', '.m', '.mm']);
 const maxFileBytes = 2 * 1024 * 1024;
 const maxEntries = 10000;
+
+/** Configuration consumed by common indexers participates in semantic invalidation. */
+function isConfiguration(name: string): boolean {
+	return /^(?:package(?:-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|(?:tsconfig|jsconfig)(?:\.[^.]+)*\.json|pyrightconfig\.json|pyproject\.toml|Pipfile(?:\.lock)?|requirements(?:[-.][^.]+)?\.txt|poetry\.lock|uv\.lock|go\.(?:mod|sum)|Cargo\.(?:toml|lock)|pom\.xml|build\.gradle(?:\.kts)?|settings\.gradle(?:\.kts)?|gradle\.properties|Gemfile(?:\.lock)?|composer\.(?:json|lock)|Package\.(?:swift|resolved)|pubspec\.(?:yaml|lock)|CMakeLists\.txt|compile_commands\.json|.*\.(?:csproj|fsproj|sln|props|targets))$/.test(name);
+}
 
 /** Namespaced hashes avoid unstable offsets and platform-specific absolute paths. */
 function hash(value: string): string { return createHash('sha256').update(value).digest('hex'); }
@@ -157,7 +165,7 @@ async function parseFile(file: string, source: string, adapter: LanguageAdapter,
 						if (ordinal) { report('duplicateName', node); }
 						const elementId = id(projectId, `${key}:${ordinal}`);
 						const body = kind === 'contract' ? undefined : node.type === 'variable_declarator' ? node.childForFieldName('value')?.childForFieldName('body') : node.childForFieldName('body');
-						result.declarations.push({ id: elementId, parentId, name: name.text, kind, syntaxKind: node.type, header: source.slice(node.startIndex, body?.startIndex ?? node.endIndex).trim(), evidence: evidence(file, revision, node) });
+						result.declarations.push({ id: elementId, parentId, name: name.text, kind, syntaxKind: node.type, header: source.slice(node.startIndex, body?.startIndex ?? node.endIndex).trim(), evidence: evidence(file, revision, node), nameEvidence: evidence(file, revision, name) });
 						if (kind !== 'contract') { childParentId = elementId; }
 					}
 				}
@@ -173,7 +181,7 @@ async function parseFile(file: string, source: string, adapter: LanguageAdapter,
 }
 
 /** Projects only extracted facts into M1/M3. No features or invocation edges are invented. */
-export function projectModel(projectId: string, name: string, files: IndexedFile[]): SemanticModel {
+export function projectModel(projectId: string, name: string, files: IndexedFile[], semantic?: SemanticGraph): SemanticModel {
 	const model: SemanticModel = { version: 3, id: projectId, name, semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
 	const folders = new Map<string, string>();
 	const addFolder = (directory: string): string | undefined => {
@@ -198,6 +206,12 @@ export function projectModel(projectId: string, name: string, files: IndexedFile
 		}
 		const nodes = [fileId, ...file.declarations.map(item => item.id)].map((elementId, index) => ({ elementId, x: 40 + (index % 4) * 260, y: 40 + Math.floor(index / 4) * 140 }));
 		model.views.push({ id: fileId, name: file.file, kind: 'structure', nodes, relationIds: [] });
+	}
+	if (semantic) {
+		const names = new Map(model.semantics.elements.map(element => [element.id, element.name]));
+		model.semantics.relations = semantic.dependencies.map(edge => ({ id: edge.id, kind: 'dependency', from: edge.from, to: edge.to, name: names.get(edge.to)! }));
+		const endpoints = [...new Set(semantic.dependencies.flatMap(edge => [edge.from, edge.to]))];
+		if (endpoints.length) { model.views.push({ id: 'code-semantic-dependencies', name: 'Code Dependencies', kind: 'structure', nodes: endpoints.map((elementId, index) => ({ elementId, x: 40 + (index % 4) * 260, y: 40 + Math.floor(index / 4) * 140 })), relationIds: model.semantics.relations.map(relation => relation.id) }); }
 	}
 	const errors = validateSemanticModel(model).filter(item => item.severity === 'error');
 	if (errors.length) { throw new Error(`Invalid imported model: ${JSON.stringify(errors)}`); }
@@ -242,6 +256,7 @@ function relocateFile(projectId: string, previous: IndexedFile, path: string): I
 	}
 	for (const item of [...file.declarations, ...file.imports, ...file.diagnostics]) {
 		if (item.evidence) { item.evidence.file = path; }
+		if ('nameEvidence' in item && item.nameEvidence) { item.nameEvidence.file = path; }
 		if ('file' in item) { item.file = path; }
 	}
 	return file;
@@ -255,7 +270,8 @@ export function validateProjection(snapshot: CodeImport): void {
 		const expected = relocateFile(snapshot.projectId, file, file.file);
 		if (expected.declarations.some((item, index) => item.sourceId !== file.declarations[index].sourceId)) { throw new Error('Import state has inconsistent source identities'); }
 	}
-	if (!isDeepStrictEqual(projectModel(snapshot.projectId, snapshot.model.name, snapshot.files), snapshot.model)) {
+	if (snapshot.semantic) { validateSemanticGraph(snapshot.semantic, snapshot.files, snapshot.revision, snapshot.projectId); }
+	if (!isDeepStrictEqual(projectModel(snapshot.projectId, snapshot.model.name, snapshot.files, snapshot.semantic), snapshot.model)) {
 		throw new Error('Import state does not match its generated model');
 	}
 }
@@ -299,7 +315,10 @@ export async function importCode(root: string, projectId: string, options: Impor
 			} else if (entry.isFile()) {
 				const extension = extname(entry.name).toLowerCase();
 				const adapter = languageAdapters.find(adapter => adapter.extensions.includes(extension));
-				if (!adapter) {
+				if (isConfiguration(entry.name)) {
+					if ((await stat(path)).size > maxFileBytes) { throw new Error(`Configuration file exceeds 2 MiB: ${file}`); }
+					files.push({ ...empty('configuration'), revision: hash(await readFile(path, 'utf8')) });
+				} else if (!adapter) {
 					files.push(empty(knownSourceExtensions.has(extension) ? 'unsupported' : 'unclassified', knownSourceExtensions.has(extension) ? [{ code: 'unsupportedLanguage', file, count: 1 }] : []));
 				} else if ((await stat(path)).size > maxFileBytes) {
 					files.push(empty('unsupported', [{ code: 'fileTooLarge', file, count: 1 }]));
@@ -363,5 +382,7 @@ export async function importCode(root: string, projectId: string, options: Impor
 	}
 	options.signal?.throwIfAborted();
 	const revision = hash(JSON.stringify(files.map(file => [file.file, file.status, file.revision ?? ''])));
-	return { version: 1, adapter, projectId, sourceRoot: root, revision, excludedDirectories: [...excludedDirectories], files, model: projectModel(projectId, basename(root), files), analysis };
+	const semantic = previous?.semantic && cacheCompatible && previous.revision === revision ? structuredClone(previous.semantic) : undefined;
+	if (previous?.semantic && !semantic) { analysis.semanticInvalidated = true; }
+	return { version: 1, adapter, projectId, sourceRoot: root, revision, excludedDirectories: [...excludedDirectories], files, model: projectModel(projectId, basename(root), files, semantic), analysis, ...(semantic ? { semantic } : {}) };
 }
