@@ -65,6 +65,18 @@ suite('A.D.E accessible content', () => {
 			{ details: true, unplaced: true, related: true, staleDiagram: false });
 	});
 
+	test('sequence reading preserves participant and message order and identifies unsupported relationships', () => {
+		const model = structuredClone(checkoutModel);
+		const view = { id: 'sequence', name: 'Purchase Sequence', kind: 'sequence' as const, nodes: [...model.views[0].nodes].reverse(), relationIds: ['show-declined', 'checkout-confirm', 'confirm-order'] };
+		model.views.push(view);
+		const content = describeAdeDiagram(state({ model, activeView: view, selectedId: 'checkout-controller' }));
+		assert.deepStrictEqual({ declared: content.includes('not observed execution'), firstParticipant: content.includes('1. Ordine (Resource)'), orderedMessages: content.indexOf('mostra errore') < content.indexOf('invia'), condition: content.includes('Condition: pagamento riuscito'), error: content.includes('Error: payment-declined'), contract: content.includes('Input: cartId (CartId), Required') },
+			{ declared: true, firstParticipant: true, orderedMessages: true, condition: true, error: true, contract: true });
+		view.relationIds.push('confirm-feature');
+		view.nodes.push({ elementId: 'purchase', x: 0, y: 0 });
+		assert.ok(describeAdeDiagram(state({ model, activeView: view })).includes('Not Rendered as a Sequence Message:'));
+	});
+
 	test('help distinguishes read-only navigation from editing and uses resolvable command keybindings', () => {
 		const readOnly = describeAdeHelp(state());
 		const editable = describeAdeHelp(state({ editable: true }));

@@ -7,6 +7,7 @@ import { localize } from '../../../../nls.js';
 import { ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
 import { getDiagramGroups } from '../common/visualNavigation.js';
 import { getSystemMap } from '../common/systemMap.js';
+import { getSequenceDiagram } from '../common/sequenceDiagram.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 
 /** Presentation state only: reading the diagram never edits or saves its document. */
@@ -74,6 +75,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 		lines.push(localize('ade.reading.diagram', "Diagram: {0}", view.name), group?.featureId
 			? localize('ade.reading.feature', "Feature: {0}", group.name) : localize('ade.reading.systemDiagram', "System Diagram"));
 		lines.push(localize('ade.diagramType', "Diagram Type: {0}", viewLabels[view.kind]));
+		if (view.kind === 'sequence') { lines.push(localize('ade.reading.sequence', "Declared sequence. Participants follow their left-to-right order; numbered messages follow this diagram's order, not observed execution. One occurrence per relationship; no inferred replies, timing or combined fragments.")); }
 		lines.push('', localize('ade.reading.elements', "Elements in This Diagram: {0}", view.nodes.length));
 		for (const [index, node] of view.nodes.entries()) {
 			const element = elements.get(node.elementId)!;
@@ -100,7 +102,17 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 
 	const relations = model.semantics.relations.filter(relation => view ? view.relationIds.includes(relation.id) : relation.from === state.selectedId || relation.to === state.selectedId);
 	lines.push('', view ? localize('ade.reading.relations', "Relationships in This Diagram: {0}", relations.length) : localize('ade.reading.detailRelations', "Related Relationships: {0}", relations.length));
-	for (const relation of relations) { describeRelation(relation); }
+	if (view?.kind === 'sequence') {
+		const sequence = getSequenceDiagram(model, view);
+		for (const [index, relation] of sequence.messages.entries()) {
+			lines.push(localize('ade.reading.messageNumber', "Message {0}", index + 1));
+			describeRelation(relation);
+		}
+		for (const relation of sequence.unsupported) {
+			lines.push(localize('ade.reading.unsupportedMessage', "Not Rendered as a Sequence Message:"));
+			describeRelation(relation);
+		}
+	} else { for (const relation of relations) { describeRelation(relation); } }
 	const selected = state.section === 'element' || visible.has(state.selectedId) ? elements.get(state.selectedId) : undefined;
 	if (selected) {
 		lines.push('', localize('ade.reading.selected', "Selected Element: {0}", selected.name));
@@ -132,6 +144,7 @@ export function describeAdeHelp(state: AdeReadingState): string {
 		localize('ade.help.semanticNavigation', "Search System filters elements and diagrams by type and searches names, ancestry and diagram names. Unplaced elements open Element Details. The Semantic Path opens ancestor details; Back and Forward restore navigation within the current project. Diagrams Containing This Element changes perspective while preserving the selected identity."),
 		localize('ade.help.navigation', "Tab and Shift+Tab move between navigation, diagram controls, elements, properties and technical tools. Enter or Space activates a button or opens an options section."),
 		localize('ade.help.behavior', "Edit Behavioral Contract in Properties edits inputs, outputs, preconditions, postconditions and errors through native choices. Escape cancels the current entry. Each completed change can be undone. Edit Relationship Error assigns or clears a declared source error; clear references before removing or renaming an error."),
+		localize('ade.help.sequence', "Sequence diagrams show participants and ordered declared messages. Add Existing Message reuses an invocation, read or write and includes its endpoints. Properties moves participants left or right and Sequence Message Options moves messages earlier or later. Removing a participant or message from this diagram preserves the system and other views. Participant positions are derived from their order; use the background to pan and Fit Diagram to zoom."),
 		localize('ade.help.reading', "Use <keybinding:editor.action.accessibleView> to read the current diagram as text. The view includes elements, relationships, conditions and details of the selected element. Escape returns to the previous control."),
 		state.section === 'home'
 			? localize('ade.help.home', "On Home, choose Create Project, Open Project, Open Model or Explore Purchase Example. The purchase example is read-only.")
@@ -139,6 +152,7 @@ export function describeAdeHelp(state: AdeReadingState): string {
 		state.loading ? localize('ade.help.loading', "The model is loading. Wait for it to finish before selecting or editing elements.")
 			: state.error ? localize('ade.help.invalid', "The model is unavailable or invalid. Use Retry or Open Model. The previous diagram is not current.")
 			: state.section === 'element' ? localize('ade.help.details', "You are in Element Details. Follow relationships or contained elements, or choose a diagram containing this element. Writable projects allow renaming, description changes, behavioral contract editing and deletion from the Properties actions.")
+			: state.editable && state.activeView?.kind === 'sequence' ? localize('ade.help.sequenceContext', "Select a participant or message with Enter or Space. Participants are ordered from Properties rather than dragged. Sequence Message Options orders or removes message occurrences. Message conditions and errors remain shared across all diagrams.")
 			: state.editable
 			? localize('ade.help.editing', "Arrow keys move the focused element. Shift increases the step. Focus the diagram background to pan with arrow keys. Add Element creates an element; Connect Selection creates a compatible relationship.")
 			: localize('ade.help.readonly', "Editing is unavailable in the read-only example or a read-only file. Open a writable project to edit. Focus the diagram background to pan with arrow keys."),

@@ -82,6 +82,12 @@ jobs:
       - name: Semantic navigation smoke on macOS
         if: runner.os == 'macOS'
         run: node ade/scripts/smoke-desktop.mjs --navigation-only
+      - name: Sequence diagram smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --sequence-only
+      - name: Sequence diagram smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --sequence-only
       - name: Prototype Extension Host smoke on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --extension-only

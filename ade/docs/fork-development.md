@@ -43,6 +43,7 @@ npm --prefix ade/prototype test
 node ade/scripts/smoke-desktop.mjs --native-only
 node ade/scripts/smoke-desktop.mjs --ux-only
 node ade/scripts/smoke-desktop.mjs --navigation-only
+node ade/scripts/smoke-desktop.mjs --sequence-only
 node ade/scripts/smoke-desktop.mjs --extension-only
 ```
 
@@ -80,3 +81,5 @@ La home usa il dominio condiviso per il modello di acquisto e i documenti v1/v2/
 M3.2 estende `--navigation-only` a System Map, lettura accessibile, tastiera, breadcrumb, ripristino dopo il riavvio e misure delle etichette SVG rispetto ai nodi. I test del dominio coprono anche routing, auto-collegamenti, relazioni parallele e sovrapposizioni bloccanti; vedere il [verbale M3.2](m3-2-verification.md).
 
 M3.3 estende lo stesso percorso a creazione/modifica/rimozione di voci dei contratti, validazione dei campi, cancellazione dei dialoghi, undo/redo, lettura accessibile e coerenza fra scheda e due diagrammi. La CI desktop include anche `adeBehaviorEditing.test.ts` nel runner nativo. Build, test automatici e smoke Linux sono registrati nel [verbale M3.3](m3-3-verification.md), distinti da macOS e CI remota ancora da eseguire.
+
+M3.4 aggiunge `--sequence-only`, configurato separatamente su Linux e macOS nella CI desktop: creazione di una sequenza, riuso delle interazioni, ordine di partecipanti/messaggi, rimozione dalla sola vista, auto-messaggi, contratto condiviso, lettura accessibile, etichette misurate, Fit Diagram, finestra stretta, salvataggio e riavvio. Il [verbale M3.4](m3-4-verification.md) registra gli esiti Linux e distingue macOS/VoiceOver e CI remota ancora aperti.

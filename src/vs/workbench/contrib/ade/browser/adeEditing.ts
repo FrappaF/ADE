@@ -17,6 +17,7 @@ import { AdeInput } from './adeInput.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { elementLabels, relationLabels } from './adeLabels.js';
 import { editAdeBehavior } from './adeBehaviorEditing.js';
+import { isSequenceMessage } from '../common/sequenceDiagram.js';
 
 /** Native dialogs collect intent; atomic edits and persistence remain in the project service. */
 class EditingUI {
@@ -82,7 +83,8 @@ class EditingUI {
 			if (!feature) { return; }
 			const kind = await this.quickInput.pick([
 				{ label: localize('ade.structure', "Structure Diagram"), kind: 'structure' as const },
-				{ label: localize('ade.activity', "Activity Flow"), kind: 'activity' as const }
+				{ label: localize('ade.activity', "Activity Flow"), kind: 'activity' as const },
+				{ label: localize('ade.sequence', "Sequence Diagram"), kind: 'sequence' as const }
 			], { title: localize('ade.diagramType', "Diagram Type") });
 			if (!kind) { return; }
 			const name = await this.name();
@@ -117,14 +119,23 @@ class EditingUI {
 				this.edit({ kind: 'include', id: picked.element.id, viewId: view.id });
 				this.project.selectElement(picked.element.id);
 			}
+		} else if (command === 'addSequenceMessage' && view?.kind === 'sequence') {
+			const names = new Map(model.semantics.elements.map(element => [element.id, element.name]));
+			const picked = await this.quickInput.pick(model.semantics.relations.filter(relation => isSequenceMessage(relation) && !view.relationIds.includes(relation.id)).map(relation => ({
+				label: localize('ade.sequence.existing', "{0} → {1}: {2}", names.get(relation.from)!, names.get(relation.to)!, relation.name), description: relationLabels[relation.kind], relation
+			})), { title: localize('ade.sequence.addMessage', "Add Existing Message") });
+			if (picked) {
+				this.edit({ kind: 'sequenceMessage', viewId: view.id, id: picked.relation.id });
+				this.project.selectElement(picked.relation.from);
+			}
 		} else if (command === 'connect' && view && selected) {
-			const kinds = (Object.keys(relationLabels) as RelationKind[]).filter(kind => view.nodes.some(node => {
+			const kinds = (Object.keys(relationLabels) as RelationKind[]).filter(kind => (view.kind !== 'sequence' || isSequenceMessage({ kind })) && view.nodes.some(node => {
 				const target = model.semantics.elements.find(element => element.id === node.elementId)!;
-				return target.id !== selected.id && isCompatibleRelation(kind, selected.kind, target.kind) && (kind !== 'transition' || target.parentId === selected.parentId);
+				return (target.id !== selected.id || view.kind === 'sequence') && isCompatibleRelation(kind, selected.kind, target.kind) && (kind !== 'transition' || target.parentId === selected.parentId);
 			}));
 			const kind = await this.quickInput.pick(kinds.map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") });
 			if (!kind) { return; }
-			const targets = model.semantics.elements.filter(target => target.id !== selected.id && view.nodes.some(node => node.elementId === target.id)
+			const targets = model.semantics.elements.filter(target => (target.id !== selected.id || view.kind === 'sequence') && view.nodes.some(node => node.elementId === target.id)
 				&& isCompatibleRelation(kind.kind, selected.kind, target.kind) && (kind.kind !== 'transition' || target.parentId === selected.parentId));
 			const target = await this.quickInput.pick(targets.map(element => ({ label: element.name, element })), { title: localize('ade.target', "Target Element") });
 			if (!target) { return; }
@@ -191,6 +202,7 @@ for (const [command, title] of [
 	['addDiagram', localize2('ade.addDiagram', "A.D.E: Add Diagram")],
 	['addElement', localize2('ade.addElement', "A.D.E: Add Element")],
 	['addExisting', localize2('ade.addExisting', "A.D.E: Add Existing Element")],
+	['addSequenceMessage', localize2('ade.sequence.addMessage.command', "A.D.E: Add Existing Message")],
 	['connect', localize2('ade.connect', "A.D.E: Connect Selection")],
 	['renameFeature', localize2('ade.renameFeature', "A.D.E: Rename Feature")],
 	['deleteFeature', localize2('ade.deleteFeature', "A.D.E: Delete Feature")],

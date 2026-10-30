@@ -46,10 +46,31 @@ Scheda, proprietà nei diversi diagrammi e lettore accessibile usano lo stesso c
 
 Il formato resta v3 con apertura dei documenti v2; non servono nuove proprietà nello schema. L'[esempio progettato](../examples/checkout-designed.ade.json) include ora il contratto di Richiedi pagamento e il relativo percorso di errore. Verifiche automatiche e limiti dello smoke sono nel [verbale M3.3](m3-3-verification.md).
 
+## Sequenze coordinate M3.4
+
+**Add Diagram → Sequence Diagram** crea una sequenza nella feature scelta. **Add Existing Element** aggiunge un'identità come partecipante; **Add Existing Message** riusa una relazione `invocation`, `read` o `write` del sistema e include automaticamente i suoi endpoint. I partecipanti non vengono duplicati né spostati nella gerarchia. **Add Element** e **Connect Selection** restano disponibili per progettare nuovi elementi e interazioni, compresa un'invocazione verso lo stesso partecipante. Una nuova relazione appartiene al sistema; le altre viste la mostrano solo se la includono, mentre le proprietà ne conservano l'accesso semantico.
+
+Le intestazioni dei partecipanti seguono l'ordine locale della sequenza; le linee di vita e i messaggi numerati si dispongono automaticamente. Le etichette mostrano direzione, tipo della relazione, condizioni ed errori; le righe vengono misurate prima dello zoom per lasciare spazio al testo. Selezionare un partecipante o un messaggio apre le proprietà dell'identità sorgente e il suo contratto M3.3. Il cambio di prospettiva conserva l'identità e riflette nomi, condizioni e contratti modificati nelle altre viste.
+
+Nelle proprietà **Move Participant Left/Right** cambia l'ordine dei partecipanti. **Sequence Message Options** raccoglie **Move Message Earlier/Later** e **Remove Message from Diagram**; **Remove Participant from Diagram** rimuove dalla sola sequenza il partecipante e le sue occorrenze collegate. Elementi, relazioni e altre viste restano conservati. **Delete Element** e **Delete Relationship** mantengono invece il loro significato di cancellazione dall'intero sistema, con la conferma già prevista. Tutte queste operazioni passano dalla cronologia e dal salvataggio nativi.
+
+Il renderer non usa trascinamento e coordinate manuali: l'ordine viene conservato negli array della vista esistente, senza nuovi campi nel formato v3. Il lettore accessibile presenta partecipanti da sinistra a destra e messaggi numerati nello stesso ordine; pan, Fit Diagram, zoom, focus e ripristino del documento riusano il workbench.
+
+| Costrutto | Sottoinsieme M3.4 |
+| --- | --- |
+| Partecipanti | Una linea di vita per identità semantica, senza istanze runtime distinte |
+| Messaggi | Invocazioni, letture e scritture dichiarate, una occorrenza per relazione; auto-messaggi supportati |
+| Condizioni ed errori | Etichette dichiarative condivise; nessuna valutazione delle condizioni |
+| Alternative, loop, parallelismo | Non sono frammenti UML `alt`, `loop` o `par`; un'etichetta condizionata non ne simula l'esecuzione |
+| Risposte, attivazioni e tempi | Non dedotti né rappresentati da costrutti dedicati |
+| Altre relazioni | Dipendenze, realizzazioni, transizioni e relazioni legacy non classificate non sono messaggi; nei documenti storici restano segnalate, nelle proprietà e nel lettore |
+
+L'[esempio progettato](../examples/checkout-designed.ade.json) riusa nella sequenza di pagamento le identità e i due messaggi condizionati del flusso. L'ordine rappresenta una dichiarazione della vista, non una traccia che dimostra entrambi gli esiti. Build, test, smoke Linux e verifiche di piattaforma aperte sono registrati nel [verbale M3.4](m3-4-verification.md).
+
 ## Accessibilità e aggiornamenti esterni
 
 **Read Element Details** usa lo stesso lettore nativo di **Read Diagram**. L'aiuto accessibile descrive ricerca, breadcrumb, schede e cronologia. La lettura non presenta la scheda come un diagramma e non deduce esecuzione o verifiche del codice.
 
 Il servizio mantiene un watcher correlato sul file del modello, anche fuori dalla cartella del workspace. Un aggiornamento esterno ricarica soltanto il documento pulito; le modifiche non salvate restano protette dal backend nativo. Se viene eliminato l'elemento ispezionato, il contesto torna a un diagramma valido. Errori di lettura non lasciano il vecchio contenuto presentato come stato corrente. Watcher e richieste superate vengono rilasciati o ignorati quando cambia il documento.
 
-Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md), [M3.2](m3-2-verification.md) e [M3.3](m3-3-verification.md).
+Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md), [M3.2](m3-2-verification.md), [M3.3](m3-3-verification.md) e [M3.4](m3-4-verification.md).

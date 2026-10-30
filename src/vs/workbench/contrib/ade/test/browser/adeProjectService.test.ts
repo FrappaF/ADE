@@ -275,6 +275,35 @@ suite('A.D.E project context', () => {
 		assert.deepStrictEqual([project.model.semantics.elements.find(element => element.id === 'payment-contract')!.behavior, project.dirty], [behavior, false]);
 	});
 
+	test('sequence order and shared messages use native undo, save, restart and context repair', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.editBatch([
+			{ kind: 'diagram', id: 'sequence', name: 'Purchase Sequence', viewKind: 'sequence', featureId: 'purchase' },
+			{ kind: 'sequenceMessage', viewId: 'sequence', id: 'checkout-confirm' },
+			{ kind: 'sequenceMessage', viewId: 'sequence', id: 'confirm-order' }
+		]);
+		project.showDiagram('sequence');
+		project.selectElement('checkout-controller');
+		project.edit({ kind: 'sequenceOrder', viewId: 'sequence', id: 'confirm-order', target: 'message', direction: -1 });
+		await project.undo();
+		assert.deepStrictEqual(project.activeView!.relationIds, ['checkout-confirm', 'confirm-order']);
+		await project.redo();
+		project.edit({ kind: 'condition', id: 'confirm-order', condition: 'Authorized payment' });
+		await project.save();
+		await storage.flush();
+		project.dispose();
+		const restarted = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await restarted.restore();
+		assert.deepStrictEqual([restarted.activeView!.kind, restarted.activeView!.relationIds, restarted.selectedId, restarted.dirty], ['sequence', ['confirm-order', 'checkout-confirm'], 'checkout-controller', false]);
+		restarted.showDiagram('purchase-structure');
+		assert.strictEqual(restarted.model.semantics.relations.find(relation => relation.id === 'confirm-order')!.condition, 'Authorized payment');
+		restarted.showDiagram('sequence');
+		restarted.edit({ kind: 'sequenceRemove', viewId: 'sequence', id: 'checkout-controller', target: 'participant' });
+		assert.deepStrictEqual([restarted.activeView!.relationIds, restarted.model.semantics.elements.length, restarted.model.semantics.relations.length, restarted.selectedId], [[], checkoutModel.semantics.elements.length, checkoutModel.semantics.relations.length, 'checkout']);
+	});
+
 	test('saving a copy preserves diagram and selections across source revert and workspace restart', async () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
 		dialogs.selected = resource;

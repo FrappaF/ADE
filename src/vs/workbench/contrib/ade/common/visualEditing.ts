@@ -5,12 +5,16 @@
 
 import { readSemanticModel, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './semanticModel.js';
 import { getDiagramGroups } from './visualNavigation.js';
+import { isSequenceMessage } from './sequenceDiagram.js';
 
 export type VisualEdit =
 	| { kind: 'feature'; id: string; name: string }
-	| { kind: 'diagram'; id: string; name: string; featureId?: string; viewKind: 'structure' | 'activity' }
+	| { kind: 'diagram'; id: string; name: string; featureId?: string; viewKind: 'structure' | 'activity' | 'sequence' }
 	| { kind: 'element'; id: string; name: string; elementKind: ElementKind; viewId: string; parentId?: string }
 	| { kind: 'include'; id: string; viewId: string }
+	| { kind: 'sequenceMessage'; id: string; viewId: string }
+	| { kind: 'sequenceOrder'; id: string; viewId: string; target: 'participant' | 'message'; direction: -1 | 1 }
+	| { kind: 'sequenceRemove'; id: string; viewId: string; target: 'participant' | 'message' }
 	| { kind: 'relation'; id: string; viewId: string; from: string; to: string; relationKind: RelationKind; name: string; condition?: string }
 	| { kind: 'rename'; id: string; name: string; target: 'element' | 'diagram' }
 	| { kind: 'description'; id: string; description: string }
@@ -92,9 +96,46 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit): Semanti
 		}
 		case 'relation': {
 			const diagram = view(edit.viewId);
+			if (diagram.kind === 'sequence' && !isSequenceMessage({ kind: edit.relationKind })) { throw new Error('Unsupported sequence message'); }
 			candidate.semantics.relations.push({ id: edit.id, kind: edit.relationKind, from: edit.from, to: edit.to, name: edit.name,
 				...(edit.condition?.trim() ? { condition: edit.condition } : {}) });
 			diagram.relationIds.push(edit.id);
+			break;
+		}
+		case 'sequenceMessage': {
+			const diagram = view(edit.viewId);
+			const relation = candidate.semantics.relations.find(relation => relation.id === edit.id);
+			if (diagram.kind !== 'sequence' || !relation || !isSequenceMessage(relation)) { throw new Error(`Unsupported sequence message: ${edit.id}`); }
+			for (const elementId of [relation.from, relation.to]) {
+				if (!diagram.nodes.some(node => node.elementId === elementId)) { diagram.nodes.push({ elementId, x: diagram.nodes.length * 260, y: 0 }); }
+			}
+			if (!diagram.relationIds.includes(relation.id)) { diagram.relationIds.push(relation.id); }
+			break;
+		}
+		case 'sequenceOrder': {
+			const diagram = view(edit.viewId);
+			if (diagram.kind !== 'sequence') { throw new Error(`Not a sequence diagram: ${diagram.id}`); }
+			const entries = edit.target === 'participant' ? diagram.nodes.map(node => node.elementId) : diagram.relationIds.filter(id => isSequenceMessage(candidate.semantics.relations.find(relation => relation.id === id)!));
+			const index = entries.indexOf(edit.id);
+			if (index < 0) { throw new Error(`Unknown sequence entry: ${edit.id}`); }
+			const next = index + edit.direction;
+			if (edit.target === 'participant') {
+				if (next >= 0 && next < diagram.nodes.length) { [diagram.nodes[index], diagram.nodes[next]] = [diagram.nodes[next], diagram.nodes[index]]; }
+			} else if (next >= 0 && next < entries.length) {
+				const from = diagram.relationIds.indexOf(edit.id);
+				const to = diagram.relationIds.indexOf(entries[next]);
+				[diagram.relationIds[from], diagram.relationIds[to]] = [diagram.relationIds[to], diagram.relationIds[from]];
+			}
+			break;
+		}
+		case 'sequenceRemove': {
+			const diagram = view(edit.viewId);
+			if (diagram.kind !== 'sequence') { throw new Error(`Not a sequence diagram: ${diagram.id}`); }
+			if (edit.target === 'participant') {
+				diagram.nodes = diagram.nodes.filter(node => node.elementId !== edit.id);
+				const attached = new Set(candidate.semantics.relations.filter(relation => relation.from === edit.id || relation.to === edit.id).map(relation => relation.id));
+				diagram.relationIds = diagram.relationIds.filter(id => !attached.has(id));
+			} else { diagram.relationIds = diagram.relationIds.filter(id => id !== edit.id); }
 			break;
 		}
 		case 'rename': {

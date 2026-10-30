@@ -12,7 +12,9 @@ M3.1 avvia l'[esplorazione semantica](semantic-explorer.md): ricerca filtrata di
 
 Il 30 ottobre 2026 la [branch M2 parallela](m2-branch-integration.md), commit `bbfc2087`, è stata confrontata e integrata selettivamente: gruppi della sidebar con persistenza per documento, riferimenti ai diagrammi condivisi, percorso di annullamento acquisto, etichette dei tipi, ritorno al modello da tastiera e compatibilità del profilo storico. Il [verbale macOS M2.1](m2-validation.md) conserva i risultati riportati per la branch sorgente; il collaudo della revisione integrata M2.2/M3 resta distinto.
 
-M3.3 aggiunge l'editing dei contratti comportamentali dalle proprietà e dalle schede: input/output, precondizioni, postcondizioni, errori e associazioni degli errori alle relazioni, con validazione, undo/redo e persistenza condivisi. Il [verbale M3.3](m3-3-verification.md) registra build, test automatici e smoke grafico su Linux; macOS e CI remota rimangono da eseguire. Il prossimo incremento funzionale è M3.4, prima vista di sequenza coordinata.
+M3.3 aggiunge l'editing dei contratti comportamentali dalle proprietà e dalle schede: input/output, precondizioni, postcondizioni, errori e associazioni degli errori alle relazioni, con validazione, undo/redo e persistenza condivisi. Il [verbale M3.3](m3-3-verification.md) registra build, test automatici e smoke grafico su Linux; macOS e CI remota rimangono da eseguire.
+
+M3.4 introduce la prima sequenza coordinata: partecipanti condivisi, invocazioni/letture/scritture ordinate nella vista, auto-messaggi, condizioni ed errori dichiarati, con ordinamento e rimozione locale, lettura accessibile e persistenza nativa. Il [verbale M3.4](m3-4-verification.md) registra il collaudo Linux e il sottoinsieme supportato. Il prossimo incremento funzionale è M3.5, viste di stato e transizioni estese.
 
 ## Decisione di base: un prodotto desktop autonomo
 
@@ -33,7 +35,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build e smoke locali confermati; CI M0 Linux/macOS documentata, merge da ricollaudare |
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio verificato; smoke desktop confermato dall’utente |
 | M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Editor e collaudo M2.3 su Linux; macOS, CI e revisione utente aperti |
-| M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.3 implementati e verificati su Linux; viste estese da sviluppare |
+| M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.4 implementati e verificati su Linux; stati estesi e impatto da sviluppare |
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Da sviluppare |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Da sviluppare |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Da sviluppare |
@@ -221,7 +223,13 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Verifica e limiti:** [verbale M3.3](m3-3-verification.md). Build client, test automatici e smoke grafico esteso verificati su Linux. macOS/VoiceOver e CI remota restano aperti. Tipi e condizioni sono dichiarazioni testuali, senza inferenza di esecuzione o sincronizzazione con il codice.
 
-**Prossimo incremento M3.4:** prima vista di sequenza sulle identità esistenti, dichiarando il sottoinsieme supportato e verificando la coerenza con struttura, flusso e contratti. Stati estesi e impatto rimangono nei successivi incrementi M3.
+### M3.4 — Prima sequenza coordinata
+
+**Disponibile:** creazione di diagrammi di sequenza per feature, aggiunta di partecipanti e riuso delle interazioni esistenti con inclusione degli endpoint. Invocazioni, letture, scritture e auto-messaggi mostrano ordine locale, condizioni ed errori condivisi. Partecipanti e messaggi si ordinano dalle proprietà; rimuoverli dalla sola sequenza conserva sistema e altre viste. Contratti, lettore accessibile, undo/redo, salvataggio e ripristino riusano il documento nativo. Nessun nuovo campo nello schema.
+
+**Verifica e limiti:** [verbale M3.4](m3-4-verification.md). Una sola occorrenza per relazione e una linea di vita per identità semantica. Il sottoinsieme non introduce frammenti UML, risposte, attivazioni, istanze runtime o tracce di esecuzione. Le relazioni storiche non supportate sono segnalate e conservate. macOS/VoiceOver e CI remota restano aperti.
+
+**Prossimo incremento M3.5:** ampliare viste di stato e transizioni sulle risorse esistenti, con identità e contratti condivisi. L'analisi dell'impatto rimane in un incremento M3 successivo.
 
 ## M4 — Adattatore iniziale e tracciabilità del codice
 
@@ -363,6 +371,7 @@ Prima di M4/M5 vanno scelti stack dimostrativo, provider IA e politiche di esecu
 8. **M3.1:** ricerca, schede, breadcrumb, cronologia e cambio di prospettiva implementati e verificati su Linux; mantenere aperte le verifiche di piattaforma.
 9. **M3.2:** mappa complessiva, routing ortogonale ed etichette implementati; verifiche e limiti nel verbale.
 10. **M3.3:** editing dei contratti comportamentali e coerenza fra dettagli e viste implementati e verificati su Linux; completare verifiche di piattaforma e CI remota.
-11. **M3.4:** introdurre una prima vista di sequenza coordinata con struttura, flusso e contratti sulle stesse identità.
+11. **M3.4:** prima sequenza coordinata con struttura, flusso e contratti implementata e verificata su Linux; completare verifiche di piattaforma e CI remota.
+12. **M3.5:** ampliare viste di stato e transizioni sulle risorse esistenti.
 
 Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. L’implementazione assistita dall’IA e la sincronizzazione con il codice saranno aggiunte nelle milestone successive, con i rispettivi criteri di verifica.

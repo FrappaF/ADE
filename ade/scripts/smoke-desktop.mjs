@@ -38,7 +38,8 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'update.mode': 'none'
 }));
 const navigationOnly = process.argv.includes('--navigation-only');
-const modelFile = path.join(navigationOnly ? directory : workspace, 'checkout.ade.json');
+const sequenceOnly = process.argv.includes('--sequence-only');
+const modelFile = path.join(navigationOnly || sequenceOnly ? directory : workspace, 'checkout.ade.json');
 const emptyFile = path.join(workspace, 'empty.ade.json');
 const invalidFile = path.join(workspace, 'invalid.ade.json');
 const otherFile = path.join(workspace, 'other.ade.json');
@@ -52,7 +53,7 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -63,7 +64,7 @@ if (process.argv.includes('--native-only') || uxOnly || navigationOnly) {
 		if (manifest) {
 			const extension = JSON.parse(manifest);
 			// Theme coverage enables only the declarative built-in themes, which have no executable entry point.
-			if (uxOnly && extension.name === 'theme-defaults') { continue; }
+			if ((uxOnly || sequenceOnly) && extension.name === 'theme-defaults') { continue; }
 			args.push(`--disable-extension=${extension.publisher ?? 'vscode'}.${extension.name}`);
 		}
 	}
@@ -205,6 +206,107 @@ async function checkContractEditing(window) {
 	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
 	await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
 	console.log('PASS: native contract creation, validation, cancellation, editing, removal, undo/redo and shared details across two diagrams with accessible reading.');
+}
+
+async function checkSequenceDiagram() {
+	let window = await launch();
+	let shell = window.locator('.ade-shell');
+	await openModelFile(window, modelFile);
+	await runCommand(window, 'A.D.E: Add Diagram');
+	await pickValue(window, 'Choose Feature', 'Conferma acquisto');
+	await pickValue(window, 'Diagram Type', 'Sequence Diagram');
+	await enterValue(window, 'Name', 'Purchase Sequence');
+	await shell.getByRole('heading', { name: 'Purchase Sequence', exact: true, level: 1 }).waitFor();
+	await shell.getByText('This diagram has no elements.', { exact: true }).waitFor();
+	const ids = ['customer-checkout', 'checkout-confirm', 'confirm-payment', 'payment-gateway', 'confirm-order', 'show-declined', 'confirm-cart'];
+	const names = new Map(checkoutModel.semantics.elements.map(element => [element.id, element.name]));
+	for (const id of ids) {
+		const relation = checkoutModel.semantics.relations.find(relation => relation.id === id);
+		await shell.getByRole('button', { name: 'Add Existing Message', exact: true }).click();
+		await pickValue(window, 'Add Existing Message', `${names.get(relation.from)} → ${names.get(relation.to)}: ${relation.name}`);
+		await shell.locator(`.ade-sequence-message[data-relation-id="${id}"]`).waitFor();
+	}
+	const messageIds = () => shell.locator('.ade-sequence-message').evaluateAll(buttons => buttons.map(button => button.dataset.relationId));
+	const participants = () => shell.locator('.ade-sequence .ade-node').allTextContents();
+	assert.deepEqual(await messageIds(), ids);
+	await shell.locator('.ade-sequence .ade-node').getByText('Conferma ordine', { exact: true }).click();
+	await shell.getByRole('button', { name: 'Move Participant Left', exact: true }).click();
+	assert.deepEqual((await participants()).slice(0, 3), ['Cliente', 'Conferma ordine', 'Checkout']);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.deepEqual((await participants()).slice(0, 3), ['Cliente', 'Checkout', 'Conferma ordine']);
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	const options = shell.locator('details').filter({ has: window.getByText('Sequence Message Options: crea ordine', { exact: true }) });
+	await options.locator('summary').click();
+	await options.getByRole('button', { name: 'Move Message Earlier', exact: true }).click();
+	const reordered = [...ids];
+	[reordered[3], reordered[4]] = [reordered[4], reordered[3]];
+	assert.deepEqual(await messageIds(), reordered);
+	await options.getByRole('button', { name: 'Remove Message from Diagram', exact: true }).click();
+	assert.equal((await messageIds()).includes('confirm-order'), false);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.deepEqual(await messageIds(), reordered);
+	await connect(window, 'Conferma ordine', 'Conferma ordine', 'Invocation', 'Controlla carrello', 'carrello valido');
+	assert.equal(await shell.locator('.ade-sequence-message').count(), 8);
+	await contractEntry(window, 'Conferma ordine', 'Outputs', 'orderId');
+	await enterValue(window, 'Field Name', 'orderId');
+	await enterValue(window, 'Field Type', 'OrderReference');
+	await pickValue(window, 'Field Presence', 'Required');
+	await shell.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
+	const reading = window.locator('.accessible-view:visible');
+	await reading.getByText('Message 1', { exact: true }).waitFor();
+	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End');
+	await reading.getByText('Message 8', { exact: true }).waitFor();
+	await reading.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+	await shell.locator('.ade-node').getByText('Conferma ordine', { exact: true }).click();
+	await shell.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Purchase Sequence', exact: true }).click();
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	const firstZoom = await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform);
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	assert.equal(await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform), firstZoom);
+	const labelsClear = await shell.locator('.ade-sequence-message').evaluateAll(labels => labels.every((label, index) => {
+		const a = label.getBoundingClientRect();
+		return labels.slice(index + 1).every(other => { const b = other.getBoundingClientRect(); return a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left; });
+	}));
+	assert.equal(labelsClear, true, 'Measured message labels do not overlap');
+	await window.screenshot({ path: path.join(evidence, 'sequence-diagram.png') });
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
+	await shell.locator('.ade-sequence .ade-node').getByText('Conferma ordine', { exact: true }).focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('button', { name: 'Move Participant Right', exact: true }).focus();
+	await window.keyboard.press('Enter');
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByRole('button', { name: 'Reset Zoom', exact: true }).click();
+	await shell.locator('.ade-canvas-scroll').focus();
+	await window.keyboard.press('ArrowRight');
+	assert.ok(await shell.locator('.ade-canvas-scroll').evaluate(element => element.scrollLeft > 0));
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
+	const sequence = saved.views.find(view => view.kind === 'sequence');
+	assert.deepEqual(validateSemanticModel(saved), []);
+	assert.equal(saved.semantics.relations.length, checkoutModel.semantics.relations.length + 1);
+	assert.deepEqual(saved.views.slice(0, 4).map(view => ({ ...view, featureId: undefined })), checkoutModel.views.map(view => ({ ...view, featureId: undefined })));
+	await app.close();
+	app = undefined;
+	window = await launch();
+	shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { name: 'Purchase Sequence', exact: true, level: 1 }).waitFor();
+	assert.deepEqual(await messageIds(), sequence.relationIds);
+	await shell.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Remove Participant from Diagram', exact: true }).click();
+	assert.equal((await participants()).includes('Conferma ordine'), false);
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	const removed = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(removed.semantics, saved.semantics);
+	assert.deepEqual(removed.views.slice(0, 4), saved.views.slice(0, 4));
+	console.log('PASS: sequence creation, shared interactions, participant/message order, view-only removal, self messages, contracts across views, accessible reading, measured labels, stable Fit Diagram, narrow-window keyboard pan, save and restart.');
+	await app.close();
+	app = undefined;
 }
 
 async function checkSemanticNavigation() {
@@ -582,9 +684,10 @@ async function checkVisualUX() {
 }
 
 try {
+	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -780,7 +883,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));

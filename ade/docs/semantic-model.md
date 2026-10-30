@@ -19,6 +19,8 @@ L'editor M2.2 introduce lo [schema v3](../schema/model-v3.schema.json), identifi
 
 Una vista semantica (`kind: view`) rappresenta un'interfaccia del sistema. Una voce in `views` è invece una proiezione del modello: i due concetti hanno identità e responsabilità distinte. M1 definisce i formati delle proiezioni, senza implementarne gli editor UML.
 
+M3.4 interpreta le viste `sequence` con il sottoinsieme descritto nell'[esploratore](semantic-explorer.md): `nodes` ordina i partecipanti da sinistra a destra e `relationIds` ordina le interazioni dall'alto al basso. Ogni relazione può comparire una sola volta; un partecipante è l'identità semantica esistente, non un'istanza runtime distinta. Le coordinate restano conservate nel documento ma il renderer di sequenza ricava la geometria dall'ordine e dalle etichette. Questa interpretazione non aggiunge campi né modifica lo schema v2/v3. Le altre proiezioni mantengono coordinate e riferimenti indipendenti.
+
 Gli identificatori sono stringhe opache, indipendenti da nome, posizione e percorso del file. Sono univoci nel rispettivo insieme: elementi, relazioni, viste, mappature e verifiche. Accettano lettere ASCII, numeri, punto, trattino, underscore e due punti; il primo carattere è alfanumerico. Il chiamante assegna l'ID una volta e lo conserva nelle modifiche. Criteri di accettazione e codici di errore sono univoci all'interno dell'elemento che li dichiara.
 
 `parentId` esprime contenimento semantico e non coordinate. Può riferirsi a feature, component, resource, controller o action. Sono vietati riferimenti mancanti e cicli. Gli stati dello stesso ciclo di vita condividono il contenitore.

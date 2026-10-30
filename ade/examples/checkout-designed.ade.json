@@ -163,6 +163,18 @@
 				"payment-success",
 				"payment-declined"
 			]
+		},
+		{
+			"id": "payment-sequence",
+			"name": "Sequenza pagamento",
+			"kind": "sequence",
+			"featureId": "purchase",
+			"nodes": [
+				{ "elementId": "payment", "x": 0, "y": 0 },
+				{ "elementId": "confirmed", "x": 260, "y": 0 },
+				{ "elementId": "declined", "x": 520, "y": 0 }
+			],
+			"relationIds": ["payment-success", "payment-declined"]
 		}
 	],
 	"codeMappings": [],
