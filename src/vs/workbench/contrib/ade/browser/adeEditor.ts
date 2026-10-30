@@ -424,6 +424,7 @@ export class AdeEditor extends EditorPane {
 			for (const [label, command] of [
 				[localize('ade.renameElement', "Rename Element"), 'ade.renameElement'],
 				[localize('ade.editDescription', "Edit Description"), 'ade.description'],
+				[localize('ade.editBehavior', "Edit Behavioral Contract"), 'ade.behavior'],
 				[localize('ade.connectSelection', "Connect Selection"), 'ade.connect'],
 				[localize('ade.deleteElement', "Delete Element"), 'ade.deleteElement']
 			]) {
@@ -433,11 +434,13 @@ export class AdeEditor extends EditorPane {
 		}
 		if (element.description) { this.paragraph(detail, element.description); }
 		if (element.behavior) {
-			for (const field of element.behavior.inputs) { this.paragraph(detail, localize('ade.input', "Input: {0} ({1})", field.name, field.type)); }
-			for (const field of element.behavior.outputs) { this.paragraph(detail, localize('ade.output', "Output: {0} ({1})", field.name, field.type)); }
+			dom.append(detail, dom.$('h3')).textContent = localize('ade.behavior.heading', "Behavioral Contract");
+			this.paragraph(detail, localize('ade.behavior.intent', "Contract declarations describe expected behavior."));
+			for (const field of element.behavior.inputs) { this.paragraph(detail, localize('ade.input', "Input: {0} ({1}), {2}", field.name, field.type, field.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional"))); }
+			for (const field of element.behavior.outputs) { this.paragraph(detail, localize('ade.output', "Output: {0} ({1}), {2}", field.name, field.type, field.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional"))); }
 			for (const condition of element.behavior.preconditions) { this.paragraph(detail, localize('ade.precondition', "Precondition: {0}", condition)); }
 			for (const condition of element.behavior.postconditions) { this.paragraph(detail, localize('ade.postcondition', "Postcondition: {0}", condition)); }
-			for (const error of element.behavior.errors) { this.paragraph(detail, error.description); }
+			for (const error of element.behavior.errors) { this.paragraph(detail, localize('ade.behavior.error', "Error {0}: {1}", error.code, error.description)); }
 			for (const permission of element.behavior.permissions) {
 				this.paragraph(detail, localize('ade.permission', "Authorization: {0} · {1}", model.semantics.elements.find(element => element.id === permission.actorId)!.name, permission.capability));
 			}
@@ -451,8 +454,9 @@ export class AdeEditor extends EditorPane {
 			const to = model.semantics.elements.find(element => element.id === relation.to)!;
 			const label = localize('ade.relation', "{0} → {1}: {2}", from.name, to.name, relation.name || relation.kind);
 			this.button(detail, label, () => this.revealElement(targetId), `relation:${relation.id}`);
-			if (this.project.editable && view?.relationIds.includes(relation.id)) {
+			if (this.project.editable) {
 				this.button(detail, localize('ade.editCondition', "Edit Condition"), () => { void this.commandService.executeCommand('ade.condition', relation.id); }, `condition:${relation.id}`);
+				this.button(detail, localize('ade.editRelationError', "Edit Relationship Error"), () => { void this.commandService.executeCommand('ade.relationError', relation.id); }, `error:${relation.id}`);
 				this.button(detail, localize('ade.deleteRelationship', "Delete Relationship"), () => { void this.commandService.executeCommand('ade.deleteRelation', relation.id); }, `delete:${relation.id}`);
 			}
 			if (relation.condition) { this.paragraph(detail, localize('ade.condition', "Condition: {0}", relation.condition)); }

@@ -37,7 +37,16 @@
 				"id": "payment",
 				"kind": "action",
 				"name": "Richiedi pagamento",
-				"parentId": "purchase"
+				"parentId": "purchase",
+				"behavior": {
+					"inputs": [{ "name": "amount", "type": "Money", "required": true }],
+					"outputs": [{ "name": "receipt", "type": "PaymentReceipt", "required": false }],
+					"preconditions": ["L'importo è positivo"],
+					"postconditions": ["Un pagamento autorizzato conferma al massimo un ordine"],
+					"errors": [{ "code": "payment-declined", "description": "Pagamento rifiutato: nessun ordine confermato" }],
+					"permissions": [],
+					"acceptanceCriteria": []
+				}
 			},
 			{
 				"id": "confirmed",
@@ -89,7 +98,8 @@
 				"from": "payment",
 				"to": "declined",
 				"name": "mostra errore",
-				"condition": "pagamento rifiutato"
+				"condition": "pagamento rifiutato",
+				"errorCode": "payment-declined"
 			}
 		]
 	},

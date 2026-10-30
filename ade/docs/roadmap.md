@@ -10,7 +10,9 @@ La prosecuzione M2.2 aggiunge creazione del progetto e delle feature, diagrammi 
 
 M3.1 avvia l'[esplorazione semantica](semantic-explorer.md): ricerca filtrata di elementi e diagrammi, schede per gli elementi non collocati, breadcrumb, cambio di prospettiva a identità costante e cronologia di sessione. Il [verbale M3.1](m3-1-verification.md) distingue queste verifiche Linux dalle verifiche M2 ancora aperte sulle altre piattaforme. M3.2 aggiunge la mappa gerarchica del sistema, connessioni aggregate e routing ortogonale con etichette misurate; il [verbale M3.2](m3-2-verification.md) registra le verifiche e i limiti.
 
-Il 30 ottobre 2026 la [branch M2 parallela](m2-branch-integration.md), commit `bbfc2087`, è stata confrontata e integrata selettivamente: gruppi della sidebar con persistenza per documento, riferimenti ai diagrammi condivisi, percorso di annullamento acquisto, etichette dei tipi, ritorno al modello da tastiera e compatibilità del profilo storico. Il [verbale macOS M2.1](m2-validation.md) conserva i risultati riportati per la branch sorgente; il collaudo della revisione integrata M2.2/M3 resta distinto. Il prossimo incremento rimane M3.3.
+Il 30 ottobre 2026 la [branch M2 parallela](m2-branch-integration.md), commit `bbfc2087`, è stata confrontata e integrata selettivamente: gruppi della sidebar con persistenza per documento, riferimenti ai diagrammi condivisi, percorso di annullamento acquisto, etichette dei tipi, ritorno al modello da tastiera e compatibilità del profilo storico. Il [verbale macOS M2.1](m2-validation.md) conserva i risultati riportati per la branch sorgente; il collaudo della revisione integrata M2.2/M3 resta distinto.
+
+M3.3 aggiunge l'editing dei contratti comportamentali dalle proprietà e dalle schede: input/output, precondizioni, postcondizioni, errori e associazioni degli errori alle relazioni, con validazione, undo/redo e persistenza condivisi. Il [verbale M3.3](m3-3-verification.md) registra build, test automatici e smoke grafico su Linux; macOS e CI remota rimangono da eseguire. Il prossimo incremento funzionale è M3.4, prima vista di sequenza coordinata.
 
 ## Decisione di base: un prodotto desktop autonomo
 
@@ -31,7 +33,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M0 · Fondazione | Build riproducibile, shell A.D.E e manutenzione upstream | — | Build e smoke locali confermati; CI M0 Linux/macOS documentata, merge da ricollaudare |
 | M1 · Modello semantico | Contratto condiviso del sistema | M0 | Dominio verificato; smoke desktop confermato dall’utente |
 | M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Editor e collaudo M2.3 su Linux; macOS, CI e revisione utente aperti |
-| M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.2 implementati; contratti e viste estese da sviluppare |
+| M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.3 implementati e verificati su Linux; viste estese da sviluppare |
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Da sviluppare |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Da sviluppare |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Da sviluppare |
@@ -213,7 +215,13 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Verifica e limiti:** [verbale M3.2](m3-2-verification.md). Il routing non elimina tutti gli incroci fra connessioni; i layout completamente sovrapposti sono segnalati. macOS/VoiceOver, CI della revisione integrata e prestazioni su grandi modelli rimangono aperti.
 
-**Prossimo incremento M3.3:** ampliare l'editing dei contratti comportamentali (input/output, precondizioni, esiti ed errori), riutilizzando le identità fra scheda e diagrammi e dichiarando il sottoinsieme supportato. Sequenze, stati estesi e impatto rimangono nei successivi incrementi M3.
+### M3.3 — Editing dei contratti comportamentali
+
+**Disponibile:** aggiunta, modifica e rimozione di input/output con tipo e obbligatorietà, precondizioni, postcondizioni ed errori tramite scelte native. Schede e diagrammi modificano la stessa identità; Escape annulla la voce corrente, ogni modifica completata partecipa a undo/redo e salvataggio nativi. Le relazioni possono riferire un errore della sorgente; rinomina e rimozione degli errori referenziati sono protette. Autorizzazioni e criteri esistenti vengono conservati e restano in sola lettura.
+
+**Verifica e limiti:** [verbale M3.3](m3-3-verification.md). Build client, test automatici e smoke grafico esteso verificati su Linux. macOS/VoiceOver e CI remota restano aperti. Tipi e condizioni sono dichiarazioni testuali, senza inferenza di esecuzione o sincronizzazione con il codice.
+
+**Prossimo incremento M3.4:** prima vista di sequenza sulle identità esistenti, dichiarando il sottoinsieme supportato e verificando la coerenza con struttura, flusso e contratti. Stati estesi e impatto rimangono nei successivi incrementi M3.
 
 ## M4 — Adattatore iniziale e tracciabilità del codice
 
@@ -354,6 +362,7 @@ Prima di M4/M5 vanno scelti stack dimostrativo, provider IA e politiche di esecu
 7. **M2.3:** collaudo Linux, tastiera, quattro temi e finestra stretta eseguiti; completare macOS/VoiceOver, revisione UX dell'utente e nuova CI prima della chiusura M2.
 8. **M3.1:** ricerca, schede, breadcrumb, cronologia e cambio di prospettiva implementati e verificati su Linux; mantenere aperte le verifiche di piattaforma.
 9. **M3.2:** mappa complessiva, routing ortogonale ed etichette implementati; verifiche e limiti nel verbale.
-10. **M3.3:** editing dei contratti comportamentali e coerenza fra dettagli e viste.
+10. **M3.3:** editing dei contratti comportamentali e coerenza fra dettagli e viste implementati e verificati su Linux; completare verifiche di piattaforma e CI remota.
+11. **M3.4:** introdurre una prima vista di sequenza coordinata con struttura, flusso e contratti sulle stesse identità.
 
 Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. L’implementazione assistita dall’IA e la sincronizzazione con il codice saranno aggiunte nelle milestone successive, con i rispettivi criteri di verifica.

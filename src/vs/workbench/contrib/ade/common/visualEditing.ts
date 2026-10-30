@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readSemanticModel, type ElementKind, type ModelView, type RelationKind, type SemanticModel } from './semanticModel.js';
+import { readSemanticModel, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './semanticModel.js';
 import { getDiagramGroups } from './visualNavigation.js';
 
 export type VisualEdit =
@@ -14,7 +14,9 @@ export type VisualEdit =
 	| { kind: 'relation'; id: string; viewId: string; from: string; to: string; relationKind: RelationKind; name: string; condition?: string }
 	| { kind: 'rename'; id: string; name: string; target: 'element' | 'diagram' }
 	| { kind: 'description'; id: string; description: string }
+	| { kind: 'behavior'; id: string; behavior: ModelBehavior }
 	| { kind: 'condition'; id: string; condition: string }
+	| { kind: 'relationError'; id: string; errorCode?: string }
 	| { kind: 'position'; viewId: string; id: string; x: number; y: number }
 	| { kind: 'layout'; viewId: string }
 	| { kind: 'deleteElement'; id: string }
@@ -111,6 +113,18 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit): Semanti
 			const relation = candidate.semantics.relations.find(relation => relation.id === edit.id);
 			if (!relation) { throw new Error(`Unknown relation: ${edit.id}`); }
 			if (edit.condition.trim()) { relation.condition = edit.condition; } else { delete relation.condition; }
+			break;
+		}
+		case 'behavior': {
+			const element = candidate.semantics.elements.find(element => element.id === edit.id);
+			if (!element) { throw new Error(`Unknown element: ${edit.id}`); }
+			element.behavior = structuredClone(edit.behavior);
+			break;
+		}
+		case 'relationError': {
+			const relation = candidate.semantics.relations.find(relation => relation.id === edit.id);
+			if (!relation) { throw new Error(`Unknown relation: ${edit.id}`); }
+			if (edit.errorCode) { relation.errorCode = edit.errorCode; } else { delete relation.errorCode; }
 			break;
 		}
 		case 'position': {

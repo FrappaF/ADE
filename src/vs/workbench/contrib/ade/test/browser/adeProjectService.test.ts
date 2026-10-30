@@ -255,6 +255,26 @@ suite('A.D.E project context', () => {
 		assert.deepStrictEqual([project.model.semantics.elements.find(element => element.id === 'payment')!.name, project.model.views[0].nodes.find(node => node.elementId === 'payment')!.x, project.dirty], ['Autorizza pagamento', -100, false]);
 	});
 
+	test('contract editing shares identity across details and diagrams with native undo, redo and persistence', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = resource;
+		await project.chooseModel();
+		project.inspectElement('payment-contract');
+		const behavior = { inputs: [{ name: 'amount', type: 'Money', required: true }], outputs: [], preconditions: ['Amount is positive'], postconditions: [], errors: [], permissions: [], acceptanceCriteria: [] };
+		project.edit({ kind: 'behavior', id: 'payment-contract', behavior });
+		const edited = structuredClone(project.model);
+		await project.undo();
+		assert.deepStrictEqual([project.model.version, project.model.semantics.elements.find(element => element.id === 'payment-contract')!.behavior, project.dirty], [2, undefined, false]);
+		await project.redo();
+		assert.deepStrictEqual(project.model, edited);
+		project.edit({ kind: 'include', id: 'payment-contract', viewId: 'purchase-structure' });
+		project.revealElement('payment-contract', 'purchase-structure');
+		assert.deepStrictEqual([project.section, project.selectedId, project.model.semantics.elements.find(element => element.id === project.selectedId)!.behavior], ['diagram', 'payment-contract', behavior]);
+		await project.save();
+		await project.retry();
+		assert.deepStrictEqual([project.model.semantics.elements.find(element => element.id === 'payment-contract')!.behavior, project.dirty], [behavior, false]);
+	});
+
 	test('saving a copy preserves diagram and selections across source revert and workspace restart', async () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
 		dialogs.selected = resource;

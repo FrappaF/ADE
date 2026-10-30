@@ -10,7 +10,7 @@ Un elemento già rappresentato viene selezionato nella prospettiva corrente quan
 
 Un elemento non collocato, per esempio il contratto «Pagamento», apre **Element Details**. La scheda mostra tipo, descrizione, proprietà comportamentali, relazioni ed evidenze presenti; le relazioni aprono a loro volta la destinazione semantica. Non viene creato un diagramma fittizio. Una feature mostra i diagrammi di cui è proprietaria e gli elementi contenuti; un elemento con figli consente di raggiungerli direttamente.
 
-Nei documenti scrivibili la scheda usa le stesse operazioni di rinomina, descrizione, cancellazione, undo/redo e salvataggio dell'editor. Le azioni che richiedono un diagramma, come collegare due nodi, rimangono nel contesto del canvas. Contratti estesi, editor di sequenze e stati completi non fanno parte di questo incremento.
+Nei documenti scrivibili la scheda usa le stesse operazioni di rinomina, descrizione, cancellazione, undo/redo e salvataggio dell'editor. Le azioni che richiedono un diagramma, come collegare due nodi, rimangono nel contesto del canvas. M3.3 aggiunge l'editing dei contratti descritto sotto; editor di sequenze e stati completi restano successivi.
 
 ## Percorso e cronologia
 
@@ -34,10 +34,22 @@ Le connessioni usano segmenti ortogonali che evitano i rettangoli dei nodi, con 
 
 Il router conserva il layout manuale e viene ricalcolato dopo gli spostamenti. Se nodi sovrapposti bloccano tutte le porte, un messaggio segnala le connessioni non disegnabili e invita a separare i nodi. Tutte le relazioni rimangono nelle proprietà e nel lettore. Il router evita i nodi; non garantisce l'assenza di incroci fra connessioni, di incroci con linee guida o la separazione completa di numeri arbitrari di relazioni parallele. I grafi molto grandi richiedono ancora misure e ottimizzazioni dedicate.
 
+## Contratti comportamentali M3.3
+
+**Edit Behavioral Contract**, nelle proprietà del diagramma e di Element Details, oppure come comando **A.D.E: Edit Behavioral Contract**, modifica il comportamento dell'identità selezionata. È disponibile per tutti i tipi semantici ammessi dallo schema, anche senza un contratto preesistente e senza collocazione visuale. La demo integrata e i file in sola lettura rimangono consultabili.
+
+Le scelte native **Inputs**, **Outputs**, **Preconditions**, **Postconditions** ed **Errors** permettono di aggiungere, modificare e rimuovere una voce alla volta. Un campo conserva nome, tipo dichiarato e presenza **Required**/**Optional**; i tipi sono testo libero, senza risoluzione verso un linguaggio. Precondizioni e postcondizioni descrivono aspettative, non espressioni eseguibili. Un errore conserva codice univoco e descrizione. Valori vuoti, campi omonimi nella stessa lista e codici duplicati vengono rifiutati. Escape annulla l'intera voce corrente; una voce completata è un'unica operazione undo/redo. Un documento cambiato durante i dialoghi richiede di ricominciare sullo stato corrente.
+
+**Edit Relationship Error**, accanto a ogni relazione nelle proprietà, assegna un errore dichiarato dall'elemento sorgente, oppure **No Error** per rimuovere l'associazione. Le stesse proprietà permettono di modificare condizioni e cancellare relazioni anche dalla scheda di dettaglio. Un errore ancora referenziato non può essere rinominato o rimosso: prima occorre cambiare o liberare le associazioni. La validazione del dominio applica lo stesso vincolo alle operazioni atomiche.
+
+Scheda, proprietà nei diversi diagrammi e lettore accessibile usano lo stesso contratto semantico. Le proprietà mostrano anche obbligatorietà dei campi e codici degli errori. L'editing conserva layout, autorizzazioni, criteri di accettazione, mappature e verifiche esistenti; autorizzazioni e criteri rimangono consultabili e non sono modificabili da questo editor. Nessun risultato runtime viene dedotto dalla modifica di una dichiarazione.
+
+Il formato resta v3 con apertura dei documenti v2; non servono nuove proprietà nello schema. L'[esempio progettato](../examples/checkout-designed.ade.json) include ora il contratto di Richiedi pagamento e il relativo percorso di errore. Verifiche automatiche e limiti dello smoke sono nel [verbale M3.3](m3-3-verification.md).
+
 ## Accessibilità e aggiornamenti esterni
 
 **Read Element Details** usa lo stesso lettore nativo di **Read Diagram**. L'aiuto accessibile descrive ricerca, breadcrumb, schede e cronologia. La lettura non presenta la scheda come un diagramma e non deduce esecuzione o verifiche del codice.
 
 Il servizio mantiene un watcher correlato sul file del modello, anche fuori dalla cartella del workspace. Un aggiornamento esterno ricarica soltanto il documento pulito; le modifiche non salvate restano protette dal backend nativo. Se viene eliminato l'elemento ispezionato, il contesto torna a un diagramma valido. Errori di lettura non lasciano il vecchio contenuto presentato come stato corrente. Watcher e richieste superate vengono rilasciati o ignorati quando cambia il documento.
 
-Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md) e [M3.2](m3-2-verification.md).
+Le verifiche e i confini di piattaforma sono nei verbali [M3.1](m3-1-verification.md), [M3.2](m3-2-verification.md) e [M3.3](m3-3-verification.md).

@@ -16,6 +16,7 @@ import { getDeletionImpact, upgradeVisualModel, VisualEdit } from '../common/vis
 import { AdeInput } from './adeInput.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { elementLabels, relationLabels } from './adeLabels.js';
+import { editAdeBehavior } from './adeBehaviorEditing.js';
 
 /** Native dialogs collect intent; atomic edits and persistence remain in the project service. */
 class EditingUI {
@@ -145,6 +146,9 @@ class EditingUI {
 		} else if (command === 'description' && selected) {
 			const description = await this.quickInput.input({ title: localize('ade.description', "Description"), value: selected.description });
 			if (description !== undefined) { this.edit({ kind: 'description', id: selected.id, description }); }
+		} else if (command === 'behavior' && selected) {
+			const behavior = await editAdeBehavior(this.quickInput, model, selected);
+			if (behavior) { this.edit({ kind: 'behavior', id: selected.id, behavior }); }
 		} else if (command === 'deleteElement' && selected) {
 			await this.deleteElement(selected);
 		} else if (command === 'condition' && id) {
@@ -152,6 +156,15 @@ class EditingUI {
 			if (!relation) { return; }
 			const condition = await this.quickInput.input({ title: localize('ade.conditionInput', "Condition (Optional)"), value: relation.condition });
 			if (condition !== undefined) { this.edit({ kind: 'condition', id, condition }); }
+		} else if (command === 'relationError' && id) {
+			const relation = model.semantics.relations.find(relation => relation.id === id);
+			if (!relation) { return; }
+			const errors = model.semantics.elements.find(element => element.id === relation.from)?.behavior?.errors ?? [];
+			const picked = await this.quickInput.pick([
+				{ label: localize('ade.noRelationError', "No Error"), errorCode: undefined },
+				...errors.map(error => ({ label: error.code, description: error.description, errorCode: error.code }))
+			], { title: localize('ade.relationError', "Relationship Error") });
+			if (picked) { this.edit({ kind: 'relationError', id, errorCode: picked.errorCode }); }
 		} else if (command === 'deleteRelation' && id) {
 			if ((await this.dialogs.confirm({ message: localize('ade.deleteRelation', "Delete This Relationship from the System and All Diagrams?"), primaryButton: localize('ade.delete', "Delete") })).confirmed) {
 				this.edit({ kind: 'deleteRelation', id });
@@ -185,8 +198,10 @@ for (const [command, title] of [
 	['deleteDiagram', localize2('ade.deleteDiagram.command', "A.D.E: Delete Diagram")],
 	['renameElement', localize2('ade.renameElement', "A.D.E: Rename Element")],
 	['description', localize2('ade.description.command', "A.D.E: Edit Description")],
+	['behavior', localize2('ade.behavior.command', "A.D.E: Edit Behavioral Contract")],
 	['deleteElement', localize2('ade.deleteElement.command', "A.D.E: Delete Element")],
 	['condition', localize2('ade.condition', "A.D.E: Edit Condition")],
+	['relationError', localize2('ade.relationError.command', "A.D.E: Edit Relationship Error")],
 	['deleteRelation', localize2('ade.deleteRelation.command', "A.D.E: Delete Relationship")],
 	['layout', localize2('ade.layout', "A.D.E: Arrange Diagram")],
 	['reload', localize2('ade.reload.command', "A.D.E: Reload Project")],

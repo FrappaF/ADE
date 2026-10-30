@@ -137,6 +137,76 @@ async function searchSystem(window, kind, name) {
 	await pickValue(window, 'Search System', name);
 }
 
+async function contractEntry(window, name, section, entry = 'Add Entry') {
+	await window.locator('.ade-properties').getByRole('button', { name: 'Edit Behavioral Contract', exact: true }).click();
+	await pickValue(window, `Behavioral Contract: ${name}`, section);
+	await pickValue(window, section, entry);
+	if (entry !== 'Add Entry') { await pickValue(window, `Contract Entry: ${entry}`, 'Edit Entry'); }
+}
+
+async function checkContractEditing(window) {
+	const shell = window.locator('.ade-shell');
+	await contractEntry(window, 'Contratto pagamento', 'Inputs');
+	await enterValue(window, 'Field Name', 'amount');
+	await enterValue(window, 'Field Type', 'Money');
+	await pickValue(window, 'Field Presence', 'Required');
+	await shell.getByText('Input: amount (Money), Required', { exact: true }).waitFor();
+	await contractEntry(window, 'Contratto pagamento', 'Inputs');
+	await enterValue(window, 'Field Name', 'amount');
+	await window.locator('.quick-input-widget').getByText('A field with this name already exists.', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await contractEntry(window, 'Contratto pagamento', 'Outputs');
+	await enterValue(window, 'Field Name', 'receipt');
+	await window.locator('.quick-input-widget').getByText('Field Type', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await shell.getByText('Output:', { exact: false }).count(), 0, 'Escape cancels the partially entered field');
+	await contractEntry(window, 'Contratto pagamento', 'Outputs');
+	await enterValue(window, 'Field Name', 'receipt');
+	await enterValue(window, 'Field Type', 'Receipt');
+	await pickValue(window, 'Field Presence', 'Optional');
+	await shell.getByText('Output: receipt (Receipt), Optional', { exact: true }).waitFor();
+	for (const [section, value] of [['Preconditions', 'Amount is positive'], ['Postconditions', 'At most one payment is authorized']]) {
+		await contractEntry(window, 'Contratto pagamento', section);
+		await enterValue(window, section, value);
+	}
+	await contractEntry(window, 'Contratto pagamento', 'Errors');
+	await enterValue(window, 'Error Code', 'payment-declined');
+	await enterValue(window, 'Error Description', 'No order is confirmed');
+	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).waitFor();
+	await contractEntry(window, 'Contratto pagamento', 'Outputs', 'receipt');
+	await enterValue(window, 'Field Name', 'receipt');
+	await enterValue(window, 'Field Type', 'PaymentReceipt');
+	await pickValue(window, 'Field Presence', 'Required');
+	await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByText('Output: receipt (Receipt), Optional', { exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+	await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Behavioral Contract', exact: true }).click();
+	await pickValue(window, 'Behavioral Contract: Contratto pagamento', 'Preconditions');
+	await pickValue(window, 'Preconditions', 'Amount is positive');
+	await pickValue(window, 'Contract Entry: Amount is positive', 'Remove Entry');
+	await shell.getByText('Precondition: Amount is positive', { exact: true }).waitFor({ state: 'hidden' });
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await shell.getByText('Precondition: Amount is positive', { exact: true }).waitFor();
+	for (const diagram of ['Esito pagamento', 'Percorso acquisto']) {
+		await window.locator('.ade-sidebar').getByRole('button', { name: diagram, exact: true }).click();
+		const options = shell.locator('details').filter({ hasText: 'Diagram Options' });
+		if (!await options.evaluate(element => element.open)) { await options.locator('summary').click(); }
+		await shell.getByRole('button', { name: 'Add Existing Element', exact: true }).click();
+		await pickValue(window, 'Add Existing Element', 'Contratto pagamento');
+		await shell.locator('.ade-node[aria-pressed="true"]').filter({ hasText: 'Contratto pagamento' }).waitFor();
+		await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	}
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Element Details', exact: true }).click();
+	await shell.getByRole('button', { name: 'Read Element Details', exact: true }).click();
+	await window.locator('.accessible-view:visible').getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	await window.keyboard.press('Escape');
+	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
+	await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
+	console.log('PASS: native contract creation, validation, cancellation, editing, removal, undo/redo and shared details across two diagrams with accessible reading.');
+}
+
 async function checkSemanticNavigation() {
 	let window = await launch();
 	let shell = window.locator('.ade-shell');
@@ -235,16 +305,19 @@ async function checkSemanticNavigation() {
 	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
 	await shell.getByRole('button', { name: 'Redo', exact: true }).click();
 	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	await checkContractEditing(window);
 	await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+s`);
 	await shell.getByText('Saved', { exact: true }).waitFor();
 	const saved = JSON.parse(await readFile(modelFile, 'utf8'));
 	assert.deepEqual(validateSemanticModel(saved), []);
 	assert.equal(saved.semantics.elements.find(element => element.id === 'payment-contract').name, 'Contratto pagamento');
+	assert.deepEqual(saved.semantics.elements.find(element => element.id === 'payment-contract').behavior.outputs, [{ name: 'receipt', type: 'PaymentReceipt', required: true }]);
 	await app.close();
 	app = undefined;
 	window = await launch();
 	shell = window.locator('.ade-shell');
 	await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
+	await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
 	assert.equal(await cancellationDetails().evaluate(details => details.open), false, 'Collapsed groups survive a workspace restart');
 	await cancellationDetails().locator(':scope > summary').focus();
 	await window.keyboard.press('Enter');
@@ -256,7 +329,10 @@ async function checkSemanticNavigation() {
 	removed.semantics.elements = removed.semantics.elements.filter(element => element.id !== 'payment-contract');
 	removed.semantics.relations = removed.semantics.relations.filter(relation => relation.from !== 'payment-contract' && relation.to !== 'payment-contract');
 	const surviving = new Set(removed.semantics.relations.map(relation => relation.id));
-	for (const view of removed.views) { view.relationIds = view.relationIds.filter(id => surviving.has(id)); }
+	for (const view of removed.views) {
+		view.relationIds = view.relationIds.filter(id => surviving.has(id));
+		view.nodes = view.nodes.filter(node => node.elementId !== 'payment-contract');
+	}
 	await writeFile(modelFile, JSON.stringify(removed));
 	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
 	assert.equal(await shell.getByRole('alert').count(), 0);

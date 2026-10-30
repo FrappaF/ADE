@@ -56,7 +56,7 @@ jobs:
       - name: Build desktop client
         run: npm run build-fast -- --client-only
       - name: Test ADE project lifecycle
-        run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts
+        run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeBehaviorEditing.test.ts
       - name: Typecheck production sources
         run: node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
       - name: Build bundled extensions
