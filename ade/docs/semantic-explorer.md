@@ -2,6 +2,8 @@
 
 Il primo incremento M3 consente di raggiungere elementi e diagrammi del modello senza aprire il codice o il JSON. M2 resta soggetta al collaudo macOS e VoiceOver già registrato: l'avvio di M3 sul percorso Linux non chiude quelle verifiche.
 
+Le funzioni usano il modello A.D.E corrente e sono verificate anche su [progetti indipendenti dal demo](project-generality-verification.md). L'importazione automatica di una codebase esistente resta in M4.
+
 ## Ricerca e destinazioni
 
 **Search System**, disponibile nella sidebar, nella navigazione dell'editor e come **A.D.E: Search System** nella palette, apre due scelte native. La prima filtra tutti i risultati, i soli diagrammi oppure uno dei tipi semantici; la seconda cerca nomi, tipi, antenati e nomi dei diagrammi. La ricerca usa il documento corrente, comprese le modifiche non ancora salvate.

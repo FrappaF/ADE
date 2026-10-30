@@ -100,6 +100,12 @@ jobs:
       - name: Model impact smoke on macOS
         if: runner.os == 'macOS'
         run: node ade/scripts/smoke-desktop.mjs --impact-only
+      - name: Independent projects smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --projects-only
+      - name: Independent projects smoke on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --projects-only
       - name: Prototype Extension Host smoke on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --extension-only

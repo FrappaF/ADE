@@ -1,0 +1,107 @@
+{
+	"version": 3,
+	"id": "observatory-system",
+	"name": "Osservatorio — α Centauri",
+	"semantics": {
+		"elements": [
+			{
+				"id": "feature",
+				"kind": "feature",
+				"name": "Acquisizioni notturne"
+			},
+			{
+				"id": "agent",
+				"kind": "actor",
+				"name": "Astronoma"
+			},
+			{
+				"id": "worker",
+				"kind": "component",
+				"name": "Coordinatore",
+				"parentId": "feature"
+			},
+			{
+				"id": "scheduler",
+				"kind": "action",
+				"name": "Pianifica",
+				"parentId": "worker"
+			},
+			{
+				"id": "resource",
+				"kind": "resource",
+				"name": "Esposizione",
+				"parentId": "worker"
+			},
+			{
+				"id": "contract",
+				"kind": "contract",
+				"name": "Vincoli ottici"
+			},
+			{
+				"id": "idle",
+				"kind": "state",
+				"name": "In coda",
+				"parentId": "resource"
+			},
+			{
+				"id": "active",
+				"kind": "state",
+				"name": "Acquisita",
+				"parentId": "resource"
+			},
+			{
+				"id": "isolated",
+				"kind": "resource",
+				"name": "Esposizione"
+			}
+		],
+		"relations": [
+			{
+				"id": "request",
+				"kind": "invocation",
+				"from": "agent",
+				"to": "scheduler",
+				"name": "Prenota sessione"
+			},
+			{
+				"id": "constraints",
+				"kind": "dependency",
+				"from": "scheduler",
+				"to": "contract",
+				"name": "Controlla vincoli"
+			},
+			{
+				"id": "write",
+				"kind": "write",
+				"from": "scheduler",
+				"to": "resource",
+				"name": "Registra immagine"
+			},
+			{
+				"id": "feedback",
+				"kind": "dependency",
+				"from": "worker",
+				"to": "scheduler",
+				"name": "Avvia pianificazione"
+			},
+			{
+				"id": "cycle",
+				"kind": "dependency",
+				"from": "scheduler",
+				"to": "worker",
+				"name": "Consulta coordinatore"
+			},
+			{
+				"id": "capture",
+				"kind": "transition",
+				"from": "idle",
+				"to": "active",
+				"name": "Esposizione completata",
+				"condition": "Segnale sufficiente"
+			}
+		]
+	},
+	"views": [],
+	"codeMappings": [],
+	"verifications": []
+}

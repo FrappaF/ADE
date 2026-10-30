@@ -20,6 +20,7 @@ import { InMemoryStorageService, StorageScope, StorageTarget } from '../../../..
 import { AdeProjectService } from '../../browser/adeProjectService.js';
 import { projectDocuments } from './testProjectDocuments.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
+import { libraryModel, observatoryModel } from '../common/independentProjects.js';
 
 class ModelDialogs extends mock<IFileDialogService>() {
 	selected: URI | undefined;
@@ -381,6 +382,58 @@ suite('A.D.E project context', () => {
 		await files.writeFile(other, VSBuffer.fromString('{"version":99}'));
 		await project.retry();
 		assert.ok(project.error);
+	});
+
+	test('independent project files with overlapping IDs retain their own topology and inspector context', async () => {
+		const library = URI.parse('test:/independent-library.json');
+		const observatory = URI.parse('test:/independent-observatory.json');
+		await files.writeFile(library, VSBuffer.fromString(JSON.stringify(libraryModel)));
+		await files.writeFile(observatory, VSBuffer.fromString(JSON.stringify(observatoryModel)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		dialogs.selected = library;
+		await project.chooseModel();
+		assert.deepStrictEqual(project.model, libraryModel);
+		project.showDiagram('states');
+		project.selectElement('active');
+		project.showImpact('contract');
+		dialogs.saveTarget = URI.parse('test:/independent-copy.json');
+		await project.saveAs();
+		await storage.flush();
+		project.dispose();
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await restored.restore();
+		assert.deepStrictEqual([restored.model, restored.section, restored.selectedId, restored.dirty], [libraryModel, 'impact', 'contract', false]);
+		dialogs.selected = observatory;
+		await restored.chooseModel();
+		assert.deepStrictEqual([restored.model, restored.section, restored.activeView, restored.selectedId, restored.canGoBack], [observatoryModel, 'diagram', undefined, '', false]);
+		restored.edit({ kind: 'diagram', id: 'structure', name: 'Acquisizioni', featureId: 'feature', viewKind: 'structure' });
+		restored.edit({ kind: 'include', viewId: 'structure', id: 'scheduler' });
+		await restored.save();
+		dialogs.selected = library;
+		await restored.chooseModel();
+		assert.deepStrictEqual(restored.model, libraryModel);
+	});
+
+	test('empty projects create independent resource lifecycles with native undo and round-trip persistence', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		await project.createProject('Stazione oceanografica', URI.parse('test:/marine-laboratory'));
+		assert.deepStrictEqual([project.model.semantics.elements, project.model.views, project.model.codeMappings, project.model.verifications], [[], [], [], []]);
+		project.editBatch([
+			{ kind: 'feature', id: 'acquisition', name: 'Acquisizione' },
+			{ kind: 'resource', id: 'sample', name: 'Campione', parentId: 'acquisition' },
+			{ kind: 'stateDiagram', id: 'sample-states', name: 'Stati del campione', featureId: 'acquisition', resourceId: 'sample' },
+			{ kind: 'element', id: 'fresh', name: 'Nuovo', elementKind: 'state', parentId: 'sample', viewId: 'sample-states' },
+			{ kind: 'element', id: 'archived', name: 'Archiviato', elementKind: 'state', parentId: 'sample', viewId: 'sample-states' },
+			{ kind: 'relation', id: 'archive', name: 'Archivia', relationKind: 'transition', from: 'fresh', to: 'archived', condition: 'Misura valida', viewId: 'sample-states' }
+		]);
+		project.showDiagram('sample-states');
+		project.selectElement('archived');
+		await project.undo();
+		assert.strictEqual(project.model.semantics.elements.length, 0);
+		await project.redo();
+		await project.save();
+		await project.retry();
+		assert.deepStrictEqual([project.model.name, project.model.semantics.elements.map(element => element.id), project.model.semantics.relations.map(relation => relation.id), project.dirty], ['Stazione oceanografica', ['acquisition', 'sample', 'fresh', 'archived'], ['archive'], false]);
 	});
 
 	test('saving a copy preserves diagram and selections across source revert and workspace restart', async () => {

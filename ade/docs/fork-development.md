@@ -46,6 +46,7 @@ node ade/scripts/smoke-desktop.mjs --navigation-only
 node ade/scripts/smoke-desktop.mjs --sequence-only
 node ade/scripts/smoke-desktop.mjs --state-only
 node ade/scripts/smoke-desktop.mjs --impact-only
+node ade/scripts/smoke-desktop.mjs --projects-only
 node ade/scripts/smoke-desktop.mjs --extension-only
 ```
 
@@ -56,6 +57,8 @@ Il percorso `--ux-only` include anche lettura testuale e aiuto accessibili: canv
 `--navigation-only` verifica l'[esploratore M3](semantic-explorer.md): ricerca per tipo, contratti non collocati, breadcrumb, selezione fra prospettive, Back/Forward, modifica e ripristino delle schede, cancellazione esterna. Il file del modello usato per editing e riavvio si trova fuori dal workspace temporaneo. Gli esiti sono nel [verbale M3.1](m3-1-verification.md). Questo percorso è configurato separatamente su Linux e macOS nella CI desktop.
 
 Il workflow `desktop.yml` compila e collauda su Linux e macOS; `ci.yml` esegue soltanto i controlli leggeri. Le esecuzioni effettive vanno verificate su GitHub: il solo file YAML non dimostra il successo della CI.
+
+`--projects-only` crea un progetto da una cartella vuota e apre due modelli indipendenti dal checkout, senza predisporre file demo nel workspace. Copre struttura, flusso, contratti, sequenze, stati, impatto, salvataggio, riavvio e cambio documento. Perimetro, correzioni e limiti sono nel [verbale sui progetti indipendenti](project-generality-verification.md).
 
 ## Aggiornamenti upstream e ritorno alla base
 

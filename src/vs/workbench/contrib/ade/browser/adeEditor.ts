@@ -184,7 +184,10 @@ export class AdeEditor extends EditorPane {
 		}
 		for (const diagnostic of this.project.diagnostics) { this.paragraph(content, diagnostic); }
 		if (!view) {
-			this.paragraph(content, localize('ade.noDiagrams', "This project has no diagrams. Add a feature to begin designing its structure and flow."));
+			if (model.semantics.elements.some(element => element.kind === 'feature')) {
+				this.paragraph(content, localize('ade.noDiagramsExistingFeatures', "This project has no diagrams. Add a diagram to an existing feature to continue."));
+				this.button(content, localize('ade.addDiagram', "Add Diagram"), () => { void this.commandService.executeCommand('ade.addDiagram'); });
+			} else { this.paragraph(content, localize('ade.noDiagrams', "This project has no diagrams. Add a feature to begin designing its structure and flow.")); }
 			this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
 			return;
 		}

@@ -73,7 +73,9 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 		return lines.join('\n');
 	}
 	if (!view && state.section !== 'element') {
-		lines.push(localize('ade.reading.noDiagrams', "This project has no diagrams. Add a feature to begin."));
+		lines.push(model.semantics.elements.some(element => element.kind === 'feature')
+			? localize('ade.reading.noDiagramsExistingFeatures', "This project has no diagrams. Add a diagram to an existing feature to continue.")
+			: localize('ade.reading.noDiagrams', "This project has no diagrams. Add a feature to begin."));
 		return lines.join('\n');
 	}
 	const visible = new Set(view?.nodes.map(node => node.elementId) ?? []);
