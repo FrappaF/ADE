@@ -79,6 +79,16 @@ npm --prefix ade/ai test
 
 Dopo la build del client e la preparazione di Electron, `node ade/scripts/smoke-desktop.mjs --ai-only` verifica il percorso M5 dalla UI con una CLI simulata e test Node effettivi, compresi applicazione, riavvio, ripresa e annullamento. Su Linux serve un display, per esempio tramite `xvfb-run -a`. Il risultato non certifica un provider esterno o un login reale.
 
+Per collaudare lo stesso percorso con Codex originale già autenticato, scegliere esplicitamente un modello disponibile nell’account e usare:
+
+```sh
+ADE_AI_MODEL=MODEL_ID_FROM_YOUR_ACCOUNT node ade/scripts/smoke-desktop.mjs --ai-live
+```
+
+`ADE_AI_EXECUTABLE` può indicare il percorso assoluto della CLI originale. Se il catalogo mostra un nome diverso dall’ID, `ADE_AI_MODEL_LABEL` seleziona quel nome; il registro dell’operazione deve comunque contenere l’ID richiesto. Il collaudo usa soltanto il repository temporaneo di pagamento rifiutato, esegue due invocazioni per piano e implementazione, controlla rifiuto e approvazione con un’asserzione indipendente dai test generati, applica, riavvia il desktop e ripristina le preimmagini di tutti i file. Scrive `.build/ade-smoke/m5-live-results.json` e `m5-live-applied.png` soltanto per il percorso live; gli artifact simulati conservano nomi distinti. Un `codex login status` positivo non sostituisce una risposta autenticata del modello.
+
+Il benchmark live usa l’operazione `benchmark` della CLI riportata sotto, con due o tre candidati configurati esplicitamente; ciascuno attraversa tutti e tre i campioni e i rispettivi controlli indipendenti. Non aggiungere `rates` se le tariffe dell’account non sono note e confrontabili: il rapporto conserva i token disponibili e lascia `defaultModel` a `null`. La creazione del rapporto non implica che i casi siano passati: verificare `models[].cases`, `failure` ed `eligible` prima di registrare un esito riuscito.
+
 Esempio di configurazione senza credenziali:
 
 ```json

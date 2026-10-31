@@ -31,3 +31,16 @@ test('three independent hidden oracles reject an incorrect economy model even wh
 	assert.deepEqual({ kind: report.kind, results: report.models.map(model => ({ model: model.candidate.config.model, passed: model.cases.map(result => result.passed), eligible: model.eligible })), selected: report.defaultModel },
 		{ kind: 'simulated-benchmark', results: [{ model: 'economy-fixture', passed: [false, false, false], eligible: false }, { model: 'capable-fixture', passed: [true, true, true], eligible: true }], selected: null });
 });
+
+test('rejected plan references retain measured usage and never turn missing token counts into zero', async () => {
+	const provider = { complete: async (selected, prompt) => {
+		const context = JSON.parse(prompt.slice(prompt.indexOf('\n') + 1));
+		return { value: {
+			summary: 'Invalid reference', steps: [{ id: 'step', description: 'Plan only', elementIds: [context.featureId], sourceFiles: [context.sources[0].file] }],
+			questions: [], changes: [], tests: [{ description: 'Invented criterion', elementId: context.featureId, criterionId: 'not-in-the-contract' }], limitations: []
+		}, usage: { inputTokens: selected.model === 'reported-fixture' ? 7 : null, outputTokens: 9 }, cost: null };
+	} };
+	const report = await benchmarkModels(['reported-fixture', 'partial-fixture'].map(model => ({ config: { ...config, model } })), undefined, provider);
+	assert.deepEqual(report.models.map(model => model.cases.map(result => ({ passed: result.passed, failure: result.failure, calls: result.cliInvocations, input: result.inputTokens, output: result.outputTokens, usage: result.usage }))),
+		[7, null].map(input => Array.from({ length: 3 }, () => ({ passed: false, failure: 'Plan test references an unknown acceptance criterion', calls: 1, input, output: 9, usage: [{ phase: 'plan', inputTokens: input, outputTokens: 9 }] }))));
+});

@@ -13,6 +13,8 @@ import { validateSemanticModel } from '../../src/vs/workbench/contrib/ade/common
 import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const aiLive = process.argv.includes('--ai-live');
+if (aiLive && !process.env.ADE_AI_MODEL) { throw new Error('--ai-live requires ADE_AI_MODEL from the authenticated Codex account'); }
 const product = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(root, 'product.json'), 'utf8'));
 const executablePath = process.env.ADE_ELECTRON_PATH || path.join(root, '.build/electron', process.platform === 'darwin'
 	? `${product.nameLong}.app/Contents/MacOS/${product.nameShort}`
@@ -43,7 +45,7 @@ const sequenceOnly = process.argv.includes('--sequence-only');
 const stateOnly = process.argv.includes('--state-only');
 const impactOnly = process.argv.includes('--impact-only');
 const codeOnly = process.argv.includes('--code-only');
-const aiOnly = process.argv.includes('--ai-only');
+const aiOnly = process.argv.includes('--ai-only') || aiLive;
 const extraCleanup = [];
 const projectsOnly = process.argv.includes('--projects-only');
 const modelFile = path.join(navigationOnly || sequenceOnly || stateOnly || impactOnly ? directory : workspace, 'checkout.ade.json');
@@ -286,17 +288,28 @@ async function checkCodeBridge() {
 
 async function checkAiWorkflow() {
 	const { fixture, original } = await import('../ai/test/fixtures.mjs');
+	const { readSession } = await import('../ai/implementation.ts');
+	const { runProcess } = await import('../ai/process.ts');
 	const f = await fixture({ after: callback => extraCleanup.push(callback) });
-	const executable = path.join(f.directory, 'simulated-codex.mjs');
+	const executable = aiLive ? (process.env.ADE_AI_EXECUTABLE || 'codex') : path.join(f.directory, 'simulated-codex.mjs');
+	const model = aiLive ? process.env.ADE_AI_MODEL : 'simulated-m5-model';
+	const resultFile = path.join(evidence, aiLive ? 'm5-live-results.json' : 'm5-native-results.json');
+	await rm(resultFile, { force: true });
+	if (aiLive) {
+		const { readProviderConfig } = await import('../ai/contracts.ts');
+		readProviderConfig({ version: 1, provider: 'codex', connection: 'cli', executable, model, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 2 });
+	}
 	const counter = path.join(f.directory, 'calls');
-	await writeFile(counter, '0');
-	await writeFile(executable, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
+	if (!aiLive) {
+		await writeFile(counter, '0');
+		await writeFile(executable, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
 const args=process.argv.slice(2),schema=JSON.parse(readFileSync(args[args.indexOf('--output-schema')+1],'utf8'));
 const counter=${JSON.stringify(counter)};
 writeFileSync(counter,String(Number(readFileSync(counter,'utf8'))+1));
 writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(schema.properties.steps?${JSON.stringify(f.plan)}:${JSON.stringify(f.generated)}));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_tokens:20}})+'\\n');\n`);
-	await chmod(executable, 0o700);
+		await chmod(executable, 0o700);
+	}
 	let window = await launch();
 	await openModelFile(window, path.join(f.snapshot, 'model.ade.json'));
 	await window.locator('.ade-shell').getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
@@ -306,19 +319,32 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	const widget = window.locator('.quick-input-widget');
 	await widget.getByText(/^(Model ID from Your CLI|Choose a Model Available to Your Account)$/).waitFor();
 	if (await widget.getByText('Model ID from Your CLI', { exact: true }).isVisible()) {
-		await enterValue(window, 'Model ID from Your CLI', 'simulated-m5-model');
+		await enterValue(window, 'Model ID from Your CLI', model);
+	} else if (aiLive) {
+		await pickValue(window, 'Choose a Model Available to Your Account', process.env.ADE_AI_MODEL_LABEL || model);
 	} else { await window.keyboard.press('Enter'); }
 	await enterValue(window, 'Original CLI Executable', executable);
 	await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan and Implementation · At Most Two Agent Runs');
-	assert.equal(Number(await readFile(counter, 'utf8')), 0);
+	if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 0); }
 	await runCommand(window, 'A.D.E: Implement Feature');
 	await pickValue(window, 'Implement Feature', 'checkout');
-	await enterValue(window, 'Requested Behavior', 'Handle declined payments and preserve approved payments.');
+	await enterValue(window, 'Requested Behavior', `For the supported boolean inputs, checkout(false) must return exactly 'declined' and checkout(true) must retain exactly 'paid'. No behavior for non-boolean inputs is requested.`);
 	await widget.getByText('Review Source Files to Share · Suggested from Model Evidence', { exact: true }).waitFor();
 	await window.keyboard.press('Enter');
 	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Send Context', exact: true }).click();
-	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate in Worktree', exact: true }).click();
-	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Changes Ready for Review' }).last().waitFor();
+	console.log('M5: context approved; awaiting the CLI plan.');
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate in Worktree', exact: true }).click({ timeout: aiLive ? 200000 : 30000 });
+	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Changes Ready for Review' }).last().waitFor({ timeout: aiLive ? 200000 : 30000 });
+	console.log('M5: implementation staged; checking independent acceptance.');
+	const ids = await readdir(path.join(f.root, '.ade/collaboration'));
+	assert.equal(ids.length, 1);
+	const session = await readSession(f.root, ids[0]);
+	if (aiLive) { assert.equal(session.prepared.config.model, model); }
+	const checkBehavior = async folder => {
+		const result = await runProcess(process.execPath, ['--input-type=module', '-e', `import assert from 'node:assert/strict'; import {checkout} from './checkout.mjs'; assert.deepEqual([checkout(false), checkout(true)], ['declined', 'paid']);`], folder);
+		assert.equal(result.code, 0, 'Independent payment refusal and approval checks must pass');
+	};
+	await checkBehavior(session.worktree);
 	const returnToModel = async () => {
 		await runCommand(window, 'A.D.E: Return to Model');
 		const collaboration = window.locator('.ade-shell details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
@@ -327,7 +353,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	};
 	let collaboration = await returnToModel();
 	await collaboration.getByText('Changes Ready for Review', { exact: true }).waitFor();
-	assert.equal(Number(await readFile(counter, 'utf8')), 2);
+	if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 2); }
 	assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), original);
 	await collaboration.getByRole('button', { name: 'Run Tests', exact: true }).click();
 	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Run Tests', exact: true }).click();
@@ -337,8 +363,12 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	await collaboration.getByRole('button', { name: 'Apply Verified Changes', exact: true }).click();
 	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Apply Changes', exact: true }).click();
 	await collaboration.getByText('Applied · Undo Available', { exact: true }).waitFor();
-	assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), f.generated.files[0].content);
-	await window.screenshot({ path: path.join(evidence, 'm5-applied.png') });
+	for (const file of session.generated.files) {
+		if (file.content === null) { await assert.rejects(readFile(path.join(f.root, file.file)), { code: 'ENOENT' }); }
+		else { assert.deepEqual(await readFile(path.join(f.root, file.file)), Buffer.from(file.content)); }
+	}
+	await checkBehavior(f.root);
+	await window.screenshot({ path: path.join(evidence, aiLive ? 'm5-live-applied.png' : 'm5-applied.png') });
 	await app.close(); app = undefined;
 	window = await launch();
 	await window.locator('.ade-shell').getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
@@ -349,11 +379,14 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Undo Implementation', exact: true }).click();
 	await collaboration.getByText('Changes Undone', { exact: true }).waitFor();
 	assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), original);
-	assert.equal(Number(await readFile(counter, 'utf8')), 2);
-	await assert.rejects(readFile(path.join(f.root, 'checkout.test.mjs')), { code: 'ENOENT' });
-	await writeFile(path.join(evidence, 'm5-native-results.json'), JSON.stringify({ kind: 'native-ui-with-simulated-cli', externalProviderValidated: false, calls: 2, passingTests: true, applied: true, restartResume: true, undone: true, sourcePreserved: true }, null, 2));
+	if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 2); }
+	for (const before of session.before) {
+		if (before.content === null) { await assert.rejects(readFile(path.join(f.root, before.file)), { code: 'ENOENT' }); }
+		else { assert.deepEqual(await readFile(path.join(f.root, before.file)), Buffer.from(before.content)); }
+	}
+	await writeFile(resultFile, JSON.stringify({ kind: aiLive ? 'native-ui-with-live-codex' : 'native-ui-with-simulated-cli', recordedAt: new Date().toISOString(), externalProviderValidated: aiLive, model: session.prepared.config.model, calls: 2, usage: session.usage, passingTests: true, independentAcceptancePassed: true, applied: true, restartResume: true, undone: true, sourcePreserved: true }, null, 2));
 	await app.close(); app = undefined;
-	console.log('PASS: native M5 context disclosure, plan approval, simulated CLI subprocess, worktree tests, apply, restart, resume and undo; no external provider is validated.');
+	console.log(aiLive ? 'PASS: native M5 with live Codex, independent acceptance, apply, restart, resume and exact undo.' : 'PASS: native M5 context disclosure, plan approval, simulated CLI subprocess, independent acceptance, worktree tests, apply, restart, resume and undo; no external provider is validated.');
 }
 
 async function checkIndependentProjects() {
