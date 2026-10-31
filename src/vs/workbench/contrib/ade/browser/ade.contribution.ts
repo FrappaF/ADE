@@ -176,8 +176,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	{ overrides: {
 		'workbench.startupEditor': 'adeHome',
 		'workbench.welcomePage.experimentalOnboarding': false,
-		'workbench.secondarySideBar.defaultVisibility': 'hidden',
-		'chat.disableAIFeatures': true
+		'workbench.secondarySideBar.defaultVisibility': 'hidden'
 	} }
 ]);
 
