@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, copyFile, readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, copyFile, readFile, readdir, chmod } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -43,6 +43,8 @@ const sequenceOnly = process.argv.includes('--sequence-only');
 const stateOnly = process.argv.includes('--state-only');
 const impactOnly = process.argv.includes('--impact-only');
 const codeOnly = process.argv.includes('--code-only');
+const aiOnly = process.argv.includes('--ai-only');
+const extraCleanup = [];
 const projectsOnly = process.argv.includes('--projects-only');
 const modelFile = path.join(navigationOnly || sequenceOnly || stateOnly || impactOnly ? directory : workspace, 'checkout.ade.json');
 const emptyFile = path.join(workspace, 'empty.ade.json');
@@ -60,7 +62,7 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -101,11 +103,14 @@ async function enterValue(window, title, value) {
 	await widget.getByText(title, { exact: true }).waitFor();
 	await widget.locator('input:visible').fill(value);
 	await window.keyboard.press('Enter');
+	await widget.getByText(title, { exact: true }).waitFor({ state: 'hidden' });
 }
 async function pickValue(window, title, label) {
 	const widget = window.locator('.quick-input-widget');
 	await widget.getByText(title, { exact: true }).waitFor();
+	await widget.locator('input:visible').fill(label);
 	await widget.getByText(label, { exact: true }).click();
+	await widget.getByText(title, { exact: true }).waitFor({ state: 'hidden' });
 }
 async function chooseFolder(window, folder) {
 	const widget = window.locator('.quick-input-widget');
@@ -277,6 +282,78 @@ async function checkCodeBridge() {
 	await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true }, null, 2));
 	await app.close(); app = undefined;
 	console.log('PASS: native code import, compiler references, contract/rename/delete Sync, source navigation, restart and recovery.');
+}
+
+async function checkAiWorkflow() {
+	const { fixture, original } = await import('../ai/test/fixtures.mjs');
+	const f = await fixture({ after: callback => extraCleanup.push(callback) });
+	const executable = path.join(f.directory, 'simulated-codex.mjs');
+	const counter = path.join(f.directory, 'calls');
+	await writeFile(counter, '0');
+	await writeFile(executable, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
+const args=process.argv.slice(2),schema=JSON.parse(readFileSync(args[args.indexOf('--output-schema')+1],'utf8'));
+const counter=${JSON.stringify(counter)};
+writeFileSync(counter,String(Number(readFileSync(counter,'utf8'))+1));
+writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(schema.properties.steps?${JSON.stringify(f.plan)}:${JSON.stringify(f.generated)}));
+writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_tokens:20}})+'\\n');\n`);
+	await chmod(executable, 0o700);
+	let window = await launch();
+	await openModelFile(window, path.join(f.snapshot, 'model.ade.json'));
+	await window.locator('.ade-shell').getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
+	await pickValue(window, 'Choose AI CLI', 'Codex');
+	await pickValue(window, 'Codex', 'Choose Model and CLI');
+	const widget = window.locator('.quick-input-widget');
+	await widget.getByText(/^(Model ID from Your CLI|Choose a Model Available to Your Account)$/).waitFor();
+	if (await widget.getByText('Model ID from Your CLI', { exact: true }).isVisible()) {
+		await enterValue(window, 'Model ID from Your CLI', 'simulated-m5-model');
+	} else { await window.keyboard.press('Enter'); }
+	await enterValue(window, 'Original CLI Executable', executable);
+	await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan and Implementation · At Most Two Agent Runs');
+	assert.equal(Number(await readFile(counter, 'utf8')), 0);
+	await runCommand(window, 'A.D.E: Implement Feature');
+	await pickValue(window, 'Implement Feature', 'checkout');
+	await enterValue(window, 'Requested Behavior', 'Handle declined payments and preserve approved payments.');
+	await widget.getByText('Review Source Files to Share · Suggested from Model Evidence', { exact: true }).waitFor();
+	await window.keyboard.press('Enter');
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Send Context', exact: true }).click();
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate in Worktree', exact: true }).click();
+	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Changes Ready for Review' }).last().waitFor();
+	const returnToModel = async () => {
+		await runCommand(window, 'A.D.E: Return to Model');
+		const collaboration = window.locator('.ade-shell details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
+		if (!await collaboration.evaluate(element => element.open)) { await collaboration.locator('summary').click(); }
+		return collaboration;
+	};
+	let collaboration = await returnToModel();
+	await collaboration.getByText('Changes Ready for Review', { exact: true }).waitFor();
+	assert.equal(Number(await readFile(counter, 'utf8')), 2);
+	assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), original);
+	await collaboration.getByRole('button', { name: 'Run Tests', exact: true }).click();
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Run Tests', exact: true }).click();
+	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Tests Passed · Ready to Apply' }).last().waitFor();
+	collaboration = await returnToModel();
+	await collaboration.getByText('Tests Passed · Ready to Apply', { exact: true }).waitFor();
+	await collaboration.getByRole('button', { name: 'Apply Verified Changes', exact: true }).click();
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Apply Changes', exact: true }).click();
+	await collaboration.getByText('Applied · Undo Available', { exact: true }).waitFor();
+	assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), f.generated.files[0].content);
+	await window.screenshot({ path: path.join(evidence, 'm5-applied.png') });
+	await app.close(); app = undefined;
+	window = await launch();
+	await window.locator('.ade-shell').getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await runCommand(window, 'A.D.E: Resume Implementation');
+	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Applied · Undo Available' }).last().waitFor();
+	collaboration = await returnToModel();
+	await collaboration.getByRole('button', { name: 'Undo Implementation', exact: true }).click();
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Undo Implementation', exact: true }).click();
+	await collaboration.getByText('Changes Undone', { exact: true }).waitFor();
+	assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), original);
+	assert.equal(Number(await readFile(counter, 'utf8')), 2);
+	await assert.rejects(readFile(path.join(f.root, 'checkout.test.mjs')), { code: 'ENOENT' });
+	await writeFile(path.join(evidence, 'm5-native-results.json'), JSON.stringify({ kind: 'native-ui-with-simulated-cli', externalProviderValidated: false, calls: 2, passingTests: true, applied: true, restartResume: true, undone: true, sourcePreserved: true }, null, 2));
+	await app.close(); app = undefined;
+	console.log('PASS: native M5 context disclosure, plan approval, simulated CLI subprocess, worktree tests, apply, restart, resume and undo; no external provider is validated.');
 }
 
 async function checkIndependentProjects() {
@@ -1107,6 +1184,7 @@ async function checkVisualUX() {
 }
 
 try {
+	if (aiOnly) { await checkAiWorkflow(); }
 	if (codeOnly) { await checkCodeBridge(); }
 	if (projectsOnly) { await checkIndependentProjects(); }
 	if (impactOnly) { await checkModelImpact(); }
@@ -1114,7 +1192,7 @@ try {
 	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly && !aiOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -1329,7 +1407,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));
@@ -1347,7 +1425,7 @@ try {
 	if (electronOutput) { console.error(electronOutput); }
 	if (app) {
 		for (const [index, window] of app.windows().entries()) {
-			const state = await window.locator('.ade-shell, .quick-input-widget:visible, .notifications-toasts:visible').allTextContents().catch(() => []);
+			const state = await window.locator('.ade-shell, .quick-input-widget:visible, .notifications-toasts:visible').allInnerTexts().catch(() => []);
 			console.error(`Workbench state ${index}: ${state.join('\n').slice(-10000)}`);
 			await window.screenshot({ path: path.join(evidence, `failure-${index}.png`) }).catch(() => {});
 		}
@@ -1356,5 +1434,6 @@ try {
 } finally {
 	try { await app?.close(); } finally {
 		await rm(directory, { recursive: true, force: true });
+		for (const callback of extraCleanup.reverse()) { await callback(); }
 	}
 }

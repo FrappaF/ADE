@@ -4,6 +4,8 @@ M5 aggiunge un percorso dal contratto di una feature a un piano, modifiche isola
 
 Il [verbale M5](m5-verification.md) distingue implementazione, test con provider simulati e collaudo dei provider reali. Il codice non seleziona un modello economico senza misure e metadati confrontabili.
 
+I comandi di connessione sono disponibili nel desktop senza avviare inferenza. La scelta esplicita dell’utente `chat.disableAIFeatures` rimane rispettata: nasconde i controlli e impedisce avvio delle CLI e richieste del workflow.
+
 ## Collegamento come in VS Code
 
 La scelta segue la richiesta dell’utente del 30–31 ottobre 2026: login del provider e CLI originale dentro l’editor, senza richiedere una chiave API come percorso ordinario.
@@ -74,6 +76,8 @@ npm --prefix ade/ai ci --ignore-scripts
 npm --prefix ade/ai run check
 npm --prefix ade/ai test
 ```
+
+Dopo la build del client e la preparazione di Electron, `node ade/scripts/smoke-desktop.mjs --ai-only` verifica il percorso M5 dalla UI con una CLI simulata e test Node effettivi, compresi applicazione, riavvio, ripresa e annullamento. Su Linux serve un display, per esempio tramite `xvfb-run -a`. Il risultato non certifica un provider esterno o un login reale.
 
 Esempio di configurazione senza credenziali:
 
