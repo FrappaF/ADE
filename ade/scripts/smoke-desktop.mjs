@@ -30,6 +30,7 @@ await mkdir(evidence, { recursive: true });
 await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'window.dialogStyle': 'custom',
 	'files.simpleDialog.enable': true,
+	'files.autoSave': 'off',
 	'workbench.startupEditor': 'adeHome',
 	'workbench.secondarySideBar.defaultVisibility': 'hidden',
 	'window.restoreWindows': 'all',
@@ -1278,6 +1279,7 @@ try {
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
 		await enterValue(window, 'Name', 'Pagamento aggiornato');
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento aggiornato', exact: true }).waitFor();
 		await shell.getByText('Unsaved Changes', { exact: true }).waitFor();
 		const external = structuredClone(saved);
 		external.name = 'External system';
@@ -1343,6 +1345,8 @@ try {
 	if (electronOutput) { console.error(electronOutput); }
 	if (app) {
 		for (const [index, window] of app.windows().entries()) {
+			const state = await window.locator('.ade-shell, .quick-input-widget:visible, .notifications-toasts:visible').allTextContents().catch(() => []);
+			console.error(`Workbench state ${index}: ${state.join('\n').slice(-10000)}`);
 			await window.screenshot({ path: path.join(evidence, `failure-${index}.png`) }).catch(() => {});
 		}
 	}
