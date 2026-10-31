@@ -12,6 +12,7 @@ export const dirs = [
 	'',
 	'build',
 	'ade/code-import',
+	'ade/ai',
 	'build/rspack',
 	'build/vite',
 	'extensions',

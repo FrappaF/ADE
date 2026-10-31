@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../base/common/event.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { CodeContext } from '../common/codeBridge.js';
@@ -22,6 +23,7 @@ export interface IAdeCodeService {
 	recover(): Promise<void>;
 	attachIndex(): Promise<void>;
 	configure(): Promise<void>;
+	executeCollaboration(request: string, token?: CancellationToken): Promise<string>;
 }
 class UnavailableCodeService implements IAdeCodeService {
 	declare readonly _serviceBrand: undefined;
@@ -33,5 +35,6 @@ class UnavailableCodeService implements IAdeCodeService {
 	async recover(): Promise<void> { }
 	async attachIndex(): Promise<void> { }
 	async configure(): Promise<void> { }
+	async executeCollaboration(): Promise<string> { throw new Error('Code collaboration is unavailable'); }
 }
 registerSingleton(IAdeCodeService, UnavailableCodeService, InstantiationType.Delayed);

@@ -1,6 +1,6 @@
 # ADR 0003 — Importazione assistita, Sync incrementale e provider configurabili
 
-Stato: adottata il 29 ottobre 2026; aggiornata su richiesta dell'utente il 30 ottobre 2026: M4 deterministico e multilinguaggio, integrazione IA in M5. Pianifica M4–M6; [importazione M4.1, Sync M4.2 e ponte SCIP M4.3](../code-import.md) descrivono gli incrementi disponibili via Node.
+Stato: adottata il 29 ottobre 2026; aggiornata su richiesta dell'utente il 30–31 ottobre 2026: M4 deterministico e multilinguaggio; M5 con login del provider e CLI originali nell’editor. Pianifica M4–M6; [importazione M4.1, Sync M4.2 e ponte SCIP M4.3](../code-import.md) e [collaborazione M5](../ai-collaboration.md) descrivono gli incrementi disponibili.
 
 ## Decisione
 
@@ -25,6 +25,8 @@ Si confrontano hash e revisioni dell'ultima sincronizzazione con lo stato corren
 Un'operazione annullata, fallita o basata su una revisione superata non aggiorna il riferimento dell'ultima sincronizzazione riuscita. Sono previsti riepilogo delle modifiche, diagnostiche, conflitti e possibilità di ripristino. Importazione e Sync del codice verso il modello possono essere realizzati in M4; M6 completa la riconciliazione bidirezionale con le modifiche prodotte dal modello e dall'IA.
 
 ## Connessioni e account
+
+L’implementazione M5 segue la preferenza esplicita per il comportamento dell’editor VS Code: CLI originali locali, login del provider, modelli e terminale integrati. Riusa i servizi dell’Agent Host per account/catalogo/chat nativi dove disponibili, e il ponte del codice per il coordinamento recuperabile. I provider del catalogo Agent Host non offrono `sendChatRequest` generico: le richieste strutturate usano le interfacce pubbliche delle CLI originali (`codex exec` / `claude -p`) invece di duplicare autenticazione o leggere token. Le API dirette restano una modalità distinta, non il prerequisito del percorso ordinario. La guida M5 documenta isolamento, budget, dati inviati e limiti del collaudo.
 
 API dirette, piani personali e processi agent locali sono modalità distinte, con capacità, cataloghi, credenziali e consumi propri. Le credenziali restano fuori dai documenti e dal repository, attraverso gli strumenti di autenticazione e archiviazione sicura del prodotto.
 

@@ -1,0 +1,5 @@
+{
+	"extends": "../code-import/tsconfig.json",
+	"compilerOptions": { "types": ["node"], "typeRoots": ["./node_modules/@types"] },
+	"include": ["*.ts"]
+}

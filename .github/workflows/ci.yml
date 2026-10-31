@@ -23,5 +23,8 @@ jobs:
           cache: npm
           cache-dependency-path: ade/code-import/package-lock.json
       - run: npm --prefix ade/code-import ci --ignore-scripts
+      - run: npm --prefix ade/ai ci --ignore-scripts
       - run: npm --prefix ade/code-import run check
       - run: npm --prefix ade/code-import test
+      - run: npm --prefix ade/ai run check
+      - run: npm --prefix ade/ai test

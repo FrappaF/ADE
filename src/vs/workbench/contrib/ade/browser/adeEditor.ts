@@ -15,6 +15,7 @@ import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { ModelView, SemanticModel } from '../common/semanticModel.js';
 import { IAdeCodeService } from './adeCodeService.js';
+import { IAdeAiService } from './adeAiService.js';
 import { AdeInput } from './adeInput.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { AdeControls } from './adeControls.js';
@@ -56,12 +57,14 @@ export class AdeEditor extends EditorPane {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@IAdeCodeService private readonly code: IAdeCodeService,
+		@IAdeAiService private readonly ai: IAdeAiService,
 	) {
 		super(AdeEditor.ID, group, telemetryService, themeService, storageService);
 		this._register(code.onDidChange(() => { if (this.root) { this.render(); } }));
+		this._register(ai.onDidChange(() => { if (this.root) { this.render(); } }));
 		this._register(project.onDidChange(() => { if (this.root) { this.render(); } }));
 		this._register(configurationService.onDidChangeConfiguration(event => {
-			if (this.root && event.affectsConfiguration(AccessibilityVerbositySettingId.Ade)) { this.render(); }
+			if (this.root && (event.affectsConfiguration(AccessibilityVerbositySettingId.Ade) || event.affectsConfiguration('chat.disableAIFeatures'))) { this.render(); }
 		}));
 		this._register(keybindingService.onDidUpdateKeybindings(() => { if (this.root) { this.render(); } }));
 	}
@@ -692,6 +695,23 @@ export class AdeEditor extends EditorPane {
 		]) {
 			this.button(toolbar, label, () => { void this.commandService.executeCommand(command); });
 		}
-		this.paragraph(toolbar, localize('ade.aiFuture', "AI collaboration is planned. No provider is connected."));
+		if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) {
+			const collaboration = this.controls.details(toolbar, localize('ade.ai.heading', "AI Collaboration"), 'ai-collaboration');
+			this.paragraph(collaboration, this.ai.status);
+			for (const [label, action, enabled] of [
+				[localize('ade.ai.connectButton', "Connect Claude Code or Codex"), () => this.ai.connect(), true],
+				[localize('ade.ai.cliButton', "Open AI CLI"), () => this.ai.openCli(), true],
+				[localize('ade.ai.implementButton', "Implement Feature"), () => this.ai.implement(), !!this.code.context],
+				[localize('ade.ai.interpretButton', "Interpret Unresolved Evidence"), () => this.ai.interpret(), !!this.code.context],
+				[localize('ade.ai.reviewButton', "Review Changes"), () => this.ai.review(), this.ai.canVerify || this.ai.canApply || this.ai.canUndo],
+				[localize('ade.ai.verifyButton', "Run Tests"), () => this.ai.verify(), this.ai.canVerify],
+				[localize('ade.ai.applyButton', "Apply Verified Changes"), () => this.ai.apply(), this.ai.canApply],
+				[localize('ade.ai.undoButton', "Undo Implementation"), () => this.ai.undo(), this.ai.canUndo],
+				[localize('ade.ai.resumeButton', "Resume Implementation"), () => this.ai.resume(), true],
+				[localize('ade.ai.benchmarkButton', "Compare AI Models"), () => this.ai.benchmark(), true]
+			] as const) {
+				this.button(collaboration, label, () => { void action(); }).disabled = this.ai.busy || !enabled;
+			}
+		}
 	}
 }

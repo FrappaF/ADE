@@ -1,6 +1,6 @@
 {
 	"extends": "../src/tsconfig.json",
-	"include": ["../src/typings", "../src/vs/monaco.d.ts", "../src/vs/workbench/contrib/ade/**/*.ts"],
+	"include": ["../src/typings", "../src/vs/monaco.d.ts", "../src/vs/workbench/contrib/debug/common/debugProtocol.d.ts", "../src/vs/workbench/contrib/ade/**/*.ts"],
 	"exclude": ["../src/vs/workbench/contrib/ade/node/**"],
 	"compilerOptions": {
 		"types": ["@webgpu/types", "mocha", "node/assert", "semver", "sinon", "trusted-types", "winreg", "wicg-file-system-access"],
