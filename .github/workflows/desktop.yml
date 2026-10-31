@@ -70,7 +70,7 @@ jobs:
       - run: npm run electron
       - name: Native ADE AI orchestration tests on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run -a ./scripts/test.sh --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts
+        run: xvfb-run -a ./scripts/test.sh --no-sandbox --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts
       - name: Native ADE AI orchestration tests on macOS
         if: runner.os == 'macOS'
         run: ./scripts/test.sh --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts

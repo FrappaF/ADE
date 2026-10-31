@@ -1305,6 +1305,8 @@ try {
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
 		await enterValue(window, 'Name', 'Pagamento in copia');
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento in copia', exact: true }).waitFor();
+		await shell.getByText('Unsaved Changes', { exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Save Project Copy', exact: true }).click();
 		const copyPicker = window.locator('.quick-input-widget');
 		await copyPicker.getByText('Save Project Copy', { exact: true }).waitFor();
