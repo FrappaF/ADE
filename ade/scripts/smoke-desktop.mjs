@@ -1122,6 +1122,22 @@ try {
 		await shell.getByRole('button', { name: 'Explore Purchase Example', exact: true }).click();
 		await sidebar.locator('section[aria-label="Conferma acquisto"]')
 			.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+		const collaboration = shell.locator('details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
+		await collaboration.locator('summary').click();
+		assert.equal(await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).isEnabled(), true);
+		assert.equal(await collaboration.getByRole('button', { name: 'Open AI CLI', exact: true }).isEnabled(), true);
+		for (const name of ['Implement Feature', 'Run Tests', 'Apply Verified Changes', 'Undo Implementation']) {
+			assert.equal(await collaboration.getByRole('button', { name, exact: true }).isEnabled(), false);
+		}
+		await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).click();
+		await window.locator('.quick-input-widget').getByText('Choose AI CLI', { exact: true }).waitFor();
+		await window.locator('.quick-input-widget').getByText('Codex', { exact: true }).waitFor();
+		await window.locator('.quick-input-widget').getByText('Claude Code', { exact: true }).waitFor();
+		await window.keyboard.press('Escape');
+		await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
+		await window.screenshot({ path: path.join(evidence, 'ai-collaboration.png') });
+		await collaboration.locator('summary').click();
+		console.log('PASS: native AI controls and provider chooser render without inference; implementation, tests, apply and undo require an imported project or reviewed session.');
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
 		await sidebar.getByRole('button', { name: 'Struttura carrello', exact: true }).click();
@@ -1161,7 +1177,7 @@ try {
 		await shell.locator('.ade-properties').getByRole('heading', { name: 'Carrello', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Home', exact: true }).click();
 		assert.equal(await shell.getByRole('button', { name: 'Create Project', exact: false }).isEnabled(), true);
-		assert.equal(await shell.getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), false);
+		assert.equal(await shell.getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), true);
 		await window.screenshot({ path: path.join(evidence, 'home.png') });
 		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 		await window.keyboard.press(`${modifier}+Shift+P`);
