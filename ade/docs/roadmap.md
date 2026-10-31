@@ -41,7 +41,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M2 · Workbench visuale ed editor | IDE centrato su diagrammi e flussi, creazione e modifica senza JSON | M1 | Editor e collaudo M2.3 su Linux; macOS, CI e revisione utente aperti |
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.6 implementati e verificati su Linux; macOS/VoiceOver, CI e revisione UX restano aperti |
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Completato funzionalmente sul perimetro dichiarato: 16 profili, import/Sync nativi, rinomine, evidenze e recupero; verifica Linux e benchmark nel verbale M4 |
-| M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Percorso Node implementato con CLI originali, piano, worktree, test e undo; verifiche locali con provider simulati. Login, percorso grafico e benchmark live da chiudere |
+| M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Criterio funzionale Node/Linux verificato con Codex e account reali: UI, test, riavvio e undo; benchmark su tre campioni (Sol 3/3, Luna 2/3). Chiusura bloccata dalla CI senza runner |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Da sviluppare |
 | M7 · Ambiente dinamico | Esecuzione e diagnostica nel modello | M3, M5, M6 | Da sviluppare |
 | M8 · Beta utilizzabile | Progetto completo sul perimetro supportato | M2–M7 | Da sviluppare |
@@ -279,7 +279,7 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Obiettivo:** trasformare un intento visuale in una modifica funzionante e verificabile.
 
-**Disponibile:** [collaborazione con CLI originali](ai-collaboration.md), login e terminale integrati, modelli dell’account, contesto deterministico da M4, interpretazioni residue separate, piano e domande, generazione strutturata in worktree, test Node, applicazione verificata, undo e recupero dopo interruzione. Il runner confronta due modelli su tre repository campione con controlli indipendenti e rifiuta default privi di misure valide. Il [verbale M5](m5-verification.md) registra test locali e smoke del bundle con CLI simulata; non attribuisce un esito a login, provider, benchmark live o collaudi grafici non eseguiti. La milestone rimane in verifica fino al criterio end-to-end reale.
+**Disponibile:** [collaborazione con CLI originali](ai-collaboration.md), login e terminale integrati, modelli dell’account, contesto deterministico da M4, interpretazioni residue separate, piano e domande, generazione strutturata in worktree, test Node, applicazione verificata, undo e recupero dopo interruzione. Il runner confronta due modelli su tre repository campione con controlli indipendenti e rifiuta default privi di misure valide. Il [verbale M5](m5-verification.md) registra anche login ChatGPT, collaudo grafico con Codex reale, riavvio e ripristino esatto, e benchmark live (Sol 3/3, Luna 2/3). Il criterio funzionale è soddisfatto su Node/Linux; la chiusura resta bloccata dalla CI Linux/macOS che termina prima dell’assegnazione di un runner. Senza tariffe numeriche comparabili non viene selezionato un default economico.
 
 **Attività:**
 
