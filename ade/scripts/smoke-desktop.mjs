@@ -111,8 +111,21 @@ async function pickValue(window, title, label) {
 	const widget = window.locator('.quick-input-widget');
 	await widget.getByText(title, { exact: true }).waitFor();
 	await widget.locator('input:visible').fill(label);
-	await widget.getByText(label, { exact: true }).click();
-	await widget.getByText(title, { exact: true }).waitFor({ state: 'hidden' });
+	// Match the complete item label, not a highlighted substring in another result.
+	const choice = widget.locator('.quick-input-list .quick-input-list-row:first-child .label-name').filter({ hasText: new RegExp(`^${RegExp.escape(label)}$`) });
+	await choice.click();
+	// A following input may reuse the title, as when adding a precondition.
+	await choice.waitFor({ state: 'hidden' });
+}
+
+async function readAccessibleEnd(window, expected) {
+	const reading = window.locator('.accessible-view:visible');
+	await reading.waitFor();
+	// Monaco virtualizes lines outside the viewport; read the lower content through native navigation.
+	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End');
+	for (const text of expected) { await reading.getByText(text, { exact: true }).waitFor(); }
+	// Reopening this provider restores its cursor, so leave its title visible for the next reading.
+	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
 }
 async function chooseFolder(window, folder) {
 	const widget = window.locator('.quick-input-widget');
@@ -167,7 +180,9 @@ async function checkContractEditing(window) {
 	await pickValue(window, 'Field Presence', 'Required');
 	await shell.getByText('Input: amount (Money), Required', { exact: true }).waitFor();
 	await contractEntry(window, 'Contratto pagamento', 'Inputs');
-	await enterValue(window, 'Field Name', 'amount');
+	await window.locator('.quick-input-widget').getByText('Field Name', { exact: true }).waitFor();
+	await window.locator('.quick-input-widget input:visible').fill('amount');
+	await window.keyboard.press('Enter');
 	await window.locator('.quick-input-widget').getByText('A field with this name already exists.', { exact: true }).waitFor();
 	await window.keyboard.press('Escape');
 	await contractEntry(window, 'Contratto pagamento', 'Outputs');
@@ -215,7 +230,7 @@ async function checkContractEditing(window) {
 	}
 	await shell.locator('.ade-properties').getByRole('button', { name: 'Element Details', exact: true }).click();
 	await shell.getByRole('button', { name: 'Read Element Details', exact: true }).click();
-	await window.locator('.accessible-view:visible').getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	await readAccessibleEnd(window, ['Output: receipt (PaymentReceipt), Required']);
 	await window.keyboard.press('Escape');
 	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
 	await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
@@ -1021,7 +1036,7 @@ async function checkDiagramAccessibility(window) {
 	await selected.focus();
 	await window.keyboard.press(openReading);
 	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
-	await reading.getByText('Condition: pagamento non autorizzato', { exact: true }).waitFor();
+	await readAccessibleEnd(window, ['Condition: pagamento autorizzato', 'Condition: pagamento non autorizzato']);
 	await window.keyboard.press('Escape');
 	assert.equal(await selected.evaluate(element => element === document.activeElement), true);
 	await window.keyboard.press(openHelp);
@@ -1034,7 +1049,7 @@ async function checkDiagramAccessibility(window) {
 	assert.equal(await selected.evaluate(element => element === document.activeElement), true);
 	const readButton = shell.getByRole('button', { name: 'Read Diagram', exact: true });
 	await readButton.click();
-	await reading.getByText('Selected Element: Pagamento rifiutato', { exact: true }).waitFor();
+	await readAccessibleEnd(window, ['Selected Element: Pagamento rifiutato']);
 	await window.keyboard.press('Escape');
 	assert.equal(await readButton.evaluate(element => element === document.activeElement), true);
 	const navigation = sidebar.getByRole('button', { name: 'Esito pagamento', exact: true });
@@ -1053,7 +1068,7 @@ async function checkDiagramAccessibility(window) {
 	updated.semantics.elements.find(element => element.id === 'declined').name = 'Refused Payment';
 	await writeFile(modelFile, JSON.stringify(updated));
 	await reading.getByText('Diagram: Accessible Payment', { exact: true }).waitFor();
-	await reading.getByText('Selected Element: Refused Payment', { exact: true }).waitFor();
+	await readAccessibleEnd(window, ['Selected Element: Refused Payment']);
 	await window.screenshot({ path: path.join(evidence, 'accessible-diagram.png') });
 	await window.keyboard.press('Escape');
 	assert.equal(await selected.evaluate(element => element === document.activeElement), true, 'Restores the replacement node after external updates');
