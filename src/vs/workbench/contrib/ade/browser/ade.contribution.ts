@@ -9,7 +9,6 @@ import { IInstantiationService, ServicesAccessor } from '../../../../platform/in
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
@@ -19,9 +18,9 @@ import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
-import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { AdeInput } from './adeInput.js';
+import { AdeStartup } from './adeStartup.js';
 import { AdeEditor } from './adeEditor.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { ADE_VIEW_CONTAINER_ID, ADE_VIEW_ID, AdeView } from './adeView.js';
@@ -180,18 +179,4 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	} }
 ]);
 
-class AdeStartup {
-	static readonly ID = 'workbench.contrib.adeStartup';
-	constructor(
-		@IEditorService editorService: IEditorService,
-		@IConfigurationService configurationService: IConfigurationService,
-		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService
-	) {
-		const explicitFiles = environmentService.filesToOpenOrCreate?.length || environmentService.filesToDiff?.length || environmentService.filesToMerge?.length;
-		// Restoring an A.D.E editor already satisfies startup; reopening it can steal focus from a quick input.
-		if (!environmentService.skipWelcome && !explicitFiles && !(editorService.activeEditor instanceof AdeInput) && configurationService.getValue('workbench.startupEditor') === 'adeHome') {
-			void editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
-		}
-	}
-}
 registerWorkbenchContribution2(AdeStartup.ID, AdeStartup, WorkbenchPhase.AfterRestored);

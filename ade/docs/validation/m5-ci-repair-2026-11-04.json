@@ -142,5 +142,56 @@
 		"assertionsDisabled": false,
 		"newRealProviderInference": false,
 		"remoteGate": "Complete Linux/macOS CI on the updated head remains required"
+	},
+	"resumeStartupFollowup": {
+		"recordedAt": "2026-11-04T19:49:51.345039+00:00",
+		"baselineRevision": "ccfcaa440005cbda0020fe0f810771cfde593207",
+		"workflowRun": 41871938692,
+		"failedMacosJobs": [
+			126770386656,
+			126805784144
+		],
+		"failure": "After restart and Resume Implementation, the model replaces the review while the smoke waits for Applied · Undo Available",
+		"reproduction": "A late startup contribution reopens an existing ADE editor when a review is active or activeEditor is transiently undefined",
+		"repair": "Check all open editors for the existing AdeInput, preserving a resumed review and avoiding a redundant focus change",
+		"startupContributionExtractedForDirectTests": true,
+		"regressionBeforeFix": {
+			"passed": 1,
+			"failed": 2,
+			"runnerGuardPassed": true
+		},
+		"regressionAfterFix": {
+			"passed": 3,
+			"failed": 0,
+			"runnerGuardPassed": true
+		},
+		"combinedProjectLifecycle": {
+			"passedIncludingRunnerGuard": 48,
+			"failed": 0
+		},
+		"nativeM5": {
+			"passed": true,
+			"scope": "Simulated CLI, independent acceptance, apply, restart, resume, exact undo",
+			"logSha256": "398c1c22cc9e5749a69353bc2ef37714bd34699756243b5a440eea309f196435"
+		},
+		"adeTypecheck": "passed",
+		"targetedTypeScriptLint": "passed",
+		"desktopBuild": "passed",
+		"inputSha256": {
+			"src/vs/workbench/contrib/ade/browser/ade.contribution.ts": "fefef5bcb8be3e486c2e7070fa1ad239cfd5a6bb6dc56f67851600d40b39750b",
+			"src/vs/workbench/contrib/ade/browser/adeStartup.ts": "2df13b8210bc6b829d5ec4f8c3e2a8e939398234fe543db69f69a75e25ec9049",
+			"src/vs/workbench/contrib/ade/test/browser/adeStartup.test.ts": "f0629ab64e416d6393129d355e1e2ecc63df6247ac03b7bbd813527d5eafb5ec",
+			".github/workflows/desktop.yml": "1f1162be65f2275abb27d06fafb48e369a5230c2a0a5bf3413204e119308868c"
+		},
+		"newRealProviderInference": false,
+		"temporaryDiagnosticsRemoved": true,
+		"timeoutsIncreased": false,
+		"assertionsOrSuitesDisabled": false,
+		"remoteGate": "Complete Linux/macOS CI on the updated head remains required before merging",
+		"nativeState": {
+			"passed": true,
+			"scope": "Full lifecycle, save/restart, native reading and narrow-window interaction",
+			"logSha256": "43254abe3fc979cc255e6b0b98f5cdaecdc30a005a5a972392cc5c902d851da8"
+		}
 	}
 }
