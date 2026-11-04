@@ -188,7 +188,8 @@ class AdeStartup {
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService
 	) {
 		const explicitFiles = environmentService.filesToOpenOrCreate?.length || environmentService.filesToDiff?.length || environmentService.filesToMerge?.length;
-		if (!environmentService.skipWelcome && !explicitFiles && configurationService.getValue('workbench.startupEditor') === 'adeHome') {
+		// Restoring an A.D.E editor already satisfies startup; reopening it can steal focus from a quick input.
+		if (!environmentService.skipWelcome && !explicitFiles && !(editorService.activeEditor instanceof AdeInput) && configurationService.getValue('workbench.startupEditor') === 'adeHome') {
 			void editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 		}
 	}
