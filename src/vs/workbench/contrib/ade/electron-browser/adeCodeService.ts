@@ -63,6 +63,9 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		const channel = await this.getChannel();
 		return JSON.parse(await channel.call<string>('execute', JSON.stringify(request), token));
 	}
+	async executeCollaboration(request: string, token = CancellationToken.None): Promise<string> {
+		return (await this.getChannel()).call<string>('execute', JSON.stringify({ operation: 'collaboration', request }), token);
+	}
 	private async run(title: string, task: (token: CancellationToken) => Promise<void>): Promise<void> {
 		if (this.busy) { return; }
 		this.busy = true; this.changes.fire();

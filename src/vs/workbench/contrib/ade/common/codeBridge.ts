@@ -11,6 +11,7 @@ export interface CodeScope {
 }
 export interface CodeRename { fromId: string; toSourceId: string }
 export type CodeRequest =
+	| { operation: 'collaboration'; request: string }
 	| { operation: 'import'; root: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
 	| { operation: 'inspect' | 'preview' | 'history'; snapshot: string; scope?: CodeScope; renames?: CodeRename[]; bundles?: string[] }
 	| { operation: 'apply'; token: string }

@@ -2,6 +2,9 @@ name: Validate ADE domain and prototype
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: ade-ci-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -23,5 +26,8 @@ jobs:
           cache: npm
           cache-dependency-path: ade/code-import/package-lock.json
       - run: npm --prefix ade/code-import ci --ignore-scripts
+      - run: npm --prefix ade/ai ci --ignore-scripts
       - run: npm --prefix ade/code-import run check
       - run: npm --prefix ade/code-import test
+      - run: npm --prefix ade/ai run check
+      - run: npm --prefix ade/ai test

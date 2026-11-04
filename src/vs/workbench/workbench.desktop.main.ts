@@ -227,3 +227,4 @@ export { main } from './electron-browser/desktop.main.js';
 
 // Native deterministic code bridge.
 import './contrib/ade/electron-browser/adeCodeService.js';
+import './contrib/ade/electron-browser/adeAiService.js';

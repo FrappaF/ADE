@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, copyFile, readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, copyFile, readFile, readdir, chmod } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -13,6 +13,8 @@ import { validateSemanticModel } from '../../src/vs/workbench/contrib/ade/common
 import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const aiLive = process.argv.includes('--ai-live');
+if (aiLive && !process.env.ADE_AI_MODEL) { throw new Error('--ai-live requires ADE_AI_MODEL from the authenticated Codex account'); }
 const product = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(root, 'product.json'), 'utf8'));
 const executablePath = process.env.ADE_ELECTRON_PATH || path.join(root, '.build/electron', process.platform === 'darwin'
 	? `${product.nameLong}.app/Contents/MacOS/${product.nameShort}`
@@ -30,6 +32,7 @@ await mkdir(evidence, { recursive: true });
 await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'window.dialogStyle': 'custom',
 	'files.simpleDialog.enable': true,
+	'files.autoSave': 'off',
 	'workbench.startupEditor': 'adeHome',
 	'workbench.secondarySideBar.defaultVisibility': 'hidden',
 	'window.restoreWindows': 'all',
@@ -42,6 +45,8 @@ const sequenceOnly = process.argv.includes('--sequence-only');
 const stateOnly = process.argv.includes('--state-only');
 const impactOnly = process.argv.includes('--impact-only');
 const codeOnly = process.argv.includes('--code-only');
+const aiOnly = process.argv.includes('--ai-only') || aiLive;
+const extraCleanup = [];
 const projectsOnly = process.argv.includes('--projects-only');
 const modelFile = path.join(navigationOnly || sequenceOnly || stateOnly || impactOnly ? directory : workspace, 'checkout.ade.json');
 const emptyFile = path.join(workspace, 'empty.ade.json');
@@ -59,7 +64,7 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -100,11 +105,32 @@ async function enterValue(window, title, value) {
 	await widget.getByText(title, { exact: true }).waitFor();
 	await widget.locator('input:visible').fill(value);
 	await window.keyboard.press('Enter');
+	await widget.getByText(title, { exact: true }).waitFor({ state: 'hidden' });
 }
 async function pickValue(window, title, label) {
 	const widget = window.locator('.quick-input-widget');
 	await widget.getByText(title, { exact: true }).waitFor();
-	await widget.getByText(label, { exact: true }).click();
+	await widget.locator('input:visible').fill(label);
+	// Match the complete item label, not a highlighted substring in another result.
+	const choice = widget.locator('.quick-input-list .quick-input-list-row:first-child .label-name').filter({ hasText: new RegExp(`^${RegExp.escape(label)}$`) });
+	await choice.click();
+	// A following input may reuse the title, as when adding a precondition.
+	await choice.waitFor({ state: 'hidden' });
+}
+
+async function readAccessibleText(window, expected) {
+	const reading = window.locator('.accessible-view:visible');
+	await reading.waitFor();
+	// Native Find reveals each expected line regardless of viewport size or trailing contract details.
+	for (const text of expected) {
+		await window.keyboard.press(process.platform === 'darwin' ? 'Meta+f' : 'Control+f');
+		await reading.locator('.find-widget .find-part :is(input, textarea)').fill(text);
+		// Exclude the Find input's mirrored text: the document line itself must be rendered.
+		await reading.locator('.view-lines').getByText(text, { exact: true }).waitFor();
+		await window.keyboard.press('Escape');
+	}
+	// Reopening this provider restores its cursor, so leave its title visible for the next reading.
+	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
 }
 async function chooseFolder(window, folder) {
 	const widget = window.locator('.quick-input-widget');
@@ -159,7 +185,9 @@ async function checkContractEditing(window) {
 	await pickValue(window, 'Field Presence', 'Required');
 	await shell.getByText('Input: amount (Money), Required', { exact: true }).waitFor();
 	await contractEntry(window, 'Contratto pagamento', 'Inputs');
-	await enterValue(window, 'Field Name', 'amount');
+	await window.locator('.quick-input-widget').getByText('Field Name', { exact: true }).waitFor();
+	await window.locator('.quick-input-widget input:visible').fill('amount');
+	await window.keyboard.press('Enter');
 	await window.locator('.quick-input-widget').getByText('A field with this name already exists.', { exact: true }).waitFor();
 	await window.keyboard.press('Escape');
 	await contractEntry(window, 'Contratto pagamento', 'Outputs');
@@ -207,7 +235,7 @@ async function checkContractEditing(window) {
 	}
 	await shell.locator('.ade-properties').getByRole('button', { name: 'Element Details', exact: true }).click();
 	await shell.getByRole('button', { name: 'Read Element Details', exact: true }).click();
-	await window.locator('.accessible-view:visible').getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+	await readAccessibleText(window, ['Output: receipt (PaymentReceipt), Required']);
 	await window.keyboard.press('Escape');
 	await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
 	await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
@@ -276,6 +304,109 @@ async function checkCodeBridge() {
 	await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true }, null, 2));
 	await app.close(); app = undefined;
 	console.log('PASS: native code import, compiler references, contract/rename/delete Sync, source navigation, restart and recovery.');
+}
+
+async function checkAiWorkflow() {
+	const { fixture, original } = await import('../ai/test/fixtures.mjs');
+	const { readSession } = await import('../ai/implementation.ts');
+	const { runProcess } = await import('../ai/process.ts');
+	const f = await fixture({ after: callback => extraCleanup.push(callback) });
+	const executable = aiLive ? (process.env.ADE_AI_EXECUTABLE || 'codex') : path.join(f.directory, 'simulated-codex.mjs');
+	const model = aiLive ? process.env.ADE_AI_MODEL : 'simulated-m5-model';
+	const resultFile = path.join(evidence, aiLive ? 'm5-live-results.json' : 'm5-native-results.json');
+	await rm(resultFile, { force: true });
+	if (aiLive) {
+		const { readProviderConfig } = await import('../ai/contracts.ts');
+		readProviderConfig({ version: 1, provider: 'codex', connection: 'cli', executable, model, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 2 });
+	}
+	const counter = path.join(f.directory, 'calls');
+	if (!aiLive) {
+		await writeFile(counter, '0');
+		await writeFile(executable, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
+const args=process.argv.slice(2),schema=JSON.parse(readFileSync(args[args.indexOf('--output-schema')+1],'utf8'));
+const counter=${JSON.stringify(counter)};
+writeFileSync(counter,String(Number(readFileSync(counter,'utf8'))+1));
+writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(schema.properties.steps?${JSON.stringify(f.plan)}:${JSON.stringify(f.generated)}));
+writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_tokens:20}})+'\\n');\n`);
+		await chmod(executable, 0o700);
+	}
+	let window = await launch();
+	await openModelFile(window, path.join(f.snapshot, 'model.ade.json'));
+	await window.locator('.ade-shell').getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
+	await pickValue(window, 'Choose AI CLI', 'Codex');
+	await pickValue(window, 'Codex', 'Choose Model and CLI');
+	const widget = window.locator('.quick-input-widget');
+	await widget.getByText(/^(Model ID from Your CLI|Choose a Model Available to Your Account)$/).waitFor();
+	if (await widget.getByText('Model ID from Your CLI', { exact: true }).isVisible()) {
+		await enterValue(window, 'Model ID from Your CLI', model);
+	} else if (aiLive) {
+		await pickValue(window, 'Choose a Model Available to Your Account', process.env.ADE_AI_MODEL_LABEL || model);
+	} else { await window.keyboard.press('Enter'); }
+	await enterValue(window, 'Original CLI Executable', executable);
+	await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan and Implementation · At Most Two Agent Runs');
+	if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 0); }
+	await runCommand(window, 'A.D.E: Implement Feature');
+	await pickValue(window, 'Implement Feature', 'checkout');
+	await enterValue(window, 'Requested Behavior', `For the supported boolean inputs, checkout(false) must return exactly 'declined' and checkout(true) must retain exactly 'paid'. No behavior for non-boolean inputs is requested.`);
+	await widget.getByText('Review Source Files to Share · Suggested from Model Evidence', { exact: true }).waitFor();
+	await window.keyboard.press('Enter');
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Send Context', exact: true }).click();
+	console.log('M5: context approved; awaiting the CLI plan.');
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate in Worktree', exact: true }).click({ timeout: aiLive ? 200000 : 30000 });
+	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Changes Ready for Review' }).last().waitFor({ timeout: aiLive ? 200000 : 30000 });
+	console.log('M5: implementation staged; checking independent acceptance.');
+	const ids = await readdir(path.join(f.root, '.ade/collaboration'));
+	assert.equal(ids.length, 1);
+	const session = await readSession(f.root, ids[0]);
+	if (aiLive) { assert.equal(session.prepared.config.model, model); }
+	const checkBehavior = async folder => {
+		const result = await runProcess(process.execPath, ['--input-type=module', '-e', `import assert from 'node:assert/strict'; import {checkout} from './checkout.mjs'; assert.deepEqual([checkout(false), checkout(true)], ['declined', 'paid']);`], folder);
+		assert.equal(result.code, 0, 'Independent payment refusal and approval checks must pass');
+	};
+	await checkBehavior(session.worktree);
+	const returnToModel = async () => {
+		await runCommand(window, 'A.D.E: Return to Model');
+		const collaboration = window.locator('.ade-shell details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
+		if (!await collaboration.evaluate(element => element.open)) { await collaboration.locator('summary').click(); }
+		return collaboration;
+	};
+	let collaboration = await returnToModel();
+	await collaboration.getByText('Changes Ready for Review', { exact: true }).waitFor();
+	if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 2); }
+	assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), original);
+	await collaboration.getByRole('button', { name: 'Run Tests', exact: true }).click();
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Run Tests', exact: true }).click();
+	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Tests Passed · Ready to Apply' }).last().waitFor();
+	collaboration = await returnToModel();
+	await collaboration.getByText('Tests Passed · Ready to Apply', { exact: true }).waitFor();
+	await collaboration.getByRole('button', { name: 'Apply Verified Changes', exact: true }).click();
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Apply Changes', exact: true }).click();
+	await collaboration.getByText('Applied · Undo Available', { exact: true }).waitFor();
+	for (const file of session.generated.files) {
+		if (file.content === null) { await assert.rejects(readFile(path.join(f.root, file.file)), { code: 'ENOENT' }); }
+		else { assert.deepEqual(await readFile(path.join(f.root, file.file)), Buffer.from(file.content)); }
+	}
+	await checkBehavior(f.root);
+	await window.screenshot({ path: path.join(evidence, aiLive ? 'm5-live-applied.png' : 'm5-applied.png') });
+	await app.close(); app = undefined;
+	window = await launch();
+	await window.locator('.ade-shell').getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await runCommand(window, 'A.D.E: Resume Implementation');
+	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Applied · Undo Available' }).last().waitFor();
+	collaboration = await returnToModel();
+	await collaboration.getByRole('button', { name: 'Undo Implementation', exact: true }).click();
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Undo Implementation', exact: true }).click();
+	await collaboration.getByText('Changes Undone', { exact: true }).waitFor();
+	assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), original);
+	if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 2); }
+	for (const before of session.before) {
+		if (before.content === null) { await assert.rejects(readFile(path.join(f.root, before.file)), { code: 'ENOENT' }); }
+		else { assert.deepEqual(await readFile(path.join(f.root, before.file)), Buffer.from(before.content)); }
+	}
+	await writeFile(resultFile, JSON.stringify({ kind: aiLive ? 'native-ui-with-live-codex' : 'native-ui-with-simulated-cli', recordedAt: new Date().toISOString(), externalProviderValidated: aiLive, model: session.prepared.config.model, calls: 2, usage: session.usage, passingTests: true, independentAcceptancePassed: true, applied: true, restartResume: true, undone: true, sourcePreserved: true }, null, 2));
+	await app.close(); app = undefined;
+	console.log(aiLive ? 'PASS: native M5 with live Codex, independent acceptance, apply, restart, resume and exact undo.' : 'PASS: native M5 context disclosure, plan approval, simulated CLI subprocess, independent acceptance, worktree tests, apply, restart, resume and undo; no external provider is validated.');
 }
 
 async function checkIndependentProjects() {
@@ -675,11 +806,7 @@ async function checkSequenceDiagram() {
 	await pickValue(window, 'Field Presence', 'Required');
 	await shell.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
 	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
-	const reading = window.locator('.accessible-view:visible');
-	await reading.getByText('Message 1', { exact: true }).waitFor();
-	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End');
-	await reading.getByText('Message 8', { exact: true }).waitFor();
-	await reading.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
+	await readAccessibleText(window, ['Message 1', 'Message 8', 'Output: orderId (OrderReference), Required']);
 	await window.keyboard.press('Escape');
 	await window.locator('.ade-sidebar').getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
 	await shell.locator('.ade-node').getByText('Conferma ordine', { exact: true }).click();
@@ -910,7 +1037,7 @@ async function checkDiagramAccessibility(window) {
 	await selected.focus();
 	await window.keyboard.press(openReading);
 	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
-	await reading.getByText('Condition: pagamento non autorizzato', { exact: true }).waitFor();
+	await readAccessibleText(window, ['Condition: pagamento autorizzato', 'Condition: pagamento non autorizzato']);
 	await window.keyboard.press('Escape');
 	assert.equal(await selected.evaluate(element => element === document.activeElement), true);
 	await window.keyboard.press(openHelp);
@@ -923,7 +1050,7 @@ async function checkDiagramAccessibility(window) {
 	assert.equal(await selected.evaluate(element => element === document.activeElement), true);
 	const readButton = shell.getByRole('button', { name: 'Read Diagram', exact: true });
 	await readButton.click();
-	await reading.getByText('Selected Element: Pagamento rifiutato', { exact: true }).waitFor();
+	await readAccessibleText(window, ['Selected Element: Pagamento rifiutato']);
 	await window.keyboard.press('Escape');
 	assert.equal(await readButton.evaluate(element => element === document.activeElement), true);
 	const navigation = sidebar.getByRole('button', { name: 'Esito pagamento', exact: true });
@@ -942,7 +1069,7 @@ async function checkDiagramAccessibility(window) {
 	updated.semantics.elements.find(element => element.id === 'declined').name = 'Refused Payment';
 	await writeFile(modelFile, JSON.stringify(updated));
 	await reading.getByText('Diagram: Accessible Payment', { exact: true }).waitFor();
-	await reading.getByText('Selected Element: Refused Payment', { exact: true }).waitFor();
+	await readAccessibleText(window, ['Selected Element: Refused Payment']);
 	await window.screenshot({ path: path.join(evidence, 'accessible-diagram.png') });
 	await window.keyboard.press('Escape');
 	assert.equal(await selected.evaluate(element => element === document.activeElement), true, 'Restores the replacement node after external updates');
@@ -1106,6 +1233,7 @@ async function checkVisualUX() {
 }
 
 try {
+	if (aiOnly) { await checkAiWorkflow(); }
 	if (codeOnly) { await checkCodeBridge(); }
 	if (projectsOnly) { await checkIndependentProjects(); }
 	if (impactOnly) { await checkModelImpact(); }
@@ -1113,7 +1241,7 @@ try {
 	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly && !aiOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -1122,6 +1250,22 @@ try {
 		await shell.getByRole('button', { name: 'Explore Purchase Example', exact: true }).click();
 		await sidebar.locator('section[aria-label="Conferma acquisto"]')
 			.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+		const collaboration = shell.locator('details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
+		await collaboration.locator('summary').click();
+		assert.equal(await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).isEnabled(), true);
+		assert.equal(await collaboration.getByRole('button', { name: 'Open AI CLI', exact: true }).isEnabled(), true);
+		for (const name of ['Implement Feature', 'Run Tests', 'Apply Verified Changes', 'Undo Implementation']) {
+			assert.equal(await collaboration.getByRole('button', { name, exact: true }).isEnabled(), false);
+		}
+		await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).click();
+		await window.locator('.quick-input-widget').getByText('Choose AI CLI', { exact: true }).waitFor();
+		await window.locator('.quick-input-widget').getByText('Codex', { exact: true }).waitFor();
+		await window.locator('.quick-input-widget').getByText('Claude Code', { exact: true }).waitFor();
+		await window.keyboard.press('Escape');
+		await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
+		await window.screenshot({ path: path.join(evidence, 'ai-collaboration.png') });
+		await collaboration.locator('summary').click();
+		console.log('PASS: native AI controls and provider chooser render without inference; implementation, tests, apply and undo require an imported project or reviewed session.');
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
 		await sidebar.getByRole('button', { name: 'Struttura carrello', exact: true }).click();
@@ -1161,7 +1305,7 @@ try {
 		await shell.locator('.ade-properties').getByRole('heading', { name: 'Carrello', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Home', exact: true }).click();
 		assert.equal(await shell.getByRole('button', { name: 'Create Project', exact: false }).isEnabled(), true);
-		assert.equal(await shell.getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), false);
+		assert.equal(await shell.getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), true);
 		await window.screenshot({ path: path.join(evidence, 'home.png') });
 		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 		await window.keyboard.press(`${modifier}+Shift+P`);
@@ -1262,6 +1406,7 @@ try {
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
 		await enterValue(window, 'Name', 'Pagamento aggiornato');
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento aggiornato', exact: true }).waitFor();
 		await shell.getByText('Unsaved Changes', { exact: true }).waitFor();
 		const external = structuredClone(saved);
 		external.name = 'External system';
@@ -1287,6 +1432,8 @@ try {
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
 		await enterValue(window, 'Name', 'Pagamento in copia');
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento in copia', exact: true }).waitFor();
+		await shell.getByText('Unsaved Changes', { exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Save Project Copy', exact: true }).click();
 		const copyPicker = window.locator('.quick-input-widget');
 		await copyPicker.getByText('Save Project Copy', { exact: true }).waitFor();
@@ -1309,7 +1456,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));
@@ -1327,6 +1474,8 @@ try {
 	if (electronOutput) { console.error(electronOutput); }
 	if (app) {
 		for (const [index, window] of app.windows().entries()) {
+			const state = await window.locator('.ade-shell, .quick-input-widget:visible, .notifications-toasts:visible').allInnerTexts().catch(() => []);
+			console.error(`Workbench state ${index}: ${state.join('\n').slice(-10000)}`);
 			await window.screenshot({ path: path.join(evidence, `failure-${index}.png`) }).catch(() => {});
 		}
 	}
@@ -1334,5 +1483,6 @@ try {
 } finally {
 	try { await app?.close(); } finally {
 		await rm(directory, { recursive: true, force: true });
+		for (const callback of extraCleanup.reverse()) { await callback(); }
 	}
 }

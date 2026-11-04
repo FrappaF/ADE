@@ -12,7 +12,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: desktop-${{ github.ref }}
+  group: desktop-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   desktop:
@@ -55,8 +55,12 @@ jobs:
       - run: npm run ade:check
       - name: Build desktop client
         run: npm run build-fast -- --client-only
+      - name: Smoke ADE packaged AI workflow with a simulated CLI
+        run: node ade/scripts/smoke-ai.mjs
+      - name: Test ADE AI controller with injected services
+        run: node ade/scripts/test-ai-service.mjs
       - name: Test ADE project lifecycle
-        run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeBehaviorEditing.test.ts
+        run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeBehaviorEditing.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeStartup.test.ts
       - name: Typecheck production sources
         run: node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
       - name: Build bundled extensions
@@ -64,6 +68,18 @@ jobs:
       - name: Build upstream Copilot extension
         run: npm run compile-copilot
       - run: npm run electron
+      - name: Native ADE AI orchestration tests on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ./scripts/test.sh --no-sandbox --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts
+      - name: Native ADE AI orchestration tests on macOS
+        if: runner.os == 'macOS'
+        run: ./scripts/test.sh --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts
+      - name: Native ADE AI workflow with simulated CLI on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --ai-only
+      - name: Native ADE AI workflow with simulated CLI on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --ai-only
       - name: Native visual workbench smoke on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --native-only

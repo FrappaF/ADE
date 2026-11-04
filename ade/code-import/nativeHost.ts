@@ -16,9 +16,10 @@ import { readRenameHints } from './identity.ts';
 import { createTypeScriptBundle } from './typescriptSemantic.ts';
 import { applyScipBundles, readScipBundle } from './scip.ts';
 import { isSourcePath } from './paths.ts';
+import { executeCollaboration } from '../ai/engine.ts';
 
 const nonempty = { type: 'string', minLength: 1 };
-const valid = new Ajv2020().compile<CodeRequest>({ oneOf: [
+const valid = new Ajv2020().compile<Exclude<CodeRequest, { operation: 'collaboration' }>>({ oneOf: [
 	{ type: 'object', additionalProperties: false, required: ['operation', 'root'], properties: { operation: { const: 'import' }, root: nonempty, scope: { type: 'object' }, syntaxOnly: { type: 'boolean' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot'], properties: { operation: { enum: ['inspect', 'preview', 'history'] }, snapshot: nonempty, scope: { type: 'object' }, renames: { type: 'array' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'token'], properties: { operation: { const: 'apply' }, token: nonempty } },
@@ -92,6 +93,9 @@ export const engine: CodeEngine = {
 	async execute(input, signal): Promise<string> {
 		if (Buffer.byteLength(input) > 1024 * 1024) { throw new Error('Request exceeds 1 MiB'); }
 		const request: unknown = JSON.parse(input);
+		if (request && typeof request === 'object' && 'operation' in request && request.operation === 'collaboration' && 'request' in request && typeof request.request === 'string' && Object.keys(request).length === 2) {
+			return executeCollaboration(request.request, signal);
+		}
 		if (!valid(request)) { throw new Error('Invalid code bridge request'); }
 		signal?.throwIfAborted();
 		if ('scope' in request && request.scope) { readSourceScope(request.scope); }

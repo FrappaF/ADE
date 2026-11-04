@@ -11,6 +11,9 @@
   "private": true,
   "scripts": {
     "ade:bundle-code": "node ade/scripts/build-code-import.mjs",
+    "ade:ai:check": "npm --prefix ade/ai run check",
+    "ade:ai:test": "npm --prefix ade/ai test",
+    "ade:ai:service-test": "node ade/scripts/test-ai-service.mjs",
     "ade:check": "tsc6 --project ade/tsconfig.json --noEmit",
     "ade:test": "node --test ade/test/*.test.mjs",
     "ade:schema": "node ade/scripts/export-schema.mjs",
