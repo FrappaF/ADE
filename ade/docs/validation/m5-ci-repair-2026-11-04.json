@@ -110,5 +110,37 @@
 	"inputSha256": {
 		"ade/scripts/smoke-desktop.mjs": "a2fe5bdb974ca2fb13b13245403eab8a53e777dbc8365308730a8cf310e98c06",
 		"src/vs/workbench/contrib/ade/browser/ade.contribution.ts": "c1f1e4445b925ac21436db07391ac78b2b16a367990b6c7d1687e838915cac0f"
+	},
+	"followup": {
+		"recordedAt": "2026-11-04T16:52:44.701107+00:00",
+		"baselineRevision": "db8b81606567febd28a7a87801541e476f884e5a",
+		"workflowRun": 41867860114,
+		"ubuntuJob": {
+			"id": 126707126658,
+			"conclusion": "success",
+			"scope": "complete desktop workflow"
+		},
+		"macosJob": {
+			"id": 126707126268,
+			"conclusion": "failure",
+			"check": "sequence accessible reading",
+			"error": "Message 8 is not necessarily visible when navigating to the end of a longer contract"
+		},
+		"repair": "Native Find reveals each exact expected text; assertions are scoped to document view-lines, excluding the input mirror; return to the top before reopening",
+		"checks": {
+			"sequence": {
+				"passed": true,
+				"logSha256": "553c2d2624d508c605da4d330844acfd8132790eef6cdac346ef7811a48bc442"
+			},
+			"uxAccessibility": {
+				"passed": true,
+				"logSha256": "c3519936abf2c870efc92ed4f071616cbd4d11334b5b9dea34d6c1317f502d8f"
+			}
+		},
+		"scriptSha256": "b09fcbe4f714c4ddc5e451d1301c8c107e6976b4d2d371bb54adca7b38242d7a",
+		"timeoutsIncreased": false,
+		"assertionsDisabled": false,
+		"newRealProviderInference": false,
+		"remoteGate": "Complete Linux/macOS CI on the updated head remains required"
 	}
 }
