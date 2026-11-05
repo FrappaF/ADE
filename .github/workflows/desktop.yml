@@ -59,7 +59,7 @@ jobs:
         run: node ade/scripts/smoke-ai.mjs
       - name: Test ADE AI controller with injected services
         run: node ade/scripts/test-ai-service.mjs
-      - name: Test ADE CLI executable lookup
+      - name: Test ADE CLI executable lookup and account status
         run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/node/adeCliExecutable.test.ts --run src/vs/workbench/contrib/ade/test/node/adeCliAccount.test.ts
       - name: Test ADE project lifecycle
         run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts --run src/vs/workbench/contrib/ade/test/browser/workingCopyRecovery.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeBehaviorEditing.test.ts --run src/vs/workbench/contrib/ade/test/browser/adeStartup.test.ts
