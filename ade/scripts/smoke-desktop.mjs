@@ -432,6 +432,7 @@ async function checkIndependentProjects() {
 	await shell.getByRole('button', { name: 'Create Project', exact: true }).click();
 	await enterValue(window, 'Name', 'Laboratorio da zero');
 	await chooseFolder(window, folder);
+	args[1] = folder;
 	await shell.getByText('This project has no diagrams.', { exact: false }).waitFor();
 	const projectFile = path.join(folder, '.ade/model.json');
 	const empty = JSON.parse(await readFile(projectFile, 'utf8'));
@@ -916,7 +917,8 @@ async function checkSemanticNavigation() {
 	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
 	await shell.getByRole('button', { name: 'Back', exact: true }).click();
 	assert.equal(await connection.evaluate(element => element.parentElement.open), true, 'Map disclosure survives a semantic visit');
-	await shell.locator('.ade-navigation').getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
+	await shell.locator('.ade-navigation').getByRole('button', { name: 'Choose Diagram', exact: true }).click();
+	await pickValue(window, 'Choose Diagram', 'Percorso acquisto');
 	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
 	await searchSystem(window, 'Contract', 'Pagamento');
 	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
