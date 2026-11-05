@@ -265,12 +265,13 @@ async function checkCodeBridge() {
 	await widget.locator('input:visible').fill(sourceRoot + path.sep);
 	await widget.getByRole('button', { name: 'OK', exact: true }).click();
 	await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
-	await shell.getByRole('button', { name: 'Sync Project', exact: true }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	const snapshot = async () => {
 		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
 		const folder = path.join(sourceRoot, '.ade/imports', pointer.active);
 		return { folder, state: JSON.parse(await readFile(path.join(folder, 'import-state.json'), 'utf8')), model: JSON.parse(await readFile(path.join(folder, 'model.ade.json'), 'utf8')) };
 	};
+	await shell.getByText(/^Code Snapshot · [0-9]+ Files$/).waitFor({ timeout: 90000 });
 	const initial = await snapshot();
 	assert.ok(initial.state.semantic.dependencies.length >= 1);
 	assert.equal(initial.state.files.find(file => file.file === 'unsupported.vb').status, 'unsupported');
@@ -292,6 +293,7 @@ async function checkCodeBridge() {
 	assert.deepEqual(updated.state.analysis.parsed, ['checkout.ts']);
 	assert.ok(updated.state.analysis.reused.includes('gateway.ts'));
 	assert.ok(!updated.state.files.some(file => file.file === 'obsolete.py'));
+	await shell.getByRole('button', { name: 'Code Evidence', exact: true, disabled: false }).waitFor();
 	await runCommand(window, 'A.D.E: Inspect Code Evidence');
 	await widget.locator('input:visible').fill('purchase');
 	await window.keyboard.press('Enter');
@@ -300,14 +302,14 @@ async function checkCodeBridge() {
 	await window.screenshot({ path: path.join(evidence, 'm4-code-sync.png') });
 	await app.close(); app = undefined;
 	window = await launch(); shell = window.locator('.ade-shell');
-	await shell.getByRole('button', { name: 'Sync Project', exact: true }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	await shell.getByRole('button', { name: 'Home', exact: true }).click();
 	await shell.getByRole('button', { name: 'Open Project', exact: true }).click();
 	await chooseFolder(window, sourceRoot);
-	await shell.getByRole('button', { name: 'Sync Project', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor();
 	await runCommand(window, 'A.D.E: Restore Code Model Snapshot');
 	await window.locator('.quick-input-widget').getByText(path.basename(initial.folder), { exact: true }).click();
-	await shell.getByRole('button', { name: 'Sync Project', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor();
 	assert.equal((await snapshot()).folder, initial.folder);
 	assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('purchase'));
 	await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true }, null, 2));
@@ -343,7 +345,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	}
 	let window = await launch();
 	await openModelFile(window, path.join(f.snapshot, 'model.ade.json'));
-	await window.locator('.ade-shell').getByRole('button', { name: 'Sync Project', exact: true }).waitFor({ timeout: 90000 });
+	await window.locator('.ade-shell').getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
 	await pickValue(window, 'Choose AI CLI', 'Codex');
 	await pickValue(window, 'Codex', 'Choose Model and CLI');
@@ -404,7 +406,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	await window.screenshot({ path: path.join(evidence, aiLive ? 'm5-live-applied.png' : 'm5-applied.png') });
 	await app.close(); app = undefined;
 	window = await launch();
-	await window.locator('.ade-shell').getByRole('button', { name: 'Sync Project', exact: true }).waitFor({ timeout: 90000 });
+	await window.locator('.ade-shell').getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	await runCommand(window, 'A.D.E: Resume Implementation');
 	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Applied · Undo Available' }).last().waitFor();
 	collaboration = await returnToModel();
