@@ -6,7 +6,7 @@
 import assert from 'assert';
 import sinon from 'sinon';
 import { DeferredPromise } from '../../../../../base/common/async.js';
-import { Emitter, Event } from '../../../../../base/common/event.js';
+import { Emitter } from '../../../../../base/common/event.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
@@ -59,6 +59,9 @@ suite('A.D.E native AI orchestration', () => {
 		const requests: string[] = [];
 		let signIns = 0, disabled = false;
 		let terminalError: Error | undefined;
+		let terminalFocus: Promise<void> = Promise.resolve();
+		const focusRequested = new DeferredPromise<void>();
+		const terminalExit = store.add(new Emitter<number>());
 		const account: { status: ICodexAccountViewInfo['status']; authUrl?: string } = { status: 'signedOut' };
 		const accountChanged = store.add(new Emitter<ICodexAccountViewInfo>());
 		let trust: Promise<boolean> | undefined;
@@ -74,7 +77,7 @@ suite('A.D.E native AI orchestration', () => {
 		stub(IDialogService, { confirm: async () => ({ confirmed: true }) });
 		stub(IFileService, { createFolder: async () => {}, writeFile: async () => {} });
 		stub(IEditorService, { openEditor: async () => undefined });
-		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => {}, onExit: Event.None }; }, setActiveInstance: () => {} });
+		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => { await focusRequested.complete(); await terminalFocus; }, onExit: terminalExit.event }; }, setActiveInstance: () => {} });
 		stub(ITerminalGroupService, { showPanel: async () => {} });
 		stub(IChatWidgetService, { openSession: async () => undefined });
 		stub(ICodexAccountService, { account, onDidChangeAccount: accountChanged.event, signIn: () => signIns++ });
@@ -97,6 +100,7 @@ suite('A.D.E native AI orchestration', () => {
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
 		return { service, operations, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, errors, infos, terminals, requests, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+			holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
 	}
@@ -153,6 +157,17 @@ suite('A.D.E native AI orchestration', () => {
 		await f.service.implement();
 		assert.deepStrictEqual(f.requests, ['prepare', 'plan']);
 		assert.match(f.service.status, /Plan Ready.*One-Run Budget/);
+	});
+	test('a login that exits before terminal focus still refreshes the CLI account', async () => {
+		const f = fixture(false); const focus = new DeferredPromise<void>();
+		f.setAccountState({ status: 'signedOut' }); f.holdTerminalFocus(focus.p);
+		f.picks.push(items => items.find(item => item.provider === 'codex'), items => items.find(item => item.id === 'cliLogin'));
+		const connecting = f.service.connect();
+		await f.focusRequested;
+		f.setAccountState({ status: 'signedIn' }); f.exitTerminal();
+		await focus.complete(); await connecting;
+		assert.match(f.service.connectionStatus, /CLI Account Connected/);
+		assert.deepStrictEqual(f.requests, []);
 	});
 	test('model selection decodes the native Codex account ID and saves an explicit request budget', async () => {
 		const f = fixture(false);

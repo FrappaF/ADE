@@ -403,6 +403,10 @@
 	border-width: 2px;
 }
 
+.ade-shell .ade-node[aria-pressed="true"]::before {
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
 .ade-shell .ade-sequence-participant {
 	min-height: 88px;
 }

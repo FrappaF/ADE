@@ -252,8 +252,9 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			if (!executable) { return; }
 			const nativeCodexLogin = !useCli && provider === 'codex' && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this.config || this.config!.provider !== 'codex' || this.config.executable === 'codex') && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready');
 			if (nativeCodexLogin) { this.nativeSignIn(); return; }
-			const terminal = await openAdeTerminal(this.terminals, this.terminalGroups, { name: provider === 'codex' ? 'Codex Login' : 'Claude Code', executable, args: provider === 'codex' ? ['login'] : ['auth', 'login'], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
-			if (terminal?.onExit) { this.loginWatch.add(terminal.onExit(() => { void this.checkAccount(provider, executable); })); }
+			let exited = false;
+			await openAdeTerminal(this.terminals, this.terminalGroups, { name: provider === 'codex' ? 'Codex Login' : 'Claude Code', executable, args: provider === 'codex' ? ['login'] : ['auth', 'login'], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) }, terminal => { this.loginWatch.add(terminal.onExit(() => { exited = true; void this.checkAccount(provider, executable); })); });
+			if (exited) { return; }
 			const message = localize('ade.ai.terminalLogin', "Complete {0} sign-in in the integrated terminal, then choose Refresh Account and Models.", provider === 'codex' ? 'Codex' : 'Claude Code');
 			this.setConnectionStatus(message);
 			this.notifications.info(message);
@@ -308,6 +309,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		], { title: localize('ade.ai.budget', "Agent Run Budget · Provider Usage Is Managed by Its CLI") });
 		if (!budget) { this.info(localize('ade.ai.noBudget', "No Budget Selected. AI Configuration Was Not Saved.")); return; }
 		this.config = { version: 1, provider, connection: 'cli', model, executable, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: budget.maxCalls };
+		this.loginWatch.clear(); this.accountGeneration++;
 		this._connectionStatus = undefined;
 		this.info(localize('ade.ai.configured', "AI Model and Budget Saved. Continue with the Feature Implementation."));
 		this.storage.store('ade.ai.cliConfig', JSON.stringify(this.config), StorageScope.PROFILE, StorageTarget.MACHINE);

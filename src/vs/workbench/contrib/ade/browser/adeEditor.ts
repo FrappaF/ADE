@@ -127,7 +127,7 @@ export class AdeEditor extends EditorPane {
 	private render(): void {
 		if (this.lastElementSelection !== this.project.selectedId || !this.project.activeView?.relationIds.includes(this.relationSelection ?? '')) { this.relationSelection = undefined; }
 		this.lastElementSelection = this.project.selectedId;
-		if (this.pendingConnection && this.pendingConnection.version !== this.project.documentVersion) { this.pendingConnection = undefined; }
+		if (this.pendingConnection && (this.pendingConnection.version !== this.project.documentVersion || this.pendingConnection.viewId !== this.project.activeView?.id)) { this.pendingConnection = undefined; }
 		this.root.setAttribute('aria-description', getAdeAccessibilityHint(this.configurationService, this.keybindingService));
 		if (this.renderedContext) {
 			if (this.canvasViewport) { this.scrollPositions.set(this.renderedContext, { left: this.canvasViewport.scrollLeft, top: this.canvasViewport.scrollTop }); }

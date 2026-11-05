@@ -31,6 +31,7 @@ await mkdir(workspace);
 await mkdir(evidence, { recursive: true });
 await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'window.dialogStyle': 'custom',
+	'window.menuStyle': 'custom',
 	'files.simpleDialog.enable': true,
 	'files.autoSave': 'off',
 	'workbench.startupEditor': 'adeHome',
@@ -1269,6 +1270,14 @@ async function checkManualFollowup() {
 	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
 	assert.equal(await shell.locator('g.ade-connection').count(), initial);
 	console.log('Followup: canvas creation, cancellation and undo checked.');
+	await source.click({ button: 'right' });
+	await window.getByRole('menuitem', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
+	await pickValue(window, 'Relationship Type', 'Dependency');
+	await shell.getByRole('button', { name: 'Choose Diagram', exact: true }).click();
+	await pickValue(window, 'Choose Diagram', 'Esito pagamento');
+	assert.equal(await shell.getByText('Choose a Compatible Target on the Canvas', { exact: false }).count(), 0, 'Changing diagrams cancels the pending relationship');
+	await shell.getByRole('button', { name: 'Choose Diagram', exact: true }).click();
+	await pickValue(window, 'Choose Diagram', 'Percorso acquisto');
 	const relation = shell.locator('.ade-connection-label').filter({ hasText: /^Write · crea ordine/ });
 	await relation.click({ button: 'right' });
 	await window.getByRole('menuitem', { name: 'Edit Relationship…', exact: true }).waitFor();
