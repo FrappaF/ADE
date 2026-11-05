@@ -16,6 +16,7 @@ import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { AgentHostCodexAgentCodexHomeSettingId } from '../../../../platform/agentHost/common/agentService.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
@@ -26,11 +27,12 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IShellEnvironmentService } from '../../../services/environment/electron-browser/shellEnvironmentService.js';
 import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
+import { AdeInput } from '../browser/adeInput.js';
 import { IAdeProjectWorkspaceService, AdeProjectWorkspace } from '../browser/adeProjectWorkspace.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
-import { adeCodeChannel, CliAccountState, CliRuntimeEnvironment, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeSource } from '../common/codeBridge.js';
+import { adeCodeChannel, CliAccountState, CliRuntimeEnvironment, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeSource } from '../common/codeBridge.js';
 
-/** Native orchestration: analysis is explicit and cancellable; source files are never rewritten. */
+/** Native orchestration: deterministic evidence, reviewed AI proposals and recoverable paired publication. */
 class AdeCodeService extends Disposable implements IAdeCodeService {
 	declare readonly _serviceBrand: undefined;
 	readonly available = true;
@@ -41,7 +43,7 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 	get busy(): boolean { return this.operations.busy || this.contextLoading; }
 	private contextLoading = false;
 	private refreshing: Promise<void> | undefined;
-	status = localize('ade.code.initialStatus', "Sync Project Updates the Model from the Linked Codebase");
+	status = localize('ade.code.initialStatus', "Sync Project Reconciles Model and Code with AI");
 	changed = false;
 	private channel: Promise<IChannel> | undefined;
 	private observed = '';
@@ -59,7 +61,8 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		@IShellEnvironmentService private readonly shellEnvironment: IShellEnvironmentService,
 		@IAdeProjectWorkspaceService private readonly workspace: AdeProjectWorkspace,
 		@IConfigurationService private readonly configuration: IConfigurationService,
-		@IAdeOperationService private readonly operations: AdeOperationService
+		@IAdeOperationService private readonly operations: AdeOperationService,
+		@ICommandService private readonly commands: ICommandService
 	) {
 		super();
 		this._register(operations.onDidChange(() => this.changes.fire()));
@@ -79,6 +82,9 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 	}
 	async executeCollaboration(request: string, token = CancellationToken.None): Promise<string> {
 		return (await this.getChannel()).call<string>('collaborate', { request, runtime: await this.cliRuntime() }, token);
+	}
+	async executeReconciliation(request: CodeRequest, token = CancellationToken.None): Promise<string> {
+		return (await this.getChannel()).call<string>('reconcile', { request: JSON.stringify(request), runtime: await this.cliRuntime() }, token);
 	}
 	private async cliRuntime(): Promise<CliRuntimeEnvironment> {
 		const env = await this.shellEnvironment.getShellEnv();
@@ -136,7 +142,10 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		await this.refreshing;
 	}
 	private async open(context: CodeContext): Promise<void> {
-		if (await this.project.openModelResource(URI.file(context.model))) { this.observed = this.project.modelUri!.toString(); this.setContext(context); this.project.showSystemMap(); }
+		if (await this.project.openModelResource(URI.file(context.model))) {
+			this.observed = this.project.modelUri!.toString(); this.setContext(context); this.project.showSystemMap();
+			await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		}
 	}
 	async importCodebase(): Promise<void> {
 		const selected = await this.dialogs.showOpenDialog({ title: localize('ade.code.import', "Import Codebase"), canSelectFiles: false, canSelectFolders: true, canSelectMany: false });
@@ -162,44 +171,66 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		}
 		await this.reviewSync();
 	}
-	private async reviewSync(renames: CodeRename[] = [], scope = this.context?.scope): Promise<void> {
+	private async reviewSync(renames: CodeRename[] = [], scope = this.context?.scope, resolutions: CodeResolution[] = [], reviewed?: CodePreview): Promise<void> {
 		const current = this.context;
 		if (!current || this.busy) { this.notifications.info(localize('ade.code.syncBusy', "Wait for the active A.D.E operation to finish before preparing Sync.")); return; }
 		if (this.project.dirty && !await this.project.save()) { return; }
 		const version = this.project.documentVersion;
-		let preview: CodePreview | undefined;
-		await this.run(localize('ade.code.preparing', "Preparing Sync Preview"), async token => { preview = await this.request<CodePreview>({ operation: 'preview', snapshot: current.snapshot, scope, renames, bundles: this.bundles.get(current.sourceRoot) }, token); });
+		let preview: CodePreview | undefined = reviewed;
+		if (!preview) { await this.run(localize('ade.code.preparing', "Preparing Reconciliation Evidence"), async token => { preview = await this.request<CodePreview>({ operation: 'preview', snapshot: current.snapshot, scope, renames, bundles: this.bundles.get(current.sourceRoot) }, token); }); }
 		if (!preview) { return; }
 		const result = preview;
-		this.status = result.files.added.length + result.files.changed.length + result.files.removed.length === 0 && !result.conflicts.length
-			? localize('ade.code.noChanges', "Sync Preview Ready · No Source File Changes") : localize('ade.code.previewReady', "Sync Preview Ready · Review Changes Before Applying");
+		const states = {
+			aligned: localize('ade.code.aligned', "Aligned · No Semantic or Source Changes"),
+			pending: localize('ade.code.pending', "Pending · Review the AI Reconciliation"),
+			conflict: localize('ade.code.conflict', "In Conflict · Resolve Changes Before Applying"),
+			verificationFailed: localize('ade.code.verificationFailed', "Verification Failed · Review the Evidence and Retry")
+		};
+		this.status = result.reconciliation ? states[result.reconciliation.status] : localize('ade.code.previewReady', "Sync Preview Ready · Review Changes Before Applying");
 		this.changes.fire();
 		const summary = localize('ade.code.summary', "Files: {0} added, {1} changed, {2} removed; {3} parsed, {4} reused. Symbols: +{5} / ~{6} / −{7}. Dependencies: +{8} / ~{9} / −{10}. Review {11} views.", result.files.added.length, result.files.changed.length, result.files.removed.length, result.parsed.length, result.reused.length, result.declarations.added.length, result.declarations.changed.length, result.declarations.removed.length, result.dependencies.added.length, result.dependencies.changed.length, result.dependencies.removed.length, result.impact.viewIds.length);
 		const options: (IQuickPickItem & { action: string })[] = [];
-		if (!result.conflicts.length) { options.push({ label: localize('ade.code.apply', "Apply Sync"), detail: summary, action: 'apply' }); }
-		else { options.push({ label: localize('ade.code.blocked', "Sync Blocked — Review Conflicts"), detail: result.conflicts.map(item => `${item.code}: ${item.path}`).join('; '), action: 'conflicts' }); }
+		if (!result.ai) { options.push({ label: localize('ade.code.proposeAI', "Reconcile with AI"), detail: localize('ade.code.proposeAI.detail', "Review a compact context and request one proposal using the configured model, in either direction."), action: 'ai' }); }
+		if (result.ai && !result.ai.questions.length && result.reconciliation?.status === 'pending') { options.push({ label: localize('ade.code.apply', "Apply Sync"), detail: localize('ade.code.applyChecks', "{0}\nModel references, exact source edits and configured parsers are checked. Sync does not run runtime tests.", result.ai.summary), action: 'apply' }); }
+		if (result.conflicts.length) { options.push({ label: localize('ade.code.blocked', "Sync Blocked — Review Conflicts"), detail: result.conflicts.map(item => `${item.code}: ${item.path}`).join('; '), action: 'conflicts' }); }
+		if (result.ai?.questions.length || result.reconciliation?.diagnostics.length) { options.push({ label: localize('ade.code.questions', "Review Questions and Verification Results"), detail: [...(result.ai?.questions ?? []), ...(result.reconciliation?.diagnostics ?? [])].join('\n'), action: 'questions' }); }
 		if (result.declarations.removed.length && result.declarations.added.length) { options.push({ label: localize('ade.code.rename', "Confirm a Symbol Rename"), detail: localize('ade.code.rename.detail', "Choose the previous and current declaration to preserve its identity."), action: 'rename' }); }
 		options.push({ label: localize('ade.code.coverage', "Inspect Coverage and Evidence"), detail: summary, action: 'inspect' }, { label: localize('ade.code.cancel', "Cancel"), action: 'cancel' });
 		const scopeSummary = localize('ade.code.scopeSummary', "Project: {0}. Include: {1}. Exclude: {2}. Excluded directories: {3}. Git ignore: {4}.", current.sourceRoot, scope?.include.join(', ') ?? '**', scope?.exclude.join(', ') ?? '', scope?.excludedDirectories.join(', ') ?? '', String(scope?.respectGitignore ?? true));
 		for (const option of options) { option.detail = [option.detail, scopeSummary].filter(Boolean).join('\n'); }
 		const choice = await this.quickInput.pick(options, { ignoreFocusLost: true, title: localize('ade.code.preview', "Sync Preview"), placeHolder: summary });
-		if (choice?.action === 'rename') {
+		if (choice?.action === 'ai') {
+			const proposal = await this.commands.executeCommand<CodePreview | undefined>('ade.ai.reconcile', result, resolutions);
+			if (proposal && version === this.project.documentVersion && this.context?.snapshot === current.snapshot) { await this.reviewSync(renames, scope, resolutions, proposal); }
+		} else if (choice?.action === 'questions') {
+			await this.editors.openEditor({ contents: [...(result.ai?.questions ?? []), ...(result.reconciliation?.diagnostics ?? [])].join('\n\n'), languageId: 'plaintext', options: { pinned: true } });
+			const proposal = await this.commands.executeCommand<CodePreview | undefined>('ade.ai.reconcile', result, resolutions);
+			if (proposal && this.context?.snapshot === current.snapshot) { await this.reviewSync(renames, scope, resolutions, proposal); }
+		} else if (choice?.action === 'rename') {
 			const old = await this.quickInput.pick(current.declarations.filter(item => result.declarations.removed.includes(item.id)).map(item => ({ label: item.name, description: item.evidence.file, declaration: item })), { ignoreFocusLost: true, title: localize('ade.code.rename.old', "Choose the Previous Declaration") });
 			if (!old) { return; }
 			const next = await this.quickInput.pick(result.context.declarations.filter(item => result.declarations.added.includes(item.id) && item.kind === old.declaration.kind).map(item => ({ label: item.name, description: item.evidence.file, declaration: item })), { ignoreFocusLost: true, title: localize('ade.code.rename.new', "Choose the Renamed Declaration") });
 			if (next) { await this.reviewSync([...renames, { fromId: old.declaration.id, toSourceId: next.declaration.sourceId }], scope); }
 		} else if (choice?.action === 'apply') {
 			if (version !== this.project.documentVersion || this.context?.snapshot !== current.snapshot) { this.notifications.warn(localize('ade.code.stale', "The model changed. Run Sync again to review a fresh preview.")); return; }
-			await this.run(localize('ade.code.applying', "Applying Sync"), async token => { await this.open(await this.request<CodeContext>({ operation: 'apply', token: result.token }, token)); this.status = localize('ade.code.synced', "Project Synced · {0}", summary); this.notifications.info(this.status); });
+			await this.run(localize('ade.code.applying', "Reconciling Model and Code"), async token => { await this.open(await this.request<CodeContext>({ operation: 'apply', token: result.token }, token)); this.status = localize('ade.code.synced', "Aligned · Project Synced · {0}", summary); this.notifications.info(this.status); });
 		} else if (choice?.action === 'conflicts') {
 			const labels: Record<string, string> = {
 				manualEdit: localize('ade.code.conflict.manual', "Your Model Edits Overlap the Source Update"),
 				identityAmbiguity: localize('ade.code.conflict.identity', "Symbol Identity Is Ambiguous"),
 				incompleteSource: localize('ade.code.conflict.source', "Source Analysis Is Incomplete"),
 				invalidModel: localize('ade.code.conflict.model', "The Updated Model Would Be Invalid"),
-				incompleteSemantic: localize('ade.code.conflict.semantic', "Refresh the Attached Semantic Indexes")
+				incompleteSemantic: localize('ade.code.conflict.semantic', "Refresh the Attached Semantic Indexes"),
+				concurrentContract: localize('ade.code.conflict.contract', "Model and Code Changed the Same Contract")
 			};
-			await this.quickInput.pick(result.conflicts.map(item => ({ label: labels[item.code] ?? item.code, description: item.path, detail: localize('ade.code.conflict.detail', "No snapshot was published. Resolve the source/model conflict, or restore an earlier model snapshot, then run Sync again.") })), { title: localize('ade.code.conflicts', "Sync Conflicts"), ignoreFocusLost: true, matchOnDescription: true });
+			const conflict = await this.quickInput.pick(result.conflicts.map(item => ({ label: labels[item.code] ?? item.code, description: item.path, detail: localize('ade.code.conflict.values', "Common: {0}\nModel: {1}\nCode: {2}", item.base ?? '', item.current ?? '', item.incoming ?? ''), conflict: item })), { title: localize('ade.code.conflicts', "Sync Conflicts"), ignoreFocusLost: true, matchOnDescription: true, matchOnDetail: true });
+			if (conflict) {
+				const resolution = await this.quickInput.pick([
+					{ label: localize('ade.code.chooseModel', "Preserve Model Intent"), choice: 'model' as const },
+					{ label: localize('ade.code.chooseCode', "Preserve Code Behavior"), choice: 'code' as const }
+				], { title: localize('ade.code.resolve', "Choose the Intent for the AI Proposal"), placeHolder: conflict.description, ignoreFocusLost: true });
+				if (resolution) { await this.reviewSync(renames, scope, [...resolutions.filter(item => item.path !== conflict.conflict.path), { path: conflict.conflict.path, choice: resolution.choice }], result); }
+			}
 		} else if (choice?.action === 'inspect') { await this.showEvidence(result.context); }
 		else { this.status = localize('ade.code.cancelled', "Sync Cancelled · Model Unchanged"); this.changes.fire(); }
 	}
@@ -225,9 +256,24 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		const context = this.context;
 		if (!context || this.busy) { return; }
 		const history = await this.request<CodeHistory>({ operation: 'history', snapshot: context.snapshot });
+		const interrupted = history.operations?.filter(item => item.status === 'reconciling' || item.status === 'undoing') ?? [];
+		if (interrupted.length) {
+			const operation = await this.quickInput.pick(interrupted.map(item => ({ label: item.created, description: item.origin, id: item.id })), { title: localize('ade.code.recoverTransaction', "Recover Interrupted Reconciliation"), ignoreFocusLost: true });
+			if (operation) { await this.run(localize('ade.code.recoveringTransaction', "Recovering Model and Source Changes"), async token => { await this.open(await this.request<CodeContext>({ operation: 'recoverSync', snapshot: context.snapshot, id: operation.id }, token)); }); }
+			return;
+		}
 		const choice = await this.quickInput.pick(history.snapshots.filter(item => item.directory !== context.snapshot).map(item => ({ label: item.directory.split(/[\\/]/).pop()!, description: item.revision.slice(0, 12), directory: item.directory })), { ignoreFocusLost: true, title: localize('ade.code.recover', "Restore Model Snapshot"), placeHolder: localize('ade.code.recover.detail', "Restores the model and index. Source files keep their current contents.") });
 		if (!choice || this.project.dirty && !await this.project.save()) { return; }
 		await this.run(localize('ade.code.restoring', "Restoring Snapshot"), async token => { await this.open(await this.request<CodeContext>({ operation: 'restore', snapshot: context.snapshot, target: choice.directory }, token)); });
+	}
+	async undoSync(): Promise<void> {
+		const context = this.context;
+		if (!context || this.busy || this.project.dirty && !await this.project.save()) { return; }
+		const history = await this.request<CodeHistory>({ operation: 'history', snapshot: context.snapshot });
+		const operation = history.operations?.find(item => item.status === 'applied' && item.to === context.snapshot);
+		if (!operation) { this.notifications.info(localize('ade.code.noUndo', "The Active Snapshot Has No Applied Reconciliation to Undo.")); return; }
+		const choice = await this.quickInput.pick([{ label: localize('ade.code.undoConfirm', "Undo Model and Source Changes"), detail: operation.created, apply: true }, { label: localize('ade.code.cancel', "Cancel"), apply: false }], { title: localize('ade.code.undo', "Undo Last Sync"), ignoreFocusLost: true });
+		if (choice?.apply) { await this.run(localize('ade.code.undoing', "Undoing Reconciliation"), async token => { await this.open(await this.request<CodeContext>({ operation: 'undoSync', snapshot: context.snapshot, id: operation.id }, token)); }); }
 	}
 	async inspect(elementId?: string): Promise<void> { if (this.context) { await this.showEvidence(this.context, elementId); } }
 	private async showEvidence(context: CodeContext, elementId?: string): Promise<void> {
@@ -266,6 +312,7 @@ for (const [id, title, method] of [
 	['ade.syncProject', localize2('ade.code.command.syncProject', "Sync Project"), 'sync'],
 	['ade.inspectCode', localize2('ade.code.command.inspect', "Inspect Code Evidence"), 'inspect'],
 	['ade.restoreCodeSnapshot', localize2('ade.code.command.restore', "Restore Code Model Snapshot"), 'recover'],
+	['ade.undoSync', localize2('ade.code.command.undoSync', "Undo Last Sync"), 'undoSync'],
 	['ade.attachCodeIndex', localize2('ade.code.command.attach', "Attach SCIP Bundles"), 'attachIndex'],
 	['ade.configureCodeScope', localize2('ade.code.command.scope', "Configure Import Scope"), 'configure']
 ] as const) {

@@ -7,12 +7,27 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { engine } from '../nativeHost.ts';
+import { engine as productionEngine, createCodeEngine } from '../nativeHost.ts';
 import { importCode } from '../importCode.ts';
 import { createTypeScriptBundle } from '../typescriptSemantic.ts';
 import { applyScipBundles } from '../scip.ts';
 import { defaultScope } from '../sourceScope.ts';
-const call = async request => JSON.parse(await engine.execute(JSON.stringify(request)));
+// Existing code-evidence scenarios now include an explicit structured AI proposal.
+// The provider is simulated; tests still traverse the production validation/publication boundary.
+const engine = createCodeEngine({ async complete(_config, prompt) {
+	const context = JSON.parse(prompt.slice(prompt.indexOf('\n') + 1));
+	return { value: { summary: 'Reconcile observed code changes', questions: [], sourceEdits: [], bindings: [], modelEdits: [
+		...context.changes.elements.map(item => ({ collection: 'elements', id: item.id, value: item.code ? { ...item.model, ...item.code } : null })),
+		...context.changes.relations.map(item => ({ collection: 'relations', id: item.id, value: item.code ? { ...item.model, ...item.code } : null }))
+	] }, usage: { inputTokens: 100, outputTokens: 50 }, cost: null };
+} });
+const config = { version: 1, provider: 'codex', connection: 'cli', model: 'test-model', executable: 'codex', maxCalls: 1, timeoutMs: 10000, maxContextBytes: 262144 };
+const call = async request => {
+	const result = JSON.parse(await engine.execute(JSON.stringify(request)));
+	if (request.operation !== 'preview') { return result; }
+	const prepared = JSON.parse(await engine.execute(JSON.stringify({ operation: 'reconciliationPrepare', token: result.token, config: JSON.stringify(config), sourceFiles: [] })));
+	return JSON.parse(await engine.execute(JSON.stringify({ operation: 'reconciliationPropose', token: result.token, reviewId: prepared.reviewId })));
+};
 async function workspace(t, files) {
 	const root = await mkdtemp(join(tmpdir(), 'ade-native-code-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
@@ -92,7 +107,7 @@ test('native publication rejects stale source, bad requests and redirected owned
 	await writeFile(join(root, 'a.py'), 'def a(x): pass\n');
 	await assert.rejects(call({ operation: 'apply', token: preview.token }), /Source changed/);
 	await assert.rejects(call({ operation: 'source', snapshot: initial.snapshot, file: '../secret', revision: 'x', start: 0, end: 1 }), /Invalid/);
-	await assert.rejects(engine.execute('{"operation":"shell","command":"echo"}'), /Invalid/);
+	await assert.rejects(productionEngine.execute('{"operation":"shell","command":"echo"}'), /Invalid/);
 	const second = await workspace(t, { 'a.py': 'def a(): pass\n' });
 	await symlink(join(root, '.ade'), join(second, '.ade'));
 	await assert.rejects(call({ operation: 'import', root: second }), /symlink/);

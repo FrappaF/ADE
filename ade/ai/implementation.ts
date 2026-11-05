@@ -7,7 +7,8 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, lstat, realpath, unlink, chmod } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import lockfile from 'proper-lockfile';
+import { lock } from '../code-import/projectStore.ts';
+import { assertNoInterruptedOperation } from '../code-import/reconciliationJournal.ts';
 import { object, array, text, digest } from '../code-import/schemas.ts';
 import { readSnapshot } from '../code-import/snapshot.ts';
 import { assertPreparedCurrent, hash, isDisclosableSource, type PreparedImplementation } from './context.ts';
@@ -215,9 +216,7 @@ export async function verifyImplementation(root: string, id: string, approvedRev
 }
 
 async function editLocked<T>(root: string, task: () => Promise<T>): Promise<T> {
-	const directory = await managed(root, 'collaboration');
-	const release = await lockfile.lock(directory, { retries: 0, stale: 300000 });
-	try { return await task(); } finally { await release(); }
+	return lock(root, async () => { await assertNoInterruptedOperation(root); return task(); });
 }
 
 /** Refuses to overwrite later manual edits; rollback uses exact preimages retained across restarts. */

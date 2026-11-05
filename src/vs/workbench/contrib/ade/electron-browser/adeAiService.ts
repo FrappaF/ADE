@@ -37,6 +37,7 @@ import { IAdeAiService } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { openAdeTerminal } from '../browser/adeTerminal.js';
 import { getModelImpact } from '../common/modelImpact.js';
+import { CodePreview, CodeReconciliationContext, CodeResolution } from '../common/codeBridge.js';
 
 interface CliConfig {
 	version: 1; provider: 'codex' | 'claude'; connection: 'cli'; model: string; executable: string;
@@ -54,7 +55,7 @@ interface CollaborationSession {
 interface ModelRates { input: number; output: number; unit: string; source: string; asOf: string }
 interface ModelBenchmark {
 	kind: string; recordedAt: string; defaultModel: string | null;
-	models: { candidate: { config: CliConfig; rates?: ModelRates }; eligible: boolean; estimatedConsumption: number | null; cases: { repository: string; passed: boolean; durationMs: number; inputTokens: number | null; outputTokens: number | null }[] }[];
+	models: { candidate: { config: CliConfig; rates?: ModelRates }; eligible: boolean; estimatedConsumption: number | null; cases: { repository?: string; language?: string; direction?: string; passed: boolean; durationMs: number; inputTokens: number | null; outputTokens: number | null }[] }[];
 }
 
 /** Native shell: original provider login/CLI, explicit disclosure, staged diffs and recoverable application. */
@@ -291,10 +292,12 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		const choices = this.nativeModels(provider);
 		let preferred: string | null = null;
 		try {
-			const measured: ModelBenchmark = JSON.parse(this.storage.get('ade.ai.benchmark', StorageScope.PROFILE) ?? '{}');
-			const result = measured.models?.find(model => model.candidate.config.provider === provider && model.candidate.config.model === measured.defaultModel);
-			const current = choices.find(model => model.id === measured.defaultModel);
-			if (measured.kind === 'live-provider-benchmark' && result?.eligible && current?.rates && result.candidate.rates?.input === current.rates.input && result.candidate.rates.output === current.rates.output && Date.now() - Date.parse(measured.recordedAt) < 30 * 86400000) { preferred = measured.defaultModel; }
+			for (const [key, kind] of [['ade.ai.benchmark', 'live-provider-benchmark']]) {
+				const measured: ModelBenchmark = JSON.parse(this.storage.get(key, StorageScope.PROFILE) ?? '{}');
+				const result = measured.models?.find(model => model.candidate.config.provider === provider && model.candidate.config.model === measured.defaultModel);
+				const current = choices.find(model => model.id === measured.defaultModel);
+				if (measured.kind === kind && result?.eligible && current?.rates && result.candidate.rates?.input === current.rates.input && result.candidate.rates.output === current.rates.output && result.candidate.rates.unit === current.rates.unit && Date.now() - Date.parse(measured.recordedAt) < 30 * 86400000) { preferred = measured.defaultModel; break; }
+			}
 		} catch { /* no measured account default */ }
 		choices.sort((left, right) => Number(right.id === preferred) - Number(left.id === preferred));
 		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.model', "Choose a Model Available to Your Account") }))?.id
@@ -304,7 +307,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		if (!executable) { return; }
 		const budget = await this.quick.pick([
 			{ label: localize('ade.ai.budgetTwo', "Plan and Implementation · At Most Two Agent Runs"), maxCalls: 2 },
-			{ label: localize('ade.ai.budgetOne', "Plan Only · At Most One Agent Run"), maxCalls: 1 },
+			{ label: localize('ade.ai.budgetOne', "Plan or Reconciliation Proposal · At Most One Agent Run"), maxCalls: 1 },
 			{ label: localize('ade.ai.budgetZero', "Prepare Context Only · No AI Requests"), maxCalls: 0 }
 		], { title: localize('ade.ai.budget', "Agent Run Budget · Provider Usage Is Managed by Its CLI") });
 		if (!budget) { this.info(localize('ade.ai.noBudget', "No Budget Selected. AI Configuration Was Not Saved.")); return; }
@@ -336,6 +339,33 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	}
 	async interpret(): Promise<void> {
 		await this.collaborate('interpret');
+	}
+	async reconcile(preview: CodePreview, resolutions: CodeResolution[] = []): Promise<CodePreview | undefined> {
+		if (this.busy || this.operations.busy || !await this.ensureConfigured()) { return undefined; }
+		let result: CodePreview | undefined;
+		await this.run(async token => {
+			const config = await this.readyConfig();
+			const context = this.code.context;
+			if (!config || !context || context.snapshot !== preview.context.snapshot || !await this.project.save()) { return; }
+			let clarification: string | undefined;
+			if (preview.ai?.questions.length) {
+				clarification = await this.quick.input({ title: localize('ade.ai.reconcileClarify', "Clarify the Reconciliation"), prompt: preview.ai.questions.join(' '), ignoreFocusLost: true });
+				if (!clarification) { return; }
+			}
+			if (preview.ai || preview.reconciliation?.status === 'verificationFailed') { preview = JSON.parse(await this.code.executeReconciliation({ operation: 'preview', snapshot: context.snapshot, scope: context.scope }, token)); }
+			const changed = new Set([...preview.files.added, ...preview.files.changed]);
+			for (const file of preview.context.files.filter(file => preview.context.declarations.some(item => item.evidence.file === file.path && preview.impact.elementIds.includes(item.id)))) { changed.add(file.path); }
+			const selected = await this.quick.pick(preview.context.files.filter(file => file.status !== 'excluded' && file.status !== 'configuration').map(file => ({ label: file.path, picked: changed.has(file.path) })), { title: localize('ade.ai.reconcileSources', "Review Source Files for Bidirectional Sync"), placeHolder: localize('ade.ai.reconcileSourcesHint', "Select the affected implementation and callers in any language. Only bounded windows of selected files are sent."), canPickMany: true });
+			if (!selected) { return; }
+			const prepared: CodeReconciliationContext = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPrepare', token: preview.token, config: JSON.stringify(config), sourceFiles: selected.map(item => item.label), resolutions, clarification }, token));
+			await this.editors.openEditor({ contents: prepared.contents, languageId: 'json', options: { pinned: true } });
+			if (!config.maxCalls) { this.info(localize('ade.ai.reconcileContextOnly', "Reconciliation Context Prepared · The Saved Budget Allows No AI Calls.")); return; }
+			const consent = await this.dialogs.confirm({ message: localize('ade.ai.reconcileDisclose', "Send the Reviewed Reconciliation Context to {0}?", config.model), detail: localize('ade.ai.reconcileBytes', "{0} input bytes including schema; {1} source bytes disclosed from {2} available. One CLI invocation, with the saved model and budget. Token estimate: {3}; actual usage is reported separately. No source or model is changed until Apply Sync.", prepared.metrics.inputBytes + prepared.metrics.schemaBytes, prepared.metrics.disclosedBytes, prepared.metrics.sourceBytes, prepared.metrics.estimatedTokens), primaryButton: localize('ade.ai.reconcileSend', "Propose Reconciliation") });
+			if (!consent.confirmed) { return; }
+			result = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPropose', token: preview.token, reviewId: prepared.reviewId }, token));
+			await this.editors.openEditor({ contents: JSON.stringify(result?.ai ?? result?.reconciliation, null, '\t'), languageId: 'json', options: { pinned: true } });
+		});
+		return result;
 	}
 	private async collaborate(operation: 'plan' | 'interpret'): Promise<void> {
 		if (this.busy || this.operations.busy) { this.notifications.info(localize('ade.ai.busy', "An A.D.E operation is already running. Wait for it to finish or cancel it before starting another.")); return; }
@@ -458,8 +488,14 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		});
 	}
 	async benchmark(): Promise<void> {
+		await this.compareModels(false);
+	}
+	async benchmarkReconciliation(): Promise<void> {
+		await this.compareModels(true);
+	}
+	private async compareModels(reconciliation: boolean): Promise<void> {
 		if (!await this.ensureConfigured()) { return; }
-		if (this.config!.maxCalls < 2) { this.info(localize('ade.ai.benchmarkBudget', "The complete benchmark requires the saved two-request budget for each sample. Configure that budget first.")); return; }
+		if (this.config!.maxCalls < (reconciliation ? 1 : 2)) { this.info(localize('ade.ai.benchmarkBudget', "The benchmark needs a saved AI request budget. Configure one run per reconciliation case or two per implementation case.")); return; }
 		await this.run(async token => {
 			const config = await this.readyConfig();
 			if (!config) { return; }
@@ -468,22 +504,27 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			const alternative = alternatives.length ? (await this.quick.pick(alternatives, { title: localize('ade.ai.compareModel', "Choose the Model to Compare") }))?.id
 				: await this.quick.input({ title: localize('ade.ai.compareModel', "Choose the Model to Compare"), prompt: localize('ade.ai.compareExact', "Enter an exact model ID available to the same CLI account."), ignoreFocusLost: true });
 			if (!alternative || alternative === config.model) { this.info(localize('ade.ai.compareCancelled', "Choose a Different Model to Run a Comparison. No Benchmark Was Started.")); return; }
-			const consent = await this.dialogs.confirm({ message: localize('ade.ai.benchmarkConfirm', "Compare These Models on Three Sample Projects?"), detail: localize('ade.ai.benchmarkDetail', "Compares checkout, inventory and authorization in separate Git worktrees. Starts up to twelve agent runs and executes generated Node.js tests with independent acceptance checks on this computer. Only sample code is sent. Provider requests and retries within each run are managed by the original CLI; actual monetary charges may be unavailable."), primaryButton: localize('ade.ai.benchmarkRun', "Run Model Benchmark") });
+			const consent = await this.dialogs.confirm({ message: localize('ade.ai.benchmarkConfirm', "Compare These Models on Three Sample Projects?"), detail: reconciliation ? localize('ade.ai.reconcileBenchmarkDetail', "Compares Python, Java and Go in both directions and with concurrent conflicts. Starts eighteen CLI invocations for two models, using only generated sample projects. Records prompt/output size, reported tokens, latency, identity continuity and preservation of custom code. This benchmark checks structural reconciliation; it does not certify arbitrary behavior or all languages.") : localize('ade.ai.benchmarkDetail', "Compares checkout, inventory and authorization in separate Git worktrees. Starts up to twelve agent runs and executes generated Node.js tests with independent acceptance checks on this computer. Only sample code is sent. Provider requests and retries within each run are managed by the original CLI; actual monetary charges may be unavailable."), primaryButton: localize('ade.ai.benchmarkRun', "Run Model Benchmark") });
 			if (!consent.confirmed) { this.info(localize('ade.ai.reviewCancelled', "Operation Cancelled During Review.")); return; }
 			const candidates = [config.model, alternative].map(model => ({ config: { ...config, model }, rates: models.find(candidate => candidate.id === model)?.rates }));
-			const report = await this.request<ModelBenchmark>({ operation: 'benchmark', candidates }, token);
-			this.storage.store('ade.ai.benchmark', JSON.stringify(report), StorageScope.PROFILE, StorageTarget.MACHINE);
-			const summary = report.models.map(model => `${model.candidate.config.model}\n${model.cases.map(result => `${result.repository}: ${result.passed ? localize('ade.ai.benchmarkPass', "Passed") : localize('ade.ai.benchmarkFail', "Failed")} · ${result.durationMs} ms`).join('\n')}`).join('\n\n');
+			const report = await this.request<ModelBenchmark>({ operation: reconciliation ? 'reconciliationBenchmark' : 'benchmark', candidates }, token);
+			this.storage.store(reconciliation ? 'ade.ai.reconciliationBenchmark' : 'ade.ai.benchmark', JSON.stringify(report), StorageScope.PROFILE, StorageTarget.MACHINE);
+			const summary = report.models.map(model => `${model.candidate.config.model}\n${model.cases.map(result => `${result.repository ?? `${result.language} · ${result.direction}`}: ${result.passed ? localize('ade.ai.benchmarkPass', "Passed") : localize('ade.ai.benchmarkFail', "Failed")} · ${result.durationMs} ms`).join('\n')}`).join('\n\n');
 			await this.editors.openEditor({ contents: summary + '\n\n' + (report.defaultModel ? localize('ade.ai.benchmarkDefault', "Measured economical default: {0}. It is offered first in model selection while available with the same quoted rates.", report.defaultModel) : localize('ade.ai.benchmarkNoDefault', "No economical default was selected. Quality, account availability and comparable quoted consumption must all be known. Your explicit model selection is preserved.")), languageId: 'plaintext', options: { pinned: true } });
 		});
 	}
 	async exportBenchmark(): Promise<void> {
-		const report = this.storage.get('ade.ai.benchmark', StorageScope.PROFILE);
+		const report = this.storage.get('ade.ai.reconciliationBenchmark', StorageScope.PROFILE) ?? this.storage.get('ade.ai.benchmark', StorageScope.PROFILE);
 		if (!report) { this.info(localize('ade.ai.noBenchmark', "Run a model benchmark before exporting its measured results.")); return; }
 		await this.editors.openEditor({ contents: JSON.stringify(JSON.parse(report), null, '\t'), languageId: 'json', options: { pinned: true } });
 	}
 }
 registerSingleton(IAdeAiService, AdeAiService, InstantiationType.Delayed);
+
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.ai.reconcile', title: localize2('ade.ai.reconcileCommand', "A.D.E: Propose Bidirectional Reconciliation"), f1: false }); }
+	override run(accessor: ServicesAccessor, preview: CodePreview, resolutions?: CodeResolution[]): Promise<CodePreview | undefined> { return accessor.get(IAdeAiService).reconcile(preview, resolutions); }
+});
 
 for (const [id, title, method] of [
 	['ade.ai.connect', localize2('ade.ai.connectCommand', "A.D.E: Connect Claude Code or Codex"), 'connect'],
@@ -497,6 +538,7 @@ for (const [id, title, method] of [
 	['ade.ai.resume', localize2('ade.ai.resumeCommand', "A.D.E: Resume Implementation"), 'resume'],
 	['ade.ai.recover', localize2('ade.ai.recoverCommand', "A.D.E: Recover Interrupted Implementation"), 'recover'],
 	['ade.ai.benchmark', localize2('ade.ai.benchmarkCommand', "A.D.E: Compare AI Models"), 'benchmark'],
+	['ade.ai.benchmarkReconciliation', localize2('ade.ai.benchmarkReconciliationCommand', "A.D.E: Compare Reconciliation Models"), 'benchmarkReconciliation'],
 	['ade.ai.exportBenchmark', localize2('ade.ai.exportBenchmarkCommand', "A.D.E: Export Model Benchmark Results"), 'exportBenchmark']
 ] as const) {
 	registerAction2(class extends Action2 {

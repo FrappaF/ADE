@@ -7,7 +7,7 @@ import { Event } from '../../../../base/common/event.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
-import { CliAccountState, CodeContext } from '../common/codeBridge.js';
+import { CliAccountState, CodeContext, CodeRequest } from '../common/codeBridge.js';
 
 export const IAdeCodeService = createDecorator<IAdeCodeService>('adeCodeService');
 export interface IAdeCodeService {
@@ -22,11 +22,13 @@ export interface IAdeCodeService {
 	sync(): Promise<void>;
 	inspect(elementId?: string): Promise<void>;
 	recover(): Promise<void>;
+	undoSync(): Promise<void>;
 	attachIndex(): Promise<void>;
 	configure(): Promise<void>;
 	resolveCli(executable: string): Promise<string | undefined>;
 	checkCliAccount(provider: 'codex' | 'claude', executable: string): Promise<CliAccountState>;
 	executeCollaboration(request: string, token?: CancellationToken): Promise<string>;
+	executeReconciliation(request: CodeRequest, token?: CancellationToken): Promise<string>;
 }
 class UnavailableCodeService implements IAdeCodeService {
 	declare readonly _serviceBrand: undefined;
@@ -37,10 +39,12 @@ class UnavailableCodeService implements IAdeCodeService {
 	async sync(): Promise<void> { }
 	async inspect(): Promise<void> { }
 	async recover(): Promise<void> { }
+	async undoSync(): Promise<void> { }
 	async attachIndex(): Promise<void> { }
 	async configure(): Promise<void> { }
 	async resolveCli(): Promise<string | undefined> { throw new Error('CLI lookup is unavailable'); }
 	async checkCliAccount(): Promise<CliAccountState> { return { status: 'unavailable', reason: 'notFound' }; }
 	async executeCollaboration(): Promise<string> { throw new Error('Code collaboration is unavailable'); }
+	async executeReconciliation(): Promise<string> { throw new Error('Reconciliation is unavailable'); }
 }
 registerSingleton(IAdeCodeService, UnavailableCodeService, InstantiationType.Delayed);

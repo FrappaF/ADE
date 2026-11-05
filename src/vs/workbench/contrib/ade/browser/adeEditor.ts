@@ -891,6 +891,7 @@ export class AdeEditor extends EditorPane {
 			[localize('ade.ai.resumeButton', "Resume Implementation"), () => this.ai.resume(), true, ''],
 			[localize('ade.ai.recoverButton', "Recover Interrupted Implementation"), () => this.ai.recover(), true, ''],
 			[localize('ade.ai.benchmarkButton', "Compare AI Models"), () => this.ai.benchmark(), true, ''],
+			[localize('ade.ai.reconciliationBenchmarkButton', "Compare Reconciliation Models"), () => this.ai.benchmarkReconciliation(), true, ''],
 			[localize('ade.ai.exportButton', "Export Model Benchmark Results"), () => this.ai.exportBenchmark(), true, '']
 		] as const) {
 			const button = this.button(more, label, () => { void action().catch(error => this.notifications.error(String(error.message ?? error))); });
@@ -910,6 +911,8 @@ export class AdeEditor extends EditorPane {
 			[localize('ade.terminal', "Terminal"), 'ade.openTerminal'],
 			[localize('ade.debug', "Debug"), 'workbench.view.debug'],
 			[localize('ade.git', "Git"), 'workbench.view.scm'],
+			[localize('ade.undoSync', "Undo Last Sync"), 'ade.undoSync'],
+			[localize('ade.recoverSync', "Recover Sync"), 'ade.restoreCodeSnapshot'],
 			[localize('ade.return', "Return to Model"), 'ade.showDiagram']
 		]) {
 			const target = command === 'workbench.view.debug' || command === 'workbench.view.scm' ? moreTools : toolbar;

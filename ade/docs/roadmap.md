@@ -44,7 +44,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M3 · Esploratore | Navigazione dal sistema alla singola feature | M1, M2 | M3.1–M3.6 implementati e verificati su Linux; macOS/VoiceOver, CI e revisione UX restano aperti |
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Completato funzionalmente sul perimetro dichiarato: 16 profili, import/Sync nativi, rinomine, evidenze e recupero; verifica Linux e benchmark nel verbale M4 |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Criterio funzionale Node/Linux verificato con Codex e account reali: UI, test, riavvio e undo; benchmark su tre campioni (Sol 3/3, Luna 2/3). CI Linux/macOS richiesta per il merge; esiti nella PR #7 |
-| M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Da sviluppare |
+| M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Motore IA indipendente dal linguaggio, Sync nativo, revisioni comuni, conflitti, undo/recupero e benchmark disponibili; test su 16 profili e SQL. Smoke Electron Linux passato; benchmark live bloccato da autenticazione, macOS e CI aperti |
 | M7 · Ambiente dinamico | Esecuzione e diagnostica nel modello | M3, M5, M6 | Da sviluppare |
 | M8 · Beta utilizzabile | Progetto completo sul perimetro supportato | M2–M7 | Da sviluppare |
 | M9 · Espansione | Altri adattatori, piattaforme e collaborazione | M8 | Da valutare |
@@ -304,6 +304,8 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Obiettivo:** mantenere coerenti modello e codebase quando una modifica nasce da uno dei due lati.
 
+**Disponibile:** [riconciliazione IA bidirezionale](reconciliation.md), con contesto a tre versioni, differenze e impatto selettivi, identità compatte, finestre del sorgente comune/corrente, output strutturato e controlli deterministici. Il modello IA propone le trasformazioni in entrambe le direzioni per qualsiasi linguaggio testuale; parser, compilatori e SCIP forniscono evidenze e verifiche con copertura esplicita. Sono integrati revisione nativa, chiarimenti, risoluzione dei conflitti, registro delle operazioni, protezione dalle revisioni superate, applicazione recuperabile e undo della coppia modello/codice. Un benchmark dedicato confronta costo e qualità su Python/Java/Go prima di suggerire un modello economico. Il [verbale M6](m6-verification.md) distingue prove automatiche con provider simulato, build e test dei servizi dallo smoke Electron Linux riuscito; benchmark live con autenticazione operativa, macOS e CI restano aperti. Il perimetro applicativo corrente modifica file esistenti; nuovi file, operazioni fisiche sui percorsi e test specifici del framework restano nei workflow M5 o negli strumenti del progetto.
+
 **Attività:**
 
 - Introdurre revisioni comuni, origine delle modifiche e registro delle operazioni.
@@ -311,7 +313,7 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 - Rendere annullabili le sincronizzazioni e rifiutare risultati basati su revisioni superate; aggiornare il riferimento comune soltanto dopo un'applicazione riuscita e coerente.
 - Confrontare versione comune, modello corrente e codice corrente per riconciliare cambiamenti concorrenti.
 - Gestire entrambe le direzioni: modello → implementazione e codice → modello/viste.
-- Distinguere trasformazioni deterministiche da interpretazioni IA che richiedono chiarimenti.
+- Affidare al modello IA le trasformazioni codice → diagramma e diagramma → codice, con strumenti deterministici per costruire il contesto, produrre evidenze e verificare il risultato. Distinguere fatti estratti, interpretazioni e domande; ottimizzare prompt, contesto e schema d'output per usare il modello meno costoso che supera le verifiche.
 - Prevenire cicli di aggiornamento e riscritture dovute al solo layout o alla formattazione.
 - Conservare codice personalizzato e gestire conflitti, cancellazioni e rinomine senza perdita silenziosa.
 - Esporre stati: allineato, in attesa, in riconciliazione, in conflitto, verifica fallita.
@@ -320,7 +322,7 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 **Criterio di completamento:** superare scenari di modifica dal diagramma, modifica dal codice, modifica concorrente dello stesso contratto, rinomina, cancellazione e interruzione a metà operazione. Ogni scenario deve terminare in uno stato coerente o in un conflitto esplicito e recuperabile.
 
-La sincronizzazione universale di qualsiasi linguaggio e framework non è un criterio di questa milestone: la copertura deve essere dichiarata e verificata per ogni adattatore.
+Il motore e il protocollo IA devono essere indipendenti dal linguaggio. La disponibilità e la copertura di parser, compilatori, indicizzatori e test restano dichiarate e verificate per ogni adattatore: l'assenza di uno strumento non deve essere presentata come verifica riuscita o trasformazione certa.
 
 ## M7 — Esecuzione, test e diagnostica visuale
 
@@ -409,4 +411,4 @@ La matrice M4 registra gli stack sintattici e i produttori semantici verificati;
 
 17. **M4:** chiusura funzionale sul perimetro dichiarato con importazione e Sync nativi, evidenze, perimetro, rinomine, recupero e benchmark. Proseguire con M5 mantenendo gli strumenti deterministici come fonte dei fatti.
 
-Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. M4 aggiunge importazione e Sync dal codice al modello; M5 introdurrà implementazione assistita e M6 riconciliazione bidirezionale.
+Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. M4 aggiunge importazione e fatti deterministici dal codice; M5 introduce implementazione assistita e M6 estende Sync alle proposte IA bidirezionali con conflitti, revisioni comuni e recupero. I verbali delle singole milestone precisano verifiche di piattaforma, provider reali e CI ancora aperti.

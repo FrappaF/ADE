@@ -6,6 +6,7 @@
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
+import { CodePreview, CodeResolution } from '../common/codeBridge.js';
 
 export const IAdeAiService = createDecorator<IAdeAiService>('adeAiService');
 export interface IAdeAiService {
@@ -30,7 +31,9 @@ export interface IAdeAiService {
 	resume(): Promise<void>;
 	recover(): Promise<void>;
 	benchmark(): Promise<void>;
+	benchmarkReconciliation(): Promise<void>;
 	exportBenchmark(): Promise<void>;
+	reconcile(preview: CodePreview, resolutions?: CodeResolution[]): Promise<CodePreview | undefined>;
 }
 class UnavailableAiService implements IAdeAiService {
 	declare readonly _serviceBrand: undefined;
@@ -50,6 +53,8 @@ class UnavailableAiService implements IAdeAiService {
 	async resume(): Promise<void> { }
 	async recover(): Promise<void> { }
 	async benchmark(): Promise<void> { }
+	async benchmarkReconciliation(): Promise<void> { }
 	async exportBenchmark(): Promise<void> { }
+	async reconcile(): Promise<CodePreview | undefined> { return undefined; }
 }
 registerSingleton(IAdeAiService, UnavailableAiService, InstantiationType.Delayed);

@@ -252,6 +252,25 @@ async function checkContractEditing(window) {
 }
 
 async function checkCodeBridge() {
+	// Exercise the real original-CLI protocol without claiming a live-model benchmark.
+	const simulatedCli = path.join(directory, 'm6-simulated-codex.mjs');
+	await writeFile(simulatedCli, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
+const args=process.argv.slice(2);
+if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
+const input=readFileSync(0,'utf8');
+const context=JSON.parse(input.slice(input.indexOf('\\n')+1));
+let value={summary:'Reconcile observed source changes',questions:[],sourceEdits:[],bindings:[],modelEdits:[
+...context.changes.elements.map(item=>({collection:'elements',id:item.id,value:item.code?{...item.model,...item.code}:null})),
+...context.changes.relations.map(item=>({collection:'relations',id:item.id,value:item.code?{...item.model,...item.code}:null}))]};
+if(context.direction==='model'){
+const item=context.changes.elements.find(item=>item.model&&item.code&&item.model.name!==item.code.name);
+const fact=context.facts.flatMap(file=>file.declarations).find(fact=>fact.id===item.id);
+const source=context.sources.find(source=>source.file===fact.evidence.file);
+value={summary:'Reconcile the diagram rename',questions:[],modelEdits:[],sourceEdits:[{file:source.file,revision:source.revision,search:'function '+item.code.name+'(',replacement:'function '+item.model.name+'('}],bindings:[{elementId:item.id,file:source.file,name:item.model.name,syntaxKind:fact.syntaxKind}]};
+}
+writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(value));
+writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output_tokens:50}})+'\\n');\n`);
+	await chmod(simulatedCli, 0o700);
 	const sourceRoot = path.join(workspace, 'codebase');
 	await mkdir(sourceRoot);
 	await writeFile(path.join(sourceRoot, 'gateway.ts'), 'export function charge(amount: number): boolean { return amount > 0; }');
@@ -264,7 +283,11 @@ async function checkCodeBridge() {
 	const widget = window.locator('.quick-input-widget');
 	await widget.locator('input:visible').fill(sourceRoot + path.sep);
 	await widget.getByRole('button', { name: 'OK', exact: true }).click();
+	// Import enters a different native workspace after the initial analysis finishes.
+	// Await that navigation before sending keyboard commands to the restored window.
+	const enteredWorkspace = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 	await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
+	await enteredWorkspace;
 	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	const snapshot = async () => {
 		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
@@ -272,6 +295,15 @@ async function checkCodeBridge() {
 		return { folder, state: JSON.parse(await readFile(path.join(folder, 'import-state.json'), 'utf8')), model: JSON.parse(await readFile(path.join(folder, 'model.ade.json'), 'utf8')) };
 	};
 	await shell.getByText(/^Code Snapshot · [0-9]+ Files$/).waitFor({ timeout: 90000 });
+	args[1] = sourceRoot; // Restart in the workspace entered by Import Codebase, without a second asynchronous folder switch.
+	await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
+	await pickValue(window, 'Choose AI CLI', 'Codex');
+	await pickValue(window, 'Codex', 'Choose Model and CLI');
+	await widget.getByText(/^(Model ID from Your CLI|Choose a Model Available to Your Account)$/).waitFor();
+	if (await widget.getByText('Model ID from Your CLI', { exact: true }).isVisible()) { await enterValue(window, 'Model ID from Your CLI', 'simulated-m6-model'); }
+	else { await window.keyboard.press('Enter'); }
+	await enterValue(window, 'Original CLI Executable', simulatedCli);
+	await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan or Reconciliation Proposal · At Most One Agent Run');
 	const initial = await snapshot();
 	assert.ok(initial.state.semantic.dependencies.length >= 1);
 	assert.equal(initial.state.files.find(file => file.file === 'unsupported.vb').status, 'unsupported');
@@ -282,6 +314,10 @@ async function checkCodeBridge() {
 	await pickValue(window, 'Sync Preview', 'Confirm a Symbol Rename');
 	await pickValue(window, 'Choose the Previous Declaration', 'checkout');
 	await pickValue(window, 'Choose the Renamed Declaration', 'purchase');
+	await pickValue(window, 'Sync Preview', 'Reconcile with AI');
+	await widget.getByText('Review Source Files for Bidirectional Sync', { exact: true }).waitFor();
+	await window.keyboard.press('Enter');
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Reconciliation', exact: true }).click();
 	await pickValue(window, 'Sync Preview', 'Apply Sync');
 	await window.waitForFunction(() => {
 		// UI state is exposed through the rendered, accessible system map.
@@ -300,6 +336,25 @@ async function checkCodeBridge() {
 	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'purchase' }).first().waitFor();
 	await runCommand(window, 'A.D.E: Return to Model');
 	await window.screenshot({ path: path.join(evidence, 'm4-code-sync.png') });
+	await window.locator('.ade-sidebar').getByRole('button', { name: 'checkout.ts', exact: true }).click();
+	await shell.locator('.ade-canvas').getByRole('button', { name: 'purchase', exact: true }).click();
+	await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+	await enterValue(window, 'Name', 'reviewedPurchase');
+	await shell.getByRole('button', { name: 'Save', exact: true }).click();
+	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).click();
+	await pickValue(window, 'Sync Preview', 'Reconcile with AI');
+	await widget.getByText('Review Source Files for Bidirectional Sync', { exact: true }).waitFor();
+	await window.keyboard.press('Enter');
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Reconciliation', exact: true }).click();
+	await pickValue(window, 'Sync Preview', 'Apply Sync');
+	await shell.getByText('reviewedPurchase', { exact: true }).first().waitFor();
+	assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function reviewedPurchase('));
+	await window.screenshot({ path: path.join(evidence, 'm6-model-to-code.png') });
+	await runCommand(window, 'A.D.E: Undo Last Sync');
+	await pickValue(window, 'Undo Last Sync', 'Undo Model and Source Changes');
+	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor();
+	assert.equal((await snapshot()).folder, updated.folder);
+	assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function purchase('));
 	await app.close(); app = undefined;
 	window = await launch(); shell = window.locator('.ade-shell');
 	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
@@ -312,9 +367,9 @@ async function checkCodeBridge() {
 	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor();
 	assert.equal((await snapshot()).folder, initial.folder);
 	assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('purchase'));
-	await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true }, null, 2));
+	await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true, aiReviewed: true, modelToCode: true, pairedUndo: true }, null, 2));
 	await app.close(); app = undefined;
-	console.log('PASS: native code import, compiler references, contract/rename/delete Sync, source navigation, restart and recovery.');
+	console.log('PASS: native code import, compiler references, AI-reviewed contract/rename/delete Sync, source navigation, restart and recovery (simulated provider).');
 }
 
 async function checkAiWorkflow() {

@@ -19,13 +19,13 @@ const channel: IServerChannel = {
 	async call<T>(_context: string, command: string, input: unknown, token = CancellationToken.None): Promise<T> {
 		if (command === 'resolveCli') { return await resolveCliExecutable(input as CliExecutableRequest) as T; }
 		if (command === 'checkCliAccount') { return await checkCliAccount(input as CliAccountRequest) as T; }
-		if (command === 'collaborate') {
+		if (command === 'collaborate' || command === 'reconcile') {
 			const request = input as { request: string; runtime: CliRuntimeEnvironment };
 			if (typeof request?.request !== 'string' || !request.runtime || Object.values(request.runtime).some(value => value !== undefined && typeof value !== 'string')) { throw new Error('Invalid collaboration request'); }
 			const before = { PATH: process.env.PATH, PATHEXT: process.env.PATHEXT, CODEX_HOME: process.env.CODEX_HOME };
 			const environment = cliEnvironment(request.runtime);
 			for (const key of Object.keys(before)) { if (environment[key] === undefined) { delete process.env[key]; } else { process.env[key] = environment[key]; } }
-			try { return await channel.call<T>(_context, 'execute', JSON.stringify({ operation: 'collaboration', request: request.request }), token); }
+			try { return await channel.call<T>(_context, 'execute', command === 'collaborate' ? JSON.stringify({ operation: 'collaboration', request: request.request }) : request.request, token); }
 			finally { for (const [key, value] of Object.entries(before)) { if (value === undefined) { delete process.env[key]; } else { process.env[key] = value; } } }
 		}
 		if (command !== 'execute' || typeof input !== 'string') { throw new Error('Invalid analysis request'); }

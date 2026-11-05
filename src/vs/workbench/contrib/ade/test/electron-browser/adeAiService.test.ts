@@ -28,7 +28,7 @@ import { ITerminalService, ITerminalGroupService } from '../../../terminal/brows
 import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { IAdeOperationService, AdeOperationService } from '../../browser/adeOperationService.js';
-import { CliAccountState, CodeContext } from '../../common/codeBridge.js';
+import { CliAccountState, CodeContext, CodePreview, CodeRequest } from '../../common/codeBridge.js';
 import { AdeAiService } from '../../electron-browser/adeAiService.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 
@@ -50,7 +50,7 @@ suite('A.D.E native AI orchestration', () => {
 			declarations: [{ id: 'checkout-controller', sourceId: 'checkout-controller', name: 'Checkout', kind: 'action', evidence: { file: 'checkout.mjs', revision: 'fixture', start: 0, end: 10, line: 1, endLine: 1 } }], dependencies: [], providers: [], diagnostics: [] };
 		let accountState: CliAccountState = { status: 'signedIn' };
 		let resolveExecutable: (executable: string) => Promise<string | undefined> = async executable => executable;
-		const code = { context, onDidChange: changed.event, executeCollaboration: async (input: string) => execute(input), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
+		const code = { context, onDidChange: changed.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
 		const picks: ((items: readonly Choice[]) => Choice | Choice[] | undefined)[] = [];
 		const inputs: string[] = [];
 		const errors: string[] = [];
@@ -95,6 +95,8 @@ suite('A.D.E native AI orchestration', () => {
 					case 'verify': return JSON.stringify({ ...session, status: 'passed', verification: { code: 0, output: 'Passed', durationMs: 1 } });
 					case 'apply': return JSON.stringify({ ...session, status: 'applied' });
 					case 'undo': return JSON.stringify({ ...session, status: 'undone' });
+					case 'reconciliationPrepare': return JSON.stringify({ reviewId: 'reconcile-context', contents: '{"prompt":"reviewed"}', metrics: { inputBytes: 1000, schemaBytes: 100, sourceBytes: 8000, disclosedBytes: 500, estimatedTokens: 275 } });
+					case 'reconciliationPropose': return JSON.stringify({ token: 'proposal', context, ai: { summary: 'Reconcile payment', questions: [] } });
 					default: throw new Error('Unexpected fixture operation');
 				}
 		};
@@ -107,6 +109,20 @@ suite('A.D.E native AI orchestration', () => {
 	test('constructing the visual service does not request inference', () => {
 		const f = fixture();
 		assert.deepStrictEqual(f.requests, []);
+	});
+	test('bidirectional Sync reviews selected context and returns one proposal without applying source changes', async () => {
+		const f = fixture();
+		f.picks.push(items => [items[0]]);
+		const preview: CodePreview = { token: 'preview', context: f.code.context, files: { added: [], changed: ['checkout.mjs'], removed: [], unchanged: [] }, declarations: { added: [], changed: [], removed: [] }, dependencies: { added: [], changed: [], removed: [] }, conflicts: [], impact: { elementIds: [], viewIds: [] }, parsed: [], reused: [], semanticAnalyzed: [], semanticReused: [] };
+		const result = await f.service.reconcile(preview);
+		assert.deepStrictEqual({ requests: f.requests, token: result?.token, errors: f.errors }, { requests: ['reconciliationPrepare', 'reconciliationPropose'], token: 'proposal', errors: [] });
+	});
+	test('zero-call Sync budget prepares context without making an inference request', async () => {
+		const f = fixture(true, 'codex', 0);
+		f.picks.push(items => [items[0]]);
+		const preview: CodePreview = { token: 'preview', context: f.code.context, files: { added: [], changed: [], removed: [], unchanged: [] }, declarations: { added: [], changed: [], removed: [] }, dependencies: { added: [], changed: [], removed: [] }, conflicts: [], impact: { elementIds: [], viewIds: [] }, parsed: [], reused: [], semanticAnalyzed: [], semanticReused: [] };
+		await f.service.reconcile(preview);
+		assert.deepStrictEqual({ requests: f.requests, errors: f.errors }, { requests: ['reconciliationPrepare'], errors: [] });
 	});
 	test('an authenticated CLI is recognized without native account login or inference', async () => {
 		const f = fixture();

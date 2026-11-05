@@ -9,9 +9,14 @@ import { getModelImpact } from '../../src/vs/workbench/contrib/ade/common/modelI
 import { validateProjection, type CodeImport } from './importCode.ts';
 
 export interface SyncConflict {
-	code: 'manualEdit' | 'identityAmbiguity' | 'incompleteSource' | 'invalidModel' | 'incompleteSemantic';
+	code: 'manualEdit' | 'identityAmbiguity' | 'incompleteSource' | 'invalidModel' | 'incompleteSemantic' | 'concurrentContract';
 	path: string;
+	base?: string;
+	current?: string;
+	incoming?: string;
+	choices?: ('model' | 'code')[];
 }
+export interface SyncResolution { path: string; choice: 'model' | 'code' }
 
 export interface SyncReport {
 	fromRevision: string;
@@ -26,12 +31,13 @@ export interface SyncReport {
 }
 
 /** Updates only source-owned fields whose previous value has not been edited by the user. */
-function mergeFields<T extends object>(base: T, current: T, next: T, path: string, conflicts: SyncConflict[]): T {
+function mergeFields<T extends object>(base: T, current: T, next: T, path: string, conflicts: SyncConflict[], resolutions: SyncResolution[] = []): T {
 	const result = { ...current };
 	for (const key of new Set([...Object.keys(base), ...Object.keys(next)]) as Set<keyof T>) {
 		if (isDeepStrictEqual(base[key], next[key])) { continue; }
-		if (!isDeepStrictEqual(current[key], base[key]) && !isDeepStrictEqual(current[key], next[key])) {
-			conflicts.push({ code: 'manualEdit', path: `${path}/${String(key)}` });
+		const fieldPath = `${path}/${String(key)}`;
+		if (!isDeepStrictEqual(current[key], base[key]) && !isDeepStrictEqual(current[key], next[key]) && !resolutions.some(item => item.path === fieldPath && item.choice === 'code')) {
+			conflicts.push({ code: 'manualEdit', path: fieldPath, base: JSON.stringify(base[key]), current: JSON.stringify(current[key]), incoming: JSON.stringify(next[key]), choices: ['code'] });
 		} else if (Object.hasOwn(next, key)) { result[key] = next[key]; }
 		else { delete result[key]; }
 	}
@@ -51,7 +57,7 @@ function mergeList<T extends { id: string }>(base: T[], current: T[], next: T[],
 			if (updated) { conflicts.push({ code: 'manualEdit', path: `${path}/${item.id}` }); }
 			result.push(item);
 		} else if (!updated) {
-			if (!isDeepStrictEqual(item, previous)) { conflicts.push({ code: 'manualEdit', path: `${path}/${item.id}` }); }
+			if (!isDeepStrictEqual(item, previous)) { conflicts.push({ code: 'manualEdit', path: `${path}/${item.id}`, base: JSON.stringify(previous), current: JSON.stringify(item), incoming: '(deleted)', choices: ['model', 'code'] }); }
 		} else { result.push(merge(previous, item, updated, `${path}/${item.id}`, conflicts)); }
 	}
 	for (const item of next) {
@@ -79,7 +85,7 @@ function mergeView(base: ModelView, current: ModelView, next: ModelView, path: s
 }
 
 /** Prepares one code-to-model update. Conflicts return a report without a replacement model. */
-export function prepareSync(previous: CodeImport, currentValue: SemanticModel, next: CodeImport): { report: SyncReport; model?: SemanticModel } {
+export function prepareSync(previous: CodeImport, currentValue: SemanticModel, next: CodeImport, resolutions: SyncResolution[] = []): { report: SyncReport; model?: SemanticModel } {
 	validateProjection(previous);
 	validateProjection(next);
 	const current = readSemanticModel(currentValue);
@@ -149,14 +155,15 @@ export function prepareSync(previous: CodeImport, currentValue: SemanticModel, n
 	if (conflicts.length) { return { report }; }
 	const base = previous.model;
 	const updated = next.model;
+	const merge = <T extends object>(before: T, present: T, after: T, path: string, issues: SyncConflict[]) => mergeFields(before, present, after, path, issues, resolutions);
 	const model: SemanticModel = {
 		...current,
 		semantics: {
-			elements: mergeList(base.semantics.elements, current.semantics.elements, updated.semantics.elements, '/semantics/elements', conflicts),
-			relations: mergeList(base.semantics.relations, current.semantics.relations, updated.semantics.relations, '/semantics/relations', conflicts)
+			elements: mergeList(base.semantics.elements, current.semantics.elements, updated.semantics.elements, '/semantics/elements', conflicts, merge),
+			relations: mergeList(base.semantics.relations, current.semantics.relations, updated.semantics.relations, '/semantics/relations', conflicts, merge)
 		},
 		views: mergeList(base.views, current.views, updated.views, '/views', conflicts, mergeView),
-		codeMappings: mergeList(base.codeMappings, current.codeMappings, updated.codeMappings, '/codeMappings', conflicts)
+		codeMappings: mergeList(base.codeMappings, current.codeMappings, updated.codeMappings, '/codeMappings', conflicts, merge)
 	};
 	try { readSemanticModel(model); }
 	catch { conflicts.push({ code: 'invalidModel', path: '/' }); }

@@ -3,59 +3,45 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { randomUUID, createHash } from 'node:crypto';
-import { readFile, writeFile, mkdir, lstat, realpath, readdir, rename, rm, stat } from 'node:fs/promises';
+import { readFile, realpath, readdir, stat } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import lockfile from 'proper-lockfile';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import type { CodeRequest, CodeContext, CodePreview, CodeResponse, CodeEngine } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 import { importCode, type CodeImport } from './importCode.ts';
+import { bindReconciliationIdentities, verifyReconciliationStructure } from './reconciliationIdentity.ts';
 import { readSnapshot, writeSnapshot, type ImportSnapshot } from './snapshot.ts';
-import { prepareSync } from './syncCode.ts';
+import { managed, active, activate, lock } from './projectStore.ts';
+import { prepareReconciliation, type Reconciliation } from './reconciliation.ts';
+import { contentHash, sourceFile } from './sourceChanges.ts';
+import { prepareAiReconciliation, proposeAiReconciliation, reconciliationSchema, type PreparedReconciliation, type ReconciliationProposal } from '../ai/reconciliation.ts';
+import { applyReconciliation, undoReconciliation, recoverReconciliation, operationHistory, assertNoInterruptedOperation } from './reconciliationJournal.ts';
 import { defaultScope, readSourceScope } from './sourceScope.ts';
 import { readRenameHints } from './identity.ts';
 import { createTypeScriptBundle } from './typescriptSemantic.ts';
 import { applyScipBundles, readScipBundle } from './scip.ts';
 import { isSourcePath } from './paths.ts';
 import { executeCollaboration } from '../ai/engine.ts';
+import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import type { StructuredProvider } from '../ai/contracts.ts';
 
 const nonempty = { type: 'string', minLength: 1 };
 const valid = new Ajv2020().compile<Exclude<CodeRequest, { operation: 'collaboration' }>>({ oneOf: [
 	{ type: 'object', additionalProperties: false, required: ['operation', 'root'], properties: { operation: { const: 'import' }, root: nonempty, scope: { type: 'object' }, syntaxOnly: { type: 'boolean' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
-	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot'], properties: { operation: { enum: ['inspect', 'preview', 'history'] }, snapshot: nonempty, scope: { type: 'object' }, renames: { type: 'array' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
+	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot'], properties: { operation: { enum: ['inspect', 'preview', 'history'] }, snapshot: nonempty, scope: { type: 'object' }, renames: { type: 'array' }, resolutions: { type: 'array', maxItems: 1000, items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
+	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'id'], properties: { operation: { enum: ['undoSync', 'recoverSync'] }, snapshot: nonempty, id: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'token'], properties: { operation: { const: 'apply' }, token: nonempty } },
+	{ type: 'object', additionalProperties: false, required: ['operation', 'token', 'config', 'sourceFiles'], properties: { operation: { const: 'reconciliationPrepare' }, token: nonempty, config: nonempty, clarification: { type: 'string', maxLength: 8000 }, sourceFiles: { type: 'array', maxItems: 20, items: nonempty }, resolutions: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } } } },
+	{ type: 'object', additionalProperties: false, required: ['operation', 'token', 'reviewId'], properties: { operation: { const: 'reconciliationPropose' }, token: nonempty, reviewId: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'target'], properties: { operation: { const: 'restore' }, snapshot: nonempty, target: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'file', 'revision', 'start', 'end'], properties: { operation: { const: 'source' }, snapshot: nonempty, file: nonempty, revision: nonempty, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 0 } } }
 ] });
-const previews = new Map<string, { previous: ImportSnapshot; next: CodeImport; result: ReturnType<typeof prepareSync>; active?: string; created: number }>();
+interface Preview { previous: ImportSnapshot; next: CodeImport; result: Reconciliation; prepared?: PreparedReconciliation; calls?: number; active?: string; created: number; bindings?: ReconciliationProposal['bindings']; ai?: CodePreview['ai'] }
+const previews = new Map<string, Preview>();
+const proposalCache = new Map<string, Awaited<ReturnType<typeof proposeAiReconciliation>>>();
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 async function json(path: string): Promise<unknown> {
 	if ((await stat(path)).size > 64 * 1024 * 1024) { throw new Error('Artifact exceeds 64 MiB'); }
 	return JSON.parse(await readFile(path, 'utf8'));
-}
-async function managed(root: string): Promise<string> {
-	for (const path of [join(root, '.ade'), join(root, '.ade', 'imports')]) {
-		await mkdir(path, { recursive: true });
-		if ((await lstat(path)).isSymbolicLink() || await realpath(path) !== path) { throw new Error('Managed snapshot directory cannot be a symlink'); }
-	}
-	return join(root, '.ade', 'imports');
-}
-async function active(root: string): Promise<string | undefined> {
-	try {
-		const value = await json(join(root, '.ade', 'code-project.json')) as { version?: number; active?: string };
-		if (value.version !== 1 || !/^[a-f0-9-]{36}$/.test(value.active ?? '')) { throw new Error('Invalid code project pointer'); }
-		return value.active;
-	} catch (error) { if (error instanceof Error && 'code' in error && error.code === 'ENOENT') { return undefined; } throw error; }
-}
-async function activate(root: string, directory: string): Promise<void> {
-	const path = join(root, '.ade', 'code-project.json');
-	const temporary = `${path}.${randomUUID()}.tmp`;
-	try { await writeFile(temporary, JSON.stringify({ version: 1, active: directory.split(/[\\/]/).pop() }), { flag: 'wx' }); await rename(temporary, path); }
-	finally { await rm(temporary, { force: true }); }
-}
-async function lock<T>(root: string, task: () => Promise<T>): Promise<T> {
-	await managed(root);
-	const release = await lockfile.lock(join(root, '.ade', 'code-project.json'), { realpath: false, lockfilePath: join(root, '.ade', 'code-project.lock'), stale: 300_000, update: 10_000, retries: 0 });
-	try { return await task(); } finally { await release(); }
 }
 
 function context(snapshot: string, state: CodeImport): CodeContext {
@@ -67,6 +53,18 @@ function context(snapshot: string, state: CodeImport): CodeContext {
 		dependencies: state.semantic?.dependencies.map(edge => ({ ...edge, references: edge.references.map(ref => ({ source: ref.source, target: ref.target, provider: state.semantic!.providers[ref.provider].name })) })) ?? [],
 		diagnostics: [...(state.semantic?.diagnostics.map(item => `${item.file}: ${item.code}`) ?? []), ...(state.analysis.compilerDiagnostics ?? [])]
 	};
+}
+function previewResponse(token: string, preview: Preview): CodePreview {
+	const { next, previous, result: prepared } = preview;
+	return { token, context: context(previous.directory, next), files: prepared.report.files, declarations: prepared.report.declarations, dependencies: prepared.report.dependencies, conflicts: prepared.report.conflicts, impact: prepared.report.impact, parsed: next.analysis.parsed, reused: next.analysis.reused, semanticAnalyzed: next.analysis.semanticWork?.analyzed ?? [], semanticReused: next.analysis.semanticWork?.reused ?? [], reconciliation: { status: prepared.status, origin: prepared.origin, commonRevision: previous.state.revision, sourceEdits: prepared.mutations.map(edit => ({ file: edit.file, beforeRevision: contentHash(edit.before), afterRevision: contentHash(edit.after) })), diagnostics: prepared.diagnostics }, ai: preview.ai };
+}
+async function assertPreviewCurrent(preview: Preview, signal?: AbortSignal): Promise<void> {
+	if (Date.now() - preview.created > 30 * 60 * 1000 || await active(preview.next.sourceRoot) !== preview.active || (await readSnapshot(preview.previous.directory)).inputHash !== preview.previous.inputHash) { throw new Error('Reconciliation preview is stale'); }
+	if ((await importCode(preview.next.sourceRoot, preview.next.projectId, { previous: preview.next, signal })).revision !== preview.next.revision) { throw new Error('Source changed since reconciliation review'); }
+	for (const source of preview.prepared?.sources ?? []) {
+		const current = await sourceFile(preview.next.sourceRoot, source.file);
+		if (contentHash(current.content) !== source.revision || current.mode !== source.mode) { throw new Error('Selected source changed since AI context review'); }
+	}
 }
 async function analyze(state: CodeImport, paths: string[], previous: CodeImport | undefined, syntaxOnly: boolean, signal?: AbortSignal): Promise<CodeImport> {
 	syntaxOnly ||= previous?.analysis.syntaxOnly ?? false;
@@ -89,7 +87,7 @@ async function analyze(state: CodeImport, paths: string[], previous: CodeImport 
 
 
 /** Used both by the shipped utility process and by integration tests of the exact same boundary. */
-export const engine: CodeEngine = {
+export function createCodeEngine(provider?: StructuredProvider): CodeEngine { return {
 	async execute(input, signal): Promise<string> {
 		if (Buffer.byteLength(input) > 1024 * 1024) { throw new Error('Request exceeds 1 MiB'); }
 		const request: unknown = JSON.parse(input);
@@ -110,32 +108,76 @@ export const engine: CodeEngine = {
 				await activate(root, destination);
 				return context(destination, state);
 			});
+		} else if (request.operation === 'reconciliationPrepare' || request.operation === 'reconciliationPropose') {
+			const preview = previews.get(request.token);
+			if (!preview) { throw new Error('Reconciliation preview expired'); }
+			await assertPreviewCurrent(preview, signal);
+			if (request.operation === 'reconciliationPrepare') {
+				if (preview.calls) { throw new Error('This review already used its AI request; prepare a fresh Sync to retry'); }
+				preview.prepared = await prepareAiReconciliation(preview.previous, preview.next, JSON.parse(request.config), request.sourceFiles, request.resolutions, signal, request.clarification);
+				result = { reviewId: preview.prepared.reviewId, contents: JSON.stringify({ prompt: preview.prepared.prompt, schema: reconciliationSchema, metrics: preview.prepared.metrics }, null, '\t'), metrics: preview.prepared.metrics };
+			} else {
+				if (!preview.prepared || preview.prepared.reviewId !== request.reviewId || preview.calls) { throw new Error('Review the exact reconciliation context before calling the model'); }
+				preview.calls = 1;
+				try {
+					const cached = proposalCache.get(preview.prepared.reviewId);
+					const response = cached ?? await proposeAiReconciliation(preview.prepared, preview.previous, preview.next, signal, provider);
+					if (!cached) { while (proposalCache.size >= 5) { proposalCache.delete(proposalCache.keys().next().value!); } proposalCache.set(preview.prepared.reviewId, structuredClone(response)); }
+					await assertPreviewCurrent(preview, signal);
+					preview.result = response.reconciliation; preview.bindings = response.bindings;
+					preview.result.report.conflicts = [];
+					preview.ai = { ...response.proposal, usage: cached ? { inputTokens: 0, outputTokens: 0 } : response.usage, cost: cached ? 0 : response.cost, cached: !!cached };
+				} catch (error) { preview.result.status = 'verificationFailed'; preview.result.model = undefined; preview.result.diagnostics = [error instanceof Error ? error.message : 'AI reconciliation failed']; }
+				result = previewResponse(request.token, preview);
+			}
 		} else if (request.operation === 'apply') {
 			const preview = previews.get(request.token); previews.delete(request.token);
-			if (!preview?.result.model || Date.now() - preview.created > 30 * 60 * 1000) { throw new Error('Sync preview expired or has conflicts'); }
+			if (!preview?.result.aiReviewed || !preview.result.model || Date.now() - preview.created > 30 * 60 * 1000) { throw new Error('Sync preview expired or has conflicts'); }
 			result = await lock(preview.next.sourceRoot, async () => {
-				if (await active(preview.next.sourceRoot) !== preview.active) { throw new Error('Active snapshot changed; review a new Sync preview'); }
+				await assertPreviewCurrent(preview, signal);
 				const destination = join(await managed(preview.next.sourceRoot), randomUUID());
-				await writeSnapshot(destination, preview.next, preview.result.model!, preview.result.report, preview.previous, signal, true);
-				await activate(preview.next.sourceRoot, destination);
-				return context(destination, preview.next);
+				let state = preview.next;
+				await applyReconciliation(preview.previous, destination, preview.result.origin, preview.result.mutations, async () => {
+					let model = preview.result.model!;
+					if (preview.result.mutations.length) {
+						state = await importCode(state.sourceRoot, state.projectId, { previous: preview.next, signal });
+						state = bindReconciliationIdentities(state, model, preview.bindings?.filter(item => item.syntaxKind !== 'ai') ?? []);
+						state = await analyze(state, [], preview.next, false, signal);
+						if (state.files.some(file => file.status === 'partial') || state.analysis.semanticInvalidated) { throw new Error('AI source edits failed deterministic verification'); }
+						const oldErrors = new Set(preview.next.analysis.compilerDiagnostics ?? []);
+						if (state.analysis.compilerDiagnostics?.some(item => !oldErrors.has(item))) { throw new Error('AI source edits introduced compiler diagnostics'); }
+						verifyReconciliationStructure(state, model, preview.previous, preview.bindings?.filter(item => item.syntaxKind !== 'ai') ?? []);
+						model.codeMappings = [...state.model.codeMappings.filter(mapping => model.semantics.elements.some(item => item.id === mapping.elementId)), ...model.codeMappings.filter(mapping => !preview.next.model.codeMappings.some(item => item.id === mapping.id))];
+						model = readSemanticModel(model);
+					}
+					if (!preview.result.mutations.length) { state = bindReconciliationIdentities(state, model, preview.bindings?.filter(item => item.syntaxKind !== 'ai') ?? []); }
+					await writeSnapshot(destination, state, model, preview.result.report, preview.previous, signal, true);
+				}, signal, preview.prepared && preview.ai ? { id: preview.prepared.reviewId, provider: preview.prepared.config.provider, model: preview.prepared.config.model, promptRevision: contentHash(preview.prepared.prompt), outputRevision: contentHash(JSON.stringify(preview.ai)), inputBytes: preview.prepared.metrics.inputBytes + preview.prepared.metrics.schemaBytes, outputBytes: Buffer.byteLength(JSON.stringify(preview.ai)), cached: preview.ai.cached ?? false } : undefined);
+				return context(destination, state);
 			});
 		} else {
 			const previous = await readSnapshot(request.snapshot);
-			if (['preview', 'restore'].includes(request.operation)) {
+			if (['preview', 'restore', 'undoSync'].includes(request.operation)) {
 				const pointer = await active(previous.state.sourceRoot);
 				if (pointer && join(previous.state.sourceRoot, '.ade', 'imports', pointer) !== previous.directory) { throw new Error('Open the active snapshot before Sync or recovery'); }
 			}
 			if (request.operation === 'inspect') { result = context(previous.directory, previous.state); }
 			else if (request.operation === 'preview') {
+				await assertNoInterruptedOperation(previous.state.sourceRoot);
 				let next = await importCode(previous.state.sourceRoot, previous.state.projectId, { previous: previous.state, scope: request.scope, renameHints: request.renames ? readRenameHints(request.renames) : undefined, signal });
 				next = await analyze(next, request.bundles ?? [], previous.state, false, signal);
-				const prepared = prepareSync(previous.state, previous.model, next);
+				const prepared = prepareReconciliation(previous, next, request.resolutions);
+				for (const [file, source] of Object.entries(previous.commonSources)) {
+					if (previous.state.files.find(item => item.file === file)?.status === 'parsed') { continue; }
+					let changed = false;
+					try { changed = contentHash((await sourceFile(next.sourceRoot, file)).content) !== source.revision; }
+					catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) { throw error; } changed = true; }
+					if (changed) { prepared.origin = prepared.origin === 'model' || prepared.origin === 'both' ? 'both' : 'code'; prepared.status = prepared.report.conflicts.length ? 'conflict' : 'pending'; if (!prepared.report.files.changed.includes(file)) { prepared.report.files.changed.push(file); } }
+				}
 				const token = randomUUID();
 				while (previews.size >= 5) { previews.delete(previews.keys().next().value!); }
 				previews.set(token, { previous, next, result: prepared, active: await active(next.sourceRoot), created: Date.now() });
-				const value = context(previous.directory, next);
-				result = { token, context: value, files: prepared.report.files, declarations: prepared.report.declarations, dependencies: prepared.report.dependencies, conflicts: prepared.report.conflicts, impact: prepared.report.impact, parsed: next.analysis.parsed, reused: next.analysis.reused, semanticAnalyzed: next.analysis.semanticWork?.analyzed ?? [], semanticReused: next.analysis.semanticWork?.reused ?? [] } satisfies CodePreview;
+				result = previewResponse(token, previews.get(token)!);
 			} else if (request.operation === 'source') {
 				if (!isSourcePath(request.file) || request.start > request.end) { throw new Error('Invalid evidence path or range'); }
 				const root = previous.state.sourceRoot;
@@ -155,14 +197,21 @@ export const engine: CodeEngine = {
 					const path = join(parent, entry.name);
 					try { const snapshot = await readSnapshot(path); snapshots.push({ directory: path, revision: snapshot.state.revision }); } catch { /* Interrupted snapshots are never offered for recovery. */ }
 				}
-				result = { snapshots };
+				const operations = (await operationHistory(previous.state.sourceRoot)).map(({ id, created, status, origin, fromRevision, toRevision, from, to }) => ({ id, created, status, origin, fromRevision, toRevision, from, to }));
+				result = { snapshots, operations };
+			} else if (request.operation === 'undoSync' || request.operation === 'recoverSync') {
+				result = await lock(previous.state.sourceRoot, async () => {
+					const restored = request.operation === 'undoSync' ? await undoReconciliation(previous.state.sourceRoot, request.id) : await recoverReconciliation(previous.state.sourceRoot, request.id);
+					return context(restored.directory, restored.state);
+				});
 			} else if (request.operation === 'restore') {
 				const target = await readSnapshot(request.target);
 				if (dirname(target.directory) !== join(previous.state.sourceRoot, '.ade', 'imports') || target.state.sourceRoot !== previous.state.sourceRoot || target.state.projectId !== previous.state.projectId) { throw new Error('Recovery snapshot belongs to a different project'); }
-				result = await lock(previous.state.sourceRoot, async () => { await activate(previous.state.sourceRoot, target.directory); return context(target.directory, target.state); });
+				result = await lock(previous.state.sourceRoot, async () => { await assertNoInterruptedOperation(previous.state.sourceRoot); await activate(previous.state.sourceRoot, target.directory); return context(target.directory, target.state); });
 			}
 			else { throw new Error('Unknown operation'); }
 		}
 		return JSON.stringify(result);
 	}
-};
+}; }
+export const engine: CodeEngine = createCodeEngine();
