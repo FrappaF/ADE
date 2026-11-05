@@ -1,13 +1,24 @@
 name: Validate ADE domain and prototype
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'ade/docs/**'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'ade/docs/**'
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: ade-ci-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ade-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,13 +30,16 @@ jobs:
       - run: node --test ade/test/*.test.mjs
   code-import:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: ade/code-import/package-lock.json
+          cache-dependency-path: |
+            ade/code-import/package-lock.json
+            ade/ai/package-lock.json
       - run: npm --prefix ade/code-import ci --ignore-scripts
       - run: npm --prefix ade/ai ci --ignore-scripts
       - run: npm --prefix ade/code-import run check
