@@ -10,17 +10,23 @@ on:
       - '**/*.md'
       - 'ade/docs/**'
   workflow_dispatch:
+    inputs:
+      include_macos:
+        description: Run the complete macOS suite alongside Linux
+        type: boolean
+        default: true
 permissions:
   contents: read
 concurrency:
-  group: desktop-${{ github.event.pull_request.number || github.ref }}
+  group: desktop-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
   desktop:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
+        # Keep every desktop check on Linux; opt into macOS from Run workflow.
+        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.include_macos && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
@@ -35,6 +41,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: '**/package-lock.json'
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -70,7 +78,11 @@ jobs:
         run: npm run gulp transpile-extensions compile-extension-media
       - name: Build upstream Copilot extension
         run: npm run compile-copilot
-      - run: npm run electron
+      - name: Prepare Electron from cached download archives
+        uses: ./.github/actions/setup-electron
+        with:
+          arch: ${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
+          save-cache: 'true'
       - name: Native ADE AI orchestration tests on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a ./scripts/test.sh --no-sandbox --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts
@@ -150,3 +162,5 @@ jobs:
           name: desktop-smoke-${{ matrix.os }}
           path: .build/ade-smoke
           if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
