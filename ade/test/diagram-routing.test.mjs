@@ -5,13 +5,30 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isClearSegment, placeConnectionLabel, routeDiagramConnection } from '../../src/vs/workbench/contrib/ade/common/diagramRouting.ts';
+import { isClearSegment, placeConnectionLabel, routeDiagramConnection, routeDiagramConnections } from '../../src/vs/workbench/contrib/ade/common/diagramRouting.ts';
 
 const boxes = [
 	{ id: 'from', x: 64, y: 100, width: 192, height: 88 },
 	{ id: 'middle', x: 300, y: 80, width: 192, height: 128 },
 	{ id: 'to', x: 540, y: 100, width: 192, height: 88 }
 ];
+
+test('incident slots separate converging, parallel, reverse and self relations deterministically', () => {
+	const nodes = [
+		{ id: 'hub', x: 600, y: 400, width: 240, height: 96 },
+		...Array.from({ length: 6 }, (_, i) => ({ id: `n${i}`, x: 60, y: i * 180 + 40, width: 220, height: 96 }))
+	];
+	const edges = [
+		...Array.from({ length: 6 }, (_, i) => ({ id: `r${i}`, from: `n${i}`, to: 'hub' })),
+		{ id: 'parallel1', from: 'n0', to: 'hub' }, { id: 'parallel2', from: 'n0', to: 'hub' },
+		{ id: 'reverse', from: 'hub', to: 'n0' }, { id: 'self', from: 'hub', to: 'hub' }
+	];
+	const routes = routeDiagramConnections(nodes, edges);
+	assert.deepEqual(routes, routeDiagramConnections(nodes, [...edges].reverse()));
+	for (const route of routes.values()) { assertClear(route, nodes); }
+	const endpoints = edges.filter(edge => edge.to === 'hub').map(edge => JSON.stringify(routes.get(edge.id).at(-1)));
+	assert.equal(new Set(endpoints).size, endpoints.length);
+});
 
 function assertClear(route, obstacles) {
 	assert.ok(route?.length >= 2, 'A route reaches both endpoints');

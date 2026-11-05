@@ -10,6 +10,8 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "ade:setup": "node ade/scripts/setup.mjs",
+    "ade:setup:test": "node --test ade/scripts/test/setup.test.mjs",
     "ade:bundle-code": "node ade/scripts/build-code-import.mjs",
     "ade:ai:check": "npm --prefix ade/ai run check",
     "ade:ai:test": "npm --prefix ade/ai test",

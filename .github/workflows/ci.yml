@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+      - run: npm run ade:setup:test
       - run: npm --prefix ade/prototype run check
       - run: npm --prefix ade/prototype test
       - run: node --test ade/test/*.test.mjs

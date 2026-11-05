@@ -37,6 +37,8 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'workbench.secondarySideBar.defaultVisibility': 'hidden',
 	'window.restoreWindows': 'all',
 	'terminal.integrated.gpuAcceleration': 'off',
+	'chat.agentHost.codexAgent.enabled': false,
+	'chat.agentHost.claudeAgent.enabled': false,
 	'telemetry.telemetryLevel': 'off',
 	'update.mode': 'none'
 }));
@@ -64,7 +66,8 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly) {
+const followupOnly = process.argv.includes('--followup-only');
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -86,10 +89,15 @@ async function launch() {
 	app = await electron.launch({ executablePath, args, cwd: root, env: launchEnv, timeout: 90000 });
 	electronOutput = '';
 	app.process().stderr?.on('data', data => { electronOutput = (electronOutput + data.toString()).slice(-12000); });
-	const window = await app.firstWindow({ timeout: 90000 });
-	window.setDefaultTimeout(30000);
-	await window.locator('.ade-shell').waitFor({ timeout: 90000 });
-	return window;
+	await app.firstWindow({ timeout: 90000 });
+	const deadline = Date.now() + 90000;
+	while (Date.now() < deadline) {
+		for (const window of app.windows()) {
+			if (await window.locator('.ade-shell').isVisible().catch(() => false)) { window.setDefaultTimeout(30000); return window; }
+		}
+		await new Promise(resolve => setTimeout(resolve, 250));
+	}
+	throw new Error('No restored A.D.E workbench became visible');
 }
 
 async function openModelFile(window, file) {
@@ -256,7 +264,7 @@ async function checkCodeBridge() {
 	await widget.locator('input:visible').fill(sourceRoot + path.sep);
 	await widget.getByRole('button', { name: 'OK', exact: true }).click();
 	await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
-	await shell.getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Sync Project', exact: true }).waitFor({ timeout: 90000 });
 	const snapshot = async () => {
 		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
 		const folder = path.join(sourceRoot, '.ade/imports', pointer.active);
@@ -268,7 +276,7 @@ async function checkCodeBridge() {
 	const previous = initial.state.files.flatMap(file => file.declarations).find(item => item.name === 'checkout');
 	await writeFile(path.join(sourceRoot, 'checkout.ts'), 'import {charge as pay} from "./gateway"; export function purchase(amount: number, tag: string): boolean { return pay(amount); }');
 	await rm(path.join(sourceRoot, 'obsolete.py'));
-	await shell.getByRole('button', { name: 'Sync', exact: true }).click();
+	await shell.getByRole('button', { name: 'Sync Project', exact: true }).click();
 	await pickValue(window, 'Sync Preview', 'Confirm a Symbol Rename');
 	await pickValue(window, 'Choose the Previous Declaration', 'checkout');
 	await pickValue(window, 'Choose the Renamed Declaration', 'purchase');
@@ -291,14 +299,14 @@ async function checkCodeBridge() {
 	await window.screenshot({ path: path.join(evidence, 'm4-code-sync.png') });
 	await app.close(); app = undefined;
 	window = await launch(); shell = window.locator('.ade-shell');
-	await shell.getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Sync Project', exact: true }).waitFor({ timeout: 90000 });
 	await shell.getByRole('button', { name: 'Home', exact: true }).click();
 	await shell.getByRole('button', { name: 'Open Project', exact: true }).click();
 	await chooseFolder(window, sourceRoot);
-	await shell.getByRole('button', { name: 'Sync', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Sync Project', exact: true }).waitFor();
 	await runCommand(window, 'A.D.E: Restore Code Model Snapshot');
 	await window.locator('.quick-input-widget').getByText(path.basename(initial.folder), { exact: true }).click();
-	await shell.getByRole('button', { name: 'Sync', exact: true }).waitFor();
+	await shell.getByRole('button', { name: 'Sync Project', exact: true }).waitFor();
 	assert.equal((await snapshot()).folder, initial.folder);
 	assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('purchase'));
 	await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true }, null, 2));
@@ -323,7 +331,9 @@ async function checkAiWorkflow() {
 	if (!aiLive) {
 		await writeFile(counter, '0');
 		await writeFile(executable, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
-const args=process.argv.slice(2),schema=JSON.parse(readFileSync(args[args.indexOf('--output-schema')+1],'utf8'));
+const args=process.argv.slice(2);
+if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
+const schema=JSON.parse(readFileSync(args[args.indexOf('--output-schema')+1],'utf8'));
 const counter=${JSON.stringify(counter)};
 writeFileSync(counter,String(Number(readFileSync(counter,'utf8'))+1));
 writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(schema.properties.steps?${JSON.stringify(f.plan)}:${JSON.stringify(f.generated)}));
@@ -332,7 +342,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	}
 	let window = await launch();
 	await openModelFile(window, path.join(f.snapshot, 'model.ade.json'));
-	await window.locator('.ade-shell').getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await window.locator('.ade-shell').getByRole('button', { name: 'Sync Project', exact: true }).waitFor({ timeout: 90000 });
 	await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
 	await pickValue(window, 'Choose AI CLI', 'Codex');
 	await pickValue(window, 'Codex', 'Choose Model and CLI');
@@ -368,7 +378,9 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	const returnToModel = async () => {
 		await runCommand(window, 'A.D.E: Return to Model');
 		const collaboration = window.locator('.ade-shell details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
-		if (!await collaboration.evaluate(element => element.open)) { await collaboration.locator('summary').click(); }
+		if (!await collaboration.evaluate(element => element.open)) { await collaboration.locator(':scope > summary').click(); }
+		const more = collaboration.locator('details').filter({ has: window.locator('summary', { hasText: /^Review, Recovery and Other AI Actions$/ }) });
+		if (!await more.evaluate(element => element.open)) { await more.locator('summary').click(); }
 		return collaboration;
 	};
 	let collaboration = await returnToModel();
@@ -391,7 +403,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	await window.screenshot({ path: path.join(evidence, aiLive ? 'm5-live-applied.png' : 'm5-applied.png') });
 	await app.close(); app = undefined;
 	window = await launch();
-	await window.locator('.ade-shell').getByRole('button', { name: 'Sync', exact: true }).waitFor({ timeout: 90000 });
+	await window.locator('.ade-shell').getByRole('button', { name: 'Sync Project', exact: true }).waitFor({ timeout: 90000 });
 	await runCommand(window, 'A.D.E: Resume Implementation');
 	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Applied · Undo Available' }).last().waitFor();
 	collaboration = await returnToModel();
@@ -1232,7 +1244,78 @@ async function checkVisualUX() {
 	app = undefined;
 }
 
+async function checkManualFollowup() {
+	let window = await launch();
+	console.log('Followup: desktop launched.');
+	const shell = window.locator('.ade-shell');
+	await openModelFile(window, modelFile);
+	await shell.locator('.ade-node').first().waitFor();
+	console.log('Followup: editable diagram opened.');
+	const initial = await shell.locator('g.ade-connection').count();
+	const source = shell.locator('.ade-node').filter({ hasText: /^Checkout$/ });
+	await source.click({ button: 'right' });
+	await window.getByRole('menuitem', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
+	await pickValue(window, 'Relationship Type', 'Dependency');
+	await shell.getByText('Choose a Compatible Target on the Canvas', { exact: false }).waitFor();
+	await window.keyboard.press('Escape');
+	assert.equal(await shell.locator('g.ade-connection').count(), initial);
+	await source.click({ button: 'right' });
+	await window.getByRole('menuitem', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
+	await pickValue(window, 'Relationship Type', 'Dependency');
+	await shell.locator('.ade-node').filter({ hasText: /^Carrello$/ }).click();
+	await enterValue(window, 'Relationship Name', 'Dipendenza dal carrello');
+	await enterValue(window, 'Condition (Optional)', 'carrello valido');
+	assert.equal(await shell.locator('g.ade-connection').count(), initial + 1);
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	assert.equal(await shell.locator('g.ade-connection').count(), initial);
+	console.log('Followup: canvas creation, cancellation and undo checked.');
+	const relation = shell.locator('.ade-connection-label').filter({ hasText: /^Write · crea ordine/ });
+	await relation.click({ button: 'right' });
+	await window.getByRole('menuitem', { name: 'Edit Relationship…', exact: true }).waitFor();
+	await window.screenshot({ path: path.join(evidence, 'followup-relation-menu.png') });
+	await window.getByRole('menuitem', { name: 'Edit Relationship…', exact: true }).press('Enter');
+	await pickValue(window, 'Relationship Source', 'Conferma ordine');
+	await pickValue(window, 'Relationship Type', 'Read');
+	await pickValue(window, 'Target Element', 'Ordine');
+	await enterValue(window, 'Relationship Name', 'Legge ordine');
+	await enterValue(window, 'Condition (Optional)', 'ordine esistente');
+	await pickValue(window, 'Relationship Error', 'No Error');
+	await shell.locator('.ade-connection-label').filter({ hasText: /^Read · Legge ordine · \[ordine esistente\]/ }).waitFor();
+	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+	await relation.waitFor();
+	await shell.getByRole('button', { name: 'Arrange Diagram', exact: true }).click();
+	await pickValue(window, 'Diagram Spacing', 'Spacious');
+	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	await window.screenshot({ path: path.join(evidence, 'followup-canvas.png') });
+	await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+s`);
+	await shell.getByText('Saved', { exact: true }).waitFor();
+	console.log('Followup: relation editing and layout checked.');
+	const folder = path.join(directory, 'nuovo progetto');
+	await mkdir(folder);
+	await runCommand(window, 'A.D.E: Create Project');
+	await enterValue(window, 'Name', 'Progetto di collaudo');
+	await chooseFolder(window, folder);
+	await shell.getByRole('heading', { name: 'Progetto di collaudo', exact: true }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Files', exact: true }).click();
+	await window.locator('.explorer-viewlet').getByText('nuovo progetto', { exact: true }).first().waitFor();
+	await runCommand(window, 'A.D.E: Return to Model');
+	await shell.getByRole('button', { name: 'Terminal', exact: true }).click();
+	const terminal = window.locator('.terminal .xterm-helper-textarea');
+	await terminal.waitFor({ state: 'attached' });
+	await terminal.focus(); await window.keyboard.type("printf '__ADE_PROJECT_ROOT__'; pwd\n");
+	await window.locator('.terminal .xterm-rows > div').filter({ hasText: '__ADE_PROJECT_ROOT__' + folder }).waitFor();
+	await window.screenshot({ path: path.join(evidence, 'followup-project-terminal.png') });
+	await app.close(); app = undefined;
+	args[1] = folder;
+	window = await launch();
+	await window.locator('.ade-shell').getByRole('heading', { name: 'Progetto di collaudo', exact: true }).waitFor();
+	await app.close(); app = undefined;
+	await writeFile(path.join(evidence, 'followup-results.json'), JSON.stringify({ platform: process.platform, recordedAt: new Date().toISOString(), canvasConnectionAndCancel: true, relationshipEditingAndUndo: true, layoutAndFit: true, projectFiles: true, terminalCwd: true, restart: true }, null, 2));
+	console.log('PASS: native context menus, canvas connection/cancel, relation editing/undo, layout, project Files, terminal cwd and restart.');
+}
+
 try {
+	if (followupOnly) { await checkManualFollowup(); }
 	if (aiOnly) { await checkAiWorkflow(); }
 	if (codeOnly) { await checkCodeBridge(); }
 	if (projectsOnly) { await checkIndependentProjects(); }
@@ -1241,7 +1324,7 @@ try {
 	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly && !aiOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly && !aiOnly && !followupOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -1251,7 +1334,7 @@ try {
 		await sidebar.locator('section[aria-label="Conferma acquisto"]')
 			.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
 		const collaboration = shell.locator('details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
-		await collaboration.locator('summary').click();
+		await collaboration.locator(':scope > summary').click();
 		assert.equal(await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).isEnabled(), true);
 		assert.equal(await collaboration.getByRole('button', { name: 'Open AI CLI', exact: true }).isEnabled(), true);
 		for (const name of ['Implement Feature', 'Run Tests', 'Apply Verified Changes', 'Undo Implementation']) {
@@ -1264,7 +1347,7 @@ try {
 		await window.keyboard.press('Escape');
 		await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
 		await window.screenshot({ path: path.join(evidence, 'ai-collaboration.png') });
-		await collaboration.locator('summary').click();
+		await collaboration.locator(':scope > summary').click();
 		console.log('PASS: native AI controls and provider chooser render without inference; implementation, tests, apply and undo require an imported project or reviewed session.');
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
@@ -1456,7 +1539,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));

@@ -51,3 +51,10 @@ test('subprocesses preserve literal arguments, bound output, and terminate on de
 	controller.abort();
 	await assert.rejects(pending, /cancelled/);
 });
+
+test('provider errors distinguish quota, authentication and model access without leaking stderr', async () => {
+	for (const [output, expected] of [['429 quota exceeded', /quota or rate limit/], ['401 authentication failed', /authentication failed/], ['model is not available', /selected model is unavailable/]]) {
+		const provider = createCliProvider(async () => ({ code: 1, stdout: '', stderr: output + ' private-fixture-value' }));
+		await assert.rejects(provider.complete(config, 'context', {}), error => expected.test(error.message) && !error.message.includes('private-fixture-value'));
+	}
+});

@@ -9,11 +9,11 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 /** Native actions with stable focus identities across presentation updates. */
 export class AdeControls extends Disposable {
 	private readonly listeners = this._register(new DisposableStore());
-	private readonly targets = new Map<string, HTMLElement>();
+	private readonly targets = new Map<string, HTMLElement | SVGElement>();
 	private readonly disclosures = new Map<string, HTMLDetailsElement>();
 	private readonly expanded = new Set<string>();
 
-	trackFocus(id: string, element: HTMLElement): void {
+	trackFocus(id: string, element: HTMLElement | SVGElement): void {
 		this.targets.set(id, element);
 	}
 
@@ -22,6 +22,12 @@ export class AdeControls extends Disposable {
 		if (!target?.isConnected) { return false; }
 		target.focus();
 		return true;
+	}
+
+	setExpanded(id: string, open: boolean): void {
+		if (open) { this.expanded.add(id); } else { this.expanded.delete(id); }
+		const details = this.disclosures.get(id);
+		if (details) { details.open = open; }
 	}
 
 	/** Resolve the control again on close: project updates may have replaced its DOM node. */

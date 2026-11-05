@@ -10,7 +10,7 @@ import { AdeControls } from './adeControls.js';
 import { elementLabels, relationLabels } from './adeLabels.js';
 
 /** Measured message rows keep labels apart; geometry never changes semantic or manual-layout data. */
-export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, view: ModelView, controls: AdeControls, selectedId: string, select: (id: string) => void): { width: number; height: number } {
+export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, view: ModelView, controls: AdeControls, selectedId: string, select: (id: string) => void, context?: { element(target: HTMLElement, id: string): void; relation(target: HTMLElement | SVGElement, id: string): void }): { width: number; height: number } {
 	const sequence = getSequenceDiagram(model, view);
 	canvas.classList.add('ade-sequence');
 	const svg = canvas.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -20,6 +20,8 @@ export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, vie
 	const headers = sequence.participants.map(element => {
 		const header = controls.button(canvas, element.name, () => select(element.id), `node:${element.id}`);
 		header.classList.add('ade-node', 'ade-sequence-participant');
+		header.dataset.elementId = element.id;
+		context?.element(header, element.id);
 		header.style.left = `${centers.get(element.id)! - 96}px`;
 		header.style.top = '32px';
 		header.style.width = '192px';
@@ -41,6 +43,7 @@ export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, vie
 		const label = controls.button(canvas, parts.join('\n'), () => select(source.id), `message:${relation.id}`);
 		label.classList.add('ade-sequence-message');
 		label.dataset.relationId = relation.id;
+		context?.relation(label, relation.id);
 		const labelWidth = Math.max(192, Math.abs(to - from) - 24);
 		label.style.width = `${labelWidth}px`;
 		label.style.left = `${(from + to) / 2 - labelWidth / 2}px`;
@@ -53,6 +56,10 @@ export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, vie
 		path.dataset.relationId = relation.id;
 		path.setAttribute('d', `${self ? `M ${from} ${y} L ${from + 48} ${y} L ${from + 48} ${endY} L ${to} ${endY}` : `M ${from} ${y} L ${to} ${endY}`} M ${to - direction * 10} ${endY - 5} L ${to} ${endY} L ${to - direction * 10} ${endY + 5}`);
 		svg.appendChild(path);
+		const hit = path.cloneNode() as SVGPathElement;
+		hit.setAttribute('class', 'ade-connection-hit');
+		svg.appendChild(hit);
+		context?.relation(hit, relation.id);
 		top = endY + 40;
 	}
 	const width = Math.max(256, sequence.participants.length * 272 - 16);

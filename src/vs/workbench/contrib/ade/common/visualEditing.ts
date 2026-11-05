@@ -7,6 +7,7 @@ import { readSemanticModel, type ElementKind, type ModelBehavior, type ModelView
 import { getDiagramGroups } from './visualNavigation.js';
 import { isSequenceMessage } from './sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from './stateDiagram.js';
+import { arrangeDiagram, type DiagramDensity } from './diagramLayout.js';
 
 export type VisualEdit =
 	| { kind: 'feature'; id: string; name: string }
@@ -28,8 +29,9 @@ export type VisualEdit =
 	| { kind: 'behavior'; id: string; behavior: ModelBehavior }
 	| { kind: 'condition'; id: string; condition: string }
 	| { kind: 'relationError'; id: string; errorCode?: string }
+	| { kind: 'updateRelation'; id: string; from: string; to: string; relationKind: RelationKind; name: string; condition?: string; errorCode?: string }
 	| { kind: 'position'; viewId: string; id: string; x: number; y: number }
-	| { kind: 'layout'; viewId: string }
+	| { kind: 'layout'; viewId: string; density?: DiagramDensity }
 	| { kind: 'deleteElement'; id: string }
 	| { kind: 'deleteDiagram'; id: string }
 	| { kind: 'deleteRelation'; id: string };
@@ -231,8 +233,22 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit): Semanti
 			node.y = edit.y;
 			break;
 		}
+		case 'updateRelation': {
+			const relation = candidate.semantics.relations.find(relation => relation.id === edit.id);
+			if (!relation) { throw new Error(`Unknown relation: ${edit.id}`); }
+			Object.assign(relation, { from: edit.from, to: edit.to, kind: edit.relationKind, name: edit.name });
+			delete relation.classification;
+			for (const diagram of candidate.views.filter(diagram => diagram.relationIds.includes(edit.id))) {
+				if (diagram.kind === 'sequence' && !isSequenceMessage(relation)) { throw new Error('Unsupported sequence message'); }
+				if (diagram.kind === 'state' && !isResourceTransition(candidate, relation)) { throw new Error('Unsupported resource transition'); }
+			}
+			delete relation.condition; delete relation.errorCode;
+			if (edit.condition) { relation.condition = edit.condition; }
+			if (edit.errorCode) { relation.errorCode = edit.errorCode; }
+			break;
+		}
 		case 'layout':
-			view(edit.viewId).nodes.forEach((node, index) => { node.x = (index % 3) * 260; node.y = Math.floor(index / 3) * 180; });
+			view(edit.viewId).nodes = arrangeDiagram(candidate, view(edit.viewId), edit.density);
 			break;
 		case 'deleteDiagram':
 			candidate.views = candidate.views.filter(view => view.id !== edit.id);

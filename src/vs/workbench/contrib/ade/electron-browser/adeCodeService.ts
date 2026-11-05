@@ -9,20 +9,26 @@ import { Emitter } from '../../../../base/common/event.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { URI } from '../../../../base/common/uri.js';
 import { dirname, basename, isEqualOrParent } from '../../../../base/common/resources.js';
+import { getCaseInsensitive } from '../../../../base/common/objects.js';
 import { IChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { AgentHostCodexAgentCodexHomeSettingId } from '../../../../platform/agentHost/common/agentService.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IUtilityProcessWorkerWorkbenchService } from '../../../services/utilityProcess/electron-browser/utilityProcessWorkerWorkbenchService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IShellEnvironmentService } from '../../../services/environment/electron-browser/shellEnvironmentService.js';
 import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
-import { adeCodeChannel, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeSource } from '../common/codeBridge.js';
+import { IAdeProjectWorkspaceService, AdeProjectWorkspace } from '../browser/adeProjectWorkspace.js';
+import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
+import { adeCodeChannel, CliAccountState, CliRuntimeEnvironment, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeSource } from '../common/codeBridge.js';
 
 /** Native orchestration: analysis is explicit and cancellable; source files are never rewritten. */
 class AdeCodeService extends Disposable implements IAdeCodeService {
@@ -32,7 +38,10 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 	readonly onDidChange = this.changes.event;
 	private readonly watchers = this._register(new DisposableStore());
 	context: CodeContext | undefined;
-	busy = false;
+	get busy(): boolean { return this.operations.busy || this.contextLoading; }
+	private contextLoading = false;
+	private refreshing: Promise<void> | undefined;
+	status = localize('ade.code.initialStatus', "Sync Project Updates the Model from the Linked Codebase");
 	changed = false;
 	private channel: Promise<IChannel> | undefined;
 	private observed = '';
@@ -46,9 +55,14 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		@INotificationService private readonly notifications: INotificationService,
 		@IProgressService private readonly progress: IProgressService,
 		@IFileService private readonly files: IFileService,
-		@IEditorService private readonly editors: IEditorService
+		@IEditorService private readonly editors: IEditorService,
+		@IShellEnvironmentService private readonly shellEnvironment: IShellEnvironmentService,
+		@IAdeProjectWorkspaceService private readonly workspace: AdeProjectWorkspace,
+		@IConfigurationService private readonly configuration: IConfigurationService,
+		@IAdeOperationService private readonly operations: AdeOperationService
 	) {
 		super();
+		this._register(operations.onDidChange(() => this.changes.fire()));
 		this._register(project.onDidChange(() => { void this.refresh(); }));
 		void this.refresh();
 	}
@@ -64,15 +78,33 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		return JSON.parse(await channel.call<string>('execute', JSON.stringify(request), token));
 	}
 	async executeCollaboration(request: string, token = CancellationToken.None): Promise<string> {
-		return (await this.getChannel()).call<string>('execute', JSON.stringify({ operation: 'collaboration', request }), token);
+		return (await this.getChannel()).call<string>('collaborate', { request, runtime: await this.cliRuntime() }, token);
+	}
+	private async cliRuntime(): Promise<CliRuntimeEnvironment> {
+		const env = await this.shellEnvironment.getShellEnv();
+		return { path: getCaseInsensitive(env, 'PATH') as string | undefined, pathExt: getCaseInsensitive(env, 'PATHEXT') as string | undefined, codexHome: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) || getCaseInsensitive(env, 'CODEX_HOME') as string | undefined };
+	}
+	async checkCliAccount(provider: 'codex' | 'claude', executable: string): Promise<CliAccountState> {
+		return (await this.getChannel()).call('checkCliAccount', { provider, executable, ...await this.cliRuntime() });
+	}
+	async resolveCli(executable: string): Promise<string | undefined> {
+		const env = await this.shellEnvironment.getShellEnv();
+		return (await this.getChannel()).call<string | undefined>('resolveCli', {
+			executable, path: getCaseInsensitive(env, 'PATH') as string | undefined, pathExt: getCaseInsensitive(env, 'PATHEXT') as string | undefined
+		});
 	}
 	private async run(title: string, task: (token: CancellationToken) => Promise<void>): Promise<void> {
-		if (this.busy) { return; }
-		this.busy = true; this.changes.fire();
+		const operation = this.operations.acquire('code');
+		if (!operation) { this.notifications.info(localize('ade.code.busy', "Another A.D.E operation is running. Wait for it to finish or cancel it before running Sync.")); return; }
+		this.status = title; this.changes.fire();
 		const cancellation = new CancellationTokenSource();
-		try { await this.progress.withProgress({ location: ProgressLocation.Notification, title, cancellable: true }, () => task(cancellation.token), () => cancellation.cancel()); }
-		catch (error) { if (!/abort|cancel/i.test(String(error))) { this.notifications.error(localize('ade.code.failed', "Code analysis failed: {0}", String(error.message ?? error))); } }
-		finally { cancellation.dispose(); this.busy = false; this.changes.fire(); }
+		try {
+			await this.progress.withProgress({ location: ProgressLocation.Notification, title, cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
+			if (cancellation.token.isCancellationRequested) { this.status = localize('ade.code.cancelledOperation', "Code Operation Cancelled"); }
+			else if (this.status === title) { this.status = localize('ade.code.operationDone', "{0} · Completed", title); }
+		}
+		catch (error) { this.status = localize('ade.code.failed', "Code analysis failed: {0}", String(error.message ?? error)); if (!/abort|cancel/i.test(String(error))) { this.notifications.error(this.status); } }
+		finally { cancellation.dispose(); operation.dispose(); this.changes.fire(); }
 	}
 	private setContext(context: CodeContext | undefined): void {
 		this.context = context; this.changed = false; this.watchers.clear();
@@ -88,13 +120,20 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 	private async refresh(): Promise<void> {
 		const resource = this.project.modelUri;
 		const key = resource?.toString() ?? '';
-		if (key === this.observed) { return; }
+		if (key === this.observed) { await this.refreshing; return; }
 		this.observed = key;
-		if (!resource || resource.scheme !== 'file' || basename(resource) !== 'model.ade.json') { this.setContext(undefined); return; }
-		try {
-			const context = await this.request<CodeContext>({ operation: 'inspect', snapshot: dirname(resource).fsPath });
-			if (this.observed === key) { this.setContext(context); }
-		} catch { if (this.observed === key) { this.setContext(undefined); } }
+		if (!resource || resource.scheme !== 'file' || basename(resource) !== 'model.ade.json') { this.contextLoading = false; this.refreshing = undefined; this.status = localize('ade.code.notLinked', "Import a Codebase to Enable Project Sync"); this.setContext(undefined); return; }
+		this.contextLoading = true;
+		this.status = localize('ade.code.loadingContext', "Reading the Linked Codebase…");
+		this.setContext(undefined);
+		this.refreshing = (async () => {
+			try {
+				const context = await this.request<CodeContext>({ operation: 'inspect', snapshot: dirname(resource).fsPath });
+				if (this.observed === key) { this.status = localize('ade.code.contextReady', "Linked Codebase Ready · Sync Project Reviews the Entire Configured Scope"); this.setContext(context); }
+			} catch { if (this.observed === key) { this.setContext(undefined); } }
+			finally { if (this.observed === key) { this.contextLoading = false; this.changes.fire(); } }
+		})();
+		await this.refreshing;
 	}
 	private async open(context: CodeContext): Promise<void> {
 		if (await this.project.openModelResource(URI.file(context.model))) { this.observed = this.project.modelUri!.toString(); this.setContext(context); this.project.showSystemMap(); }
@@ -110,23 +149,39 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		await this.run(localize('ade.code.importing', "Importing Codebase"), async token => {
 			await this.open(await this.request<CodeContext>({ operation: 'import', root: selected[0].fsPath, syntaxOnly: mode.syntaxOnly }, token));
 		});
+		if (this.context?.sourceRoot === selected[0].fsPath) { await this.workspace.align(); }
 	}
-	async sync(): Promise<void> { await this.reviewSync(); }
+	async sync(): Promise<void> {
+		await this.refreshing;
+		if (this.busy) { this.notifications.info(localize('ade.code.syncBusy', "Wait for the active A.D.E operation to finish before preparing Sync.")); return; }
+		if (!this.context) {
+			this.status = localize('ade.code.noLinkedProject', "No Codebase Is Linked. Import the Project Folder Before Running Sync.");
+			this.notifications.info(this.status); this.changes.fire();
+			await this.importCodebase();
+			return;
+		}
+		await this.reviewSync();
+	}
 	private async reviewSync(renames: CodeRename[] = [], scope = this.context?.scope): Promise<void> {
 		const current = this.context;
-		if (!current || this.busy) { return; }
+		if (!current || this.busy) { this.notifications.info(localize('ade.code.syncBusy', "Wait for the active A.D.E operation to finish before preparing Sync.")); return; }
 		if (this.project.dirty && !await this.project.save()) { return; }
 		const version = this.project.documentVersion;
 		let preview: CodePreview | undefined;
 		await this.run(localize('ade.code.preparing', "Preparing Sync Preview"), async token => { preview = await this.request<CodePreview>({ operation: 'preview', snapshot: current.snapshot, scope, renames, bundles: this.bundles.get(current.sourceRoot) }, token); });
 		if (!preview) { return; }
 		const result = preview;
+		this.status = result.files.added.length + result.files.changed.length + result.files.removed.length === 0 && !result.conflicts.length
+			? localize('ade.code.noChanges', "Sync Preview Ready · No Source File Changes") : localize('ade.code.previewReady', "Sync Preview Ready · Review Changes Before Applying");
+		this.changes.fire();
 		const summary = localize('ade.code.summary', "Files: {0} added, {1} changed, {2} removed; {3} parsed, {4} reused. Symbols: +{5} / ~{6} / −{7}. Dependencies: +{8} / ~{9} / −{10}. Review {11} views.", result.files.added.length, result.files.changed.length, result.files.removed.length, result.parsed.length, result.reused.length, result.declarations.added.length, result.declarations.changed.length, result.declarations.removed.length, result.dependencies.added.length, result.dependencies.changed.length, result.dependencies.removed.length, result.impact.viewIds.length);
 		const options: (IQuickPickItem & { action: string })[] = [];
 		if (!result.conflicts.length) { options.push({ label: localize('ade.code.apply', "Apply Sync"), detail: summary, action: 'apply' }); }
 		else { options.push({ label: localize('ade.code.blocked', "Sync Blocked — Review Conflicts"), detail: result.conflicts.map(item => `${item.code}: ${item.path}`).join('; '), action: 'conflicts' }); }
 		if (result.declarations.removed.length && result.declarations.added.length) { options.push({ label: localize('ade.code.rename', "Confirm a Symbol Rename"), detail: localize('ade.code.rename.detail', "Choose the previous and current declaration to preserve its identity."), action: 'rename' }); }
 		options.push({ label: localize('ade.code.coverage', "Inspect Coverage and Evidence"), detail: summary, action: 'inspect' }, { label: localize('ade.code.cancel', "Cancel"), action: 'cancel' });
+		const scopeSummary = localize('ade.code.scopeSummary', "Project: {0}. Include: {1}. Exclude: {2}. Excluded directories: {3}. Git ignore: {4}.", current.sourceRoot, scope?.include.join(', ') ?? '**', scope?.exclude.join(', ') ?? '', scope?.excludedDirectories.join(', ') ?? '', String(scope?.respectGitignore ?? true));
+		for (const option of options) { option.detail = [option.detail, scopeSummary].filter(Boolean).join('\n'); }
 		const choice = await this.quickInput.pick(options, { ignoreFocusLost: true, title: localize('ade.code.preview', "Sync Preview"), placeHolder: summary });
 		if (choice?.action === 'rename') {
 			const old = await this.quickInput.pick(current.declarations.filter(item => result.declarations.removed.includes(item.id)).map(item => ({ label: item.name, description: item.evidence.file, declaration: item })), { ignoreFocusLost: true, title: localize('ade.code.rename.old', "Choose the Previous Declaration") });
@@ -135,7 +190,7 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 			if (next) { await this.reviewSync([...renames, { fromId: old.declaration.id, toSourceId: next.declaration.sourceId }], scope); }
 		} else if (choice?.action === 'apply') {
 			if (version !== this.project.documentVersion || this.context?.snapshot !== current.snapshot) { this.notifications.warn(localize('ade.code.stale', "The model changed. Run Sync again to review a fresh preview.")); return; }
-			await this.run(localize('ade.code.applying', "Applying Sync"), async token => { await this.open(await this.request<CodeContext>({ operation: 'apply', token: result.token }, token)); });
+			await this.run(localize('ade.code.applying', "Applying Sync"), async token => { await this.open(await this.request<CodeContext>({ operation: 'apply', token: result.token }, token)); this.status = localize('ade.code.synced', "Project Synced · {0}", summary); this.notifications.info(this.status); });
 		} else if (choice?.action === 'conflicts') {
 			const labels: Record<string, string> = {
 				manualEdit: localize('ade.code.conflict.manual', "Your Model Edits Overlap the Source Update"),
@@ -146,6 +201,7 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 			};
 			await this.quickInput.pick(result.conflicts.map(item => ({ label: labels[item.code] ?? item.code, description: item.path, detail: localize('ade.code.conflict.detail', "No snapshot was published. Resolve the source/model conflict, or restore an earlier model snapshot, then run Sync again.") })), { title: localize('ade.code.conflicts', "Sync Conflicts"), ignoreFocusLost: true, matchOnDescription: true });
 		} else if (choice?.action === 'inspect') { await this.showEvidence(result.context); }
+		else { this.status = localize('ade.code.cancelled', "Sync Cancelled · Model Unchanged"); this.changes.fire(); }
 	}
 	async configure(): Promise<void> {
 		const context = this.context;
@@ -207,6 +263,7 @@ registerSingleton(IAdeCodeService, AdeCodeService, InstantiationType.Delayed);
 for (const [id, title, method] of [
 	['ade.importCodebase', localize2('ade.code.command.import', "Import Codebase"), 'importCodebase'],
 	['ade.syncCode', localize2('ade.code.command.sync', "Sync Codebase"), 'sync'],
+	['ade.syncProject', localize2('ade.code.command.syncProject', "Sync Project"), 'sync'],
 	['ade.inspectCode', localize2('ade.code.command.inspect', "Inspect Code Evidence"), 'inspect'],
 	['ade.restoreCodeSnapshot', localize2('ade.code.command.restore', "Restore Code Model Snapshot"), 'recover'],
 	['ade.attachCodeIndex', localize2('ade.code.command.attach', "Attach SCIP Bundles"), 'attachIndex'],

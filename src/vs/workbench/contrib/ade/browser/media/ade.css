@@ -273,6 +273,74 @@
 	stroke-dasharray: 4 4;
 }
 
+.ade-shell .ade-connection {
+	pointer-events: stroke;
+	cursor: pointer;
+}
+
+.ade-shell .ade-canvas path.ade-connection-hit {
+	stroke: transparent;
+	stroke-width: 16;
+	fill: none;
+	pointer-events: stroke;
+}
+
+.ade-shell .ade-connection-label {
+	pointer-events: all;
+	cursor: pointer;
+}
+
+.ade-shell .ade-connection.selected > path:not(.ade-connection-hit),
+.ade-shell .ade-connection:hover > path:not(.ade-connection-hit),
+.ade-shell .ade-connection:focus-visible > path:not(.ade-connection-hit) {
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 2;
+}
+
+.ade-shell .ade-properties > .ade-options[open] ~ .ade-element-properties {
+	display: none;
+}
+
+.ade-shell .ade-properties > .ade-options > summary {
+	font-weight: var(--vscode-fontWeight-semiBold);
+	padding: var(--vscode-spacing-size120);
+}
+
+.ade-shell .ade-unavailable-reason,
+.ade-shell .ade-sync-status {
+	display: block;
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+	max-width: 44ch;
+	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-primary-action,
+.ade-shell .ade-sync-project {
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-background);
+}
+
+.ade-shell .ade-primary-action:hover,
+.ade-shell .ade-sync-project:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+.ade-shell .ade-navigation {
+	align-items: center;
+}
+
+.ade-shell .ade-editing .codicon {
+	font-size: var(--vscode-codiconFontSize);
+}
+
+.ade-shell .ade-options[open] > .ade-options-content {
+	background: var(--vscode-sideBar-background);
+	border-radius: var(--vscode-cornerRadius-medium);
+	max-height: 65vh;
+	overflow-y: auto;
+}
+
 .ade-shell .ade-system-map {
 	display: grid;
 	align-items: start;
@@ -320,6 +388,19 @@
 	border-radius: var(--vscode-cornerRadius-medium);
 	white-space: normal;
 	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-node[data-kind]::before {
+	content: attr(data-kind);
+	display: block;
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: var(--vscode-spacing-size80);
+}
+
+.ade-shell .ade-node.ade-related-node {
+	border-color: var(--vscode-focusBorder);
+	border-width: 2px;
 }
 
 .ade-shell .ade-sequence-participant {

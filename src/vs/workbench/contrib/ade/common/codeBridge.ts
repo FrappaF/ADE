@@ -5,6 +5,10 @@
 
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
+export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
+export interface CliRuntimeEnvironment { path?: string; pathExt?: string; codexHome?: string }
+export interface CliAccountRequest extends CliExecutableRequest { provider: 'codex' | 'claude'; codexHome?: string }
+export interface CliAccountState { status: 'signedIn' | 'signedOut' | 'unavailable' | 'error'; executable?: string; reason?: 'notFound' | 'timeout' | 'failed' | 'unsupported' }
 export interface CodeScope {
 	include: string[]; exclude: string[]; excludedDirectories: string[];
 	respectGitignore: boolean; languageOverrides: Record<string, string>;
