@@ -20,9 +20,11 @@ import { editAdeBehavior } from './adeBehaviorEditing.js';
 import { isSequenceMessage } from '../common/sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from '../common/stateDiagram.js';
 import { getElementPath } from '../common/visualNavigation.js';
+import { IAdeProjectWorkspaceService } from './adeProjectWorkspace.js';
 
 /** Native dialogs collect intent; atomic edits and persistence remain in the project service. */
 class EditingUI {
+	projectChanged = false;
 	private readonly version: string;
 	constructor(
 		private readonly project: AdeProjectService,
@@ -54,7 +56,7 @@ class EditingUI {
 			if (command === 'createProject' && !name) { return; }
 			const folders = await this.files.showOpenDialog({ title: localize('ade.projectFolder', "Choose Project Folder"), canSelectFiles: false, canSelectFolders: true, canSelectMany: false });
 			if (folders?.[0]) {
-				if (name) { await this.project.createProject(name, folders[0]); } else { await this.project.openProject(folders[0]); }
+				if (name) { this.projectChanged = await this.project.createProject(name, folders[0]); } else { await this.project.openProject(folders[0]); this.projectChanged = !this.project.error; }
 			}
 			return;
 		}
@@ -201,6 +203,31 @@ class EditingUI {
 			if (behavior) { this.edit({ kind: 'behavior', id: selected.id, behavior }); }
 		} else if (command === 'deleteElement' && selected) {
 			await this.deleteElement(selected);
+		} else if (command === 'editRelation' && id) {
+			const relation = model.semantics.relations.find(relation => relation.id === id);
+			if (!relation) { return; }
+			const affected = model.views.filter(view => view.relationIds.includes(id));
+			const candidates = model.semantics.elements.filter(element => affected.every(view => view.nodes.some(node => node.elementId === element.id)));
+			const from = await this.quickInput.pick(candidates.map(element => ({ label: element.name, description: context(element), element, picked: element.id === relation.from })), { title: localize('ade.relation.source', "Relationship Source") });
+			if (!from) { return; }
+			const supported = (kind: RelationKind, target: SemanticElement): boolean => isCompatibleRelation(kind, from.element.kind, target.kind)
+				&& (kind !== 'transition' || from.element.parentId === target.parentId)
+				&& affected.every(view => view.kind !== 'sequence' || isSequenceMessage({ kind }))
+				&& affected.every(view => view.kind !== 'state' || isResourceTransition(model, { ...relation, from: from.element.id, to: target.id, kind }));
+			const kind = await this.quickInput.pick((Object.keys(relationLabels) as RelationKind[]).filter(kind => candidates.some(target => supported(kind, target))).map(kind => ({ label: relationLabels[kind], kind, picked: kind === relation.kind })), { title: localize('ade.relationType', "Relationship Type") });
+			if (!kind) { return; }
+			const to = await this.quickInput.pick(candidates.filter(target => supported(kind.kind, target)).map(element => ({ label: element.name, element, picked: element.id === relation.to })), { title: localize('ade.target', "Target Element") });
+			if (!to) { return; }
+			const name = await this.quickInput.input({ title: localize('ade.relationName', "Relationship Name"), value: relation.name });
+			if (name === undefined) { return; }
+			const condition = await this.quickInput.input({ title: localize('ade.conditionInput', "Condition (Optional)"), value: relation.condition });
+			if (condition === undefined) { return; }
+			const error = await this.quickInput.pick([{ label: localize('ade.noRelationError', "No Error"), errorCode: undefined as string | undefined }, ...(from.element.behavior?.errors ?? []).map(error => ({ label: error.code, errorCode: error.code }))], { title: localize('ade.relationError', "Relationship Error") });
+			if (error) { this.edit({ kind: 'updateRelation', id, from: from.element.id, to: to.element.id, relationKind: kind.kind, name, condition, errorCode: error.errorCode }); }
+		} else if (command === 'removeElementFromDiagram' && selected && view) {
+			this.edit({ kind: 'exclude', viewId: view.id, id: selected.id, target: 'element' });
+		} else if (command === 'removeRelationFromDiagram' && id && view) {
+			this.edit({ kind: 'exclude', viewId: view.id, id, target: 'relation' });
 		} else if (command === 'condition' && id) {
 			const relation = model.semantics.relations.find(relation => relation.id === id);
 			if (!relation) { return; }
@@ -225,7 +252,12 @@ class EditingUI {
 				this.edit({ kind: 'deleteRelation', id });
 			}
 		} else if (command === 'layout' && view) {
-			this.edit({ kind: 'layout', viewId: view.id });
+			const density = await this.quickInput.pick([
+				{ label: localize('ade.layout.balanced', "Balanced"), density: 'balanced' as const },
+				{ label: localize('ade.layout.spacious', "Spacious"), density: 'spacious' as const },
+				{ label: localize('ade.layout.compact', "Compact"), density: 'compact' as const }
+			], { title: localize('ade.layout.density', "Diagram Spacing") });
+			if (density) { this.edit({ kind: 'layout', viewId: view.id, density: density.density }); }
 		}
 	}
 
@@ -252,6 +284,9 @@ for (const [command, title] of [
 	['renameRelation', localize2('ade.state.event.command', "A.D.E: Edit Transition Event")],
 	['addSequenceMessage', localize2('ade.sequence.addMessage.command', "A.D.E: Add Existing Message")],
 	['connect', localize2('ade.connect', "A.D.E: Connect Selection")],
+	['editRelation', localize2('ade.editRelation.command', "A.D.E: Edit Relationship")],
+	['removeElementFromDiagram', localize2('ade.removeElement.command', "A.D.E: Remove Element from Diagram")],
+	['removeRelationFromDiagram', localize2('ade.removeRelation.command', "A.D.E: Remove Relationship from Diagram")],
 	['renameFeature', localize2('ade.renameFeature', "A.D.E: Rename Feature")],
 	['deleteFeature', localize2('ade.deleteFeature', "A.D.E: Delete Feature")],
 	['renameDiagram', localize2('ade.renameDiagram', "A.D.E: Rename Diagram")],
@@ -273,9 +308,11 @@ for (const [command, title] of [
 			const project = accessor.get(IAdeProjectService);
 			const editor = accessor.get(IEditorService);
 			const notifications = accessor.get(INotificationService);
+			const workspace = command === 'createProject' || command === 'openProject' ? accessor.get(IAdeProjectWorkspaceService) : undefined;
 			const ui = new EditingUI(project, accessor.get(IQuickInputService), accessor.get(IDialogService), accessor.get(IFileDialogService));
 			try {
 				await ui.run(command, id);
+				if (ui.projectChanged) { await workspace?.align(); }
 				await editor.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 			} catch (error) { notifications.error(localize('ade.editFailed', "Could not complete the project change: {0}", String(error.message ?? error))); }
 		}

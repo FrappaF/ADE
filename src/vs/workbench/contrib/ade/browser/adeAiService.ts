@@ -13,11 +13,13 @@ export interface IAdeAiService {
 	readonly available: boolean;
 	readonly busy: boolean;
 	readonly status: string;
+	readonly connectionStatus: string;
 	readonly canVerify: boolean;
 	readonly canApply: boolean;
 	readonly canUndo: boolean;
 	readonly onDidChange: Event<void>;
 	connect(): Promise<void>;
+	refreshConnection(): Promise<void>;
 	openCli(): Promise<void>;
 	implement(): Promise<void>;
 	interpret(): Promise<void>;
@@ -33,9 +35,11 @@ export interface IAdeAiService {
 class UnavailableAiService implements IAdeAiService {
 	declare readonly _serviceBrand: undefined;
 	readonly available = false; readonly busy = false; readonly status = '';
+	readonly connectionStatus = '';
 	readonly canVerify = false; readonly canApply = false; readonly canUndo = false;
 	readonly onDidChange = Event.None;
 	async connect(): Promise<void> { }
+	async refreshConnection(): Promise<void> { }
 	async openCli(): Promise<void> { }
 	async implement(): Promise<void> { }
 	async interpret(): Promise<void> { }

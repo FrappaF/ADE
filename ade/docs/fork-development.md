@@ -14,22 +14,22 @@ Selezionare **Node dalla `.nvmrc`** (attualmente 24.22.1), con npm incluso nella
 - **Linux (Debian/Ubuntu):** installare `build-essential pkg-config libx11-dev libxkbfile-dev libkrb5-dev libsecret-1-dev libgtk-3-dev libgbm-dev libnss3 libasound2-dev xvfb`. I nomi dei pacchetti possono variare con la distribuzione. Per i test senza display serve anche `xauth`.
 - **Windows:** seguire i prerequisiti C++ e Visual Studio della guida upstream; non è una piattaforma collaudata in M0.
 
-Con `nvm` disponibile: `nvm install && nvm use`. Dalla radice:
+Con `nvm` disponibile: `nvm install && nvm use`. Dalla radice, il comando unico di preparazione è:
 
 ```sh
-export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-export FOUNDRY_LOCAL_SKIP_INSTALL=1
-node build/npm/preinstall.ts
-npm ci
-npm run build-fast -- --client-only
-GOMEMLIMIT=3GiB GOMAXPROCS=2 node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
-npm run gulp transpile-extensions compile-extension-media
-npm run compile-copilot
-npm run electron
+npm run ade:setup
 ./ade/scripts/dev.sh /percorso/del/progetto
 ```
 
-La preparazione esplicita degli header precede gli script nativi delle dipendenze. `npm ci` conserva i lockfile e installa anche le sottocartelle previste upstream. `dev.sh` usa `.build/ade-profile`, `.build/ade-extensions`, `.build/ade-shared` e `.build/ade-portable`: sono isolati dagli altri editor. Su Windows usare `scripts\code.bat` con `--user-data-dir` e `--extensions-dir` dedicati. La sequenza separa build del client, typecheck di produzione ed estensioni per ridurre la memoria simultanea; è usata anche in CI. Per iterare sul solo client usare `npm run build-fast -- --client-only`. Il controllo di produzione separato dai test ha superato il collaudo con circa 5,15 GiB di picco RSS; dettagli nell’[analisi dell’ingombro](build-footprint.md). La compilazione globale upstream (`npm run compile`) resta disponibile su una macchina con memoria sufficiente; il suo controllo TypeScript completo non è stato superato nel cloud da 8 GiB.
+Lo script `ade/scripts/setup.mjs` richiede soltanto Node: controlla `.nvmrc`, imposta le due variabili di installazione descritte sotto e avvia in sequenza `node build/npm/preinstall.ts`, `npm ci`, `npm run build-fast -- --client-only`, `npm run gulp transpile-extensions compile-extension-media`, `npm run compile-copilot` e `npm run electron`. La preparazione esplicita degli header precede gli script nativi delle dipendenze. `npm ci` conserva i lockfile e installa anche le sottocartelle previste upstream. Un errore interrompe la sequenza. `npm run ade:setup -- --install-only` esegue soltanto preparazione degli header e installazione; `npm run ade:setup -- --help` descrive le opzioni. I prerequisiti di sistema vanno installati prima di avviare lo script.
+
+Il controllo dei tipi di produzione è separato dalla preparazione del desktop:
+
+```sh
+GOMEMLIMIT=3GiB GOMAXPROCS=2 node node_modules/@typescript/native/bin/tsc --project ade/tsconfig.production.json --pretty false
+```
+
+`dev.sh` usa `.build/ade-profile`, `.build/ade-extensions`, `.build/ade-shared` e `.build/ade-portable`: sono isolati dagli altri editor. Su Windows usare `scripts\code.bat` con `--user-data-dir` e `--extensions-dir` dedicati. La sequenza mantiene separate build del client, typecheck di produzione ed estensioni per ridurre la memoria simultanea; le stesse fasi sono eseguite in CI. Per iterare sul solo client usare `npm run build-fast -- --client-only`. Il controllo di produzione separato dai test ha superato il collaudo con circa 5,15 GiB di picco RSS; dettagli nell’[analisi dell’ingombro](build-footprint.md). La compilazione globale upstream (`npm run compile`) resta disponibile su una macchina con memoria sufficiente; il suo controllo TypeScript completo non è stato superato nel cloud da 8 GiB.
 
 Dietro un proxy HTTP mantenere le variabili e la CA fornite dall’ambiente; con Node 24 impostare `NODE_USE_ENV_PROXY=1` per i download basati su fetch. Il runtime Chromium per i test browser upstream non serve allo smoke Electron: `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` evita quel download durante l’installazione. `FOUNDRY_LOCAL_SKIP_INSTALL=1` è l’opzione prevista dall’SDK upstream per le build da sorgente: esclude il download del runtime Foundry, che non viene utilizzato dalla shell M0. Non disabilitare i controlli TLS.
 

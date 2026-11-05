@@ -11,13 +11,15 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { ConfirmResult, IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { ConfirmResult, IDialogService, IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { FileService } from '../../../../../platform/files/common/fileService.js';
 import { FileChangesEvent, FileChangeType, IFileContent, IFileSystemWatcher } from '../../../../../platform/files/common/files.js';
 import { InMemoryFileSystemProvider } from '../../../../../platform/files/common/inMemoryFilesystemProvider.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { InMemoryStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { AdeProjectService } from '../../browser/adeProjectService.js';
+import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { testWorkspace } from '../../../../../platform/workspace/test/common/testWorkspace.js';
 import { projectDocuments } from './testProjectDocuments.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 import { libraryModel, observatoryModel } from '../common/independentProjects.js';
@@ -59,10 +61,15 @@ suite('A.D.E project context', () => {
 	let storage: InMemoryStorageService;
 	let files: DelayedFileService;
 	let dialogs: ModelDialogs;
+	let contextFolders: URI[] = [];
+	let confirmExisting = false;
+	const workspaceContext = new class extends mock<IWorkspaceContextService>() { override getWorkspace() { return testWorkspace(...contextFolders); } };
+	const projectDialogs = new class extends mock<IDialogService>() { override async confirm() { return { confirmed: confirmExisting }; } };
 	let documents: ReturnType<typeof projectDocuments>;
 	const resource = URI.parse('test:/checkout.ade.json');
 
 	setup(async () => {
+		contextFolders = []; confirmExisting = false;
 		storage = disposables.add(new InMemoryStorageService());
 		files = disposables.add(new DelayedFileService(new NullLogService()));
 		const provider = disposables.add(new InMemoryFileSystemProvider());
@@ -72,8 +79,32 @@ suite('A.D.E project context', () => {
 		documents = projectDocuments(files, disposables);
 	});
 
+	test('a new workspace restores its project and resolves imported snapshots to the source root', async () => {
+		const folder = URI.parse('test:/project with spaces');
+		await files.writeFile(URI.joinPath(folder, '.ade', 'model.json'), VSBuffer.fromString(JSON.stringify(checkoutModel)));
+		contextFolders = [folder];
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.restore();
+		assert.deepStrictEqual([project.projectRoot?.toString(), project.model.id], [folder.toString(), checkoutModel.id]);
+		const snapshot = URI.joinPath(folder, '.ade', 'imports', 'snapshot', 'model.ade.json');
+		await files.writeFile(snapshot, VSBuffer.fromString(JSON.stringify(checkoutModel)));
+		await project.openModelResource(snapshot);
+		assert.strictEqual(project.projectRoot?.toString(), folder.toString());
+	});
+	test('an existing project is opened only after confirmation, without overwriting its model', async () => {
+		const folder = URI.parse('test:/existing');
+		const model = URI.joinPath(folder, '.ade', 'model.json');
+		const original = JSON.stringify(checkoutModel);
+		await files.writeFile(model, VSBuffer.fromString(original));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		assert.strictEqual(await project.createProject('Replacement', folder), false);
+		confirmExisting = true;
+		assert.strictEqual(await project.createProject('Replacement', folder), true);
+		assert.deepStrictEqual([project.model.id, (await files.readFile(model)).value.toString()], [checkoutModel.id, original]);
+	});
+
 	test('opens the active imported snapshot from a code project folder and rejects pointer traversal', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		const folder = URI.parse('test:/codebase');
 		const version = '11111111-1111-4111-8111-111111111111';
 		const directory = URI.joinPath(folder, '.ade', 'imports', version);
@@ -91,7 +122,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('restores diagram and independent selections after a workspace restart', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await project.restore();
 		dialogs.selected = resource;
 		await project.chooseModel();
@@ -101,7 +132,7 @@ suite('A.D.E project context', () => {
 		project.selectElement('cart');
 		await storage.flush();
 		project.dispose();
-		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restored.restore();
 		assert.deepStrictEqual([restored.section, restored.activeView?.id, restored.selectedId, restored.modelUri?.toString()],
 			['diagram', 'cart-structure', 'cart', resource.toString()]);
@@ -113,7 +144,7 @@ suite('A.D.E project context', () => {
 		storage.store('ade.shell.section', 'properties', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		storage.store('ade.shell.selection', 'payment', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		storage.store('ade.shell.diagramSelections', '{broken', StorageScope.WORKSPACE, StorageTarget.MACHINE);
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await project.restore();
 		assert.deepStrictEqual([project.section, project.activeView?.id, project.selectedId], ['diagram', 'purchase-structure', 'payment']);
 	});
@@ -122,14 +153,14 @@ suite('A.D.E project context', () => {
 		storage.store('ade.visual.home', false, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		storage.store('ade.visual.context', JSON.stringify({ viewId: 'cancellation-structure', selections: { 'purchase-structure': 'payment', 'cancellation-structure': 'order' } }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		storage.store('ade.shell.model', resource.toString(), StorageScope.WORKSPACE, StorageTarget.MACHINE);
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await project.restore();
 		assert.deepStrictEqual([project.section, project.activeView?.id, project.selectedId, project.dirty], ['diagram', 'cancellation-structure', 'order', false]);
 		project.showDiagram('purchase-structure');
 		assert.strictEqual(project.selectedId, 'payment');
 		await storage.flush();
 		project.dispose();
-		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restored.restore();
 		assert.deepStrictEqual([restored.activeView?.id, restored.selectedId], ['purchase-structure', 'payment']);
 	});
@@ -138,13 +169,13 @@ suite('A.D.E project context', () => {
 		storage.store('ade.visual.context', '{', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		storage.store('ade.shell.diagram', 'purchase-outcome', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		storage.store('ade.shell.diagramSelections', JSON.stringify({ 'purchase-outcome': 'declined' }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await project.restore();
 		assert.deepStrictEqual([project.activeView?.id, project.selectedId, project.error], ['purchase-outcome', 'declined', undefined]);
 	});
 
 	test('system map is a restored history destination and never overwrites per-diagram selections', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await project.restore();
 		dialogs.selected = resource;
 		await project.chooseModel();
@@ -162,7 +193,7 @@ suite('A.D.E project context', () => {
 		assert.strictEqual(await project.saveAs(), true);
 		await storage.flush();
 		project.dispose();
-		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restored.restore();
 		assert.deepStrictEqual([restored.section, restored.activeView, restored.canGoBack, restored.dirty], ['map', undefined, false, false]);
 		restored.showDiagram('purchase-outcome');
@@ -170,7 +201,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('invalid documents expose diagnostics and retry recovers without writing the source', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await files.writeFile(resource, VSBuffer.fromString('{"version":99}'));
 		await project.chooseModel();
@@ -182,7 +213,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('a superseded asynchronous load cannot overwrite a newer document or the demo', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		const gate = new DeferredPromise<void>();
 		files.delay = { resource, gate };
 		dialogs.selected = resource;
@@ -206,7 +237,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('switching documents resets selections even when their diagram identities coincide', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.showDiagram('purchase-outcome');
@@ -222,7 +253,7 @@ suite('A.D.E project context', () => {
 		storage.store('ade.shell.model', resource.toString(), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		const gate = new DeferredPromise<void>();
 		files.delay = { resource, gate };
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		const pending = project.restore();
 		try {
 			await project.useDemo();
@@ -238,7 +269,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('creates an empty project without overwrites, and records feature creation as one native undo transaction', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		const folder = URI.parse('test:/project');
 		assert.strictEqual(await project.createProject('Checkout', folder), true);
 		assert.deepStrictEqual([project.model.version, project.model.name, project.model.views.length, project.dirty], [3, 'Checkout', 0, false]);
@@ -254,12 +285,12 @@ suite('A.D.E project context', () => {
 		assert.strictEqual(project.model.views[1].featureId, 'purchase');
 		assert.strictEqual(await project.save(), true);
 		const snapshot = (await files.readFile(project.modelUri!)).value.toString();
-		await assert.rejects(project.createProject('Replacement', folder));
+		assert.strictEqual(await project.createProject('Replacement', folder), false);
 		assert.strictEqual((await files.readFile(project.modelUri!)).value.toString(), snapshot);
 	});
 
 	test('visual edits upgrade v2 only on mutation, save and reopen preserve semantic identity and layout', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		assert.strictEqual(project.model.version, 2);
@@ -275,7 +306,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('contract editing shares identity across details and diagrams with native undo, redo and persistence', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.inspectElement('payment-contract');
@@ -295,7 +326,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('sequence order and shared messages use native undo, save, restart and context repair', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.editBatch([
@@ -313,7 +344,7 @@ suite('A.D.E project context', () => {
 		await project.save();
 		await storage.flush();
 		project.dispose();
-		const restarted = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restarted = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restarted.restore();
 		assert.deepStrictEqual([restarted.activeView!.kind, restarted.activeView!.relationIds, restarted.selectedId, restarted.dirty], ['sequence', ['confirm-order', 'checkout-confirm'], 'checkout-controller', false]);
 		restarted.showDiagram('purchase-structure');
@@ -324,7 +355,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('resource state views share transitions and persist native history and repaired selection', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.editBatch([
@@ -340,7 +371,7 @@ suite('A.D.E project context', () => {
 		await project.save();
 		await storage.flush();
 		project.dispose();
-		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restored.restore();
 		assert.deepStrictEqual([restored.activeView!.kind, restored.activeView!.relationIds, restored.selectedId, restored.dirty], ['state', ['order-confirmed', 'order-declined'], 'pending', false]);
 		const semantics = structuredClone(restored.model.semantics);
@@ -353,7 +384,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('resource creation and its state diagram are atomic when a later batch edit is invalid', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		const before = structuredClone(project.model);
@@ -365,7 +396,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('impact is a read-only navigation destination that restores through history, save copy and restart', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.showImpact('payment-contract');
@@ -379,7 +410,7 @@ suite('A.D.E project context', () => {
 		assert.strictEqual(await project.saveAs(), true);
 		await storage.flush();
 		project.dispose();
-		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restored.restore();
 		assert.deepStrictEqual([restored.section, restored.selectedId, restored.activeView, restored.modelUri!.toString(), restored.model.semantics.elements.find(element => element.id === 'payment-contract')!.name, restored.dirty], ['impact', 'payment-contract', undefined, dialogs.saveTarget.toString(), 'Payment Contract Updated', false]);
 		restored.edit({ kind: 'deleteElement', id: 'payment-contract' });
@@ -387,7 +418,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('changing documents clears impact even when identities coincide and failed loads do not expose the old report', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.showImpact('payment-contract');
@@ -407,7 +438,7 @@ suite('A.D.E project context', () => {
 		const observatory = URI.parse('test:/independent-observatory.json');
 		await files.writeFile(library, VSBuffer.fromString(JSON.stringify(libraryModel)));
 		await files.writeFile(observatory, VSBuffer.fromString(JSON.stringify(observatoryModel)));
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = library;
 		await project.chooseModel();
 		assert.deepStrictEqual(project.model, libraryModel);
@@ -418,7 +449,7 @@ suite('A.D.E project context', () => {
 		await project.saveAs();
 		await storage.flush();
 		project.dispose();
-		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restored.restore();
 		assert.deepStrictEqual([restored.model, restored.section, restored.selectedId, restored.dirty], [libraryModel, 'impact', 'contract', false]);
 		dialogs.selected = observatory;
@@ -433,7 +464,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('empty projects create independent resource lifecycles with native undo and round-trip persistence', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await project.createProject('Stazione oceanografica', URI.parse('test:/marine-laboratory'));
 		assert.deepStrictEqual([project.model.semantics.elements, project.model.views, project.model.codeMappings, project.model.verifications], [[], [], [], []]);
 		project.editBatch([
@@ -455,7 +486,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('saving a copy preserves diagram and selections across source revert and workspace restart', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.showDiagram('cart-structure');
@@ -468,7 +499,7 @@ suite('A.D.E project context', () => {
 		assert.strictEqual(await project.saveAs(), true);
 		await storage.flush();
 		project.dispose();
-		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restored.restore();
 		const outcome = { resource: restored.modelUri?.toString(), view: restored.activeView?.id, selected: restored.selectedId, dirty: restored.dirty, name: restored.model.semantics.elements.find(element => element.id === 'declined')?.name };
 		restored.showDiagram('cart-structure');
@@ -477,7 +508,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('a completed save copy cannot reopen a project superseded during file IO', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		const target = URI.parse('test:/copy.ade.json');
@@ -494,7 +525,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('semantic exploration reaches unplaced contracts and restores exact perspectives without dirtying the model', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.revealElement('payment', 'purchase-outcome');
@@ -509,7 +540,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('inspector context survives save copy and restart while history remains local to the new document', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.inspectElement('payment-contract');
@@ -518,14 +549,14 @@ suite('A.D.E project context', () => {
 		await project.saveAs();
 		await storage.flush();
 		project.dispose();
-		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		await restored.restore();
 		assert.deepStrictEqual([restored.section, restored.selectedId, restored.activeView, restored.canGoBack, restored.model.semantics.elements.find(element => element.id === 'payment-contract')?.name,
 			JSON.parse((await files.readFile(resource)).value.toString())], ['element', 'payment-contract', undefined, false, 'Payment Contract', checkoutModel]);
 	});
 
 	test('deleting inspected identities repairs context and opening another file clears navigation history', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.inspectElement('payment-contract');
@@ -541,7 +572,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('correlated watcher reloads clean inspectors, preserves dirty edits and is released when leaving the document', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.inspectElement('payment-contract');
@@ -561,7 +592,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('watcher recovers a failed new-file open without reusing selections from the previous document', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.revealElement('declined');
@@ -577,7 +608,7 @@ suite('A.D.E project context', () => {
 	});
 
 	test('cancelled document replacement preserves dirty edits; discard restores the original file', async () => {
-		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		dialogs.selected = resource;
 		await project.chooseModel();
 		project.edit({ kind: 'rename', target: 'element', id: 'payment', name: 'Changed' });

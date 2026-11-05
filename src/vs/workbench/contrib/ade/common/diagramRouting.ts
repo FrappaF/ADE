@@ -64,14 +64,14 @@ class Frontier {
 }
 
 /** Route around node rectangles on a compressed orthogonal grid, with a cost for bends. */
-export function routeDiagramConnection(boxes: readonly DiagramObstacle[], fromId: string, toId: string, lane = 0): DiagramPoint[] | undefined {
+export function routeDiagramConnection(boxes: readonly DiagramObstacle[], fromId: string, toId: string, lane = 0, options?: { sourceOffset: number; targetOffset: number; occupied: readonly DiagramPoint[][] }): DiagramPoint[] | undefined {
 	const from = boxes.find(box => box.id === fromId);
 	const to = boxes.find(box => box.id === toId);
 	if (!from || !to) { return undefined; }
 	const offset = Math.min(24, Math.floor((lane + 1) / 2) * 8) * (lane % 2 ? 1 : -1);
 	const gap = 20 + lane * 4;
-	const sources = ports(from, offset, gap).filter((port, index) => (from !== to || index < 2) && isClearSegment(port.edge, port.point, boxes));
-	const targets = ports(to, -offset, gap).filter((port, index) => (from !== to || index >= 2) && isClearSegment(port.edge, port.point, boxes));
+	const sources = ports(from, options?.sourceOffset ?? offset, gap).filter((port, index) => (from !== to || index < 2) && isClearSegment(port.edge, port.point, boxes));
+	const targets = ports(to, options?.targetOffset ?? -offset, gap).filter((port, index) => (from !== to || index >= 2) && isClearSegment(port.edge, port.point, boxes));
 	if (!sources.length || !targets.length) { return undefined; }
 	const allPorts = [...sources, ...targets];
 	const xs = [...new Set([...boxes.flatMap(box => [box.x - gap, box.x + box.width + gap]), ...allPorts.map(port => port.point.x)])].sort((a, b) => a - b);
@@ -109,13 +109,39 @@ export function routeDiagramConnection(boxes: readonly DiagramObstacle[], fromId
 			const nextIndex = nextRow * xs.length + nextColumn;
 			const next = pointAt(nextIndex);
 			if (!isClearSegment(point, next, boxes)) { continue; }
-			const cost = step.cost + Math.abs(point.x - next.x) + Math.abs(point.y - next.y) + (heading === step.index % 2 ? 0 : 24);
+			const overlap = options?.occupied.some(route => route.slice(1).some((end, i) => {
+				const start = route[i];
+				return point.x === next.x && point.x === start.x && start.x === end.x && Math.min(Math.max(point.y, next.y), Math.max(start.y, end.y)) > Math.max(Math.min(point.y, next.y), Math.min(start.y, end.y))
+					|| point.y === next.y && point.y === start.y && start.y === end.y && Math.min(Math.max(point.x, next.x), Math.max(start.x, end.x)) > Math.max(Math.min(point.x, next.x), Math.min(start.x, end.x));
+			}));
+			const cost = step.cost + Math.abs(point.x - next.x) + Math.abs(point.y - next.y) + (heading === step.index % 2 ? 0 : 24) + (overlap ? 160 : 0);
 			const key = nextIndex * 2 + heading;
 			if (cost >= (distances.get(key) ?? Infinity)) { continue; }
 			distances.set(key, cost); previous.set(key, step.index); frontier.push({ index: key, cost });
 		}
 	}
 	return undefined;
+}
+
+/** Reserve distinct attachment slots across all incident relations, not only identical endpoint pairs. */
+export function routeDiagramConnections(boxes: readonly DiagramObstacle[], connections: readonly { id: string; from: string; to: string }[]): Map<string, DiagramPoint[] | undefined> {
+	const sorted = [...connections].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+	const slots = new Map<string, string[]>();
+	for (const edge of sorted) {
+		for (const [id, suffix] of [[edge.from, 'from'], [edge.to, 'to']]) { const entries = slots.get(id) ?? []; entries.push(`${edge.id}:${suffix}`); slots.set(id, entries); }
+	}
+	const offset = (id: string, key: string): number => {
+		const box = boxes.find(box => box.id === id);
+		const entries = slots.get(id)!;
+		return box ? ((entries.indexOf(key) + 1) / (entries.length + 1) - 0.5) * Math.min(box.width, box.height) * 0.8 : 0;
+	};
+	const occupied: DiagramPoint[][] = [], result = new Map<string, DiagramPoint[] | undefined>();
+	for (const edge of sorted) {
+		const route = routeDiagramConnection(boxes, edge.from, edge.to, 0, { sourceOffset: offset(edge.from, `${edge.id}:from`), targetOffset: offset(edge.to, `${edge.id}:to`), occupied });
+		result.set(edge.id, route);
+		if (route) { occupied.push(route); }
+	}
+	return result;
 }
 
 function overlaps(a: DiagramBox, b: DiagramBox): boolean {

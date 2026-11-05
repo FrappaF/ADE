@@ -86,3 +86,13 @@ test('invalid graph edits are rejected atomically, diagram deletion preserves th
 	assert.deepEqual(checkoutModel, before);
 	assert.deepEqual(applyVisualEdit(checkoutModel, { kind: 'deleteDiagram', id: 'purchase-structure' }).semantics, checkoutModel.semantics);
 });
+
+test('editing a relationship preserves its identity across views and rejects incompatible endpoints atomically', () => {
+	const original = checkoutModel.semantics.relations.find(relation => relation.kind === 'write');
+	const edit = { kind: 'updateRelation', id: original.id, from: original.from, to: original.to, relationKind: 'read', name: 'Review order', condition: 'order exists' };
+	const updated = applyVisualEdit(checkoutModel, edit);
+	assert.deepEqual(updated.semantics.relations.find(relation => relation.id === original.id), { id: original.id, from: original.from, to: original.to, kind: 'read', name: 'Review order', condition: 'order exists' });
+	assert.deepEqual(updated.views, upgradeVisualModel(checkoutModel).views);
+	assert.throws(() => applyVisualEdit(checkoutModel, { ...edit, relationKind: 'write', from: 'customer' }));
+	assert.notEqual(checkoutModel.semantics.relations.find(relation => relation.id === original.id).kind, 'read');
+});

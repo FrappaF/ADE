@@ -7,8 +7,10 @@ import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { basename, dirname } from '../../../../base/common/resources.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { ConfirmResult, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { ConfirmResult, IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -48,11 +50,13 @@ export class AdeProjectService extends Disposable {
 	private _diagnostics: string[] = [];
 
 	constructor(
-		@IStorageService storageService: IStorageService,
+		@IStorageService private readonly storageService: IStorageService,
 		@IFileService private readonly fileService: IFileService,
 		@IFileDialogService private readonly fileDialogService: IFileDialogService,
 		@ITextFileService private readonly textFiles: ITextFileService,
-		@ITextModelService private readonly textModels: ITextModelService
+		@ITextModelService private readonly textModels: ITextModelService,
+		@IWorkspaceContextService private readonly workspace: IWorkspaceContextService,
+		@IDialogService private readonly dialogs: IDialogService
 	) {
 		super();
 		// Read the M2.1 branch's presentation keys only as fallbacks for an older profile.
@@ -101,6 +105,16 @@ export class AdeProjectService extends Disposable {
 	get canRedo(): boolean { return this.document?.textEditorModel.canRedo() ?? false; }
 	get section(): SemanticLocation['section'] { return this._section; }
 	get modelUri(): URI | undefined { return this._modelUri; }
+	/** Imported snapshots belong to the project above .ade, never to the snapshot directory. */
+	get projectRoot(): URI | undefined {
+		if (!this._modelUri) { return undefined; }
+		let current = dirname(this._modelUri);
+		while (dirname(current).path !== current.path) {
+			if (basename(current) === '.ade') { return dirname(current); }
+			current = dirname(current);
+		}
+		return dirname(this._modelUri);
+	}
 	get loading(): boolean { return this._loading; }
 	get error(): string | undefined { return this._error; }
 	get diagnostics(): readonly string[] { return this._diagnostics; }
@@ -159,12 +173,23 @@ export class AdeProjectService extends Disposable {
 			if (this._modelUri) {
 				this.restoring = this.loadModel(this._modelUri);
 			} else {
+				this.restoring = this.restoreWorkspaceProject();
 				this.context = normalizeDiagramContext(this.model, this.context);
 				if ((this.section === 'element' || this.section === 'impact') && !this.model.semantics.elements.some(element => element.id === this.inspectionId)) { this._section = 'diagram'; }
 				this.navigation.replace(this.location);
 			}
 		}
 		return this.restoring ?? Promise.resolve();
+	}
+
+	private async restoreWorkspaceProject(): Promise<void> {
+		const generation = this.generation;
+		const folders = this.workspace?.getWorkspace().folders ?? [];
+		const active = this.storageService.get('ade.project.activeRoot', StorageScope.PROFILE);
+		const folder = folders.find(folder => folder.uri.toString() === active) ?? (folders.length === 1 ? folders[0] : undefined);
+		if (folder && (await this.fileService.exists(URI.joinPath(folder.uri, '.ade', 'code-project.json')) || await this.fileService.exists(URI.joinPath(folder.uri, '.ade', 'model.json'))) && generation === this.generation && !this._modelUri) {
+			await this.openProject(folder.uri);
+		}
 	}
 
 	showSystemMap(): void {
@@ -300,9 +325,16 @@ export class AdeProjectService extends Disposable {
 	}
 
 	async createProject(name: string, folder: URI): Promise<boolean> {
-		if (!name.trim() || !await this.prepareToReplace()) { return false; }
+		if (!name.trim()) { return false; }
 		const directory = URI.joinPath(folder, '.ade');
 		const resource = URI.joinPath(directory, 'model.json');
+		if (await this.fileService.exists(resource) || await this.fileService.exists(URI.joinPath(directory, 'code-project.json'))) {
+			if (!this.dialogs) { throw new Error(localize('ade.existingProject.error', "This folder already contains an A.D.E project. Use Open Project or choose another folder.")); }
+			if (!(await this.dialogs.confirm({ message: localize('ade.existingProject', "This Folder Already Contains an A.D.E Project."), detail: localize('ade.existingProject.detail', "Open the existing project or cancel and choose another folder. Its model will be preserved."), primaryButton: localize('ade.existingProject.open', "Open Project") })).confirmed) { return false; }
+			await this.openProject(folder);
+			return !this.error;
+		}
+		if (!await this.prepareToReplace()) { return false; }
 		const model = { version: 3, id: generateUuid(), name, semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
 		await this.fileService.createFolder(directory);
 		await this.fileService.createFile(resource, VSBuffer.fromString(JSON.stringify(model, null, '\t') + '\n'), { overwrite: false });

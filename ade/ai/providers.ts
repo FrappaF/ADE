@@ -29,7 +29,14 @@ export function createCliProvider(runner = runProcess): StructuredProvider {
 					? ['exec', '--model', config.model, '--sandbox', 'read-only', '--skip-git-repo-check', '--ephemeral', ...['shell_tool', 'unified_exec', 'apps', 'plugins', 'remote_plugin', 'multi_agent', 'hooks', 'skill_search', 'skill_mcp_dependency_install'].flatMap(feature => ['--disable', feature]), '-c', 'mcp_servers={}', '-c', 'web_search="disabled"', '--json', '--output-schema', join(directory, 'schema.json'), '--output-last-message', join(directory, 'response.json'), '-']
 					: ['-p', '--model', config.model, '--permission-mode', 'plan', '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--setting-sources', '', '--no-session-persistence', '--output-format', 'json', '--json-schema', JSON.stringify(schema)];
 				const result = await runner(config.executable, args, directory, { input: prompt, signal, timeoutMs: config.timeoutMs, maxBytes: 4 * 1024 * 1024 });
-				if (result.code !== 0) { throw new Error('Provider CLI failed; check CLI version, login, model access and quota in its integrated terminal'); }
+				if (result.code !== 0) {
+					// Diagnose common failures without exposing raw provider output, credentials or source context.
+					const output = result.stderr + '\n' + result.stdout;
+					if (/rate.?limit|quota|usage.limit|\b429\b/i.test(output)) { throw new Error('Provider quota or rate limit reached. Check the account limits in the original CLI and retry later.'); }
+					if (/unauthorized|unauthenticated|not logged in|authentication.*(required|failed)|\b401\b/i.test(output)) { throw new Error('Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.'); }
+					if (/model.{0,100}(not found|not available|does not exist|not supported|access)|unsupported.{0,30}model/i.test(output)) { throw new Error('The selected model is unavailable to this CLI account. Choose an exact model ID supported by the account.'); }
+					throw new Error(`Provider CLI failed with exit code ${result.code}. Open the original CLI to inspect its version, model access and connection, then retry.`);
+				}
 				try {
 					let value: unknown;
 					let usage: Record<string, unknown> = {};

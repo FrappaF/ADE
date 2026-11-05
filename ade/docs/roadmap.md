@@ -2,6 +2,8 @@
 
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
+Il feedback dei test manuali del 5 novembre 2026 è sviluppato nella [roadmap delle correzioni](manual-test-roadmap.md), sulla branch `fix/manual-test-followup`. L’incremento implementa riconoscimento dell’account CLI e feedback AI, coerenza fra progetto/Files/terminale e Sync globale, leggibilità ed editing contestuale dei diagrammi. Il [verbale](manual-test-verification.md) registra risultati e limiti delle verifiche senza estendere la copertura delle milestone successive.
+
 Le milestone indicano un ordine di sviluppo, non date di consegna. La verifica del 28 ottobre 2026 è registrata nel [verbale M0](m0-verification.md): Build, ripristino e smoke desktop sul MacBook sono stati confermati dall’utente; la CI della precedente integrazione M0 è documentata in [validazione M0](m0-validation.md); il merge M1 richiede una nuova esecuzione della CI. M1 dispone ora di contratto, API, migrazione ed esempi verificabili con Node; la sua integrazione iniziale è stata collaudata dall’utente sul MacBook. Le scelte tecnologiche riportate per le fasi successive sono proposte iniziali da validare.
 
 Il 29 ottobre 2026 è stata implementata la prima shell M2.1: sidebar nativa sistema/feature/diagrammi, canvas in sola lettura, proprietà contestuali e ripristino per diagramma. Il [verbale M2.1](m2-1-verification.md) registra build e smoke nativo su Linux, distinguendoli dal collaudo macOS e dalla CI remota ancora da eseguire. Questa shell costituisce la base dell'editor M2.2.
