@@ -15,6 +15,20 @@ Altri casi coprono conflitto comportamentale concorrente, domande senza applicaz
 
 Il benchmark di riconciliazione verifica nove casi per candidato su Python/Java/Go. Il provider simulato corretto supera 9/9; il candidato che modifica anche un confronto del codice personalizzato supera 6/9 e viene escluso dagli oracoli indipendenti. Nessun default reale viene selezionato da questi risultati simulati.
 
+## Seguito: importazione semantica e UI
+
+Il [percorso diagrammi e Codex](diagram-workflow.md) documenta il secondo passo dell’importazione, il modello separato per i diagrammi, i job riprendibili e la UI semplificata. Il [report del seguito](validation/m6-diagram-workflow-2026-11-05.json) conserva risultati e hash delle schermate locali.
+
+- Suite importazione/Sync: **120 test**; i **26 casi** dedicati alla generazione coprono 16 profili e SQL senza parser, parsing parziale integrato da testo, tutti i simboli su più gruppi, vista d’insieme, interazioni deterministiche obbligatorie, domande/errori, ripresa dopo riavvio, budget zero e freschezza di codice/modello. Verificano inoltre nomi e posizioni manuali, chiavi semantiche riusate su tre generazioni e blocco delle rinomine con annotazioni prima di spendere altre richieste.
+- Suite collaborazione IA: **29 test**. Servizi nativi: **36 test**, inclusi chat con account CLI senza configurazione preventiva, chat nativa disponibile senza CLI globale, assenza di login ripetuto dopo errori transitori e generazione con conferma del budget complessivo.
+- TypeScript di tutte e tre le aree, lint mirato, build client e bundle dell’engine superati.
+- Smoke Electron Linux `--diagram-workflow` superato: importazione in due passi, canvas senza inspector iniziale, modifica contestuale, aggiornamento guidato del codice, successivo aggiornamento dei diagrammi, viste semantiche senza liste dei file e ripristino dopo riavvio. La CLI è simulata e usa il protocollo originale; lo smoke non certifica qualità di inferenza.
+- Smoke avanzato `--code-only` nuovamente superato con i comandi spostati nei menu: rinomina/contratto/cancellazione, navigazione al sorgente, undo della coppia codice/modello, riavvio e recupero storico.
+
+Sono passati anche gli smoke `--ai-only` (workflow M5 completo con CLI simulata), `--followup-only` (editing contestuale, layout, progetto, Files, terminale e riavvio) e `--ux-only` (tastiera, lettura accessibile, aggiornamenti esterni, finestra stretta e quattro temi). Il contrasto del testo selezionato misurato varia da 11,99:1 a 21:1.
+
+La chat con account Codex è verificata con servizi iniettati; nessun messaggio è stato inviato a un provider reale in questo seguito. Resta necessario misurare la qualità del modello economico con un account operativo. I limiti del benchmark live precedente rimangono quelli riportati sotto.
+
 ## Verifiche ancora aperte
 
 Lo smoke Electron Linux `--code-only` è stato eseguito con successo con profilo pulito, estensioni integrate disabilitate e CLI simulata. Verifica importazione nativa, aggiornamenti codice → modello (contratto, rinomina e cancellazione), rinomina dal diagramma → codice, revisione del payload e della proposta, undo di modello e codice, navigazione al sorgente, riavvio completo e recupero storico. Il [report nativo](validation/m6-native-2026-11-05.json) registra risultati e hash delle schermate locali. Il collaudo ha individuato e corretto il mancato ritorno al canvas dopo la revisione IA; il test attende il cambio effettivo del workspace prima dei comandi e i riavvii conservano il workspace aperto dall’importazione. Il container usa il layout tastiera di fallback: questa prova non certifica le mappature hardware.

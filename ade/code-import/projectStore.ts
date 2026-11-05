@@ -12,7 +12,7 @@ export const snapshotId = (value: string): boolean => /^[a-f0-9]{8}(?:-[a-f0-9]{
 
 /** All source-changing services share the same project lock and canonical metadata namespace. */
 export async function managed(root: string, name = 'imports'): Promise<string> {
-	if (!['imports', 'reconciliation'].includes(name) || await realpath(root) !== root) { throw new Error('Invalid managed project root'); }
+	if (!['imports', 'reconciliation', 'diagram-imports'].includes(name) || await realpath(root) !== root) { throw new Error('Invalid managed project root'); }
 	for (const path of [join(root, '.ade'), join(root, '.ade', name)]) {
 		await mkdir(path, { recursive: true });
 		if ((await lstat(path)).isSymbolicLink() || await realpath(path) !== path) { throw new Error('Managed snapshot directory cannot be a symlink'); }

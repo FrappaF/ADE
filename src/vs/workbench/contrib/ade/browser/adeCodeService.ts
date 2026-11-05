@@ -19,7 +19,8 @@ export interface IAdeCodeService {
 	readonly context: CodeContext | undefined;
 	readonly onDidChange: Event<void>;
 	importCodebase(): Promise<void>;
-	sync(): Promise<void>;
+	sync(direction?: 'model' | 'code'): Promise<void>;
+	openContext(context: CodeContext): Promise<void>;
 	inspect(elementId?: string): Promise<void>;
 	recover(): Promise<void>;
 	undoSync(): Promise<void>;
@@ -37,6 +38,7 @@ class UnavailableCodeService implements IAdeCodeService {
 	readonly onDidChange = Event.None;
 	async importCodebase(): Promise<void> { }
 	async sync(): Promise<void> { }
+	async openContext(): Promise<void> { }
 	async inspect(): Promise<void> { }
 	async recover(): Promise<void> { }
 	async undoSync(): Promise<void> { }

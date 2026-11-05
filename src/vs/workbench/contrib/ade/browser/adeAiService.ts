@@ -6,7 +6,7 @@
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
-import { CodePreview, CodeResolution } from '../common/codeBridge.js';
+import { CodePreview, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
 
 export const IAdeAiService = createDecorator<IAdeAiService>('adeAiService');
 export interface IAdeAiService {
@@ -19,6 +19,11 @@ export interface IAdeAiService {
 	readonly canApply: boolean;
 	readonly canUndo: boolean;
 	readonly onDidChange: Event<void>;
+	readonly diagramProgress: CodeDiagramProgress | undefined;
+	chat(): Promise<void>;
+	chooseDiagramModel(): Promise<void>;
+	buildDiagrams(): Promise<void>;
+	resumeDiagrams(): Promise<void>;
 	connect(): Promise<void>;
 	refreshConnection(): Promise<void>;
 	openCli(): Promise<void>;
@@ -33,7 +38,7 @@ export interface IAdeAiService {
 	benchmark(): Promise<void>;
 	benchmarkReconciliation(): Promise<void>;
 	exportBenchmark(): Promise<void>;
-	reconcile(preview: CodePreview, resolutions?: CodeResolution[]): Promise<CodePreview | undefined>;
+	reconcile(preview: CodePreview, resolutions?: CodeResolution[], direction?: 'model' | 'code'): Promise<CodePreview | undefined>;
 }
 class UnavailableAiService implements IAdeAiService {
 	declare readonly _serviceBrand: undefined;
@@ -41,6 +46,11 @@ class UnavailableAiService implements IAdeAiService {
 	readonly connectionStatus = '';
 	readonly canVerify = false; readonly canApply = false; readonly canUndo = false;
 	readonly onDidChange = Event.None;
+	readonly diagramProgress = undefined;
+	async chat(): Promise<void> { }
+	async chooseDiagramModel(): Promise<void> { }
+	async buildDiagrams(): Promise<void> { }
+	async resumeDiagrams(): Promise<void> { }
 	async connect(): Promise<void> { }
 	async refreshConnection(): Promise<void> { }
 	async openCli(): Promise<void> { }

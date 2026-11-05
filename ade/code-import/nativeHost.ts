@@ -23,6 +23,7 @@ import { isSourcePath } from './paths.ts';
 import { executeCollaboration } from '../ai/engine.ts';
 import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
 import type { StructuredProvider } from '../ai/contracts.ts';
+import { prepareDiagramImport, advanceDiagramImport, readDiagramJob, diagramProgress, finishDiagramImport } from '../ai/diagramImport.ts';
 
 const nonempty = { type: 'string', minLength: 1 };
 const valid = new Ajv2020().compile<Exclude<CodeRequest, { operation: 'collaboration' }>>({ oneOf: [
@@ -32,6 +33,8 @@ const valid = new Ajv2020().compile<Exclude<CodeRequest, { operation: 'collabora
 	{ type: 'object', additionalProperties: false, required: ['operation', 'token'], properties: { operation: { const: 'apply' }, token: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'token', 'config', 'sourceFiles'], properties: { operation: { const: 'reconciliationPrepare' }, token: nonempty, config: nonempty, clarification: { type: 'string', maxLength: 8000 }, sourceFiles: { type: 'array', maxItems: 20, items: nonempty }, resolutions: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'token', 'reviewId'], properties: { operation: { const: 'reconciliationPropose' }, token: nonempty, reviewId: nonempty } },
+	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'config'], properties: { operation: { const: 'diagramPrepare' }, snapshot: nonempty, config: nonempty, resume: nonempty, clarification: { type: 'string', maxLength: 8000 } } },
+	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'id', 'reviewId'], properties: { operation: { const: 'diagramStep' }, snapshot: nonempty, id: nonempty, reviewId: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'target'], properties: { operation: { const: 'restore' }, snapshot: nonempty, target: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'file', 'revision', 'start', 'end'], properties: { operation: { const: 'source' }, snapshot: nonempty, file: nonempty, revision: nonempty, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 0 } } }
 ] });
@@ -44,12 +47,13 @@ async function json(path: string): Promise<unknown> {
 	return JSON.parse(await readFile(path, 'utf8'));
 }
 
-function context(snapshot: string, state: CodeImport): CodeContext {
+function context(snapshot: string, state: CodeImport, model = state.model): CodeContext {
 	return {
 		snapshot, model: join(snapshot, 'model.ade.json'), sourceRoot: state.sourceRoot, revision: state.revision, scope: state.scope ?? structuredClone(defaultScope),
 		files: state.files.map(file => ({ path: file.file, elementId: file.moduleId, language: file.language ?? '', status: file.status, diagnostics: file.diagnostics.map(item => `${item.code}${item.syntaxKind ? ': ' + item.syntaxKind : ''} (${item.count})`) })),
 		declarations: state.files.flatMap(file => file.declarations.map(item => ({ id: item.id, sourceId: item.sourceId!, name: item.name, kind: item.kind, evidence: item.nameEvidence ?? item.evidence }))),
 		providers: state.semantic?.providers.map(provider => `${provider.name} ${provider.version}`) ?? [],
+		diagramState: model.semantics.elements.some(element => element.kind === 'feature') ? 'diagrams' : 'index',
 		dependencies: state.semantic?.dependencies.map(edge => ({ ...edge, references: edge.references.map(ref => ({ source: ref.source, target: ref.target, provider: state.semantic!.providers[ref.provider].name })) })) ?? [],
 		diagnostics: [...(state.semantic?.diagnostics.map(item => `${item.file}: ${item.code}`) ?? []), ...(state.analysis.compilerDiagnostics ?? [])]
 	};
@@ -106,7 +110,7 @@ export function createCodeEngine(provider?: StructuredProvider): CodeEngine { re
 				const destination = join(await managed(root), randomUUID());
 				await writeSnapshot(destination, state, state.model, undefined, undefined, signal, true);
 				await activate(root, destination);
-				return context(destination, state);
+				return context(destination, state, (await readSnapshot(destination)).model);
 			});
 		} else if (request.operation === 'reconciliationPrepare' || request.operation === 'reconciliationPropose') {
 			const preview = previews.get(request.token);
@@ -153,7 +157,7 @@ export function createCodeEngine(provider?: StructuredProvider): CodeEngine { re
 					if (!preview.result.mutations.length) { state = bindReconciliationIdentities(state, model, preview.bindings?.filter(item => item.syntaxKind !== 'ai') ?? []); }
 					await writeSnapshot(destination, state, model, preview.result.report, preview.previous, signal, true);
 				}, signal, preview.prepared && preview.ai ? { id: preview.prepared.reviewId, provider: preview.prepared.config.provider, model: preview.prepared.config.model, promptRevision: contentHash(preview.prepared.prompt), outputRevision: contentHash(JSON.stringify(preview.ai)), inputBytes: preview.prepared.metrics.inputBytes + preview.prepared.metrics.schemaBytes, outputBytes: Buffer.byteLength(JSON.stringify(preview.ai)), cached: preview.ai.cached ?? false } : undefined);
-				return context(destination, state);
+				return context(destination, state, (await readSnapshot(destination)).model);
 			});
 		} else {
 			const previous = await readSnapshot(request.snapshot);
@@ -161,7 +165,31 @@ export function createCodeEngine(provider?: StructuredProvider): CodeEngine { re
 				const pointer = await active(previous.state.sourceRoot);
 				if (pointer && join(previous.state.sourceRoot, '.ade', 'imports', pointer) !== previous.directory) { throw new Error('Open the active snapshot before Sync or recovery'); }
 			}
-			if (request.operation === 'inspect') { result = context(previous.directory, previous.state); }
+			if (request.operation === 'inspect') { result = context(previous.directory, previous.state, previous.model); }
+			else if (request.operation === 'diagramPrepare' || request.operation === 'diagramStep') {
+				result = await lock(previous.state.sourceRoot, async () => {
+					await assertNoInterruptedOperation(previous.state.sourceRoot);
+					if (await active(previous.state.sourceRoot) !== previous.directory.split(/[\\/]/).pop()) { throw new Error('Open the active project before building diagrams'); }
+					let next = await importCode(previous.state.sourceRoot, previous.state.projectId, { previous: previous.state, signal });
+					next = await analyze(next, [], previous.state, false, signal);
+					if (request.operation === 'diagramPrepare') { return diagramProgress(await prepareDiagramImport(previous, next, JSON.parse(request.config), request.resume, request.clarification, signal)); }
+					const job = await readDiagramJob(previous.state.sourceRoot, request.id);
+					const advanced = await advanceDiagramImport(job, previous, next, request.reviewId, signal, provider);
+					if (!advanced.model) { return diagramProgress(advanced.job); }
+					try {
+						const current = await readSnapshot(previous.directory);
+						const observed = await importCode(next.sourceRoot, next.projectId, { previous: next, signal });
+						if (current.inputHash !== previous.inputHash || observed.revision !== next.revision) { throw new Error('Project changed during diagram generation'); }
+						// Revalidate the complete textual inventory, including languages without a parser.
+						await prepareDiagramImport(previous, observed, job.config, job.id, job.clarification, signal);
+						const destination = join(await managed(next.sourceRoot), randomUUID());
+						await writeSnapshot(destination, next, advanced.model, undefined, previous, signal, true);
+						await activate(next.sourceRoot, destination);
+						await finishDiagramImport(job);
+						return { ...diagramProgress(job), context: context(destination, next, advanced.model) };
+					} catch (error) { await finishDiagramImport(job, error instanceof Error ? error.message : 'Diagram publication failed'); throw error; }
+				});
+			}
 			else if (request.operation === 'preview') {
 				await assertNoInterruptedOperation(previous.state.sourceRoot);
 				let next = await importCode(previous.state.sourceRoot, previous.state.projectId, { previous: previous.state, scope: request.scope, renameHints: request.renames ? readRenameHints(request.renames) : undefined, signal });
@@ -202,12 +230,12 @@ export function createCodeEngine(provider?: StructuredProvider): CodeEngine { re
 			} else if (request.operation === 'undoSync' || request.operation === 'recoverSync') {
 				result = await lock(previous.state.sourceRoot, async () => {
 					const restored = request.operation === 'undoSync' ? await undoReconciliation(previous.state.sourceRoot, request.id) : await recoverReconciliation(previous.state.sourceRoot, request.id);
-					return context(restored.directory, restored.state);
+					return context(restored.directory, restored.state, restored.model);
 				});
 			} else if (request.operation === 'restore') {
 				const target = await readSnapshot(request.target);
 				if (dirname(target.directory) !== join(previous.state.sourceRoot, '.ade', 'imports') || target.state.sourceRoot !== previous.state.sourceRoot || target.state.projectId !== previous.state.projectId) { throw new Error('Recovery snapshot belongs to a different project'); }
-				result = await lock(previous.state.sourceRoot, async () => { await assertNoInterruptedOperation(previous.state.sourceRoot); await activate(previous.state.sourceRoot, target.directory); return context(target.directory, target.state); });
+				result = await lock(previous.state.sourceRoot, async () => { await assertNoInterruptedOperation(previous.state.sourceRoot); await activate(previous.state.sourceRoot, target.directory); return context(target.directory, target.state, target.model); });
 			}
 			else { throw new Error('Unknown operation'); }
 		}

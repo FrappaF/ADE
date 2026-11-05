@@ -189,7 +189,7 @@ export async function validateReconciliationProposal(value: unknown, prepared: P
 	// View membership follows accepted AI semantics; positions and manually hidden nodes stay local.
 	for (const view of model.views) { view.nodes = view.nodes.filter(node => elementIds.has(node.elementId)); view.relationIds = view.relationIds.filter(id => relationIds.has(id)); }
 	model.views = model.views.filter(view => !previous.state.model.views.some(item => item.id === view.id) || next.model.views.some(item => item.id === view.id) || view.nodes.length > 0 || view.relationIds.length > 0);
-	for (const view of next.model.views) {
+	for (const view of next.model.views.filter(view => model.views.some(current => current.id === view.id) || !model.views.some(current => current.id.startsWith('semantic:')))) {
 		let current = model.views.find(item => item.id === view.id);
 		if (!current) { current = { ...view, nodes: [], relationIds: [] }; model.views.push(current); }
 		for (const node of view.nodes.filter(node => elementIds.has(node.elementId))) {

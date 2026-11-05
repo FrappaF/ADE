@@ -47,7 +47,8 @@ const navigationOnly = process.argv.includes('--navigation-only');
 const sequenceOnly = process.argv.includes('--sequence-only');
 const stateOnly = process.argv.includes('--state-only');
 const impactOnly = process.argv.includes('--impact-only');
-const codeOnly = process.argv.includes('--code-only');
+const workflowOnly = process.argv.includes('--diagram-workflow');
+const codeOnly = process.argv.includes('--code-only') || workflowOnly;
 const aiOnly = process.argv.includes('--ai-only') || aiLive;
 const extraCleanup = [];
 const projectsOnly = process.argv.includes('--projects-only');
@@ -94,20 +95,44 @@ async function launch() {
 	const deadline = Date.now() + 90000;
 	while (Date.now() < deadline) {
 		for (const window of app.windows()) {
-			if (await window.locator('.ade-shell').isVisible().catch(() => false)) { window.setDefaultTimeout(30000); return window; }
+			if (await window.locator('.ade-shell').isVisible().catch(() => false)) { window.setDefaultTimeout(30000); await window.waitForFunction(() => !document.querySelector('.ade-content')?.textContent.includes('Loading model…')); if (!workflowOnly) { await openProperties(window); } return window; }
 		}
 		await new Promise(resolve => setTimeout(resolve, 250));
 	}
 	throw new Error('No restored A.D.E workbench became visible');
 }
 
+async function revealAdeButton(window, name) {
+	const button = window.locator('.ade-shell').getByRole('button', { name, exact: true, includeHidden: true });
+	for (const disclosure of await button.locator('xpath=ancestor::details').all()) {
+		if (!await disclosure.evaluate(element => element.open)) { await disclosure.locator(':scope > summary').click(); }
+	}
+	return button;
+}
+async function clickAdeButton(window, name) { await (await revealAdeButton(window, name)).click(); }
+async function openProperties(window) {
+	const button = window.locator('.ade-shell').getByRole('button', { name: 'Properties', exact: true });
+	if (await button.isVisible() && await button.getAttribute('aria-pressed') !== 'true') { await button.click(); }
+}
+async function openAiSettings(window) {
+	const tools = window.locator('.ade-shell details').filter({ has: window.locator('summary', { hasText: /^More Tools$/ }) });
+	if (!await tools.evaluate(element => element.open)) { await tools.locator(':scope > summary').click(); }
+	const settings = tools.locator('details').filter({ has: window.locator('summary', { hasText: /^AI Settings and Advanced Actions$/ }) });
+	if (!await settings.evaluate(element => element.open)) { await settings.locator(':scope > summary').click(); }
+	return settings;
+}
+
 async function openModelFile(window, file) {
+	const options = window.locator('.ade-sidebar summary').filter({ hasText: /^Navigation Options$/ });
+	if (await options.isVisible() && !await options.evaluate(element => element.parentElement.open)) { await options.click(); }
 	await window.locator('.ade-sidebar').getByRole('button', { name: 'Open Model', exact: true }).click();
 	const input = window.locator('.quick-input-widget input:visible');
 	await input.waitFor();
 	await input.fill(path.dirname(file) + path.sep);
 	await window.locator('.quick-input-widget').getByText(path.basename(file), { exact: true }).dblclick();
 	await input.waitFor({ state: 'hidden' });
+	await window.waitForFunction(() => !document.querySelector('.ade-content')?.textContent.includes('Loading model…'));
+	await openProperties(window);
 }
 async function enterValue(window, title, value) {
 	const widget = window.locator('.quick-input-widget');
@@ -173,7 +198,7 @@ async function runCommand(window, name) {
 }
 
 async function searchSystem(window, kind, name) {
-	await window.locator('.ade-shell').getByRole('button', { name: 'Search System', exact: true }).click();
+	await clickAdeButton(window, 'Search System');
 	await pickValue(window, 'Search Filter', kind);
 	await window.locator('.quick-input-widget input:visible').fill(name);
 	await pickValue(window, 'Search System', name);
@@ -259,7 +284,14 @@ const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
 const input=readFileSync(0,'utf8');
 const context=JSON.parse(input.slice(input.indexOf('\\n')+1));
-let value={summary:'Reconcile observed source changes',questions:[],sourceEdits:[],bindings:[],modelEdits:[
+let value;
+if(context.step){
+const overview=context.step==='overview';
+const edges=context.dependencies.filter(edge=>context.required.some(item=>item.ref===edge.from)&&context.required.some(item=>item.ref===edge.to));
+const relations=edges.map((edge,i)=>({key:'interaction-'+context.batch+'-'+i,kind:'dependency',from:edge.from,to:edge.to,name:'Uses payment processing',condition:null,evidence:[edge.from,edge.to],classification:'static'}));
+value={summary:'Purchase responsibilities',questions:[],features:[{key:'purchasing',name:'Purchasing',description:'Coordinate checkout and payment.'}],elements:context.required.filter(item=>item.indexed).map(item=>({symbol:item.ref,kind:'action',name:context.symbols.find(symbol=>symbol.ref===item.ref).name,description:'Purchase responsibility',feature:'purchasing',parent:null})),concepts:context.required.filter(item=>!item.indexed).map(item=>({key:'concept-'+item.ref,kind:'component',name:'External Integration',description:'Extracted responsibility',feature:'purchasing',parent:null,source:item.ref})),relations,diagrams:[{key:overview?'overview':'purchase-flow-'+context.batch,name:overview?'Purchasing Overview':'Purchase Flow',kind:'activity',feature:overview?null:'purchasing',nodes:overview?['f:purchasing']:context.required.map(item=>item.indexed?item.ref:'c:concept-'+item.ref),relations:relations.map(item=>item.key),intent:'Inferred purchase responsibilities'}]};
+}else{
+value={summary:'Reconcile observed source changes',questions:[],sourceEdits:[],bindings:[],modelEdits:[
 ...context.changes.elements.map(item=>({collection:'elements',id:item.id,value:item.code?{...item.model,...item.code}:null})),
 ...context.changes.relations.map(item=>({collection:'relations',id:item.id,value:item.code?{...item.model,...item.code}:null}))]};
 if(context.direction==='model'){
@@ -267,6 +299,7 @@ const item=context.changes.elements.find(item=>item.model&&item.code&&item.model
 const fact=context.facts.flatMap(file=>file.declarations).find(fact=>fact.id===item.id);
 const source=context.sources.find(source=>source.file===fact.evidence.file);
 value={summary:'Reconcile the diagram rename',questions:[],modelEdits:[],sourceEdits:[{file:source.file,revision:source.revision,search:'function '+item.code.name+'(',replacement:'function '+item.model.name+'('}],bindings:[{elementId:item.id,file:source.file,name:item.model.name,syntaxKind:fact.syntaxKind}]};
+}
 }
 writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(value));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output_tokens:50}})+'\\n');\n`);
@@ -288,13 +321,13 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 	const enteredWorkspace = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 	await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 	await enteredWorkspace;
-	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	const snapshot = async () => {
 		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
 		const folder = path.join(sourceRoot, '.ade/imports', pointer.active);
 		return { folder, state: JSON.parse(await readFile(path.join(folder, 'import-state.json'), 'utf8')), model: JSON.parse(await readFile(path.join(folder, 'model.ade.json'), 'utf8')) };
 	};
-	await shell.getByText(/^Code Snapshot · [0-9]+ Files$/).waitFor({ timeout: 90000 });
+	await shell.getByText('Step 1 Complete · Code Analyzed. Step 2 · Let AI Turn the Source into Feature and Flow Diagrams.', { exact: true }).waitFor({ timeout: 90000 });
 	args[1] = sourceRoot; // Restart in the workspace entered by Import Codebase, without a second asynchronous folder switch.
 	await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
 	await pickValue(window, 'Choose AI CLI', 'Codex');
@@ -304,13 +337,56 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 	else { await window.keyboard.press('Enter'); }
 	await enterValue(window, 'Original CLI Executable', simulatedCli);
 	await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan or Reconciliation Proposal · At Most One Agent Run');
+	if (workflowOnly) {
+		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
+		await widget.getByText(/^(Model for Diagrams)$/).waitFor();
+		if (await widget.locator('.quick-input-list-row .label-name').first().isVisible()) { await window.keyboard.press('Enter'); } else { await enterValue(window, 'Model for Diagrams', 'simulated-economical-model'); }
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();
+		await shell.getByRole('heading', { name: 'Purchasing Overview', exact: true }).waitFor({ timeout: 90000 });
+		assert.equal(await shell.locator('aside.ade-properties').count(), 0);
+		assert.equal(await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).isVisible(), true);
+		assert.equal(await shell.getByRole('button', { name: 'Implement Feature', exact: true }).isVisible(), false);
+		const generated = await snapshot();
+		assert.equal(generated.model.views.length, 2);
+		assert.ok(generated.model.semantics.elements.some(item => item.kind === 'feature'));
+		await window.locator('.ade-sidebar').getByRole('button', { name: 'Purchase Flow', exact: true }).click();
+		await shell.locator('.ade-canvas').getByRole('button', { name: 'checkout', exact: true }).click();
+		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+		await enterValue(window, 'Name', 'reviewedPurchase');
+		await shell.getByRole('button', { name: 'Close Properties', exact: true }).click();
+		await shell.getByRole('button', { name: 'Update Code', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Reconciliation', exact: true }).click();
+		await pickValue(window, 'Review Code Changes', 'Apply Code Changes');
+		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+		assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function reviewedPurchase('));
+		await writeFile(path.join(sourceRoot, 'gateway.ts'), 'export function charge(amount: number): boolean { return amount >= 0; }');
+		await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();
+		await shell.getByRole('heading', { name: 'Purchasing Overview', exact: true }).waitFor({ timeout: 90000 });
+		await shell.getByRole('button', { name: 'Update Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+		await shell.locator('.ade-workflow').waitFor({ state: 'hidden' });
+		await window.locator('.ade-sidebar').getByRole('button', { name: 'Purchase Flow', exact: true }).click();
+		await window.screenshot({ path: path.join(evidence, 'diagram-workflow.png') });
+		const final = await snapshot();
+		assert.equal(final.model.views.length, 2);
+		assert.equal(validateSemanticModel(final.model).filter(item => item.severity === 'error').length, 0);
+		assert.ok(final.model.semantics.elements.some(item => item.name === 'reviewedPurchase'));
+		await writeFile(path.join(evidence, 'diagram-workflow-results.json'), JSON.stringify({ importSteps: 2, diagrams: final.model.views.length, primaryActions: ['Diagrams', 'Update Code', 'Chat with Codex', 'Update Diagrams'], inspectorInitiallyHidden: true, modelToCode: true, codeToModel: true, provider: 'simulated-original-cli' }, null, 2));
+		await app.close(); app = undefined;
+		window = await launch(); shell = window.locator('.ade-shell');
+		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+		assert.equal(await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).isVisible(), true);
+		await app.close(); app = undefined;
+		console.log('PASS: semantic import, clean canvas, contextual editing, guided code update, diagram refresh and restart (simulated provider).');
+		return;
+	}
 	const initial = await snapshot();
 	assert.ok(initial.state.semantic.dependencies.length >= 1);
 	assert.equal(initial.state.files.find(file => file.file === 'unsupported.vb').status, 'unsupported');
 	const previous = initial.state.files.flatMap(file => file.declarations).find(item => item.name === 'checkout');
 	await writeFile(path.join(sourceRoot, 'checkout.ts'), 'import {charge as pay} from "./gateway"; export function purchase(amount: number, tag: string): boolean { return pay(amount); }');
 	await rm(path.join(sourceRoot, 'obsolete.py'));
-	await shell.getByRole('button', { name: 'Sync Project', exact: true }).click();
+	await runCommand(window, 'A.D.E: Sync Project');
 	await pickValue(window, 'Sync Preview', 'Confirm a Symbol Rename');
 	await pickValue(window, 'Choose the Previous Declaration', 'checkout');
 	await pickValue(window, 'Choose the Renamed Declaration', 'purchase');
@@ -329,7 +405,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 	assert.deepEqual(updated.state.analysis.parsed, ['checkout.ts']);
 	assert.ok(updated.state.analysis.reused.includes('gateway.ts'));
 	assert.ok(!updated.state.files.some(file => file.file === 'obsolete.py'));
-	await shell.getByRole('button', { name: 'Code Evidence', exact: true, disabled: false }).waitFor();
+	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
 	await runCommand(window, 'A.D.E: Inspect Code Evidence');
 	await widget.locator('input:visible').fill('purchase');
 	await window.keyboard.press('Enter');
@@ -341,7 +417,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 	await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
 	await enterValue(window, 'Name', 'reviewedPurchase');
 	await shell.getByRole('button', { name: 'Save', exact: true }).click();
-	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).click();
+	await runCommand(window, 'A.D.E: Sync Project');
 	await pickValue(window, 'Sync Preview', 'Reconcile with AI');
 	await widget.getByText('Review Source Files for Bidirectional Sync', { exact: true }).waitFor();
 	await window.keyboard.press('Enter');
@@ -352,19 +428,19 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 	await window.screenshot({ path: path.join(evidence, 'm6-model-to-code.png') });
 	await runCommand(window, 'A.D.E: Undo Last Sync');
 	await pickValue(window, 'Undo Last Sync', 'Undo Model and Source Changes');
-	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor();
+	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
 	assert.equal((await snapshot()).folder, updated.folder);
 	assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function purchase('));
 	await app.close(); app = undefined;
 	window = await launch(); shell = window.locator('.ade-shell');
-	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	await shell.getByRole('button', { name: 'Home', exact: true }).click();
 	await shell.getByRole('button', { name: 'Open Project', exact: true }).click();
 	await chooseFolder(window, sourceRoot);
-	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor();
+	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
 	await runCommand(window, 'A.D.E: Restore Code Model Snapshot');
 	await window.locator('.quick-input-widget').getByText(path.basename(initial.folder), { exact: true }).click();
-	await shell.getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor();
+	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
 	assert.equal((await snapshot()).folder, initial.folder);
 	assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('purchase'));
 	await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true, aiReviewed: true, modelToCode: true, pairedUndo: true }, null, 2));
@@ -400,7 +476,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	}
 	let window = await launch();
 	await openModelFile(window, path.join(f.snapshot, 'model.ade.json'));
-	await window.locator('.ade-shell').getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+	await window.locator('.ade-shell').getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
 	await pickValue(window, 'Choose AI CLI', 'Codex');
 	await pickValue(window, 'Codex', 'Choose Model and CLI');
@@ -435,8 +511,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	await checkBehavior(session.worktree);
 	const returnToModel = async () => {
 		await runCommand(window, 'A.D.E: Return to Model');
-		const collaboration = window.locator('.ade-shell details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
-		if (!await collaboration.evaluate(element => element.open)) { await collaboration.locator(':scope > summary').click(); }
+		const collaboration = await openAiSettings(window);
 		const more = collaboration.locator('details').filter({ has: window.locator('summary', { hasText: /^Review, Recovery and Other AI Actions$/ }) });
 		if (!await more.evaluate(element => element.open)) { await more.locator('summary').click(); }
 		return collaboration;
@@ -461,7 +536,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 	await window.screenshot({ path: path.join(evidence, aiLive ? 'm5-live-applied.png' : 'm5-applied.png') });
 	await app.close(); app = undefined;
 	window = await launch();
-	await window.locator('.ade-shell').getByRole('button', { name: 'Sync Project', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+	await window.locator('.ade-shell').getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 	await runCommand(window, 'A.D.E: Resume Implementation');
 	await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Applied · Undo Available' }).last().waitFor();
 	collaboration = await returnToModel();
@@ -542,7 +617,7 @@ async function checkIndependentProjects() {
 	await connect(window, 'Nuovo', 'Archiviato', 'Transition', 'Archivia', 'Misura valida');
 	await shell.locator('.ade-state-summary details summary').click();
 	await shell.getByRole('table', { name: 'Transition Table: Campione', exact: true }).getByRole('cell', { name: 'Archivia', exact: true }).waitFor();
-	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
+	await clickAdeButton(window, 'Read Diagram');
 	await window.locator('.accessible-view:visible').getByText('Resource: Campione. Visible states: 2 of 2. Visible transitions: 1.', { exact: true }).waitFor();
 	await window.keyboard.press('Escape');
 	await shell.locator('.ade-node').getByText('Campione', { exact: true }).click();
@@ -758,7 +833,7 @@ async function checkStateDiagram() {
 	await table.locator('tr[data-relation-id="order-declined"]').getByRole('cell', { name: 'payment-declined', exact: true }).waitFor();
 	await table.screenshot({ path: path.join(evidence, 'state-transition-table.png') });
 	await table.locator('tr[data-relation-id="order-confirmed"]').getByRole('button', { name: 'In attesa', exact: true }).click();
-	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
+	await clickAdeButton(window, 'Read Diagram');
 	await window.locator('.accessible-view:visible').getByText('Resource: Ordine. Visible states: 4 of 4. Visible transitions: 4.', { exact: true }).waitFor();
 	await window.keyboard.press('Escape');
 	await tableDetails.locator('summary').click();
@@ -876,7 +951,7 @@ async function checkSequenceDiagram() {
 	await enterValue(window, 'Field Type', 'OrderReference');
 	await pickValue(window, 'Field Presence', 'Required');
 	await shell.getByText('Output: orderId (OrderReference), Required', { exact: true }).waitFor();
-	await shell.getByRole('button', { name: 'Read Diagram', exact: true }).click();
+	await clickAdeButton(window, 'Read Diagram');
 	await readAccessibleText(window, ['Message 1', 'Message 8', 'Output: orderId (OrderReference), Required']);
 	await window.keyboard.press('Escape');
 	await window.locator('.ade-sidebar').getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
@@ -899,7 +974,7 @@ async function checkSequenceDiagram() {
 	await shell.getByRole('button', { name: 'Move Participant Right', exact: true }).focus();
 	await window.keyboard.press('Enter');
 	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
-	await shell.getByRole('button', { name: 'Reset Zoom', exact: true }).click();
+	await clickAdeButton(window, 'Reset Zoom');
 	await shell.locator('.ade-canvas-scroll').focus();
 	await window.keyboard.press('ArrowRight');
 	assert.ok(await shell.locator('.ade-canvas-scroll').evaluate(element => element.scrollLeft > 0));
@@ -948,7 +1023,7 @@ async function checkSemanticNavigation() {
 	await cancellationSummary.focus();
 	await window.keyboard.press('Enter');
 	assert.equal(await cancellationDetails().evaluate(details => details.open), false);
-	await shell.getByRole('button', { name: 'System Map', exact: true }).click();
+	await clickAdeButton(window, 'System Map');
 	await shell.getByRole('heading', { level: 1, name: 'Acquisto', exact: true }).waitFor();
 	assert.equal(await shell.locator('.ade-system-map button').count(), checkoutModel.semantics.elements.length + checkoutModel.views.length);
 	const readMap = shell.getByRole('button', { name: 'Read System Map', exact: true });
@@ -972,7 +1047,7 @@ async function checkSemanticNavigation() {
 	await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
 	await shell.getByRole('button', { name: 'Back', exact: true }).click();
 	assert.equal(await connection.evaluate(element => element.parentElement.open), true, 'Map disclosure survives a semantic visit');
-	await shell.locator('.ade-navigation').getByRole('button', { name: 'Choose Diagram', exact: true }).click();
+	await shell.locator('.ade-navigation').getByRole('button', { name: 'Diagrams', exact: true }).click();
 	await pickValue(window, 'Choose Diagram', 'Percorso acquisto');
 	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
 	await searchSystem(window, 'Contract', 'Pagamento');
@@ -1007,7 +1082,7 @@ async function checkSemanticNavigation() {
 	assert.equal(await shell.getByRole('button', { name: 'Forward', exact: true }).isEnabled(), false, 'New navigation discards the forward branch');
 	await shell.getByRole('button', { name: 'Back', exact: true }).click();
 	await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
-	await shell.getByRole('button', { name: 'Search System', exact: true }).click();
+	await clickAdeButton(window, 'Search System');
 	await window.locator('.quick-input-widget').getByText('Search Filter', { exact: true }).waitFor();
 	await window.keyboard.press('Escape');
 	await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
@@ -1060,7 +1135,7 @@ async function checkSemanticNavigation() {
 	await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
 	assert.equal(await shell.getByRole('alert').count(), 0);
 	console.log('PASS: semantic inspector edits use native undo/redo/save, restart restores the inspected identity, and external deletion repairs context without stale details.');
-	await shell.getByRole('button', { name: 'System Map', exact: true }).click();
+	await clickAdeButton(window, 'System Map');
 	await app.close();
 	app = undefined;
 	window = await launch();
@@ -1089,7 +1164,7 @@ async function checkSemanticNavigation() {
 	await shell.getByRole('heading', { level: 1, name: 'Shared Review', exact: true }).waitFor();
 	await shell.getByRole('navigation', { name: 'Semantic Path', exact: true }).getByRole('button', { name: 'Conferma acquisto', exact: true }).waitFor();
 	assert.equal(await sidebar().getByRole('button', { name: 'Shared Review', exact: true }).count(), 2, 'Owner and related feature reference the same diagram');
-	await shell.getByText('Diagram Type: Structure', { exact: true }).waitFor();
+	await shell.getByRole('region', { name: 'Diagram: Shared Review', exact: true }).waitFor();
 	await window.screenshot({ path: path.join(evidence, 'integrated-m2-sidebar.png') });
 	console.log('PASS: integrated M2 cancellation example, persistent keyboard disclosures per document, stable sidebar DOM on selection, and shared references with preserved canonical ownership.');
 	await app.close();
@@ -1120,7 +1195,7 @@ async function checkDiagramAccessibility(window) {
 	await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
 	await window.keyboard.press('Escape');
 	assert.equal(await selected.evaluate(element => element === document.activeElement), true);
-	const readButton = shell.getByRole('button', { name: 'Read Diagram', exact: true });
+	const readButton = await revealAdeButton(window, 'Read Diagram');
 	await readButton.click();
 	await readAccessibleText(window, ['Selected Element: Pagamento rifiutato']);
 	await window.keyboard.press('Escape');
@@ -1202,10 +1277,10 @@ async function checkVisualUX() {
 	await window.keyboard.press('ArrowRight');
 	const panBefore = await viewport.evaluate(element => element.scrollLeft);
 	await openModelFile(window, otherFile);
-	await shell.getByText('Other System · Design intent', { exact: true }).waitFor();
+	await shell.locator('.ade-breadcrumbs').getByRole('button', { name: 'Other System', exact: true }).waitFor();
 	assert.equal(await viewport.evaluate(element => element.scrollLeft), 0, 'Equal view IDs in different documents do not share scroll');
 	await openModelFile(window, modelFile);
-	await shell.getByText('Acquisto · Design intent', { exact: true }).waitFor();
+	await shell.locator('.ade-breadcrumbs').getByRole('button', { name: 'Acquisto', exact: true }).waitFor();
 	assert.equal(await viewport.evaluate(element => element.scrollLeft), panBefore, 'Returning to a document restores its own scroll');
 	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
 	assert.ok(await viewport.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'Fit contains the diagram horizontally');
@@ -1222,6 +1297,7 @@ async function checkVisualUX() {
 	assert.deepEqual(layout, { overflows: false, stacked: true });
 	console.log('UX: canvas keyboard and narrow layout checked.');
 	const options = shell.locator('summary').getByText('Diagram Options', { exact: true });
+	if (await options.evaluate(element => element.closest('details').open)) { await options.click(); }
 	await options.focus();
 	await window.keyboard.press('Enter');
 	await shell.getByRole('button', { name: 'Rename Diagram', exact: true }).waitFor();
@@ -1265,7 +1341,7 @@ async function checkVisualUX() {
 		assert.notEqual(appearance.outline, 'none', `${name}: keyboard focus is visible`);
 		assert.notEqual(appearance.outlineColor, 'rgba(0, 0, 0, 0)');
 		await window.screenshot({ path: path.join(evidence, `ux-${themeClass}.png`) });
-		await shell.getByRole('button', { name: 'System Map', exact: true }).click();
+		await clickAdeButton(window, 'System Map');
 		await shell.getByRole('button', { name: 'Read System Map', exact: true }).waitFor();
 		assert.equal(await shell.locator('.ade-content').evaluate(element => element.scrollWidth > element.clientWidth + 1), false, `${name}: narrow map fits its content area`);
 		const mapElement = shell.locator('.ade-system-map button').first();
@@ -1279,7 +1355,7 @@ async function checkVisualUX() {
 		console.log(`PASS: narrow layout, keyboard focus and selected-node text contrast ${contrast.toFixed(2)}:1 in ${name}.`);
 	}
 	const selection = await shell.locator('.ade-node[aria-pressed="true"]').textContent();
-	await shell.getByRole('button', { name: 'Terminal', exact: true }).click();
+	await clickAdeButton(window, 'Terminal');
 	const terminalInput = window.locator('.terminal .xterm-helper-textarea');
 	await terminalInput.waitFor({ state: 'attached' });
 	await terminalInput.focus();
@@ -1332,10 +1408,10 @@ async function checkManualFollowup() {
 	await source.click({ button: 'right' });
 	await window.getByRole('menuitem', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
 	await pickValue(window, 'Relationship Type', 'Dependency');
-	await shell.getByRole('button', { name: 'Choose Diagram', exact: true }).click();
+	await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
 	await pickValue(window, 'Choose Diagram', 'Esito pagamento');
 	assert.equal(await shell.getByText('Choose a Compatible Target on the Canvas', { exact: false }).count(), 0, 'Changing diagrams cancels the pending relationship');
-	await shell.getByRole('button', { name: 'Choose Diagram', exact: true }).click();
+	await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
 	await pickValue(window, 'Choose Diagram', 'Percorso acquisto');
 	const relation = shell.locator('.ade-connection-label').filter({ hasText: /^Write · crea ordine/ });
 	await relation.click({ button: 'right' });
@@ -1351,7 +1427,7 @@ async function checkManualFollowup() {
 	await shell.locator('.ade-connection-label').filter({ hasText: /^Read · Legge ordine · \[ordine esistente\]/ }).waitFor();
 	await shell.getByRole('button', { name: 'Undo', exact: true }).click();
 	await relation.waitFor();
-	await shell.getByRole('button', { name: 'Arrange Diagram', exact: true }).click();
+	await clickAdeButton(window, 'Arrange Diagram');
 	await pickValue(window, 'Diagram Spacing', 'Spacious');
 	await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
 	await window.screenshot({ path: path.join(evidence, 'followup-canvas.png') });
@@ -1364,10 +1440,10 @@ async function checkManualFollowup() {
 	await enterValue(window, 'Name', 'Progetto di collaudo');
 	await chooseFolder(window, folder);
 	await shell.getByRole('heading', { name: 'Progetto di collaudo', exact: true }).waitFor({ timeout: 90000 });
-	await shell.getByRole('button', { name: 'Files', exact: true }).click();
+	await clickAdeButton(window, 'Files');
 	await window.locator('.explorer-viewlet').getByText('nuovo progetto', { exact: true }).first().waitFor();
 	await runCommand(window, 'A.D.E: Return to Model');
-	await shell.getByRole('button', { name: 'Terminal', exact: true }).click();
+	await clickAdeButton(window, 'Terminal');
 	const terminal = window.locator('.terminal .xterm-helper-textarea');
 	await terminal.waitFor({ state: 'attached' });
 	await terminal.focus(); await window.keyboard.type("printf '__ADE_PROJECT_ROOT__'; pwd\n");
@@ -1402,8 +1478,9 @@ try {
 		await shell.getByRole('button', { name: 'Explore Purchase Example', exact: true }).click();
 		await sidebar.locator('section[aria-label="Conferma acquisto"]')
 			.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
-		const collaboration = shell.locator('details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
-		await collaboration.locator(':scope > summary').click();
+		const collaboration = await openAiSettings(window);
+		const implementation = collaboration.locator('details').filter({ has: window.locator('summary', { hasText: /^Guided Feature Implementation$/ }) });
+		await implementation.locator(':scope > summary').click();
 		await collaboration.locator('details').filter({ has: window.locator('summary', { hasText: /^Review, Recovery and Other AI Actions$/ }) }).locator(':scope > summary').click();
 		assert.equal(await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).isEnabled(), true);
 		assert.equal(await collaboration.getByRole('button', { name: 'Open AI CLI', exact: true }).isEnabled(), true);
@@ -1433,16 +1510,17 @@ try {
 		assert.equal(await declined.getAttribute('aria-pressed'), 'true');
 		assert.equal(await declined.evaluate(element => element === document.activeElement), true);
 		await shell.locator('.ade-properties').getByText('Condition: pagamento non autorizzato', { exact: true }).waitFor();
-		await shell.getByRole('button', { name: 'Files', exact: true }).click();
+		await clickAdeButton(window, 'Files');
 		await window.locator('.explorer-viewlet').waitFor();
-		await shell.getByRole('button', { name: 'Return to Model', exact: true }).click();
+		await clickAdeButton(window, 'Return to Model');
 		await sidebar.waitFor();
 		await shell.locator('.ade-properties').getByRole('heading', { name: 'Pagamento rifiutato', exact: true }).waitFor();
-		await shell.locator('summary').getByText('More Tools', { exact: true }).click();
+		const tools = shell.locator('details').filter({ has: window.locator('summary', { hasText: /^More Tools$/ }) });
+		if (!await tools.evaluate(element => element.open)) { await tools.locator(':scope > summary').click(); }
 		for (const [name, selector] of [['Debug', '.debug-viewlet'], ['Git', '.scm-viewlet']]) {
 			await shell.getByRole('button', { name, exact: true }).click();
 			await window.locator(selector).waitFor();
-			await shell.getByRole('button', { name: 'Return to Model', exact: true }).click();
+			await clickAdeButton(window, 'Return to Model');
 			await sidebar.waitFor();
 			await shell.locator('.ade-properties').getByRole('heading', { name: 'Pagamento rifiutato', exact: true }).waitFor();
 		}
@@ -1527,9 +1605,9 @@ try {
 		assert.equal(await moved.evaluate(element => parseFloat(element.style.left)), before);
 		await shell.getByRole('button', { name: 'Redo', exact: true }).click();
 		assert.equal(await moved.evaluate(element => parseFloat(element.style.left)), before + 20);
-		await shell.getByRole('button', { name: 'Zoom Out', exact: true }).click();
+		await clickAdeButton(window, 'Zoom Out');
 		assert.equal(await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform), 'scale(0.8)');
-		await shell.getByRole('button', { name: 'Reset Zoom', exact: true }).click();
+		await clickAdeButton(window, 'Reset Zoom');
 		const bounds = await moved.boundingBox();
 		await window.mouse.move(bounds.x + 40, bounds.y + 40);
 		await window.mouse.down();
@@ -1580,7 +1658,7 @@ try {
 		assert.equal(JSON.parse(await readFile(projectFile, 'utf8')).name, 'External system');
 		assert.equal(await window.locator('.tabs-container .tab').filter({ hasText: 'model.json' }).count(), 0);
 		await shell.locator('summary').getByText('Project Options', { exact: true }).click();
-		await shell.getByRole('button', { name: 'Reload Project', exact: true }).click();
+		await clickAdeButton(window, 'Reload Project');
 		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Reload', exact: true }).click();
 		await shell.getByText('External system · Design intent', { exact: true }).waitFor();
 		await shell.getByText('Saved', { exact: true }).waitFor();
@@ -1590,7 +1668,7 @@ try {
 		await enterValue(window, 'Name', 'Pagamento in copia');
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'Pagamento in copia', exact: true }).waitFor();
 		await shell.getByText('Unsaved Changes', { exact: true }).waitFor();
-		await shell.getByRole('button', { name: 'Save Project Copy', exact: true }).click();
+		await clickAdeButton(window, 'Save Project Copy');
 		const copyPicker = window.locator('.quick-input-widget');
 		await copyPicker.getByText('Save Project Copy', { exact: true }).waitFor();
 		const copyFile = path.join(newFolder, 'copy.ade.json');

@@ -115,7 +115,7 @@
 
 .ade-shell .ade-workspace {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--vscode-spacing-size240);
 }
 
@@ -466,4 +466,51 @@
 	margin-block: var(--vscode-spacing-size120);
 	padding-inline-start: var(--vscode-spacing-size120);
 	border-inline-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-shell .ade-workspace.has-inspector {
+	grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+}
+
+.ade-shell .ade-workflow {
+	padding: var(--vscode-spacing-size120);
+	margin-bottom: var(--vscode-spacing-size160);
+	border-inline-start: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+	background: var(--vscode-sideBar-background);
+}
+
+.ade-shell .ade-workflow p {
+	margin-top: 0;
+}
+
+.ade-shell .ade-tools {
+	align-items: center;
+	justify-content: space-between;
+	border-top: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	border-bottom: 0;
+}
+
+.ade-shell .ade-tools > .ade-sync-status {
+	color: var(--vscode-descriptionForeground);
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-tools > .ade-options {
+	max-height: 40vh;
+	overflow: auto;
+}
+
+.ade-shell h1 {
+	margin-block: var(--vscode-spacing-size80) var(--vscode-spacing-size160);
+}
+
+.ade-shell .ade-navigation button,
+.ade-shell .ade-editing button,
+.ade-shell .ade-tools > .ade-options > summary {
+	margin-bottom: 0;
+}
+
+.ade-shell.ade-narrow .ade-workspace.has-inspector {
+	grid-template-columns: minmax(0, 1fr);
 }

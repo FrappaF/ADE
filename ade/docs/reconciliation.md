@@ -2,7 +2,9 @@
 
 Il modello IA propone le trasformazioni **codice → modello/diagrammi** e **modello/diagrammi → codice**. Il motore non dipende dal linguaggio: importer, parser, compilatori, indici SCIP, validazione del modello e hash forniscono fatti e controlli alla proposta. Nessuna rinomina o implementazione viene scelta autonomamente dagli strumenti deterministici.
 
-## Percorso nativo
+Il [percorso diagrammi e Codex](diagram-workflow.md) descrive l’importazione semantica in due passi e i comandi principali semplificati. Il percorso tecnico seguente resta disponibile da **More Tools → Sync Project**.
+
+## Percorso nativo avanzato
 
 1. Salvare il modello e scegliere **Sync Project**. La prima analisi è locale e non chiama provider.
 2. Se modello e codice sono cambiati sullo stesso contratto, aprire **Review Conflicts**, confrontare versione comune, modello e codice e scegliere quale intento preservare. La scelta entra nel contesto IA; non sovrascrive direttamente i file.

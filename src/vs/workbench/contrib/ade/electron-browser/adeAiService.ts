@@ -29,7 +29,7 @@ import { Action2, registerAction2 } from '../../../../platform/actions/common/ac
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ITerminalService, ITerminalGroupService } from '../../terminal/browser/terminal.js';
-import { IChatWidgetService } from '../../chat/browser/chat.js';
+import { IChatWidgetService, ChatViewPaneTarget } from '../../chat/browser/chat.js';
 import { getNewChatSessionResource } from '../../chat/common/model/chatUri.js';
 import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
@@ -37,7 +37,7 @@ import { IAdeAiService } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { openAdeTerminal } from '../browser/adeTerminal.js';
 import { getModelImpact } from '../common/modelImpact.js';
-import { CodePreview, CodeReconciliationContext, CodeResolution } from '../common/codeBridge.js';
+import { CodePreview, CodeReconciliationContext, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
 
 interface CliConfig {
 	version: 1; provider: 'codex' | 'claude'; connection: 'cli'; model: string; executable: string;
@@ -71,6 +71,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	private accountGeneration = 0;
 	get connectionStatus(): string { return this._connectionStatus ?? localize('ade.ai.unchecked', "CLI Account Not Checked Yet"); }
 	private config: CliConfig | undefined;
+	diagramProgress: CodeDiagramProgress | undefined;
 	private session: CollaborationSession | undefined;
 	get status(): string {
 		if (this.activityStatus) { return this.activityStatus; }
@@ -78,14 +79,14 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			const labels = { staged: localize('ade.ai.staged', "Changes Ready for Review"), passed: localize('ade.ai.passed', "Tests Passed · Ready to Apply"), failed: localize('ade.ai.failed', "Verification Failed · Changes Not Applied"), applied: localize('ade.ai.applied', "Applied · Undo Available"), undone: localize('ade.ai.undone', "Changes Undone") };
 			return labels[this.session.status];
 		}
-		return this._connectionStatus ?? (this.config ? localize('ade.ai.selected', "{0} · {1}", this.config!.provider === 'codex' ? 'Codex' : 'Claude Code', this.config!.model) : localize('ade.ai.setup', "Connect Claude Code or Codex to Implement a Feature"));
+		return this._connectionStatus ?? (this.config ? localize('ade.ai.selected', "{0} · {1}", this.config!.provider === 'codex' ? 'Codex' : 'Claude Code', this.config!.model) : localize('ade.ai.setup', "Choose an AI Model in AI Settings"));
 	}
 	get canVerify(): boolean { return !!this.session && ['staged', 'failed', 'passed'].includes(this.session.status); }
 	get canApply(): boolean { return this.session?.status === 'passed'; }
 	get canUndo(): boolean { return this.session?.status === 'applied'; }
 
 	constructor(
-		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'projectRoot'>,
+		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'projectRoot' | 'modelUri' | 'activeView'>,
 		@IAdeCodeService private readonly code: IAdeCodeService,
 		@IQuickInputService private readonly quick: IQuickInputService,
 		@INotificationService private readonly notifications: INotificationService,
@@ -107,8 +108,11 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		super();
 		const saved = storage.get('ade.ai.cliConfig', StorageScope.PROFILE);
 		if (saved) { try { this.config = JSON.parse(saved); } catch { /* choose a connection again */ } }
+		const diagramJob = storage.get('ade.ai.diagramJob', StorageScope.WORKSPACE);
+		if (diagramJob) { try { this.diagramProgress = JSON.parse(diagramJob); } catch { /* invalid saved progress */ } }
 		this._register(code.onDidChange(() => {
 			if (this.session && code.context && this.session.root !== code.context.sourceRoot) { this.session = undefined; this.changes.fire(); }
+			if (this.diagramProgress && code.context && this.diagramProgress.sourceRoot !== code.context.sourceRoot) { this.diagramProgress = undefined; this.changes.fire(); }
 		}));
 	}
 
@@ -136,7 +140,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		const cancellation = new CancellationTokenSource();
 		try {
 			if (!await this.trust.requestWorkspaceTrust({ message: localize('ade.ai.trust', "A.D.E runs the original AI CLI and reviewed project tests on this computer.") })) { this.info(localize('ade.ai.untrusted', "AI Operation Cancelled · Workspace Trust Was Not Granted.")); return; }
-			await this.progress.withProgress({ location: ProgressLocation.Notification, title: localize('ade.ai.progress', "A.D.E Feature Implementation"), cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
+			await this.progress.withProgress({ location: ProgressLocation.Notification, title: localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
 			if (cancellation.token.isCancellationRequested) { this.info(localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.")); }
 		}
 		catch (error) {
@@ -314,7 +318,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		this.config = { version: 1, provider, connection: 'cli', model, executable, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: budget.maxCalls };
 		this.loginWatch.clear(); this.accountGeneration++;
 		this._connectionStatus = undefined;
-		this.info(localize('ade.ai.configured', "AI Model and Budget Saved. Continue with the Feature Implementation."));
+		this.info(localize('ade.ai.configured', "AI Settings Saved. Build Diagrams or Update Code to Continue."));
 		this.storage.store('ade.ai.cliConfig', JSON.stringify(this.config), StorageScope.PROFILE, StorageTarget.MACHINE);
 		this.changes.fire();
 	}
@@ -334,19 +338,85 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		}
 	}
 
+	/** One visible entry point to the user's Codex account, with the active diagram attached. */
+	async chat(): Promise<void> {
+		if (this.busy || this.operations.busy || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
+		if (!await this.trust.requestWorkspaceTrust()) { return; }
+		if (this.project.modelUri && !await this.project.save()) { return; }
+		try {
+			const native = this.codexAccount.account.status === 'signedIn' && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready') && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this.config || this.config.provider !== 'codex' || this.config.executable === 'codex');
+			if (native) {
+				await this.configuration.updateValue(AgentHostCodexAgentEnabledSettingId, true, ConfigurationTarget.USER);
+				const widget = await this.chatWidgets.openSession(getNewChatSessionResource('agent-host-codex'), ChatViewPaneTarget);
+				if (!widget) { throw new Error(localize('ade.ai.chatUnavailable', "Codex Chat Could Not Be Opened. Use AI Settings to Check the Connection.")); }
+				if (this.project.modelUri) { await widget.attachmentModel.addFile(this.project.modelUri); }
+				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
+			} else {
+				const executable = await this.resolveCli('codex');
+				if (!executable) { return; }
+				const account = await this.code.checkCliAccount('codex', executable);
+				if (account.status !== 'signedIn') { if (account.status === 'signedOut') { await this.signIn('codex', true); } else { await this.checkAccount('codex', executable); } return; }
+				const model = this.config?.provider === 'codex' ? this.config.model : undefined;
+				const prompt = localize('ade.ai.chatContext', "Help me work on this project's A.D.E diagrams and implementation. The model is {0}, active diagram: {1}. Preserve semantic IDs and valid model v3 references. Model edits appear in the visual editor; after code changes I will use Update Diagrams to reconcile them. I will describe the requested change next; do not edit files until I do.", this.project.modelUri?.fsPath ?? localize('ade.ai.noModelContext', "not created yet"), this.project.activeView?.name ?? this.project.model.name);
+				await openAdeTerminal(this.terminals, this.terminalGroups, { name: localize('ade.ai.codexChat', "Codex Chat · Your Account"), executable, args: [...(model ? ['--model', model] : []), prompt], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
+			}
+			this.info(localize('ade.ai.chatReady', "Codex Is Open with Your Account and Project Context. After Code Changes, Choose Update Diagrams."));
+		} catch (error) { this.notifications.error(localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error))); }
+	}
+
+	async buildDiagrams(): Promise<void> { await this.generateDiagrams(false); }
+	async resumeDiagrams(): Promise<void> { await this.generateDiagrams(true); }
+	private async generateDiagrams(resume: boolean): Promise<void> {
+		if (this.busy || this.operations.busy || !this.code.context || !await this.ensureConfigured()) { return; }
+		await this.run(async token => {
+			const context = this.code.context;
+			const configured = await this.readyConfig();
+			if (!configured || !context || !await this.project.save()) { return; }
+			const diagramModel = this.storage.get(`ade.ai.diagramModel.${configured.provider}`, StorageScope.PROFILE) ?? await this.selectDiagramModel(configured);
+			if (!diagramModel) { return; }
+			const config = { ...configured, model: diagramModel };
+			let clarification: string | undefined;
+			if (resume && this.diagramProgress?.questions.length) { clarification = await this.quick.input({ title: localize('ade.ai.diagramClarify', "Clarify Diagram Interpretation"), prompt: this.diagramProgress.questions.join(' '), ignoreFocusLost: true }); if (!clarification) { return; } }
+			let job: CodeDiagramProgress = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramPrepare', snapshot: context.snapshot, config: JSON.stringify(config), ...(resume && this.diagramProgress ? { resume: this.diagramProgress.id } : {}), clarification }, token));
+			this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.changes.fire();
+			if (!config.maxCalls) { this.info(localize('ade.ai.diagramsNoBudget', "Diagram Scope Prepared. Enable AI Requests in AI Settings to Generate It.")); return; }
+			const accepted = await this.dialogs.confirm({ message: localize('ade.ai.buildConfirm', "Build Semantic Diagrams with {0}?", config.model), detail: localize('ade.ai.buildScope', "{0} files and {1} indexed symbols; {4} additional documentation, binary or oversized files skipped. All symbols are processed in small batches, then composed into a system overview. Up to {2} additional requests; {3} already attempted. Source evidence is sent to your configured account. Code is kept intact and the previous model remains recoverable.", job.files, job.symbols, job.total - job.completed, job.calls, job.excluded), primaryButton: localize('ade.ai.buildButton', "Build Diagrams") });
+			if (!accepted.confirmed) { return; }
+			while (job.status === 'ready' || job.status === 'running') {
+				this.report(localize('ade.ai.diagramStep', "Building Diagrams · {0} of {1} Steps · {2}", job.completed, job.total, job.model));
+				job = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramStep', snapshot: context.snapshot, id: job.id, reviewId: job.reviewId }, token));
+				this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.changes.fire();
+				if (job.context) { await this.code.openContext(job.context); this.info(localize('ade.ai.diagramsReady', "Diagrams Ready · All {0} Indexed Symbols Have a Semantic View", job.symbols)); return; }
+				if (job.questions.length) { this.info(job.questions.join('\n')); return; }
+			}
+		});
+	}
+
+	async chooseDiagramModel(): Promise<void> {
+		if (this.busy || this.operations.busy || !await this.ensureConfigured()) { return; }
+		await this.selectDiagramModel(this.config!);
+	}
+	private async selectDiagramModel(configured: CliConfig): Promise<string | undefined> {
+		const choices = this.nativeModels(configured.provider).sort((a, b) => (a.rates ? a.rates.input + a.rates.output : Infinity) - (b.rates ? b.rates.input + b.rates.output : Infinity));
+		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.diagramModel', "Model for Diagrams"), placeHolder: localize('ade.ai.diagramModelHint', "Choose a Lower-Cost Model for Interpretation. Your Coding Model Is Kept Separately.") }))?.id : await this.quick.input({ title: localize('ade.ai.diagramModel', "Model for Diagrams"), value: this.storage.get(`ade.ai.diagramModel.${configured.provider}`, StorageScope.PROFILE) ?? configured.model, prompt: localize('ade.ai.diagramModelManual', "Enter a model available to your CLI account. This model is saved separately for diagram generation."), ignoreFocusLost: true });
+		if (model) { this.storage.store(`ade.ai.diagramModel.${configured.provider}`, model, StorageScope.PROFILE, StorageTarget.MACHINE); }
+		return model;
+	}
+
 	async implement(): Promise<void> {
 		await this.collaborate('plan');
 	}
 	async interpret(): Promise<void> {
 		await this.collaborate('interpret');
 	}
-	async reconcile(preview: CodePreview, resolutions: CodeResolution[] = []): Promise<CodePreview | undefined> {
+	async reconcile(preview: CodePreview, resolutions: CodeResolution[] = [], direction?: 'model' | 'code'): Promise<CodePreview | undefined> {
 		if (this.busy || this.operations.busy || !await this.ensureConfigured()) { return undefined; }
 		let result: CodePreview | undefined;
 		await this.run(async token => {
 			const config = await this.readyConfig();
 			const context = this.code.context;
 			if (!config || !context || context.snapshot !== preview.context.snapshot || !await this.project.save()) { return; }
+			const needsSourceReview = !!preview.ai?.questions.length;
 			let clarification: string | undefined;
 			if (preview.ai?.questions.length) {
 				clarification = await this.quick.input({ title: localize('ade.ai.reconcileClarify', "Clarify the Reconciliation"), prompt: preview.ai.questions.join(' '), ignoreFocusLost: true });
@@ -355,15 +425,16 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			if (preview.ai || preview.reconciliation?.status === 'verificationFailed') { preview = JSON.parse(await this.code.executeReconciliation({ operation: 'preview', snapshot: context.snapshot, scope: context.scope }, token)); }
 			const changed = new Set([...preview.files.added, ...preview.files.changed]);
 			for (const file of preview.context.files.filter(file => preview.context.declarations.some(item => item.evidence.file === file.path && preview.impact.elementIds.includes(item.id)))) { changed.add(file.path); }
-			const selected = await this.quick.pick(preview.context.files.filter(file => file.status !== 'excluded' && file.status !== 'configuration').map(file => ({ label: file.path, picked: changed.has(file.path) })), { title: localize('ade.ai.reconcileSources', "Review Source Files for Bidirectional Sync"), placeHolder: localize('ade.ai.reconcileSourcesHint', "Select the affected implementation and callers in any language. Only bounded windows of selected files are sent."), canPickMany: true });
+			const suggested = preview.context.files.filter(file => changed.has(file.path) && file.status !== 'excluded' && file.status !== 'configuration');
+			const selected = direction && suggested.length > 0 && suggested.length <= 20 && !needsSourceReview ? suggested.map(file => ({ label: file.path })) : await this.quick.pick(preview.context.files.filter(file => file.status !== 'excluded' && file.status !== 'configuration').map(file => ({ label: file.path, picked: changed.has(file.path) })), { title: localize('ade.ai.reconcileSources', "Review Source Files for Bidirectional Sync"), placeHolder: localize('ade.ai.reconcileSourcesHint', "Select the affected implementation and callers in any language. Only bounded windows of selected files are sent."), canPickMany: true });
 			if (!selected) { return; }
-			const prepared: CodeReconciliationContext = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPrepare', token: preview.token, config: JSON.stringify(config), sourceFiles: selected.map(item => item.label), resolutions, clarification }, token));
-			await this.editors.openEditor({ contents: prepared.contents, languageId: 'json', options: { pinned: true } });
+			const prepared: CodeReconciliationContext = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPrepare', token: preview.token, config: JSON.stringify(config), sourceFiles: selected.map(item => item.label), resolutions, clarification: [direction === 'model' ? 'Update the implementation to satisfy the edited diagrams and preserve unrelated code. Ask about concurrent changes.' : '', clarification].filter(Boolean).join('\n') }, token));
+			if (!direction) { await this.editors.openEditor({ contents: prepared.contents, languageId: 'json', options: { pinned: true } }); }
 			if (!config.maxCalls) { this.info(localize('ade.ai.reconcileContextOnly', "Reconciliation Context Prepared · The Saved Budget Allows No AI Calls.")); return; }
-			const consent = await this.dialogs.confirm({ message: localize('ade.ai.reconcileDisclose', "Send the Reviewed Reconciliation Context to {0}?", config.model), detail: localize('ade.ai.reconcileBytes', "{0} input bytes including schema; {1} source bytes disclosed from {2} available. One CLI invocation, with the saved model and budget. Token estimate: {3}; actual usage is reported separately. No source or model is changed until Apply Sync.", prepared.metrics.inputBytes + prepared.metrics.schemaBytes, prepared.metrics.disclosedBytes, prepared.metrics.sourceBytes, prepared.metrics.estimatedTokens), primaryButton: localize('ade.ai.reconcileSend', "Propose Reconciliation") });
+			const consent = await this.dialogs.confirm({ message: localize('ade.ai.reconcileDisclose', "Prepare Code Changes with {0}?", config.model), detail: localize('ade.ai.reconcileBytes', "{0} input bytes including schema; {1} source bytes disclosed from {2} available. One CLI invocation, with the saved model and budget. Token estimate: {3}; actual usage is reported separately. No source or model is changed until Apply Sync.", prepared.metrics.inputBytes + prepared.metrics.schemaBytes, prepared.metrics.disclosedBytes, prepared.metrics.sourceBytes, prepared.metrics.estimatedTokens), primaryButton: localize('ade.ai.reconcileSend', "Propose Reconciliation") });
 			if (!consent.confirmed) { return; }
 			result = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPropose', token: preview.token, reviewId: prepared.reviewId }, token));
-			await this.editors.openEditor({ contents: JSON.stringify(result?.ai ?? result?.reconciliation, null, '\t'), languageId: 'json', options: { pinned: true } });
+			if (!direction) { await this.editors.openEditor({ contents: JSON.stringify(result?.ai ?? result?.reconciliation, null, '\t'), languageId: 'json', options: { pinned: true } }); }
 		});
 		return result;
 	}
@@ -523,12 +594,16 @@ registerSingleton(IAdeAiService, AdeAiService, InstantiationType.Delayed);
 
 registerAction2(class extends Action2 {
 	constructor() { super({ id: 'ade.ai.reconcile', title: localize2('ade.ai.reconcileCommand', "A.D.E: Propose Bidirectional Reconciliation"), f1: false }); }
-	override run(accessor: ServicesAccessor, preview: CodePreview, resolutions?: CodeResolution[]): Promise<CodePreview | undefined> { return accessor.get(IAdeAiService).reconcile(preview, resolutions); }
+	override run(accessor: ServicesAccessor, preview: CodePreview, resolutions?: CodeResolution[], direction?: 'model' | 'code'): Promise<CodePreview | undefined> { return accessor.get(IAdeAiService).reconcile(preview, resolutions, direction); }
 });
 
 for (const [id, title, method] of [
 	['ade.ai.connect', localize2('ade.ai.connectCommand', "A.D.E: Connect Claude Code or Codex"), 'connect'],
 	['ade.ai.cli', localize2('ade.ai.cliCommand', "A.D.E: Open AI CLI"), 'openCli'],
+	['ade.ai.chooseDiagramModel', localize2('ade.ai.diagramModelCommand', "Choose Diagram Model"), 'chooseDiagramModel'],
+	['ade.ai.chat', localize2('ade.ai.chatCommand', "A.D.E: Chat with Codex"), 'chat'],
+	['ade.ai.buildDiagrams', localize2('ade.ai.buildDiagramsCommand', "A.D.E: Build Semantic Diagrams"), 'buildDiagrams'],
+	['ade.ai.resumeDiagrams', localize2('ade.ai.resumeDiagramsCommand', "A.D.E: Resume Diagram Generation"), 'resumeDiagrams'],
 	['ade.ai.implement', localize2('ade.ai.implementCommand', "A.D.E: Implement Feature"), 'implement'],
 	['ade.ai.interpret', localize2('ade.ai.interpretCommand', "A.D.E: Interpret Unresolved Evidence"), 'interpret'],
 	['ade.ai.review', localize2('ade.ai.reviewCommand', "A.D.E: Review Implementation"), 'review'],

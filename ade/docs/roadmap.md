@@ -1,5 +1,7 @@
 # Roadmap A.D.E
 
+Il seguito M6 introduce [importazione semantica in due passi, chat Codex e UI centrata sui diagrammi](diagram-workflow.md): classificazione IA di tutti i simboli, contesto compatto multilinguaggio, generazione riprendibile, scelta separata del modello per i diagrammi e azioni dirette per aggiornare codice e viste.
+
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
 Il feedback dei test manuali del 5 novembre 2026 è sviluppato nella [roadmap delle correzioni](manual-test-roadmap.md), sulla branch `fix/manual-test-followup`. L’incremento implementa riconoscimento dell’account CLI e feedback AI, coerenza fra progetto/Files/terminale e Sync globale, leggibilità ed editing contestuale dei diagrammi. Il [verbale](manual-test-verification.md) registra risultati e limiti delle verifiche senza estendere la copertura delle milestone successive.

@@ -23,6 +23,8 @@ export type CodeRequest =
 	| { operation: 'apply'; token: string }
 	| { operation: 'reconciliationPrepare'; token: string; config: string; sourceFiles: string[]; resolutions?: CodeResolution[]; clarification?: string }
 	| { operation: 'reconciliationPropose'; token: string; reviewId: string }
+	| { operation: 'diagramPrepare'; snapshot: string; config: string; resume?: string; clarification?: string }
+	| { operation: 'diagramStep'; snapshot: string; id: string; reviewId: string }
 	| { operation: 'restore'; snapshot: string; target: string }
 	| { operation: 'source'; snapshot: string; file: string; revision: string; start: number; end: number };
 export interface CodeEvidence { file: string; revision: string; start: number; end: number; line: number; endLine: number }
@@ -32,7 +34,9 @@ export interface CodeContext {
 	declarations: { id: string; sourceId: string; name: string; kind: string; evidence: CodeEvidence }[];
 	dependencies: { id: string; from: string; to: string; references: { source: CodeEvidence; target: CodeEvidence; provider: string }[] }[];
 	providers: string[]; diagnostics: string[];
+	diagramState?: 'index' | 'diagrams';
 }
+export interface CodeDiagramProgress { id: string; sourceRoot: string; reviewId: string; status: 'ready' | 'running' | 'questions' | 'failed' | 'complete'; completed: number; total: number; calls: number; symbols: number; files: number; model: string; questions: string[]; excluded: number; error?: string; context?: CodeContext }
 export interface CodePreview {
 	token: string; context: CodeContext;
 	files: { added: string[]; changed: string[]; removed: string[]; unchanged: string[] };
@@ -47,5 +51,5 @@ export interface CodePreview {
 export interface CodeReconciliationContext { reviewId: string; contents: string; metrics: { inputBytes: number; schemaBytes: number; sourceBytes: number; disclosedBytes: number; estimatedTokens: number } }
 export interface CodeSource { path: string; stale: boolean; startLine: number; startColumn: number; endLine: number; endColumn: number }
 export interface CodeHistory { snapshots: { directory: string; revision: string }[]; operations?: { id: string; created: string; status: 'reconciling' | 'applied' | 'undoing' | 'undone' | 'rolledBack'; origin: string; fromRevision: string; toRevision: string; from: string; to: string }[] }
-export type CodeResponse = CodeContext | CodePreview | CodeSource | CodeHistory | CodeReconciliationContext;
+export type CodeResponse = CodeContext | CodePreview | CodeSource | CodeHistory | CodeReconciliationContext | CodeDiagramProgress;
 export interface CodeEngine { execute(request: string, signal?: AbortSignal): Promise<string> }

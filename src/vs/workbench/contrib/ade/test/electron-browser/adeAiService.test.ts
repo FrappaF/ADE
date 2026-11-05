@@ -50,9 +50,12 @@ suite('A.D.E native AI orchestration', () => {
 			declarations: [{ id: 'checkout-controller', sourceId: 'checkout-controller', name: 'Checkout', kind: 'action', evidence: { file: 'checkout.mjs', revision: 'fixture', start: 0, end: 10, line: 1, endLine: 1 } }], dependencies: [], providers: [], diagnostics: [] };
 		let accountState: CliAccountState = { status: 'signedIn' };
 		let resolveExecutable: (executable: string) => Promise<string | undefined> = async executable => executable;
-		const code = { context, onDidChange: changed.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
+		const opened: CodeContext[] = [];
+		const code = { openContext: async (value: CodeContext) => { opened.push(value); }, context, onDidChange: changed.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
 		const picks: ((items: readonly Choice[]) => Choice | Choice[] | undefined)[] = [];
 		const inputs: string[] = [];
+		const chats: { attachments: string[]; focused: boolean }[] = [];
+		const dialogDetails: string[] = [];
 		const errors: string[] = [];
 		const infos: string[] = [];
 		const terminals: object[] = [];
@@ -74,12 +77,12 @@ suite('A.D.E native AI orchestration', () => {
 		stub(IQuickInputService, { pick: async (items: Choice[]) => picks.shift()?.(items), input: async () => inputs.shift() });
 		stub(INotificationService, { error: (message: string) => errors.push(message), info: (message: string) => infos.push(message) });
 		stub(IProgressService, { withProgress: async (_options: object, task: () => Promise<void>) => task() });
-		stub(IDialogService, { confirm: async () => ({ confirmed: true }) });
+		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed: true }; } });
 		stub(IFileService, { createFolder: async () => {}, writeFile: async () => {} });
 		stub(IEditorService, { openEditor: async () => undefined });
 		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => { await focusRequested.complete(); await terminalFocus; }, onExit: terminalExit.event }; }, setActiveInstance: () => {} });
 		stub(ITerminalGroupService, { showPanel: async () => {} });
-		stub(IChatWidgetService, { openSession: async () => undefined });
+		stub(IChatWidgetService, { openSession: async () => { const chat = { attachments: [] as string[], focused: false }; chats.push(chat); return { attachmentModel: { addFile: async (uri: { toString(): string }) => { chat.attachments.push(uri.toString()); } }, setInputPlaceholder: () => {}, focusInput: () => { chat.focused = true; } }; } });
 		stub(ICodexAccountService, { account, onDidChangeAccount: accountChanged.event, signIn: () => signIns++ });
 		stub(IAgentSdkSetupService, { setups, requestReload: () => {} });
 		stub(IAgentHostService, { rootState: { value: { agents: [{ provider: 'codex', models: [{ id: '@provider=openai:native-model', name: 'Native Account', provider: 'codex' }, { id: '@provider=vscode-proxy:proxy-model', name: 'Other Account', provider: 'codex' }] }] } } });
@@ -95,17 +98,57 @@ suite('A.D.E native AI orchestration', () => {
 					case 'verify': return JSON.stringify({ ...session, status: 'passed', verification: { code: 0, output: 'Passed', durationMs: 1 } });
 					case 'apply': return JSON.stringify({ ...session, status: 'applied' });
 					case 'undo': return JSON.stringify({ ...session, status: 'undone' });
+					case 'diagramPrepare': return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'ready', completed: 0, total: 2, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0 });
+					case 'diagramStep': return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'complete', completed: 2, total: 2, calls: 2, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, context: { ...context, diagramState: 'diagrams' } });
 					case 'reconciliationPrepare': return JSON.stringify({ reviewId: 'reconcile-context', contents: '{"prompt":"reviewed"}', metrics: { inputBytes: 1000, schemaBytes: 100, sourceBytes: 8000, disclosedBytes: 500, estimatedTokens: 275 } });
 					case 'reconciliationPropose': return JSON.stringify({ token: 'proposal', context, ai: { summary: 'Reconcile payment', questions: [] } });
 					default: throw new Error('Unexpected fixture operation');
 				}
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
-		return { service, operations, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, errors, infos, terminals, requests, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+		return { service, operations, opened, chats, dialogDetails, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, errors, infos, terminals, requests, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
 	}
+	test('primary Codex chat uses the connected CLI account without model setup', async () => {
+		const f = fixture(false);
+		await f.service.chat();
+		assert.equal(f.terminals.length, 1);
+		assert.equal(f.signIns, 0);
+		assert.deepStrictEqual(f.requests, []);
+		assert.equal(f.errors.length, 0);
+	});
+	test('native Codex chat opens in the chat pane and focuses input', async () => {
+		const f = fixture();
+		f.publishAccount({ status: 'signedIn' });
+		f.setCliResolver(async () => undefined);
+		f.setups.push({ agent: 'codex', download: 'ready' });
+		await f.service.chat();
+		assert.equal(f.chats.length, 1);
+		assert.equal(f.chats[0].focused, true);
+		assert.equal(f.terminals.length, 0);
+		assert.deepStrictEqual(f.requests, []);
+	});
+	test('transient CLI account errors do not start another login', async () => {
+		const f = fixture(); f.setAccountState({ status: 'error', reason: 'timeout' });
+		await f.service.chat();
+		assert.equal(f.terminals.length, 0); assert.equal(f.signIns, 0);
+	});
+	test('diagram generation uses a separate model, reviews its full budget and opens the published model', async () => {
+		const f = fixture(); f.picks.push(items => items[0]);
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual(f.requests, ['diagramPrepare', 'diagramStep']);
+		assert.equal(f.opened[0].diagramState, 'diagrams');
+		assert.equal(f.service.diagramProgress?.status, 'complete');
+		assert.ok(f.dialogDetails[0].includes('2 additional requests'));
+		assert.equal(f.errors.length, 0);
+	});
+	test('zero-budget diagram generation prepares scope without inference', async () => {
+		const f = fixture(true, 'codex', 0); f.picks.push(items => items[0]);
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual(f.requests, ['diagramPrepare']); assert.equal(f.opened.length, 0);
+	});
 	test('constructing the visual service does not request inference', () => {
 		const f = fixture();
 		assert.deepStrictEqual(f.requests, []);
