@@ -1314,7 +1314,8 @@ async function checkManualFollowup() {
 	const terminal = window.locator('.terminal .xterm-helper-textarea');
 	await terminal.waitFor({ state: 'attached' });
 	await terminal.focus(); await window.keyboard.type("printf '__ADE_PROJECT_ROOT__'; pwd\n");
-	await window.locator('.terminal .xterm-rows > div').filter({ hasText: '__ADE_PROJECT_ROOT__' + folder }).waitFor();
+	// Terminal rows wrap at the viewport width; reconstruct the output before comparing a long path.
+	await window.waitForFunction(expected => [...document.querySelectorAll('.terminal .xterm-rows > div')].map(row => row.textContent).join('').includes(expected), '__ADE_PROJECT_ROOT__' + folder);
 	await window.screenshot({ path: path.join(evidence, 'followup-project-terminal.png') });
 	await app.close(); app = undefined;
 	args[1] = folder;
@@ -1346,6 +1347,7 @@ try {
 			.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
 		const collaboration = shell.locator('details').filter({ has: window.locator('summary', { hasText: /^AI Collaboration$/ }) });
 		await collaboration.locator(':scope > summary').click();
+		await collaboration.locator('details').filter({ has: window.locator('summary', { hasText: /^Review, Recovery and Other AI Actions$/ }) }).locator(':scope > summary').click();
 		assert.equal(await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).isEnabled(), true);
 		assert.equal(await collaboration.getByRole('button', { name: 'Open AI CLI', exact: true }).isEnabled(), true);
 		for (const name of ['Implement Feature', 'Run Tests', 'Apply Verified Changes', 'Undo Implementation']) {
@@ -1379,6 +1381,7 @@ try {
 		await shell.getByRole('button', { name: 'Return to Model', exact: true }).click();
 		await sidebar.waitFor();
 		await shell.locator('.ade-properties').getByRole('heading', { name: 'Pagamento rifiutato', exact: true }).waitFor();
+		await shell.locator('summary').getByText('More Tools', { exact: true }).click();
 		for (const [name, selector] of [['Debug', '.debug-viewlet'], ['Git', '.scm-viewlet']]) {
 			await shell.getByRole('button', { name, exact: true }).click();
 			await window.locator(selector).waitFor();
@@ -1439,6 +1442,8 @@ try {
 		await shell.getByRole('button', { name: 'Create Project', exact: true }).click();
 		await enterValue(window, 'Name', 'Nuovo acquisto');
 		await chooseFolder(window, newFolder);
+		// Create Project enters this workspace; restart the selected folder, as the desktop normally does.
+		args[1] = newFolder;
 		await shell.getByRole('heading', { name: 'Nuovo acquisto', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Add Feature', exact: true }).click();
 		await enterValue(window, 'Name', 'Conferma acquisto');
