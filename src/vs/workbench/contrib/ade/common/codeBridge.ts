@@ -39,7 +39,7 @@ export interface CodeContext {
 	providers: string[]; diagnostics: string[];
 	diagramState?: 'index' | 'diagrams';
 }
-export interface CodeDiagramProgress { id: string; sourceRoot: string; reviewId: string; status: 'ready' | 'running' | 'questions' | 'failed' | 'complete'; completed: number; total: number; calls: number; symbols: number; files: number; model: string; questions: string[]; excluded: number; error?: string; context?: CodeContext }
+export interface CodeDiagramProgress { id: string; sourceRoot: string; reviewId: string; status: 'ready' | 'running' | 'questions' | 'failed' | 'complete'; completed: number; total: number; calls: number; symbols: number; files: number; model: string; questions: string[]; excluded: number; inputBudgetBytes?: number; responseHeadroomBytes?: number; error?: string; context?: CodeContext }
 export interface CodePreview {
 	token: string; context: CodeContext;
 	files: { added: string[]; changed: string[]; removed: string[]; unchanged: string[] };

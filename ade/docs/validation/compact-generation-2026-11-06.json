@@ -1,0 +1,18 @@
+{
+	"sourceUnits": 14,
+	"explicitEvidenceBytes": 3006,
+	"compactEvidenceBytes": 1794,
+	"explicitCoverageBytes": 1037,
+	"compactCoverageBytes": 224,
+	"note": "Same simulated TODO decisions. Evidence comparison excludes legacy headers; byte counts are not measured model tokens or charges.",
+	"fixture": "generated Ruby TODO with HTML/YAML evidence",
+	"provider": "simulated official CLI",
+	"domainObjects": 7,
+	"relations": 8,
+	"diagrams": 2,
+	"modelCalls": 1,
+	"evidenceReductionPercent": 40.3,
+	"coverageReductionPercent": 78.4,
+	"measuredRealModelQuality": false,
+	"measuredCharges": false
+}

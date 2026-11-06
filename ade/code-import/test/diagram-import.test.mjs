@@ -11,6 +11,8 @@ import { join, dirname } from 'node:path';
 import { createCodeEngine } from '../nativeHost.ts';
 import { readSnapshot } from '../snapshot.ts';
 import { samples } from './samples.mjs';
+import { expandDiagramContext, compactDiagramReply } from './compact-diagram-fixture.mjs';
+import { Ajv2020 } from 'ajv/dist/2020.js';
 import { todoFile, todoSource, todoFiles, interpretTodo } from './todo-semantic-fixture.mjs';
 
 const config = { version: 1, provider: 'codex', connection: 'cli', model: 'economical-test-model', executable: 'codex', timeoutMs: 10000, maxContextBytes: 262144, maxCalls: 1 };
@@ -35,10 +37,12 @@ async function fixture(t, file = 'purchase.py', source = 'def purchase(amount):\
 	for (const [name, content] of Object.entries(extras)) { await mkdir(dirname(join(root, name)), { recursive: true }); await writeFile(join(root, name), content); }
 	let reply = interpretation;
 	const prompts = [];
+	const schemas = [];
 	const provider = { async complete(selected, prompt, schema) {
 		assert.equal(selected.model, config.model); assert.ok(schema.properties.diagrams || schema.properties.sourceEdits);
-		const context = JSON.parse(prompt.slice(prompt.indexOf('\n') + 1)); prompts.push(context);
-		return { value: await reply(context), usage: { inputTokens: 200, outputTokens: 100 }, cost: null };
+		schemas.push(schema);
+		const context = expandDiagramContext(JSON.parse(prompt.slice(prompt.indexOf('\n') + 1))); prompts.push(context);
+		return { value: compactDiagramReply(context, await reply(context)), usage: { inputTokens: 200, outputTokens: 100 }, cost: null };
 	} };
 	let engine = createCodeEngine(provider);
 	const call = async request => JSON.parse(await engine.execute(JSON.stringify(request)));
@@ -46,8 +50,99 @@ async function fixture(t, file = 'purchase.py', source = 'def purchase(amount):\
 	const prepare = (snapshot = initial.snapshot, extra = {}) => call({ operation: 'diagramPrepare', snapshot, config: JSON.stringify(config), ...extra });
 	const step = job => call({ operation: 'diagramStep', snapshot: initial.snapshot, id: job.id, reviewId: job.reviewId });
 	const finish = async job => { while (job.status !== 'complete') { job = await step(job); } return job; };
-	return { root, initial, prepare, step, finish, call, prompts, source, file, setReply: fn => { reply = fn; }, restart: () => { engine = createCodeEngine(provider); } };
+	return { root, initial, prepare, step, finish, call, prompts, schemas, source, file, setReply: fn => { reply = fn; }, restart: () => { engine = createCodeEngine(provider); } };
 }
+
+test('compact coverage accepts indexed symbols represented entirely by inferred domain concepts', async t => {
+	const f = await fixture(t);
+	f.setReply(context => {
+		const source = context.required[0].ref;
+		return { summary: 'Domain model', questions: [], features: [feature], elements: [], concepts: [{ key: 'purchasing', kind: 'action', name: 'Process Purchase', description: 'Evaluate the purchase', feature: 'checkout', parent: null, source }], relations: [], diagrams: [{ key: 'overview', name: 'Purchase Processing', kind: 'activity', feature: null, nodes: ['c:purchasing'], relations: [], intent: 'One evidenced responsibility' }], coverage: { targets: context.required.map(() => 'c:purchasing'), exclusions: [] } };
+	});
+	const done = await f.finish(await f.prepare());
+	const model = (await readSnapshot(done.context.snapshot)).model;
+	assert.equal(model.semantics.elements.filter(item => item.kind !== 'feature').length, 1);
+	const context = f.prompts[0].compact;
+	assert.equal(context.required, undefined); assert.equal(context.symbols, undefined);
+	assert.equal(context.units.length, f.schemas[0].properties.coverage.properties.targets.minItems);
+	assert.equal(f.schemas[0].properties.coverage.properties.targets.maxItems, context.units.length);
+	const data = JSON.parse(await readFile(join(f.root, '.ade', 'diagram-imports', done.id + '.json'), 'utf8'));
+	assert.ok(data.usage[0].inputBytes <= config.maxContextBytes * 0.75);
+});
+
+test('coverage vectors reject skipped rows, unknown targets and unexplained exclusions before publication', async t => {
+	const f = await fixture(t);
+	for (const failure of ['length', 'target', 'reason', 'duplicate-exclusion']) {
+		f.setReply(context => {
+			const value = compactDiagramReply(context, interpretation(context));
+			if (failure === 'length') { value.coverage.targets.pop(); }
+			if (failure === 'target') { value.coverage.targets[0] = 'c:unknown'; value.elements = []; }
+			if (failure === 'reason' || failure === 'duplicate-exclusion') { value.elements = []; value.coverage.targets[0] = null; }
+			if (failure === 'duplicate-exclusion') { value.coverage.exclusions = [{ units: [0, 0], reason: 'Framework only' }]; }
+			return value;
+		});
+		const job = await f.prepare();
+		await assert.rejects(f.step(job), /coverage|exclusion|source evidence/);
+		assert.equal((await f.call({ operation: 'inspect', snapshot: f.initial.snapshot })).diagramState, 'index');
+		assert.equal(f.prompts.length, ['length', 'target', 'reason', 'duplicate-exclusion'].indexOf(failure) + 1, 'no automatic repair invocation');
+	}
+});
+
+test('a coverage target is preserved when multiple concepts cite the same source anchor', async t => {
+	const f = await fixture(t);
+	f.setReply(context => {
+		const source = context.required[0].ref;
+		return { summary: 'Purchase and input', questions: [], features: [feature], elements: [], concepts: ['purchase', 'input'].map((key, index) => ({ key, kind: index ? 'contract' : 'action', name: index ? 'Purchase Amount' : 'Process Purchase', description: 'Evidenced responsibility', feature: 'checkout', parent: null, source })), relations: [{ key: 'input', from: 'c:purchase', to: 'c:input', kind: 'dependency', name: 'Checks amount', condition: null, evidence: [source], classification: 'inferred' }], diagrams: [{ key: 'overview', name: 'Purchase Processing', kind: 'structure', feature: null, nodes: ['c:purchase', 'c:input'], relations: ['input'], intent: 'Purchase and input' }], coverage: { targets: context.required.map(() => 'c:input'), exclusions: [] } };
+	});
+	const done = await f.finish(await f.prepare());
+	const data = JSON.parse(await readFile(join(f.root, '.ade', 'diagram-imports', done.id + '.json'), 'utf8'));
+	assert.equal(data.results[0].omissions[0].representedBy, 'c:input');
+});
+
+test('explicit resume supplies bounded validation feedback without replaying a failed response', async t => {
+	const f = await fixture(t);
+	f.setReply(context => { const value = compactDiagramReply(context, interpretation(context)); value.elements = []; value.coverage.targets[0] = null; return value; });
+	const job = await f.prepare();
+	await assert.rejects(f.step(job), /skipped source evidence/);
+	f.setReply(interpretation);
+	const done = await f.finish(await f.prepare(f.initial.snapshot, { resume: job.id }));
+	assert.equal(done.calls, 2);
+	assert.match(f.prompts[1].compact.previousValidation, /row 0/);
+	assert.equal(f.prompts[1].compact.previousValidation.length < 1200, true);
+	assert.equal(f.prompts[1].compact.failedResponse, undefined);
+});
+
+test('an incomplete legacy coverage job requests Start Again before making any CLI call', async t => {
+	const f = await fixture(t), job = await f.prepare();
+	const path = join(f.root, '.ade', 'diagram-imports', job.id + '.json');
+	const checkpoint = JSON.parse(await readFile(path, 'utf8'));
+	checkpoint.strategy = 'responsibilities'; checkpoint.status = 'failed';
+	await writeFile(path, JSON.stringify(checkpoint));
+	await assert.rejects(f.prepare(f.initial.snapshot, { resume: job.id }), /older evidence contract.*Start Again/);
+	assert.equal(f.prompts.length, 0);
+	const done = await f.finish(await f.prepare());
+	assert.equal(done.status, 'complete');
+});
+
+test('the CLI schema structurally requires one coverage decision per disclosed unit', async t => {
+	const f = await fixture(t);
+	await f.finish(await f.prepare());
+	const schema = f.schemas[0];
+	const validate = new Ajv2020().compile(schema);
+	const value = compactDiagramReply(f.prompts[0], interpretation(f.prompts[0]));
+	assert.equal(validate(value), true);
+	value.coverage.targets.push('u999');
+	assert.equal(validate(value), false);
+});
+
+test('an input exceeding the reserved context budget stops before any provider invocation', async t => {
+	const f = await fixture(t);
+	const job = await f.prepare(f.initial.snapshot, { config: JSON.stringify({ ...config, maxContextBytes: 1024 }) });
+	await assert.rejects(f.step(job), /Semantic context exceeds the configured budget/);
+	assert.equal(f.prompts.length, 0);
+	const checkpoint = JSON.parse(await readFile(join(f.root, '.ade', 'diagram-imports', job.id + '.json'), 'utf8'));
+	assert.equal(checkpoint.calls, 0);
+});
 
 test('a small project is interpreted in one call with many source symbols supporting few responsibilities', async t => {
 	const source = Array.from({ length: 43 }, (_, i) => `def purchase_${i}(amount):\n    return amount > ${i}\n`).join('\n');
@@ -108,7 +203,7 @@ test('missing symbol coverage and invalid references never replace the active mo
 	const f = await fixture(t);
 	for (const invalid of ['coverage', 'reference', 'file-list']) {
 		f.setReply(context => { const value = interpretation(context); if (invalid === 'coverage') { value.elements = []; } else if (invalid === 'reference') { value.diagrams[0].nodes = ['u999']; } else { value.diagrams[0].name = f.file; } return value; });
-		const job = await f.prepare(); await assert.rejects(f.step(job), /skipped|Unknown|file listing/);
+		const job = await f.prepare(); await assert.rejects(f.step(job), /skipped|Unknown|file listing|Selected responsibility/);
 		assert.equal((await f.call({ operation: 'inspect', snapshot: f.initial.snapshot })).diagramState, 'index');
 	}
 });
@@ -157,7 +252,7 @@ test('deterministic interactions must be visible in a diagram, not just classifi
 	const compiled = await createTypeScriptBundle(state); state = await applyScipBundles(state, [compiled.bundle], undefined, true);
 	assert.ok(state.semantic.dependencies.length);
 	const job = await prepareDiagramImport(before, state, config);
-	await assert.rejects(advanceDiagramImport(job, before, state, diagramProgress(job).reviewId, undefined, { async complete(_config, prompt) { return { value: interpretation(JSON.parse(prompt.slice(prompt.indexOf('\n') + 1))), usage: { inputTokens: 100, outputTokens: 100 }, cost: null }; } }), /omitted an evidenced interaction/);
+	await assert.rejects(advanceDiagramImport(job, before, state, diagramProgress(job).reviewId, undefined, { async complete(_config, prompt) { const context = expandDiagramContext(JSON.parse(prompt.slice(prompt.indexOf('\n') + 1))); return { value: compactDiagramReply(context, interpretation(context)), usage: { inputTokens: 100, outputTokens: 100 }, cost: null }; } }), /omitted an evidenced interaction/);
 });
 
 
@@ -211,7 +306,7 @@ test('single-element diagrams and missing aggregation targets do not publish a s
 			else { const removed = result.elements.pop(); result.omissions = [{ symbol: removed.symbol, representedBy: 'c:missing', reason: 'Attempted aggregation' }]; result.diagrams[0].nodes = [result.elements[0].symbol]; }
 			return result;
 		});
-		await assert.rejects(f.step(await f.prepare()), /one-element|missing responsibility/);
+		await assert.rejects(f.step(await f.prepare()), /one-element|missing responsibility|Unknown coverage responsibility/);
 		assert.equal((await f.call({ operation: 'inspect', snapshot: f.initial.snapshot })).diagramState, 'index');
 	}
 });

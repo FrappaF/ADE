@@ -393,7 +393,8 @@ async function checkInfiniteCanvas() {
 }
 
 async function checkSemanticTodo() {
-	const { todoFile, todoSource, todoFiles } = await import('../code-import/test/todo-semantic-fixture.mjs');
+	const { todoFile, todoSource, todoFiles, interpretTodo } = await import('../code-import/test/todo-semantic-fixture.mjs');
+	const { expandDiagramContext, compactDiagramReply } = await import('../code-import/test/compact-diagram-fixture.mjs');
 	const sourceRoot = path.join(workspace, 'todo-with-ade');
 	for (const [file, content] of Object.entries({ [todoFile]: todoSource, ...todoFiles })) { await mkdir(path.dirname(path.join(sourceRoot, file)), { recursive: true }); await writeFile(path.join(sourceRoot, file), content); }
 	const bin = path.join(directory, 'bin'), counter = path.join(directory, 'semantic-calls');
@@ -405,6 +406,7 @@ const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
 if(args[0]!=='exec'){process.exit(1);}
 const input=readFileSync(0,'utf8'), context=JSON.parse(input.slice(input.indexOf('\\n')+1));
+writeFileSync(${JSON.stringify(path.join(evidence, 'semantic-todo-context.json'))},JSON.stringify(context));
 writeFileSync(${JSON.stringify(counter)},String(Number(readFileSync(${JSON.stringify(counter)},'utf8'))+1));
 writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(interpretTodo(context)));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output_tokens:200}})+'\\n');
@@ -439,6 +441,18 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 	const model = JSON.parse(await readFile(path.join(sourceRoot, '.ade/imports', pointer.active, 'model.ade.json'), 'utf8'));
 	assert.equal(model.semantics.elements.length, 8); assert.equal(model.views.length, 2);
 	assert.ok(model.views.every(view => view.nodes.length >= 2 && view.relationIds.length));
+	const wireContext = JSON.parse(await readFile(path.join(evidence, 'semantic-todo-context.json'), 'utf8'));
+	const expanded = expandDiagramContext(wireContext);
+	const expected = interpretTodo(expanded), compact = compactDiagramReply(expanded, expected);
+	const compactMetrics = {
+		sourceUnits: wireContext.units.length,
+		explicitEvidenceBytes: Buffer.byteLength(JSON.stringify({ required: expanded.required, symbols: expanded.symbols })),
+		compactEvidenceBytes: Buffer.byteLength(JSON.stringify({ files: wireContext.files, units: wireContext.units })),
+		explicitCoverageBytes: Buffer.byteLength(JSON.stringify(expected.omissions)),
+		compactCoverageBytes: Buffer.byteLength(JSON.stringify(compact.coverage)),
+		note: 'Same simulated TODO decisions. Evidence comparison excludes legacy headers; byte counts are not measured model tokens or charges.'
+	};
+	await writeFile(path.join(evidence, 'semantic-todo-compact-metrics.json'), JSON.stringify(compactMetrics, null, 2));
 	assert.equal(await sidebar.getByRole('button', { name: /\.(?:rb|erb|yml)$/ }).count(), 0);
 	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+b' : 'Control+b');
 	await window.waitForFunction(() => document.querySelector('.ade-canvas-scroll')?.clientWidth > 1000);
@@ -457,6 +471,7 @@ async function checkCodeBridge() {
 	// Exercise the real original-CLI protocol without claiming a live-model benchmark.
 	const simulatedCli = path.join(directory, 'm6-simulated-codex.mjs');
 	await writeFile(simulatedCli, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync,existsSync} from 'node:fs';
+const {expandDiagramContext,compactDiagramReply}=await import(${JSON.stringify(path.join(root, 'ade/code-import/test/compact-diagram-fixture.mjs'))});
 const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
 if(args[0]!=='exec'){
@@ -467,7 +482,8 @@ process.stdin.on('data',data=>{if(data.toString().includes('change-code')){const
 process.stdin.resume();setInterval(()=>{},1000);await new Promise(()=>{});
 }
 const input=readFileSync(0,'utf8');
-const context=JSON.parse(input.slice(input.indexOf('\\n')+1));
+const rawContext=JSON.parse(input.slice(input.indexOf('\\n')+1));
+const context=expandDiagramContext(rawContext);
 if(context.step&&existsSync(${JSON.stringify(path.join(directory, 'fail-diagrams'))})){writeSync(2,'Simulated provider unavailable');process.exit(1);}
 let value;
 if(context.step){
@@ -487,7 +503,7 @@ const source=context.sources.find(source=>source.file===fact.evidence.file);
 value={summary:'Reconcile the diagram rename',questions:[],modelEdits:[],sourceEdits:[{file:source.file,revision:source.revision,search:'function '+item.code.name+'(',replacement:'function '+item.model.name+'('}],bindings:[{elementId:item.id,file:source.file,name:item.model.name,syntaxKind:fact.syntaxKind}]};
 }
 }
-writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(value));
+writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(context.step?compactDiagramReply(context,value):value));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output_tokens:50}})+'\\n');\n`);
 	await chmod(simulatedCli, 0o700);
 	if (workflowOnly) {

@@ -109,7 +109,7 @@ suite('A.D.E native AI orchestration', () => {
 					case 'verify': return JSON.stringify({ ...session, status: 'passed', verification: { code: 0, output: 'Passed', durationMs: 1 } });
 					case 'apply': return JSON.stringify({ ...session, status: 'applied' });
 					case 'undo': return JSON.stringify({ ...session, status: 'undone' });
-					case 'diagramPrepare': return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'ready', completed: 0, total: 2, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0 });
+					case 'diagramPrepare': return JSON.stringify({ inputBudgetBytes: 49152, responseHeadroomBytes: 16384, id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'ready', completed: 0, total: 2, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0 });
 					case 'diagramStep': if (failDiagram) { throw new Error('Provider Offline'); } return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'complete', completed: 2, total: 2, calls: 2, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, context: { ...context, diagramState: 'diagrams' } });
 					case 'reconciliationPrepare': sourceSelections.push((JSON.parse(input) as { sourceFiles: string[] }).sourceFiles); return JSON.stringify({ reviewId: 'reconcile-context', contents: '{"prompt":"reviewed"}', metrics: { inputBytes: 1000, schemaBytes: 100, sourceBytes: 8000, disclosedBytes: 500, estimatedTokens: 275 } });
 					case 'reconciliationPropose': return JSON.stringify({ token: 'proposal', context, ai: { summary: 'Reconcile payment', questions: [] } });
@@ -153,6 +153,7 @@ suite('A.D.E native AI orchestration', () => {
 		assert.equal(f.opened[0].diagramState, 'diagrams');
 		assert.equal(f.service.diagramProgress?.status, 'complete');
 		assert.ok(f.dialogDetails[0].includes('2 additional requests'));
+		assert.match(f.dialogDetails[0], /49152 bytes per request.*16384 bytes/s);
 		assert.equal(f.errors.length, 0);
 	});
 	test('zero-budget diagram generation prepares scope without inference', async () => {

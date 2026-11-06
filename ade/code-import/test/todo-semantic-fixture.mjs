@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'node:assert/strict';
+import { expandDiagramContext, compactDiagramReply } from './compact-diagram-fixture.mjs';
 
 export const todoFile = 'app/controllers/todos_controller.rb';
 export const todoSource = `class TodosController < ApplicationController
@@ -22,7 +23,13 @@ export const todoFiles = {
 	'test/todo_test.rb': 'class TodoTest\n def test_creation; assert Todo.new(title: "Read").valid?; end\nend'
 };
 
-export function interpretTodo(context) {
+export function interpretTodo(input) {
+	const context = expandDiagramContext(input);
+	const result = interpretTodoDomain(context);
+	return input.format === 'compact-v2' && !input.compact ? compactDiagramReply(context, result) : result;
+}
+
+function interpretTodoDomain(context) {
 	assert.equal(context.step, 'project');
 	assert.ok(context.project.files.includes('config/routes.rb'));
 	assert.ok(context.symbols.some(item => item.file === 'config/features.yml' && item.content.includes('enabled')));
