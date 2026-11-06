@@ -7,16 +7,17 @@ import { Event } from '../../../../base/common/event.js';
 import { Server } from '../../../../base/parts/ipc/node/ipc.mp.js';
 import { IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { adeCodeChannel, CliAccountRequest, CliExecutableRequest, CliRuntimeEnvironment, CodeEngine } from '../common/codeBridge.js';
+import { adeCodeChannel, CliAccountRequest, CliExecutableRequest, CliRuntimeEnvironment, CodeBridgeProtocol, CodeEngine } from '../common/codeBridge.js';
 import { resolveCliExecutable } from './adeCliExecutable.js';
 import { checkCliAccount, cliEnvironment } from './adeCliAccount.js';
 
 // Bundled with its parser grammars and compiler libraries by the client build.
 const engineModule = './adeCodeEngine.js';
-const { engine }: { engine: CodeEngine } = await import(engineModule);
+const { engine, codeBridgeProtocol }: { engine: CodeEngine; codeBridgeProtocol?: CodeBridgeProtocol } = await import(engineModule);
 const channel: IServerChannel = {
 	listen: () => Event.None,
 	async call<T>(_context: string, command: string, input: unknown, token = CancellationToken.None): Promise<T> {
+		if (command === 'protocol') { return codeBridgeProtocol as T; }
 		if (command === 'resolveCli') { return await resolveCliExecutable(input as CliExecutableRequest) as T; }
 		if (command === 'checkCliAccount') { return await checkCliAccount(input as CliAccountRequest) as T; }
 		if (command === 'collaborate' || command === 'reconcile') {

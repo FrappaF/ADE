@@ -6,7 +6,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { readFile, realpath, readdir, stat } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import type { CodeRequest, CodeContext, CodePreview, CodeResponse, CodeEngine } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
+import { adeCodeProtocolVersion, type CodeBridgeProtocol, type CodeRequest, type CodeContext, type CodePreview, type CodeResponse, type CodeEngine } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 import { importCode, type CodeImport } from './importCode.ts';
 import { bindReconciliationIdentities, verifyReconciliationStructure } from './reconciliationIdentity.ts';
 import { readSnapshot, writeSnapshot, type ImportSnapshot } from './snapshot.ts';
@@ -26,7 +26,7 @@ import type { StructuredProvider } from '../ai/contracts.ts';
 import { prepareDiagramImport, advanceDiagramImport, readDiagramJob, diagramProgress, finishDiagramImport } from '../ai/diagramImport.ts';
 
 const nonempty = { type: 'string', minLength: 1 };
-const valid = new Ajv2020().compile<Exclude<CodeRequest, { operation: 'collaboration' }>>({ oneOf: [
+const requestSchemas = [
 	{ type: 'object', additionalProperties: false, required: ['operation', 'root'], properties: { operation: { const: 'import' }, root: nonempty, scope: { type: 'object' }, syntaxOnly: { type: 'boolean' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot'], properties: { operation: { enum: ['inspect', 'preview', 'history'] }, snapshot: nonempty, scope: { type: 'object' }, renames: { type: 'array' }, resolutions: { type: 'array', maxItems: 1000, items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'id'], properties: { operation: { enum: ['undoSync', 'recoverSync'] }, snapshot: nonempty, id: nonempty } },
@@ -37,7 +37,21 @@ const valid = new Ajv2020().compile<Exclude<CodeRequest, { operation: 'collabora
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'id', 'reviewId'], properties: { operation: { const: 'diagramStep' }, snapshot: nonempty, id: nonempty, reviewId: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'target'], properties: { operation: { const: 'restore' }, snapshot: nonempty, target: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'file', 'revision', 'start', 'end'], properties: { operation: { const: 'source' }, snapshot: nonempty, file: nonempty, revision: nonempty, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 0 } } }
-] });
+];
+const ajv = new Ajv2020();
+const valid = ajv.compile<Exclude<CodeRequest, { operation: 'collaboration' }>>({ oneOf: requestSchemas });
+const requestValidators = requestSchemas.map(schema => ({ operations: schema.properties.operation.enum ?? [schema.properties.operation.const!], validate: ajv.compile(schema) }));
+/** Report the capabilities of the bundled engine, rather than those of its worker wrapper. */
+export const codeBridgeProtocol: CodeBridgeProtocol = { version: adeCodeProtocolVersion, operations: ['collaboration', ...requestValidators.flatMap(item => item.operations)] };
+
+function invalidRequest(request: unknown): Error {
+	const operation = request && typeof request === 'object' && 'operation' in request ? request.operation : undefined;
+	const validator = requestValidators.find(item => item.operations.includes(operation as string));
+	if (!validator) { return new Error('Invalid code bridge request: missing or unsupported operation. Rebuild ADE and restart the application if it was updated.'); }
+	validator.validate(request);
+	// Schema diagnostics contain field names and constraints, never source/configuration values.
+	return new Error(`Invalid code bridge request (${operation}): ${ajv.errorsText(validator.validate.errors, { dataVar: 'request' }).slice(0, 500)}`);
+}
 interface Preview { previous: ImportSnapshot; next: CodeImport; result: Reconciliation; prepared?: PreparedReconciliation; calls?: number; active?: string; created: number; bindings?: ReconciliationProposal['bindings']; ai?: CodePreview['ai'] }
 const previews = new Map<string, Preview>();
 const proposalCache = new Map<string, Awaited<ReturnType<typeof proposeAiReconciliation>>>();
@@ -98,7 +112,7 @@ export function createCodeEngine(provider?: StructuredProvider): CodeEngine { re
 		if (request && typeof request === 'object' && 'operation' in request && request.operation === 'collaboration' && 'request' in request && typeof request.request === 'string' && Object.keys(request).length === 2) {
 			return executeCollaboration(request.request, signal);
 		}
-		if (!valid(request)) { throw new Error('Invalid code bridge request'); }
+		if (!valid(request)) { throw invalidRequest(request); }
 		signal?.throwIfAborted();
 		if ('scope' in request && request.scope) { readSourceScope(request.scope); }
 		let result: CodeResponse;

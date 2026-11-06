@@ -30,10 +30,10 @@ import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { AdeInput } from '../browser/adeInput.js';
 import { IAdeProjectWorkspaceService, AdeProjectWorkspace } from '../browser/adeProjectWorkspace.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
-import { adeCodeChannel, CliAccountState, CliRuntimeEnvironment, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeSource } from '../common/codeBridge.js';
+import { adeCodeChannel, adeCodeProtocolVersion, CliAccountState, CliRuntimeEnvironment, CodeBridgeProtocol, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeSource } from '../common/codeBridge.js';
 
 /** Native orchestration: deterministic evidence, reviewed AI proposals and recoverable paired publication. */
-class AdeCodeService extends Disposable implements IAdeCodeService {
+export class AdeCodeService extends Disposable implements IAdeCodeService {
 	declare readonly _serviceBrand: undefined;
 	readonly available = true;
 	private readonly changes = this._register(new Emitter<void>());
@@ -70,11 +70,19 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		void this.refresh();
 	}
 	private getChannel(): Promise<IChannel> {
-		return this.channel ??= this.workers.createWorker({ moduleId: 'vs/workbench/contrib/ade/node/adeCodeWorkerMain', type: 'ade-code', name: localize('ade.code.worker', "A.D.E Code Analysis") }).then(worker => {
+		return this.channel ??= this.workers.createWorker({ moduleId: 'vs/workbench/contrib/ade/node/adeCodeWorkerMain', type: 'ade-code', name: localize('ade.code.worker', "A.D.E Code Analysis") }).then(async worker => {
 			this._register(worker);
 			void worker.onDidTerminate.then(() => { this.channel = undefined; });
-			return worker.client.getChannel(adeCodeChannel);
-		}, error => { this.channel = undefined; throw error; });
+			const channel = worker.client.getChannel(adeCodeChannel);
+			try {
+				const protocol = await channel.call<CodeBridgeProtocol | undefined>('protocol');
+				if (protocol?.version !== adeCodeProtocolVersion || !Array.isArray(protocol.operations) || !['diagramPrepare', 'diagramStep'].every(operation => protocol.operations.includes(operation))) { throw new Error('Incompatible code bridge protocol'); }
+			} catch {
+				worker.dispose();
+				throw new Error(localize('ade.code.incompatibleEngine', "The A.D.E analysis engine is out of date or incompatible with this interface. For a development build, run npm run build-fast -- --client-only in the ADE repository, then fully quit and reopen ADE. For an installed application, update or reinstall the complete application."));
+			}
+			return channel;
+		}).catch(error => { this.channel = undefined; throw error; });
 	}
 	private async request<T>(request: CodeRequest, token = CancellationToken.None): Promise<T> {
 		const channel = await this.getChannel();

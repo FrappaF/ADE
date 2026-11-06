@@ -39,3 +39,9 @@ La [revisione UX del 6 novembre](ux-ai-workflow.md) distingue le verifiche nell�
 Se `codex --version` funziona nel terminale ma ADE non trova `codex`, recuperare il percorso con `command -v codex` su macOS/Linux oppure `(Get-Command codex).Source` in PowerShell. Inserire quel percorso completo in **Choose Model and CLI → Original CLI Executable**, poi scegliere **Refresh Account and Models**. Questo è utile con installazioni `nvm` presenti in una versione di Node diversa da quella nel PATH dell’app. Non occorre reinstallare la CLI o ripetere un login già valido.
 
 Se una vecchia configurazione contiene un eseguibile inesistente e ADE trova la CLI standard, **Repair CLI Executable** permette di usare la CLI trovata oppure scegliere un percorso verificato. La scelta conserva il modello di coding e quello dei diagrammi; annullare non cambia le impostazioni e non avvia inferenze.
+
+## Motore di analisi e build di sviluppo
+
+`Invalid code bridge request` viene emesso da ADE prima dell’inferenza, quando la richiesta non rispetta il protocollo del motore di analisi. Le nuove build riportano l’operazione e il campo non valido, senza mostrare i valori di configurazione o il contenuto dei sorgenti. L’interfaccia verifica anche la versione del protocollo e la disponibilità delle operazioni di generazione nel bundle del motore: una build incompatibile viene segnalata esplicitamente.
+
+In una build di sviluppo, aggiornare soltanto i file dell’interfaccia non basta. Dalla cartella del repository eseguire `nvm use` e `npm run build-fast -- --client-only`, poi chiudere completamente ADE e riaprirlo. Il comando ricostruisce anche `out/vs/workbench/contrib/ade/node/adeCodeEngine.js`; un processo già aperto continua a usare il motore caricato in memoria fino al riavvio. Non serve reinstallare Codex o ripetere il login per risolvere un errore di protocollo interno.

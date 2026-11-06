@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { engine as productionEngine, createCodeEngine } from '../nativeHost.ts';
+import { engine as productionEngine, createCodeEngine, codeBridgeProtocol } from '../nativeHost.ts';
+import { adeCodeProtocolVersion } from '../../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 import { importCode } from '../importCode.ts';
 import { createTypeScriptBundle } from '../typescriptSemantic.ts';
 import { applyScipBundles } from '../scip.ts';
@@ -34,6 +35,24 @@ async function workspace(t, files) {
 	for (const [file, text] of Object.entries(files)) { await mkdir(join(root, file, '..'), { recursive: true }); await writeFile(join(root, file), text); }
 	return root;
 }
+test('native boundary advertises the semantic diagram protocol', () => {
+	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'restore', 'source'] });
+});
+test('native boundary identifies malformed AI requests without disclosing configuration values', async () => {
+	for (const [request, expected] of [
+		[{ operation: 'diagramPrepare', config: 'private-config' }, /\(diagramPrepare\).*required property 'snapshot'/],
+		[{ operation: 'diagramStep', snapshot: '/unused', id: 'job' }, /\(diagramStep\).*required property 'reviewId'/],
+		[{ operation: 'diagramStep', snapshot: '/unused', id: '', reviewId: 'review' }, /\(diagramStep\).*request\/id.*fewer than 1 characters/],
+		[{ operation: 'reconciliationPrepare', token: 'token', config: 'private-config', sourceFiles: [], extra: 'private-extra' }, /\(reconciliationPrepare\).*additional properties/],
+		[{ operation: 'unknown-private-operation', config: 'private-config' }, /missing or unsupported operation/]
+	]) {
+		await assert.rejects(productionEngine.execute(JSON.stringify(request)), error => {
+			assert.match(error.message, expected);
+			assert.doesNotMatch(error.message, /private-/);
+			return true;
+		});
+	}
+});
 test('native boundary imports, previews contract/rename/delete, preserves annotation, publishes and recovers', async t => {
 	const root = await workspace(t, { 'gateway.ts': 'export function charge(amount: number): boolean { return amount > 0; }', 'checkout.ts': 'import {charge as pay} from "./gateway"; export function checkout(value: number): boolean { return pay(value); }', 'unused.ts': 'export function unused() {}', 'steady.py': 'def steady():\n    return 1\n' });
 	const initial = await call({ operation: 'import', root });
