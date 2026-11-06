@@ -445,3 +445,8 @@ export class SemanticModelService {
 		this.replace(candidate);
 	}
 }
+
+/** A deterministic source index is evidence for AI, never the user-facing diagram model. */
+export function isSourceEvidenceModel(model: SemanticModel): boolean {
+	return model.id.startsWith('code:') && !model.semantics.elements.some(element => element.kind === 'feature');
+}

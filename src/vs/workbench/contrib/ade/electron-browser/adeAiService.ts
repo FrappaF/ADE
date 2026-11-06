@@ -460,7 +460,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 				}
 				if (this.code.context?.snapshot !== context.snapshot) { throw new Error(localize('ade.ai.diagramProjectChanged', "The Active Project Changed. Open Its Diagrams to Continue.")); }
 				this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.changes.fire();
-				if (job.context) { await this.code.openContext(job.context); this.report(localize('ade.ai.diagramsReady', "Diagrams Ready · All {0} Indexed Symbols Have a Semantic View", job.symbols)); return; }
+				if (job.context) { await this.code.openContext(job.context); this.report(localize('ade.ai.diagramsReady', "Diagrams Ready · {0} Responsibilities in {1} Views", this.project.model.semantics.elements.filter(item => item.kind !== 'feature').length, this.project.model.views.length)); return; }
 				if (job.questions.length) { this.info(job.questions.join('\n')); return; }
 			}
 		}, true);

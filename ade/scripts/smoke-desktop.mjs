@@ -49,6 +49,7 @@ const sequenceOnly = process.argv.includes('--sequence-only');
 const stateOnly = process.argv.includes('--state-only');
 const impactOnly = process.argv.includes('--impact-only');
 const canvasOnly = process.argv.includes('--canvas-only');
+const semanticOnly = process.argv.includes('--semantic-import');
 const workflowOnly = process.argv.includes('--diagram-workflow');
 const codeOnly = process.argv.includes('--code-only') || workflowOnly;
 const aiOnly = process.argv.includes('--ai-only') || aiLive;
@@ -71,7 +72,7 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
 const followupOnly = process.argv.includes('--followup-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly || canvasOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly || canvasOnly || semanticOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -97,7 +98,7 @@ async function launch() {
 	const deadline = Date.now() + 90000;
 	while (Date.now() < deadline) {
 		for (const window of app.windows()) {
-			if (await window.locator('.ade-shell').isVisible().catch(() => false)) { window.setDefaultTimeout(30000); await window.waitForFunction(() => !document.querySelector('.ade-content')?.textContent.includes('Loading model…')); if (!workflowOnly && !canvasOnly) { await runCommand(window, 'A.D.E: Show Diagram Navigation'); await openProperties(window); } return window; }
+			if (await window.locator('.ade-shell').isVisible().catch(() => false)) { window.setDefaultTimeout(30000); await window.waitForFunction(() => !document.querySelector('.ade-content')?.textContent.includes('Loading model…')); if (!workflowOnly && !canvasOnly && !semanticOnly) { await runCommand(window, 'A.D.E: Show Diagram Navigation'); await openProperties(window); } return window; }
 		}
 		await new Promise(resolve => setTimeout(resolve, 250));
 	}
@@ -391,6 +392,67 @@ async function checkInfiniteCanvas() {
 	console.log('PASS: full canvas, unbounded pan, pointer-anchored zoom, spacious layout and floating element/relationship details.');
 }
 
+async function checkSemanticTodo() {
+	const { todoFile, todoSource, todoFiles } = await import('../code-import/test/todo-semantic-fixture.mjs');
+	const sourceRoot = path.join(workspace, 'todo-with-ade');
+	for (const [file, content] of Object.entries({ [todoFile]: todoSource, ...todoFiles })) { await mkdir(path.dirname(path.join(sourceRoot, file)), { recursive: true }); await writeFile(path.join(sourceRoot, file), content); }
+	const bin = path.join(directory, 'bin'), counter = path.join(directory, 'semantic-calls');
+	await mkdir(bin);
+	await writeFile(counter, '0');
+	await writeFile(path.join(bin, 'codex'), `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
+import {interpretTodo} from ${JSON.stringify(path.join(root, 'ade/code-import/test/todo-semantic-fixture.mjs'))};
+const args=process.argv.slice(2);
+if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
+if(args[0]!=='exec'){process.exit(1);}
+const input=readFileSync(0,'utf8'), context=JSON.parse(input.slice(input.indexOf('\\n')+1));
+writeFileSync(${JSON.stringify(counter)},String(Number(readFileSync(${JSON.stringify(counter)},'utf8'))+1));
+writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(interpretTodo(context)));
+writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output_tokens:200}})+'\\n');
+`);
+	await chmod(path.join(bin, 'codex'), 0o700);
+	launchEnv.PATH = bin + path.delimiter + process.env.PATH; args.push('--force-disable-user-env');
+	const window = await launch(), shell = window.locator('.ade-shell');
+	await shell.getByRole('button', { name: 'Import Codebase', exact: true }).click();
+	const widget = window.locator('.quick-input-widget');
+	await widget.getByText('Import Codebase', { exact: true }).waitFor();
+	await widget.locator('input:visible').fill(sourceRoot + path.sep);
+	await widget.getByRole('button', { name: 'OK', exact: true }).click();
+	const entered = window.waitForEvent('domcontentloaded', { timeout: 90000 });
+	await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
+	await entered; args[1] = sourceRoot;
+	await shell.getByRole('heading', { name: 'Create Diagrams from Your Code', exact: true }).waitFor({ timeout: 90000 });
+	assert.equal(await shell.locator('.ade-node, .ade-map-branch').count(), 0);
+	await runCommand(window, 'A.D.E: Show Diagram Navigation');
+	const sidebar = window.locator('.ade-sidebar');
+	await sidebar.getByText('Source Evidence Ready.', { exact: false }).waitFor();
+	assert.equal(await sidebar.getByRole('button', { name: /\.(?:rb|erb|yml)$/ }).count(), 0);
+	await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true, disabled: false }).waitFor();
+	await window.screenshot({ path: path.join(evidence, 'semantic-import-ready.png') });
+	await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
+	await widget.getByText('Model for Diagrams', { exact: true }).waitFor();
+	if (await widget.locator('.quick-input-list-row .label-name').first().isVisible()) { await window.keyboard.press('Enter'); } else { await enterValue(window, 'Model for Diagrams', 'economical-todo-model'); }
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();
+	await shell.getByRole('heading', { name: 'Task Management', exact: true }).waitFor({ timeout: 90000 });
+	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
+	assert.equal(await readFile(counter, 'utf8'), '1');
+	const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
+	const model = JSON.parse(await readFile(path.join(sourceRoot, '.ade/imports', pointer.active, 'model.ade.json'), 'utf8'));
+	assert.equal(model.semantics.elements.length, 8); assert.equal(model.views.length, 2);
+	assert.ok(model.views.every(view => view.nodes.length >= 2 && view.relationIds.length));
+	assert.equal(await sidebar.getByRole('button', { name: /\.(?:rb|erb|yml)$/ }).count(), 0);
+	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+b' : 'Control+b');
+	await window.waitForFunction(() => document.querySelector('.ade-canvas-scroll')?.clientWidth > 1000);
+	await shell.locator('.ade-floating-zoom').getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	await window.screenshot({ path: path.join(evidence, 'semantic-todo-overview.png') });
+	await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
+	await pickValue(window, 'Choose Diagram', 'Add a Task');
+	await shell.locator('.ade-floating-zoom').getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	await window.screenshot({ path: path.join(evidence, 'semantic-todo-flow.png') });
+	await writeFile(path.join(evidence, 'semantic-todo-results.json'), JSON.stringify({ provider: 'simulated-original-cli', language: 'Ruby with HTML templates and YAML configuration', modelCalls: 1, elements: model.semantics.elements.length, domainObjects: model.semantics.elements.filter(item => item.kind !== 'feature').length, relations: model.semantics.relations.length, diagrams: model.views.length, indexHidden: true, sourceFilesAreNotFeatures: true, connectedViews: true }, null, 2));
+	await app.close(); app = undefined;
+	console.log('PASS: Ruby TODO source evidence becomes two connected capability/behavior diagrams in one model call, without a file/symbol forest.');
+}
+
 async function checkCodeBridge() {
 	// Exercise the real original-CLI protocol without claiming a live-model benchmark.
 	const simulatedCli = path.join(directory, 'm6-simulated-codex.mjs');
@@ -412,7 +474,8 @@ if(context.step){
 const overview=context.step==='overview';
 const edges=context.dependencies.filter(edge=>context.required.some(item=>item.ref===edge.from)&&context.required.some(item=>item.ref===edge.to));
 const relations=edges.map((edge,i)=>({key:'interaction-'+context.batch+'-'+i,kind:'dependency',from:edge.from,to:edge.to,name:'Uses payment processing',condition:null,evidence:[edge.from,edge.to],classification:'static'}));
-value={summary:'Purchase responsibilities',questions:[],features:[{key:'purchasing',name:'Purchasing',description:'Coordinate checkout and payment.'}],elements:context.required.filter(item=>item.indexed).map(item=>({symbol:item.ref,kind:'action',name:context.symbols.find(symbol=>symbol.ref===item.ref).name==='charge'&&context.symbols.find(symbol=>symbol.ref===item.ref).content.includes('amount >= 0')?'Accept Non-Negative Payments':context.symbols.find(symbol=>symbol.ref===item.ref).name,description:'Purchase responsibility',feature:'purchasing',parent:null})),concepts:context.required.filter(item=>!item.indexed).map(item=>({key:'concept-'+item.ref,kind:'component',name:'External Integration',description:'Extracted responsibility',feature:'purchasing',parent:null,source:item.ref})),relations,diagrams:[{key:overview?'overview':'purchase-flow-'+context.batch,name:overview?'Purchasing Overview':'Purchase Flow',kind:'activity',feature:overview?null:'purchasing',nodes:overview?['f:purchasing']:context.required.map(item=>item.indexed?item.ref:'c:concept-'+item.ref),relations:relations.map(item=>item.key),intent:'Inferred purchase responsibilities'}]};
+value={summary:'Purchase responsibilities',questions:[],omissions:[],features:[{key:'purchasing',name:'Purchasing',description:'Coordinate checkout and payment.'}],elements:context.required.filter(item=>item.indexed).map(item=>({symbol:item.ref,kind:'action',name:context.symbols.find(symbol=>symbol.ref===item.ref).name==='charge'&&context.symbols.find(symbol=>symbol.ref===item.ref).content.includes('amount >= 0')?'Accept Non-Negative Payments':context.symbols.find(symbol=>symbol.ref===item.ref).name,description:'Purchase responsibility',feature:'purchasing',parent:null})),concepts:context.required.filter(item=>!item.indexed).map(item=>({key:'concept-'+item.ref,kind:'component',name:'External Integration',description:'Extracted responsibility',feature:'purchasing',parent:null,source:item.ref})),relations,diagrams:[{key:overview?'overview':'purchase-flow-'+context.batch,name:overview?'Purchasing Overview':'Purchase Flow',kind:'activity',feature:overview?null:'purchasing',nodes:overview?['f:purchasing']:context.required.map(item=>item.indexed?item.ref:'c:concept-'+item.ref),relations:relations.map(item=>item.key),intent:'Inferred purchase responsibilities'}]};
+if(context.step==='project'){value.diagrams.unshift({...value.diagrams[0],key:'overview',name:'Purchasing Overview',kind:'structure',feature:null});}
 }else{
 value={summary:'Reconcile observed source changes',questions:[],sourceEdits:[],bindings:[],modelEdits:[
 ...context.changes.elements.map(item=>({collection:'elements',id:item.id,value:item.code?{...item.model,...item.code}:null})),
@@ -448,13 +511,15 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 	const enteredWorkspace = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 	await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 	await enteredWorkspace;
-	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+	await shell.getByRole('heading', { name: 'Create Diagrams from Your Code', exact: true }).waitFor({ timeout: 90000 });
+	assert.equal(await shell.locator('.ade-node, .ade-map-branch').count(), 0, 'The index is never presented as finished diagrams');
+	assert.equal(await shell.getByRole('button', { name: 'Update Code', exact: true }).isDisabled(), true);
 	const snapshot = async () => {
 		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
 		const folder = path.join(sourceRoot, '.ade/imports', pointer.active);
 		return { folder, state: JSON.parse(await readFile(path.join(folder, 'import-state.json'), 'utf8')), model: JSON.parse(await readFile(path.join(folder, 'model.ade.json'), 'utf8')) };
 	};
-	await shell.getByText('Step 1 Complete · Code Analyzed. Step 2 · Let AI Turn the Source into Feature and Flow Diagrams.', { exact: true }).waitFor({ timeout: 90000 });
+	await shell.getByText('Source Evidence Ready · Create Capability and Flow Diagrams with AI', { exact: true }).waitFor({ timeout: 90000 });
 	args[1] = sourceRoot; // Restart in the workspace entered by Import Codebase, without a second asynchronous folder switch.
 	if (!workflowOnly) {
 		await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
@@ -1622,6 +1687,7 @@ async function checkManualFollowup() {
 try {
 	if (followupOnly) { await checkManualFollowup(); }
 	if (canvasOnly) { await checkInfiniteCanvas(); }
+	if (semanticOnly) { await checkSemanticTodo(); }
 	if (aiOnly) { await checkAiWorkflow(); }
 	if (codeOnly) { await checkCodeBridge(); }
 	if (projectsOnly) { await checkIndependentProjects(); }
@@ -1630,7 +1696,7 @@ try {
 	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly && !aiOnly && !followupOnly && !canvasOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly && !aiOnly && !followupOnly && !canvasOnly && !semanticOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -1851,7 +1917,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly || canvasOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly || canvasOnly || semanticOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));

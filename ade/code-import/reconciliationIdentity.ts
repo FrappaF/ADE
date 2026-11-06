@@ -33,7 +33,11 @@ export function bindReconciliationIdentities(input: CodeImport, model: SemanticM
 export function verifyReconciliationStructure(state: CodeImport, model: SemanticModel, previous: ImportSnapshot, bindings: { elementId: string }[]): void {
 	for (const fact of state.model.semantics.elements) {
 		const element = model.semantics.elements.find(item => item.id === fact.id);
-		if (!element) { throw new Error('AI model proposal does not account for deterministic source structure'); }
+		if (!element) {
+			// A sealed semantic baseline already accounted for omitted/aggregated implementation details.
+			if (!previous.commonModel.semantics.elements.some(item => item.id === fact.id) && previous.state.model.semantics.elements.some(item => item.id === fact.id)) { continue; }
+			throw new Error('AI model proposal does not account for new deterministic source structure');
+		}
 		if (element.name === fact.name && element.kind === fact.kind || bindings.some(item => item.elementId === fact.id)) { continue; }
 		const common = previous.commonModel.semantics.elements.find(item => item.id === fact.id);
 		const before = previous.state.model.semantics.elements.find(item => item.id === fact.id);

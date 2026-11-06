@@ -13,7 +13,7 @@ import { ITelemetryService } from '../../../../platform/telemetry/common/telemet
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
-import { isCompatibleRelation, ModelView, RelationKind, SemanticModel } from '../common/semanticModel.js';
+import { isCompatibleRelation, isSourceEvidenceModel, ModelView, RelationKind, SemanticModel } from '../common/semanticModel.js';
 import { IAdeCodeService } from './adeCodeService.js';
 import { IAdeAiService } from './adeAiService.js';
 import { AdeInput } from './adeInput.js';
@@ -168,7 +168,8 @@ export class AdeEditor extends EditorPane {
 		this.floatingMenu = undefined;
 		this.floatingInspector = undefined;
 		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
-		const canvasMode = this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error;
+		const sourceEvidence = isSourceEvidenceModel(this.project.model);
+		const canvasMode = !sourceEvidence && this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error;
 		this.root.classList.toggle('ade-canvas-mode', canvasMode);
 		if (this.cameraKey) { this.cameras.set(this.cameraKey, { ...this.camera }); }
 		const cameraKey = canvasMode ? `${this.project.projectRoot?.toString() ?? 'demo'}:${this.project.model.id}:${this.project.activeView!.id}` : undefined;
@@ -179,8 +180,14 @@ export class AdeEditor extends EditorPane {
 			if (!canvasMode) { this.renderNavigation(this.root); }
 			const content = dom.append(this.root, dom.$('main.ade-content'));
 			this.content = content;
-			if (!canvasMode) { this.renderWorkflow(content); }
-			if (this.project.section === 'home') {
+			if (!canvasMode && !sourceEvidence) { this.renderWorkflow(content); }
+			if (sourceEvidence && !this.project.loading && !this.project.error) {
+				dom.append(content, dom.$('h1')).textContent = localize('ade.import.interpretTitle', "Create Diagrams from Your Code");
+				this.paragraph(content, localize('ade.import.interpretDescription', "Source analysis is ready. AI will identify your application's capabilities, objects, actions and interactions, and compose a few meaningful diagrams. Files and symbols are evidence, not diagrams."));
+				if (this.code.context) { this.renderWorkflow(content); }
+				else { this.paragraph(content, localize('ade.import.readingEvidence', "Preparing source evidence…")); }
+				if (!this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true) { this.paragraph(content, localize('ade.import.aiRequired', "Enable AI features to interpret the source into diagrams. The technical index stays available as code evidence.")); }
+			} else if (this.project.section === 'home') {
 				this.renderHome(content);
 			} else if (this.project.loading || this.project.error) {
 				const status = dom.append(content, dom.$('p.ade-status'));
@@ -213,7 +220,7 @@ export class AdeEditor extends EditorPane {
 		this.iconButton(navigation, localize('ade.back', "Back"), Codicon.arrowLeft, () => this.project.goBack()).disabled = !this.project.canGoBack;
 		this.iconButton(navigation, localize('ade.forward', "Forward"), Codicon.arrowRight, () => this.project.goForward()).disabled = !this.project.canGoForward;
 		this.iconButton(navigation, localize('ade.home', "Home"), Codicon.home, () => this.project.showHome());
-		if (!canvas) { this.button(navigation, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); }); }
+		if (!canvas) { this.button(navigation, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); }).disabled = isSourceEvidenceModel(this.project.model); }
 		if (!canvas || !this.code.context) { this.renderPrimaryActions(navigation); }
 	}
 
@@ -221,7 +228,7 @@ export class AdeEditor extends EditorPane {
 		if (this.ai.chatLocation && this.root.classList.contains('ade-canvas-mode')) { this.button(parent, localize('ade.backToDiagrams', "Back to Diagrams"), () => { void this.ai.returnToDiagrams(); }); }
 		const sync = this.button(parent, localize('ade.updateCode', "Update Code"), () => { void this.code.sync('model'); });
 		sync.classList.toggle('ade-sync-project', this.project.dirty && !this.code.changed);
-		this.explainDisabled(sync, !!this.project.error || !this.code.available || !this.code.context || this.code.busy || this.ai.busy, !this.code.context ? localize('ade.linkRequired', "Import a Codebase to Update Its Code from Diagram Changes.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
+		this.explainDisabled(sync, !!this.project.error || isSourceEvidenceModel(this.project.model) || !this.code.available || !this.code.context || this.code.busy || this.ai.busy, !this.code.context ? localize('ade.linkRequired', "Import a Codebase to Update Its Code from Diagram Changes.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
 		if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) {
 			this.button(parent, localize('ade.ai.chat', "Chat with Codex"), () => { void this.ai.chat(); }).disabled = !!this.project.error || this.ai.busy || this.code.busy;
 			if (this.code.context?.diagramState === 'diagrams') {
@@ -904,6 +911,7 @@ export class AdeEditor extends EditorPane {
 	}
 
 	private async chooseDiagram(): Promise<void> {
+		if (isSourceEvidenceModel(this.project.model)) { this.project.showHome(); return; }
 		const choice = await this.quick.pick(this.project.model.views.map(view => ({ label: view.name, description: viewLabels[view.kind], view })), { title: localize('ade.chooseDiagram', "Choose Diagram") });
 		if (choice) { this.project.showDiagram(choice.view.id); }
 	}
@@ -1037,7 +1045,7 @@ export class AdeEditor extends EditorPane {
 			banner.setAttribute('aria-label', localize('ade.diagramImport', "Build Diagrams"));
 			const active = !!pending && this.ai.generatingDiagrams;
 			const started = !!pending && (progress.calls > 0 || progress.completed > 0 || progress.status === 'failed' || progress.status === 'questions');
-			this.paragraph(banner, active ? localize('ade.diagramRunning', "Building Diagrams · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && progress.status === 'failed' ? localize('ade.diagramPaused', "Diagram Generation Paused · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && !started ? localize('ade.diagramReady', "Ready to Build Diagrams · {0} Steps", progress.total) : pending ? localize('ade.diagramProgress', "Build Diagrams · {0} of {1} Steps Completed · {2}", progress.completed, progress.total, progress.model) : localize('ade.indexReady', "Step 1 Complete · Code Analyzed. Step 2 · Let AI Turn the Source into Feature and Flow Diagrams."));
+			this.paragraph(banner, active ? localize('ade.diagramRunning', "Building Diagrams · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && progress.status === 'failed' ? localize('ade.diagramPaused', "Diagram Generation Paused · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && !started ? localize('ade.diagramReady', "Ready to Build Diagrams · {0} Steps", progress.total) : pending ? localize('ade.diagramProgress', "Build Diagrams · {0} of {1} Steps Completed · {2}", progress.completed, progress.total, progress.model) : localize('ade.indexReady', "Source Evidence Ready · Create Capability and Flow Diagrams with AI"));
 			if (active) {
 				const meter = dom.append(banner, dom.$('progress'));
 				meter.setAttribute('max', String(progress.total)); meter.setAttribute('value', String(progress.completed));

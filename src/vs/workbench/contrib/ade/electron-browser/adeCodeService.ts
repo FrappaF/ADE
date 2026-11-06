@@ -147,7 +147,7 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		const selectedId = sameProject ? this.project.selectedId : undefined;
 		if (await this.project.openModelResource(URI.file(context.model))) {
 			this.observed = this.project.modelUri!.toString(); this.setContext(context);
-			if (context.diagramState === 'diagrams' && this.project.activeView) { this.project.showDiagram(this.project.model.views.some(view => view.id === viewId) ? viewId! : this.project.activeView.id); if (selectedId && this.project.model.semantics.elements.some(element => element.id === selectedId)) { this.project.selectElement(selectedId); } } else { this.project.showSystemMap(); }
+			if (context.diagramState === 'diagrams' && this.project.activeView) { this.project.showDiagram(this.project.model.views.some(view => view.id === viewId) ? viewId! : this.project.activeView.id); if (selectedId && this.project.model.semantics.elements.some(element => element.id === selectedId)) { this.project.selectElement(selectedId); } } else { this.project.showHome(); }
 			await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 		}
 	}
@@ -295,17 +295,27 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 	private async showEvidence(context: CodeContext, elementId?: string): Promise<void> {
 		const items: (IQuickPickItem & { evidence?: CodeEvidence })[] = [];
 		const names = new Map(context.declarations.map(item => [item.id, item.name]));
+		const selectedFiles = new Set(this.project.model.codeMappings.filter(mapping => mapping.elementId === elementId).map(mapping => mapping.file));
 		const selectedFile = context.files.find(file => file.elementId === elementId)?.path;
+		if (selectedFile) { selectedFiles.add(selectedFile); }
 		for (const item of context.declarations) {
-			if (elementId && item.id !== elementId && item.evidence.file !== selectedFile) { continue; }
+			if (elementId && item.id !== elementId && !selectedFiles.has(item.evidence.file)) { continue; }
 			items.push({ label: item.name, description: `${item.evidence.file}:${item.evidence.line}`, detail: localize('ade.code.fact', "Extracted declaration · {0}", item.kind), evidence: item.evidence });
 		}
 		for (const edge of context.dependencies) {
-			if (elementId && edge.id !== elementId && edge.from !== elementId && edge.to !== elementId && !edge.references.some(reference => reference.source.file === selectedFile)) { continue; }
+			if (elementId && edge.id !== elementId && edge.from !== elementId && edge.to !== elementId && !edge.references.some(reference => selectedFiles.has(reference.source.file))) { continue; }
 			const name = (id: string) => names.get(id) ?? id;
 			for (const reference of edge.references) {
 				items.push({ label: `${name(edge.from)} → ${name(edge.to)}`, description: `${reference.source.file}:${reference.source.line}`, detail: localize('ade.code.reference', "Static reference · {0} · target {1}:{2}", reference.provider, reference.target.file, reference.target.line), evidence: reference.source });
 				items.push({ label: localize('ade.code.definition', "Target Definition: {0}", name(edge.to)), description: `${reference.target.file}:${reference.target.line}`, evidence: reference.target });
+			}
+		}
+		if (elementId) {
+			for (const file of selectedFiles) {
+				if (items.some(item => item.evidence?.file === file)) { continue; }
+				const mapping = this.project.model.codeMappings.find(mapping => mapping.elementId === elementId && mapping.file === file);
+				if (!mapping) { continue; }
+				items.push({ label: file, detail: localize('ade.code.semanticEvidence', "Source Evidence for This Responsibility · AI Interpretation, Not a Compiler Binding"), evidence: { file, revision: mapping.revision, start: 0, end: 0, line: 1, endLine: 1 } });
 			}
 		}
 		if (!elementId) {

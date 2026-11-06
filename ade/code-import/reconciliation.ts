@@ -27,6 +27,20 @@ export function prepareReconciliation(previous: ImportSnapshot, next: CodeImport
 	const modelChanged = !isDeepStrictEqual(previous.commonModel.semantics, previous.model.semantics);
 	const codeChanged = next.revision !== previous.state.revision;
 	const prepared = prepareSync(previous.state, previous.model, next, resolutions);
+	// Source-owned lists are compared with a raw index by prepareSync. An AI-selected
+	// semantic baseline may intentionally omit those entries or assign different roles.
+	// Only edits relative to that semantic baseline are manual conflicts.
+	prepared.report.conflicts = prepared.report.conflicts.filter(conflict => {
+		if (conflict.code !== 'manualEdit') { return true; }
+		const parts = conflict.path.split('/').slice(1);
+		const collection = parts[0] === 'semantics' ? parts[1] : parts[0];
+		if (!['elements', 'relations', 'views', 'codeMappings'].includes(collection)) { return true; }
+		const offset = parts[0] === 'semantics' ? 2 : 1, id = parts[offset];
+		const list = (model: SemanticModel): { id: string }[] => collection === 'elements' || collection === 'relations' ? model.semantics[collection] : collection === 'views' ? model.views : model.codeMappings;
+		const raw = list(previous.state.model).find(item => item.id === id), common = list(previous.commonModel).find(item => item.id === id), current = list(previous.model).find(item => item.id === id);
+		const field = (value: unknown): unknown => parts.slice(offset + 1).reduce<unknown>((value, part) => value && typeof value === 'object' ? Reflect.get(value, part) : undefined, value);
+		return !raw || isDeepStrictEqual(raw, common) || !isDeepStrictEqual(field(current), field(common));
+	});
 	const declarations = new Map(next.files.flatMap(file => file.declarations.map(item => [item.id, item])));
 	for (const before of previous.state.files.flatMap(file => file.declarations)) {
 		const common = previous.commonModel.semantics.elements.find(item => item.id === before.id);

@@ -49,6 +49,7 @@ export function arrangeDiagram(model: SemanticModel, view: ModelView, density: D
 	const layers = new Map<number, number[]>();
 	groups.forEach((_, index) => { const level = levels[index]; const layer = layers.get(level) ?? []; layer.push(index); layers.set(level, layer); });
 	const positions = new Map<string, { x: number; y: number }>();
+	const bands: { ids: string[]; x: number; width: number; height: number }[] = [];
 	let layerX = 0;
 	for (const [, layer] of [...layers].sort(([a], [b]) => a - b)) {
 		layer.sort((a, b) => Math.min(...groups[a].map(id => order.get(id)!)) - Math.min(...groups[b].map(id => order.get(id)!)));
@@ -65,7 +66,24 @@ export function arrangeDiagram(model: SemanticModel, view: ModelView, density: D
 			columnWidth = Math.max(columnWidth, groupWidth); layerRight = Math.max(layerRight, columnX + groupWidth);
 			y += rows * (diagramNodeHeight + rowGap);
 		}
+		const bandIds = layer.flatMap(index => groups[index]);
+		bands.push({ ids: bandIds, x: layerX, width: layerRight - layerX, height: Math.max(...bandIds.map(id => positions.get(id)!.y + diagramNodeHeight)) });
 		layerX = layerRight + gap;
+	}
+	// Long causal chains should occupy the canvas in bands, not shrink to an
+	// unreadable horizontal strip when fitted. Edges retain their direction.
+	if (bands.length > 3) {
+		let rowY = 0;
+		for (let start = 0; start < bands.length; start += 3) {
+			const row = bands.slice(start, start + 3), width = row.reduce((sum, band) => sum + band.width, 0) + (row.length - 1) * gap;
+			let x = 0;
+			for (const band of row) {
+				const left = start / 3 % 2 ? width - x - band.width : x;
+				for (const id of band.ids) { const point = positions.get(id)!; positions.set(id, { x: point.x - band.x + left, y: point.y + rowY }); }
+				x += band.width + gap;
+			}
+			rowY += Math.max(...row.map(band => band.height)) + rowGap;
+		}
 	}
 	return view.nodes.map(node => ({ ...node, ...positions.get(node.elementId)! }));
 }

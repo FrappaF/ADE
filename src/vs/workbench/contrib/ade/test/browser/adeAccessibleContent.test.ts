@@ -38,6 +38,16 @@ suite('A.D.E accessible content', () => {
 		assert.ok(reading[1].includes('Invalid document'));
 	});
 
+	test('a source index reads as evidence awaiting AI interpretation, not as completed diagrams', () => {
+		const model = structuredClone(checkoutModel);
+		model.id = 'code:pending';
+		model.semantics.elements = [{ id: 'bootstrap', kind: 'component', name: 'config/application.rb' }];
+		model.semantics.relations = [];
+		const content = describeAdeDiagram(state({ model, section: 'map' }));
+		assert.ok(content.includes('Build Diagrams with AI'));
+		assert.ok(!content.includes('config/application.rb') && !content.includes('System Map.'));
+	});
+
 	test('empty feature diagrams keep their owner and reading never mutates the model', () => {
 		const model = structuredClone(checkoutModel);
 		model.version = 3;

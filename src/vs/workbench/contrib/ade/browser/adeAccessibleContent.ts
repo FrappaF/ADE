@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
+import { isSourceEvidenceModel, ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
 import { getDiagramGroups } from '../common/visualNavigation.js';
 import { getSystemMap } from '../common/systemMap.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
@@ -29,9 +29,10 @@ export interface AdeReadingState {
 /** Describe visible semantic identities rather than SVG geometry or inferred runtime behavior. */
 export function describeAdeDiagram(state: AdeReadingState): string {
 	const title = localize('ade.reading.title', "A.D.E Visual Workbench");
+	if (!state.loading && !state.error && isSourceEvidenceModel(state.model)) { return [title, localize('ade.reading.sourceEvidence', "Source Evidence Ready. Choose Build Diagrams with AI to create capability and flow diagrams. Files and symbols have not yet been interpreted into a semantic model.")].join('\n'); }
 	if (state.section === 'home') {
 		return [title, localize('ade.reading.home', "Home. Create a project, open a project or model, or explore the read-only purchase example."),
-			localize('ade.reading.planned', "Code import, Sync and AI collaboration are planned and are not available yet.")].join('\n');
+			localize('ade.reading.planned', "Import Codebase prepares source evidence, then Build Diagrams with AI creates the diagrams. Update Code proposes implementation changes; Chat with Codex opens your account conversation.")].join('\n');
 	}
 	if (state.loading) { return [title, localize('ade.reading.loading', "Loading model. No current diagram is available.")].join('\n'); }
 	if (state.error) { return [title, state.error, localize('ade.reading.recovery', "Use Retry or Open Model to recover.")].join('\n'); }

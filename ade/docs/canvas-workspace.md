@@ -12,7 +12,7 @@ Il piccolo menu in alto contiene **Open Project**, **Diagrams**, **Spread Out** 
 - Con lo sfondo focalizzato, le frecce spostano la vista e Home inquadra il diagramma. Con un elemento focalizzato, le frecce spostano l’elemento, anche a coordinate negative; queste modifiche usano l’undo del documento.
 - Pan e zoom non modificano il modello. La posizione della vista viene ricordata per progetto e diagramma.
 
-**Spread Out** distribuisce gli elementi in modo più arioso, raggruppando anche i cicli su più righe e colonne. È una modifica annullabile. Le nuove viste generate dall’IA usano questa disposizione; gli aggiornamenti preservano le posizioni esistenti. Le relazioni restano presenti, ma le etichette compaiono quando si passa sopra una connessione o si seleziona un elemento/relazione. **Actions → Show Relationship Labels** mostra tutte le etichette.
+**Spread Out** distribuisce gli elementi in modo più arioso, raggruppando anche i cicli su più righe e colonne. È una modifica annullabile. Le nuove viste generate dall’IA usano una spaziatura bilanciata e vanno a capo nei flussi lunghi; gli aggiornamenti preservano le posizioni esistenti. Le relazioni restano presenti, ma le etichette compaiono quando si passa sopra una connessione o si seleziona un elemento/relazione. **Actions → Show Relationship Labels** mostra tutte le etichette.
 
 ## Aprire un altro progetto
 
