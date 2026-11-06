@@ -29,7 +29,7 @@ export interface ReconciliationProposal {
 	bindings: { elementId: string; file: string; name: string; syntaxKind: string }[];
 }
 const semanticSchemas = semanticModelV3Schema.properties!.semantics.properties!;
-export const reconciliationSchema = object({
+const proposalSchema = object({
 	summary: { ...text, maxLength: 2000 }, questions: { ...array({ ...text, maxLength: 2000 }), maxItems: 20 },
 	modelEdits: { type: 'array', maxItems: 200, items: { oneOf: [
 		object({ collection: { const: 'elements' }, id: text, value: { anyOf: [semanticSchemas.elements.items!, { type: 'null' }] } }),
@@ -38,7 +38,36 @@ export const reconciliationSchema = object({
 	sourceEdits: { ...array(object({ file: text, revision: { type: 'string', pattern: '^[a-f0-9]{64}$' }, search: { ...text, maxLength: 16000 }, replacement: { type: 'string', maxLength: 32000 } })), maxItems: 100 },
 	bindings: { ...array(object({ elementId: text, file: text, name: text, syntaxKind: text })), maxItems: 100 }
 });
-const validProposal = new Ajv2020().compile<ReconciliationProposal>(reconciliationSchema);
+const validProposal = new Ajv2020().compile<ReconciliationProposal>(proposalSchema);
+
+interface OutputSchema {
+	type?: string; const?: string | number; properties?: Record<string, OutputSchema>; required?: string[];
+	items?: OutputSchema; oneOf?: OutputSchema[]; anyOf?: OutputSchema[]; [key: string]: unknown;
+}
+/** The provider's strict subset requires every object key and uses null for absent optional fields. */
+function strictOutputSchema(schema: OutputSchema): OutputSchema {
+	const result = { ...schema };
+	if (schema.const !== undefined) { result.type = typeof schema.const; result.enum = [schema.const]; delete result.const; }
+	if (schema.oneOf || schema.anyOf) { result.anyOf = (schema.oneOf ?? schema.anyOf)!.map(strictOutputSchema); delete result.oneOf; }
+	if (schema.items) { result.items = strictOutputSchema(schema.items); }
+	if (schema.properties) {
+		result.properties = Object.fromEntries(Object.entries(schema.properties).map(([key, value]) => [key, schema.required?.includes(key) ? strictOutputSchema(value) : { anyOf: [strictOutputSchema(value), { type: 'null' }] }]));
+		result.required = Object.keys(schema.properties);
+		result.additionalProperties = false;
+	}
+	return result;
+}
+export const reconciliationSchema = strictOutputSchema(proposalSchema as OutputSchema);
+
+/** Restore optional model fields; required null values still represent explicit deletions. */
+function readTransportProposal(value: unknown): unknown {
+	if (!value || typeof value !== 'object' || !('modelEdits' in value) || !Array.isArray(value.modelEdits)) { return value; }
+	return { ...value, modelEdits: value.modelEdits.map(edit => {
+		if (!edit || typeof edit !== 'object' || !edit.value || typeof edit.value !== 'object' || Array.isArray(edit.value)) { return edit; }
+		const optional = edit.collection === 'elements' ? ['description', 'parentId', 'behavior', 'legacyKind'] : edit.collection === 'relations' ? ['condition', 'errorCode', 'classification'] : [];
+		return { ...edit, value: Object.fromEntries(Object.entries(edit.value).filter(([key, item]) => item !== null || !optional.includes(key))) };
+	}) };
+}
 
 export interface PreparedReconciliation {
 	version: 1;
@@ -262,7 +291,7 @@ export async function proposeAiReconciliation(prepared: PreparedReconciliation, 
 	if (rebuilt.reviewId !== prepared.reviewId) { throw new Error('Reconciliation review is stale'); }
 	const response = await provider.complete(prepared.config, prepared.prompt, reconciliationSchema, signal);
 	signal?.throwIfAborted();
-	const { proposal, model, mutations } = await validateReconciliationProposal(response.value, prepared, previous, next);
+	const { proposal, model, mutations } = await validateReconciliationProposal(readTransportProposal(response.value), prepared, previous, next);
 	const reconciliation = prepareReconciliation(previous, next);
 	reconciliation.aiReviewed = true;
 	reconciliation.mutations = mutations;

@@ -11,12 +11,33 @@ import { join } from 'node:path';
 import { createCodeEngine } from '../nativeHost.ts';
 import { samples } from './samples.mjs';
 import { readSnapshot } from '../snapshot.ts';
-import { prepareAiReconciliation, proposeAiReconciliation } from '../../ai/reconciliation.ts';
+import { prepareAiReconciliation, proposeAiReconciliation, reconciliationSchema } from '../../ai/reconciliation.ts';
+import { Ajv2020 } from 'ajv/dist/2020.js';
 import { importCode } from '../importCode.ts';
 import { runProcess } from '../../ai/process.ts';
 
 const config = { version: 1, provider: 'codex', connection: 'cli', model: 'economical-test-model', executable: 'codex', timeoutMs: 10000, maxContextBytes: 262144, maxCalls: 1 };
 const empty = () => ({ summary: 'Reviewed reconciliation', questions: [], modelEdits: [], sourceEdits: [], bindings: [] });
+
+test('reconciliation transport uses strict structured output objects and nullable optional fields', () => {
+	const inspect = schema => {
+		assert.equal(schema.oneOf, undefined);
+		assert.equal(schema.const, undefined);
+		if (schema.properties) {
+			assert.equal(schema.additionalProperties, false);
+			assert.deepEqual(schema.required.slice().sort(), Object.keys(schema.properties).sort());
+			Object.values(schema.properties).forEach(inspect);
+		}
+		if (schema.items) { inspect(schema.items); }
+		schema.anyOf?.forEach(inspect);
+	};
+	inspect(reconciliationSchema);
+	const validate = new Ajv2020().compile(reconciliationSchema);
+	const value = { ...empty(), modelEdits: [{ collection: 'elements', id: 'i0', value: { id: 'i0', kind: 'action', name: 'Pay', description: null, parentId: null, behavior: null, legacyKind: null } }, { collection: 'relations', id: 'i1', value: null }] };
+	assert.equal(validate(value), true, JSON.stringify(validate.errors));
+	delete value.modelEdits[0].value.description;
+	assert.equal(validate(value), false);
+});
 async function fixture(t, file = 'pay.py', source = 'def pay(amount):\n    return amount > 0\n') {
 	const root = await mkdtemp(join(tmpdir(), 'ade-reconcile-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
@@ -34,6 +55,25 @@ async function fixture(t, file = 'pay.py', source = 'def pay(amount):\n    retur
 	};
 	return { root, initial, call, propose, setReply: value => { reply = value; }, get calls() { return calls; } };
 }
+
+test('strict nullable output publishes a model edit without persisting transport nulls', async t => {
+	const f = await fixture(t);
+	const snapshot = await readSnapshot(f.initial.snapshot);
+	snapshot.model.semantics.elements.find(element => element.kind === 'action').description = 'Reviewed note';
+	await writeFile(f.initial.model, JSON.stringify(snapshot.model));
+	f.setReply(context => {
+		const changed = context.changes.elements.find(item => item.model?.description === 'Reviewed note');
+		assert.ok(changed);
+		return { ...empty(), modelEdits: [{ collection: 'elements', id: changed.id, value: { description: null, parentId: null, behavior: null, legacyKind: null, ...changed.model } }] };
+	});
+	const preview = await f.call({ operation: 'preview', snapshot: f.initial.snapshot });
+	const { prepared, result } = await f.propose(preview);
+	assert.deepEqual(JSON.parse(prepared.contents).schema, reconciliationSchema);
+	assert.notEqual(result.reconciliation.status, 'verificationFailed', JSON.stringify(result.reconciliation.diagnostics));
+	const applied = await f.call({ operation: 'apply', token: result.token });
+	const model = (await readSnapshot(applied.snapshot)).model;
+	assert.ok(model.semantics.elements.every(element => Object.values(element).every(value => value !== null)));
+});
 
 test('AI proposes model-to-code and code-to-model changes with stable identities in all 16 language profiles', async t => {
 	for (const [language, file, source] of samples) {
