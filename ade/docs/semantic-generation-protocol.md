@@ -21,26 +21,26 @@ flowchart LR
 | Evidenze | Dichiarazioni disponibili e intervalli aggiuntivi di testo; HTML, SQL, configurazione e linguaggi senza parser seguono lo stesso protocollo. Ignore e scope continuano a filtrare i file. |
 | Compattazione deterministica | Una tabella file contiene percorso, linguaggio e frammenti. Le righe delle unità contengono riferimenti e intervalli, senza hash, percorsi ripetuti o header duplicati. Finestre sovrapposte di classe/metodo condividono il medesimo testo. Gli spazi tra frammenti restano sconosciuti. |
 | IA | Produce poche capacità e responsabilità, relazioni supportate dalle evidenze e viste connesse. Può interpretare simboli indicizzati come concetti di dominio: un simbolo non implica un nodo. |
-| Copertura | `coverage.targets[i]` assegna la riga `i` a una responsabilità `uN` o `c:key`. Molte righe possono sostenere lo stesso oggetto. `null` esclude una riga; `coverage.exclusions` motiva gruppi di esclusioni. |
-| Verifica | Lo schema ha `minItems = maxItems = numero di righe` per il vettore. ADE verifica che le destinazioni esistano, che ogni esclusione sia motivata una sola volta, che non siano inventati riferimenti e che gli oggetti e le relazioni compaiano nei diagrammi. |
+| Copertura | `coverage.targets[i]` assegna la riga `i` a una responsabilità `uN` o `c:key`. Molte righe possono sostenere lo stesso oggetto. `x:key` esclude direttamente la riga; `coverage.exclusions` dichiara una motivazione per chiave. |
+| Verifica | Lo schema ha `minItems = maxItems = numero di righe` per il vettore. ADE verifica che le destinazioni esistano, che ogni esclusione rimandi a una motivazione non ambigua, che non siano inventati riferimenti e che gli oggetti e le relazioni compaiano nei diagrammi. |
 | Pubblicazione | La conversione risolve i riferimenti, mantiene identità e modifiche manuali e dispone i nodi. Il modello viene pubblicato solo dopo i controlli strutturali e una nuova verifica delle revisioni. |
 
 ## Struttura dei dati
 
-Il prompt contiene istruzioni brevi, una legenda e JSON con `format: "compact-v2"`. Le righe di `units` sono `[ref, fileIndex, indexed, name, start, end]`. `indexed` vale 1 quando esiste un simbolo selezionabile; un nome uguale al percorso è sostituito da `null`. Gli intervalli sono offset di stringa JavaScript, quindi unità UTF-16. Sono metadati sul testo, non un vincolo sul linguaggio della codebase. Solo i frammenti effettivamente inviati sono evidenze conosciute.
+Il prompt contiene istruzioni brevi, una legenda e JSON con `format: "compact-v3"`. Le righe di `units` sono `[ref, fileIndex, indexed, name, start, end]`. `indexed` vale 1 quando esiste un simbolo selezionabile; un nome uguale al percorso è sostituito da `null`. Gli intervalli sono offset di stringa JavaScript, quindi unità UTF-16. Sono metadati sul testo, non un vincolo sul linguaggio della codebase. Solo i frammenti effettivamente inviati sono evidenze conosciute.
 
 Esempio della sola decisione di copertura per tre righe: due parti dell'implementazione sostengono il medesimo oggetto Tasks; una terza è bootstrap escluso esplicitamente dall'IA.
 
 ```json
 {
-  "targets": ["c:tasks", "c:tasks", null],
+  "targets": ["c:tasks", "c:tasks", "x:bootstrap"],
   "exclusions": [
-    { "units": [2], "reason": "Bootstrap del framework senza responsabilità applicative" }
+    { "key": "bootstrap", "reason": "Bootstrap del framework senza responsabilità applicative" }
   ]
 }
 ```
 
-I numeri delle esclusioni sono indici della richiesta, a partire da zero; non sono i suffissi dei riferimenti `uN`. Elementi, concetti, relazioni e diagrammi sono dichiarati una sola volta nelle rispettive collezioni. Per le associazioni non servono motivazioni ripetute: il vettore dichiara già l'aggregazione. Le omissioni dettagliate vengono ricostruite localmente per traceability e checkpoint, senza inventare scelte semantiche.
+Non esistono elenchi di indici delle esclusioni da sincronizzare con il vettore: la destinazione `x:bootstrap` identifica direttamente la ragione. Le chiavi possono essere riutilizzate per righe non adiacenti; dichiarazioni identiche sono deduplicate, quelle contraddittorie sono rifiutate. Elementi, concetti, relazioni e diagrammi sono dichiarati una sola volta nelle rispettive collezioni. Per le associazioni non servono motivazioni ripetute: il vettore dichiara già l'aggregazione. Le omissioni dettagliate vengono ricostruite localmente per traceability e checkpoint, senza inventare scelte semantiche.
 
 ## Budget e progetti grandi
 
@@ -63,6 +63,6 @@ Sul TODO Ruby generato per lo smoke test, con 14 unità e le stesse decisioni si
 | Blocco confrontato | Formato esplicito | Formato compatto | Riduzione |
 | --- | ---: | ---: | ---: |
 | Evidenze | 3.006 byte | 1.794 byte | 40,3% |
-| Copertura | 1.037 byte | 224 byte | 78,4% |
+| Copertura | 1.037 byte | 277 byte | 73,3% |
 
 Il confronto delle evidenze esclude gli header del formato precedente ed è quindi conservativo rispetto alla duplicazione rimossa. Questi valori misurano i due blocchi, non l'intero prompt, token o addebiti. Lo smoke test desktop `node ade/scripts/smoke-desktop.mjs --semantic-import` salva contesto e misure in `.build/ade-smoke/semantic-todo-context.json` e `semantic-todo-compact-metrics.json`. La [misura registrata](validation/compact-generation-2026-11-06.json) deriva da un provider simulato e conserva i limiti della verifica.

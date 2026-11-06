@@ -3,8 +3,8 @@
 	"explicitEvidenceBytes": 3006,
 	"compactEvidenceBytes": 1794,
 	"explicitCoverageBytes": 1037,
-	"compactCoverageBytes": 224,
-	"note": "Same simulated TODO decisions. Evidence comparison excludes legacy headers; byte counts are not measured model tokens or charges.",
+	"compactCoverageBytes": 277,
+	"note": "Same simulated TODO decisions, keyed coverage recomputed from the recorded evidence pack. Evidence comparison excludes legacy headers; bytes are not measured tokens or charges.",
 	"fixture": "generated Ruby TODO with HTML/YAML evidence",
 	"provider": "simulated official CLI",
 	"domainObjects": 7,
@@ -12,7 +12,8 @@
 	"diagrams": 2,
 	"modelCalls": 1,
 	"evidenceReductionPercent": 40.3,
-	"coverageReductionPercent": 78.4,
+	"coverageReductionPercent": 73.3,
 	"measuredRealModelQuality": false,
-	"measuredCharges": false
+	"measuredCharges": false,
+	"protocol": "compact-v3"
 }

@@ -77,8 +77,8 @@ test('coverage vectors reject skipped rows, unknown targets and unexplained excl
 			const value = compactDiagramReply(context, interpretation(context));
 			if (failure === 'length') { value.coverage.targets.pop(); }
 			if (failure === 'target') { value.coverage.targets[0] = 'c:unknown'; value.elements = []; }
-			if (failure === 'reason' || failure === 'duplicate-exclusion') { value.elements = []; value.coverage.targets[0] = null; }
-			if (failure === 'duplicate-exclusion') { value.coverage.exclusions = [{ units: [0, 0], reason: 'Framework only' }]; }
+			if (failure === 'reason' || failure === 'duplicate-exclusion') { value.elements = []; value.coverage.targets[0] = 'x:missing'; }
+			if (failure === 'duplicate-exclusion') { value.coverage.exclusions = [{ key: 'missing', reason: 'Framework only' }, { key: 'missing', reason: 'Application behavior' }]; }
 			return value;
 		});
 		const job = await f.prepare();
@@ -99,9 +99,22 @@ test('a coverage target is preserved when multiple concepts cite the same source
 	assert.equal(data.results[0].omissions[0].representedBy, 'c:input');
 });
 
+test('nonadjacent exclusions including row 49 reference a shared reason without index lists', async t => {
+	const f = await fixture(t, 'helpers.py', Array.from({ length: 60 }, (_, index) => `def helper_${index}():\n    return ${index}\n`).join('\n'));
+	f.setReply(context => {
+		const value = interpretation(context), first = value.elements[0];
+		value.elements = [first]; value.concepts = []; value.diagrams = [{ ...value.diagrams[0], nodes: [first.symbol] }];
+		delete value.omissions;
+		return { ...value, coverage: { targets: context.required.map((row, index) => index === 2 || index === 49 ? 'x:setup' : first.symbol), exclusions: [{ key: 'setup', reason: 'Framework setup' }, { key: 'setup', reason: 'Framework setup' }] } };
+	});
+	const done = await f.finish(await f.prepare());
+	const saved = JSON.parse(await readFile(join(f.root, '.ade', 'diagram-imports', done.id + '.json'), 'utf8'));
+	assert.deepEqual(saved.results[0].omissions.filter(item => item.representedBy === null).map(item => item.symbol), ['u2', 'u49']);
+});
+
 test('explicit resume supplies bounded validation feedback without replaying a failed response', async t => {
 	const f = await fixture(t);
-	f.setReply(context => { const value = compactDiagramReply(context, interpretation(context)); value.elements = []; value.coverage.targets[0] = null; return value; });
+	f.setReply(context => { const value = compactDiagramReply(context, interpretation(context)); value.elements = []; value.coverage.targets[0] = 'x:missing'; return value; });
 	const job = await f.prepare();
 	await assert.rejects(f.step(job), /skipped source evidence/);
 	f.setReply(interpretation);
