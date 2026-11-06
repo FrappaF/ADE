@@ -5,6 +5,7 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
+import { URI } from '../../../../../base/common/uri.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { mock } from '../../../../../base/test/common/mock.js';
@@ -39,10 +40,11 @@ suite('A.D.E native AI orchestration', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 	function fixture(configured = true, executable = 'codex', maxCalls = 2) {
 		const instantiation = store.add(new TestInstantiationService());
-		const stub = <T extends object>(id: ServiceIdentifier<T>, values: object) => instantiation.stub(id, Object.assign(new (mock<T>())(), values));
+		const stub = <T extends object>(id: ServiceIdentifier<T>, values: object) => { const service = Object.assign(new (mock<T>())(), values); instantiation.stub(id, service); return service; };
 		const storage = store.add(new InMemoryStorageService());
 		if (configured) { storage.store('ade.ai.cliConfig', JSON.stringify({ ...config, executable, maxCalls }), StorageScope.PROFILE, StorageTarget.MACHINE); }
 		const changed = store.add(new Emitter<void>());
+		const projectChanged = store.add(new Emitter<void>());
 		const root = '/workspace/ade-ai-fixture';
 		const context: CodeContext = { snapshot: root + '/.ade/imports/fixture', model: root + '/.ade/imports/fixture/model.ade.json', sourceRoot: root, revision: 'fixture',
 			scope: { include: ['**'], exclude: [], excludedDirectories: ['.ade'], respectGitignore: true, languageOverrides: {} },
@@ -51,11 +53,17 @@ suite('A.D.E native AI orchestration', () => {
 		let accountState: CliAccountState = { status: 'signedIn' };
 		let resolveExecutable: (executable: string) => Promise<string | undefined> = async executable => executable;
 		const opened: CodeContext[] = [];
-		const code = { openContext: async (value: CodeContext) => { opened.push(value); }, context, onDidChange: changed.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
+		const code = { changed: false, openContext: async (value: CodeContext) => { opened.push(value); }, context, onDidChange: changed.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
 		const picks: ((items: readonly Choice[]) => Choice | Choice[] | undefined)[] = [];
 		const inputs: string[] = [];
-		const chats: { attachments: string[]; focused: boolean }[] = [];
+		const chats: { resource: string; attachments: string[]; focused: boolean }[] = [];
+		const pickerTitles: string[] = [];
+		const editorInputs: object[] = [];
+		let confirmed = true, failDiagram = false, hiddenPanels = 0, closedAlerts = 0;
 		const dialogDetails: string[] = [];
+		const attachmentFiles = new Map<string, URI[]>();
+		const deletedAttachments: string[] = [];
+		const diagramContexts: string[] = [];
 		const errors: string[] = [];
 		const infos: string[] = [];
 		const terminals: object[] = [];
@@ -72,17 +80,18 @@ suite('A.D.E native AI orchestration', () => {
 		instantiation.stub(IStorageService, storage);
 		const operations = store.add(new AdeOperationService());
 		instantiation.stub(IAdeOperationService, operations);
-		stub(IAdeProjectService, { model: structuredClone(checkoutModel), save: async () => true });
-		stub(IAdeCodeService, code);
-		stub(IQuickInputService, { pick: async (items: Choice[]) => picks.shift()?.(items), input: async () => inputs.shift() });
-		stub(INotificationService, { error: (message: string) => errors.push(message), info: (message: string) => infos.push(message) });
+		const project = { model: structuredClone(checkoutModel), modelUri: URI.file(context.model), onDidChange: projectChanged.event, save: async () => true };
+		const projectService = stub(IAdeProjectService, project);
+		const codeService = stub(IAdeCodeService, code);
+		stub(IQuickInputService, { pick: async (items: Choice[], options?: { title: string }) => { if (options) { pickerTitles.push(options.title); } return picks.shift()?.(items); }, input: async () => inputs.shift() });
+		stub(INotificationService, { notify: (notification: { message: string }) => { errors.push(notification.message); return { close: () => { closedAlerts++; } }; }, error: (message: string) => errors.push(message), info: (message: string) => infos.push(message) });
 		stub(IProgressService, { withProgress: async (_options: object, task: () => Promise<void>) => task() });
-		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed: true }; } });
+		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed }; } });
 		stub(IFileService, { createFolder: async () => {}, writeFile: async () => {} });
-		stub(IEditorService, { openEditor: async () => undefined });
+		stub(IEditorService, { openEditor: async (input: object) => { editorInputs.push(input); return undefined; } });
 		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => { await focusRequested.complete(); await terminalFocus; }, onExit: terminalExit.event }; }, setActiveInstance: () => {} });
-		stub(ITerminalGroupService, { showPanel: async () => {} });
-		stub(IChatWidgetService, { openSession: async () => { const chat = { attachments: [] as string[], focused: false }; chats.push(chat); return { attachmentModel: { addFile: async (uri: { toString(): string }) => { chat.attachments.push(uri.toString()); } }, setInputPlaceholder: () => {}, focusInput: () => { chat.focused = true; } }; } });
+		stub(ITerminalGroupService, { showPanel: async () => {}, hidePanel: () => { hiddenPanels++; } });
+		stub(IChatWidgetService, { openSession: async (resource: URI) => { const chat = { resource: resource.toString(), attachments: [] as string[], focused: false }; chats.push(chat); return { attachmentModel: { get fileAttachments() { return attachmentFiles.get(resource.toString()) ?? []; }, delete: (id: string) => { deletedAttachments.push(id); attachmentFiles.set(resource.toString(), (attachmentFiles.get(resource.toString()) ?? []).filter(uri => uri.toString() !== id)); }, addFile: async (uri: URI) => { chat.attachments.push(uri.toString()); attachmentFiles.set(resource.toString(), [...(attachmentFiles.get(resource.toString()) ?? []), uri]); }, updateContext: (_deleted: string[], entries: { value: string }[]) => { diagramContexts.push(entries[0].value); } }, setInputPlaceholder: () => {}, focusInput: () => { chat.focused = true; } }; } });
 		stub(ICodexAccountService, { account, onDidChangeAccount: accountChanged.event, signIn: () => signIns++ });
 		stub(IAgentSdkSetupService, { setups, requestReload: () => {} });
 		stub(IAgentHostService, { rootState: { value: { agents: [{ provider: 'codex', models: [{ id: '@provider=openai:native-model', name: 'Native Account', provider: 'codex' }, { id: '@provider=vscode-proxy:proxy-model', name: 'Other Account', provider: 'codex' }] }] } } });
@@ -99,14 +108,14 @@ suite('A.D.E native AI orchestration', () => {
 					case 'apply': return JSON.stringify({ ...session, status: 'applied' });
 					case 'undo': return JSON.stringify({ ...session, status: 'undone' });
 					case 'diagramPrepare': return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'ready', completed: 0, total: 2, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0 });
-					case 'diagramStep': return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'complete', completed: 2, total: 2, calls: 2, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, context: { ...context, diagramState: 'diagrams' } });
+					case 'diagramStep': if (failDiagram) { throw new Error('Provider Offline'); } return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'complete', completed: 2, total: 2, calls: 2, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, context: { ...context, diagramState: 'diagrams' } });
 					case 'reconciliationPrepare': return JSON.stringify({ reviewId: 'reconcile-context', contents: '{"prompt":"reviewed"}', metrics: { inputBytes: 1000, schemaBytes: 100, sourceBytes: 8000, disclosedBytes: 500, estimatedTokens: 275 } });
 					case 'reconciliationPropose': return JSON.stringify({ token: 'proposal', context, ai: { summary: 'Reconcile payment', questions: [] } });
 					default: throw new Error('Unexpected fixture operation');
 				}
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
-		return { service, operations, opened, chats, dialogDetails, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, errors, infos, terminals, requests, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+		return { service, operations, opened, chats, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, errors, infos, terminals, requests, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -148,6 +157,58 @@ suite('A.D.E native AI orchestration', () => {
 		const f = fixture(true, 'codex', 0); f.picks.push(items => items[0]);
 		await f.service.buildDiagrams();
 		assert.deepStrictEqual(f.requests, ['diagramPrepare']); assert.equal(f.opened.length, 0);
+	});
+	test('first diagram generation asks for a model once and skips coding setup', async () => {
+		const f = fixture(false); f.picks.push(items => items[0]);
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual(f.pickerTitles, ['Model for Diagrams']);
+		assert.deepStrictEqual(f.requests, ['diagramPrepare', 'diagramStep']);
+		assert.equal(f.infos.length, 0); assert.equal(f.errors.length, 0);
+		assert.equal(f.opened.length, 1);
+	});
+	test('cancelling first model selection leaves the codebase available without inference', async () => {
+		const f = fixture(false);
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual(f.requests, []); assert.equal(f.errors.length, 0);
+		assert.match(f.service.workflowStatus!, /No Model Selected/);
+	});
+	test('first setup still requires disclosure approval before inference', async () => {
+		const f = fixture(false); f.picks.push(items => items[0]); f.setConfirmed(false);
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual(f.requests, ['diagramPrepare']); assert.equal(f.opened.length, 0);
+	});
+	test('Codex reuses the same terminal until exit and exposes a route back to diagrams', async () => {
+		const f = fixture();
+		await f.service.chat(); await f.service.chat();
+		assert.equal(f.terminals.length, 1); assert.equal(f.service.chatLocation, 'terminal');
+		f.setCodeChanged(true); await f.service.returnToDiagrams();
+		assert.equal(f.hiddenPanels, 1); assert.equal(f.editorInputs.length, 1);
+		assert.match(f.service.workflowStatus!, /Code Changed/);
+		f.exitTerminal(); await f.service.chat(); assert.equal(f.terminals.length, 2);
+	});
+	test('native chat reopens its conversation and attaches only the current model', async () => {
+		const f = fixture(); f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' });
+		await f.service.chat(); await f.service.chat();
+		assert.equal(f.chats[0].resource, f.chats[1].resource);
+		assert.equal(f.chats[0].attachments.length, 1); assert.equal(f.chats[1].attachments.length, 0);
+		const currentModel = URI.file(f.root + '/new-snapshot/model.ade.json'); f.setModelUri(currentModel); await f.service.chat();
+		assert.deepStrictEqual(f.chats[2].attachments, [currentModel.toString()]);
+		assert.equal(f.chats[2].resource, f.chats[0].resource);
+		assert.deepStrictEqual(f.deletedAttachments, [URI.file(f.code.context.model).toString()]);
+		assert.equal(JSON.parse(f.diagramContexts[2]).model, currentModel.fsPath);
+	});
+	test('failed diagram generation keeps actionable progress for resume', async () => {
+		const f = fixture(); f.picks.push(items => items[0]); f.failDiagram();
+		await f.service.buildDiagrams();
+		assert.equal(f.service.diagramProgress?.status, 'failed');
+		assert.equal(f.service.diagramProgress?.error, 'Provider Offline');
+		assert.equal(f.service.diagramProgress?.completed, 0); assert.equal(f.opened.length, 0);
+		f.failDiagram(false); await f.service.resumeDiagrams();
+		assert.equal(f.closedAlerts, 1); assert.equal(f.opened.length, 1);
+	});
+	test('manual model edits clear stale completion messages', async () => {
+		const f = fixture(); await f.service.chat();
+		assert.ok(f.service.workflowStatus); f.projectChanged.fire(); assert.equal(f.service.workflowStatus, undefined);
 	});
 	test('constructing the visual service does not request inference', () => {
 		const f = fixture();

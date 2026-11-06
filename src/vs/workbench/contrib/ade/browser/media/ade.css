@@ -514,3 +514,9 @@
 .ade-shell.ade-narrow .ade-workspace.has-inspector {
 	grid-template-columns: minmax(0, 1fr);
 }
+
+.ade-shell .ade-workflow progress {
+	width: 100%;
+	height: var(--vscode-spacing-size80);
+	accent-color: var(--vscode-progressBar-background);
+}

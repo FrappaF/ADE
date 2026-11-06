@@ -1,5 +1,7 @@
 # Roadmap A.D.E
 
+La [revisione UX del 6 novembre](ux-ai-workflow.md) semplifica il primo avvio, riusa la chat Codex e rende esplicito il ritorno ai diagrammi, distinguendo revisione, esecuzione e ripresa.
+
 Il seguito M6 introduce [importazione semantica in due passi, chat Codex e UI centrata sui diagrammi](diagram-workflow.md): classificazione IA di tutti i simboli, contesto compatto multilinguaggio, generazione riprendibile, scelta separata del modello per i diagrammi e azioni dirette per aggiornare codice e viste.
 
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.

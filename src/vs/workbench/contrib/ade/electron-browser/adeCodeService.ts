@@ -14,7 +14,7 @@ import { IChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, NotificationPriority, Severity } from '../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { AgentHostCodexAgentCodexHomeSettingId } from '../../../../platform/agentHost/common/agentService.js';
@@ -142,9 +142,12 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 		await this.refreshing;
 	}
 	async openContext(context: CodeContext): Promise<void> {
+		const sameProject = this.context?.sourceRoot === context.sourceRoot;
+		const viewId = sameProject ? this.project.activeView?.id : undefined;
+		const selectedId = sameProject ? this.project.selectedId : undefined;
 		if (await this.project.openModelResource(URI.file(context.model))) {
 			this.observed = this.project.modelUri!.toString(); this.setContext(context);
-			if (context.diagramState === 'diagrams' && this.project.activeView) { this.project.showDiagram(this.project.activeView.id); } else { this.project.showSystemMap(); }
+			if (context.diagramState === 'diagrams' && this.project.activeView) { this.project.showDiagram(this.project.model.views.some(view => view.id === viewId) ? viewId! : this.project.activeView.id); if (selectedId && this.project.model.semantics.elements.some(element => element.id === selectedId)) { this.project.selectElement(selectedId); } } else { this.project.showSystemMap(); }
 			await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 		}
 	}
@@ -226,7 +229,7 @@ class AdeCodeService extends Disposable implements IAdeCodeService {
 			if (next) { await this.reviewSync([...renames, { fromId: old.declaration.id, toSourceId: next.declaration.sourceId }], scope, [], undefined, direction); }
 		} else if (choice?.action === 'apply') {
 			if (version !== this.project.documentVersion || this.context?.snapshot !== current.snapshot) { this.notifications.warn(localize('ade.code.stale', "The model changed. Run Sync again to review a fresh preview.")); return; }
-			await this.run(localize('ade.code.applying', "Reconciling Model and Code"), async token => { await this.openContext(await this.request<CodeContext>({ operation: 'apply', token: result.token }, token)); this.status = localize('ade.code.synced', "Aligned · Project Synced · {0}", summary); this.notifications.info(this.status); });
+			await this.run(localize('ade.code.applying', "Reconciling Model and Code"), async token => { await this.openContext(await this.request<CodeContext>({ operation: 'apply', token: result.token }, token)); this.status = localize('ade.code.synced', "Aligned · Project Synced · {0}", summary); this.notifications.notify({ severity: Severity.Info, message: localize('ade.code.syncedQuiet', "Code and Diagrams Updated"), priority: NotificationPriority.SILENT }); });
 		} else if (choice?.action === 'conflicts') {
 			const labels: Record<string, string> = {
 				manualEdit: localize('ade.code.conflict.manual', "Your Model Edits Overlap the Source Update"),

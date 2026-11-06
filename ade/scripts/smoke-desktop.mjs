@@ -279,17 +279,25 @@ async function checkContractEditing(window) {
 async function checkCodeBridge() {
 	// Exercise the real original-CLI protocol without claiming a live-model benchmark.
 	const simulatedCli = path.join(directory, 'm6-simulated-codex.mjs');
-	await writeFile(simulatedCli, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
+	await writeFile(simulatedCli, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync,existsSync} from 'node:fs';
 const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
+if(args[0]!=='exec'){
+const counter=${JSON.stringify(path.join(directory, 'codex-chat-starts.txt'))};
+writeFileSync(counter,String((existsSync(counter)?Number(readFileSync(counter,'utf8')):0)+1));
+writeSync(1,'SIMULATED_CODEX_CHAT_READY\\n');
+process.stdin.on('data',data=>{if(data.toString().includes('change-code')){const file=process.cwd()+'/gateway.ts';writeFileSync(file,readFileSync(file,'utf8').replace('amount > 0','amount >= 0'));writeSync(1,'SIMULATED_CODEX_CHANGE_COMPLETE\\n');}});
+process.stdin.resume();setInterval(()=>{},1000);await new Promise(()=>{});
+}
 const input=readFileSync(0,'utf8');
 const context=JSON.parse(input.slice(input.indexOf('\\n')+1));
+if(context.step&&existsSync(${JSON.stringify(path.join(directory, 'fail-diagrams'))})){writeSync(2,'Simulated provider unavailable');process.exit(1);}
 let value;
 if(context.step){
 const overview=context.step==='overview';
 const edges=context.dependencies.filter(edge=>context.required.some(item=>item.ref===edge.from)&&context.required.some(item=>item.ref===edge.to));
 const relations=edges.map((edge,i)=>({key:'interaction-'+context.batch+'-'+i,kind:'dependency',from:edge.from,to:edge.to,name:'Uses payment processing',condition:null,evidence:[edge.from,edge.to],classification:'static'}));
-value={summary:'Purchase responsibilities',questions:[],features:[{key:'purchasing',name:'Purchasing',description:'Coordinate checkout and payment.'}],elements:context.required.filter(item=>item.indexed).map(item=>({symbol:item.ref,kind:'action',name:context.symbols.find(symbol=>symbol.ref===item.ref).name,description:'Purchase responsibility',feature:'purchasing',parent:null})),concepts:context.required.filter(item=>!item.indexed).map(item=>({key:'concept-'+item.ref,kind:'component',name:'External Integration',description:'Extracted responsibility',feature:'purchasing',parent:null,source:item.ref})),relations,diagrams:[{key:overview?'overview':'purchase-flow-'+context.batch,name:overview?'Purchasing Overview':'Purchase Flow',kind:'activity',feature:overview?null:'purchasing',nodes:overview?['f:purchasing']:context.required.map(item=>item.indexed?item.ref:'c:concept-'+item.ref),relations:relations.map(item=>item.key),intent:'Inferred purchase responsibilities'}]};
+value={summary:'Purchase responsibilities',questions:[],features:[{key:'purchasing',name:'Purchasing',description:'Coordinate checkout and payment.'}],elements:context.required.filter(item=>item.indexed).map(item=>({symbol:item.ref,kind:'action',name:context.symbols.find(symbol=>symbol.ref===item.ref).name==='charge'&&context.symbols.find(symbol=>symbol.ref===item.ref).content.includes('amount >= 0')?'Accept Non-Negative Payments':context.symbols.find(symbol=>symbol.ref===item.ref).name,description:'Purchase responsibility',feature:'purchasing',parent:null})),concepts:context.required.filter(item=>!item.indexed).map(item=>({key:'concept-'+item.ref,kind:'component',name:'External Integration',description:'Extracted responsibility',feature:'purchasing',parent:null,source:item.ref})),relations,diagrams:[{key:overview?'overview':'purchase-flow-'+context.batch,name:overview?'Purchasing Overview':'Purchase Flow',kind:'activity',feature:overview?null:'purchasing',nodes:overview?['f:purchasing']:context.required.map(item=>item.indexed?item.ref:'c:concept-'+item.ref),relations:relations.map(item=>item.key),intent:'Inferred purchase responsibilities'}]};
 }else{
 value={summary:'Reconcile observed source changes',questions:[],sourceEdits:[],bindings:[],modelEdits:[
 ...context.changes.elements.map(item=>({collection:'elements',id:item.id,value:item.code?{...item.model,...item.code}:null})),
@@ -304,6 +312,10 @@ value={summary:'Reconcile the diagram rename',questions:[],modelEdits:[],sourceE
 writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(value));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output_tokens:50}})+'\\n');\n`);
 	await chmod(simulatedCli, 0o700);
+	if (workflowOnly) {
+		const bin = path.join(directory, 'bin'); await mkdir(bin); await copyFile(simulatedCli, path.join(bin, 'codex')); await chmod(path.join(bin, 'codex'), 0o700);
+		launchEnv.PATH = bin + path.delimiter + process.env.PATH; args.push('--force-disable-user-env');
+	}
 	const sourceRoot = path.join(workspace, 'codebase');
 	await mkdir(sourceRoot);
 	await writeFile(path.join(sourceRoot, 'gateway.ts'), 'export function charge(amount: number): boolean { return amount > 0; }');
@@ -329,18 +341,28 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 	};
 	await shell.getByText('Step 1 Complete · Code Analyzed. Step 2 · Let AI Turn the Source into Feature and Flow Diagrams.', { exact: true }).waitFor({ timeout: 90000 });
 	args[1] = sourceRoot; // Restart in the workspace entered by Import Codebase, without a second asynchronous folder switch.
-	await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
-	await pickValue(window, 'Choose AI CLI', 'Codex');
-	await pickValue(window, 'Codex', 'Choose Model and CLI');
-	await widget.getByText(/^(Model ID from Your CLI|Choose a Model Available to Your Account)$/).waitFor();
-	if (await widget.getByText('Model ID from Your CLI', { exact: true }).isVisible()) { await enterValue(window, 'Model ID from Your CLI', 'simulated-m6-model'); }
-	else { await window.keyboard.press('Enter'); }
-	await enterValue(window, 'Original CLI Executable', simulatedCli);
-	await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan or Reconciliation Proposal · At Most One Agent Run');
+	if (!workflowOnly) {
+		await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
+		await pickValue(window, 'Choose AI CLI', 'Codex');
+		await pickValue(window, 'Codex', 'Choose Model and CLI');
+		await widget.getByText(/^(Model ID from Your CLI|Choose a Model Available to Your Account)$/).waitFor();
+		if (await widget.getByText('Model ID from Your CLI', { exact: true }).isVisible()) { await enterValue(window, 'Model ID from Your CLI', 'simulated-m6-model'); }
+		else { await window.keyboard.press('Enter'); }
+		await enterValue(window, 'Original CLI Executable', simulatedCli);
+		await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan or Reconciliation Proposal · At Most One Agent Run');
+	}
 	if (workflowOnly) {
 		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
 		await widget.getByText(/^(Model for Diagrams)$/).waitFor();
+		await window.screenshot({ path: path.join(evidence, 'ux-first-setup.png') });
 		if (await widget.locator('.quick-input-list-row .label-name').first().isVisible()) { await window.keyboard.press('Enter'); } else { await enterValue(window, 'Model for Diagrams', 'simulated-economical-model'); }
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).waitFor();
+		await window.screenshot({ path: path.join(evidence, 'ux-diagram-review.png') });
+		const original = (await snapshot()).folder;
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Cancel', exact: true }).click();
+		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true, disabled: false }).waitFor();
+		assert.equal((await snapshot()).folder, original);
+		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
 		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();
 		await shell.getByRole('heading', { name: 'Purchasing Overview', exact: true }).waitFor({ timeout: 90000 });
 		assert.equal(await shell.locator('aside.ade-properties').count(), 0);
@@ -359,19 +381,40 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await pickValue(window, 'Review Code Changes', 'Apply Code Changes');
 		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 		assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function reviewedPurchase('));
-		await writeFile(path.join(sourceRoot, 'gateway.ts'), 'export function charge(amount: number): boolean { return amount >= 0; }');
+		await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).click();
+		await window.waitForFunction(() => [...document.querySelectorAll('.terminal .xterm-rows > div')].map(row => row.textContent).join('').includes('SIMULATED_CODEX_CHAT_READY'));
+		await window.screenshot({ path: path.join(evidence, 'ux-codex-chat.png') });
+		const terminal = window.locator('.terminal .xterm-helper-textarea');
+		await terminal.focus(); await window.keyboard.type('change-code\n');
+		await window.waitForFunction(() => [...document.querySelectorAll('.terminal .xterm-rows > div')].map(row => row.textContent).join('').includes('SIMULATED_CODEX_CHANGE_COMPLETE'));
+		await shell.getByRole('button', { name: 'Back to Diagrams', exact: true }).click();
+		await shell.getByText('Code Has Changed. Choose Update Diagrams to Reflect the Changes Here.', { exact: true }).waitFor();
+		assert.match(await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).getAttribute('class'), /ade-primary-action/);
+		await window.screenshot({ path: path.join(evidence, 'ux-code-changes.png') });
+		await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).click();
+		await terminal.waitFor({ state: 'attached' });
+		assert.equal(await readFile(path.join(directory, 'codex-chat-starts.txt'), 'utf8'), '1');
+		await shell.getByRole('button', { name: 'Back to Diagrams', exact: true }).click();
+		await writeFile(path.join(directory, 'fail-diagrams'), 'offline');
 		await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();		await shell.getByRole('button', { name: 'Resume Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+		await window.screenshot({ path: path.join(evidence, 'ux-diagrams-paused.png') });
+		await rm(path.join(directory, 'fail-diagrams'));
+		await shell.getByRole('button', { name: 'Resume Diagrams', exact: true }).click();
 		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();
-		await shell.getByRole('heading', { name: 'Purchasing Overview', exact: true }).waitFor({ timeout: 90000 });
+
+		await shell.getByRole('heading', { name: 'Purchase Flow', exact: true }).waitFor({ timeout: 90000 });
 		await shell.getByRole('button', { name: 'Update Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 		await shell.locator('.ade-workflow').waitFor({ state: 'hidden' });
 		await window.locator('.ade-sidebar').getByRole('button', { name: 'Purchase Flow', exact: true }).click();
+		assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'reviewedPurchase');
+		await shell.locator('.ade-node').getByText('Accept Non-Negative Payments', { exact: true }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'diagram-workflow.png') });
 		const final = await snapshot();
 		assert.equal(final.model.views.length, 2);
 		assert.equal(validateSemanticModel(final.model).filter(item => item.severity === 'error').length, 0);
 		assert.ok(final.model.semantics.elements.some(item => item.name === 'reviewedPurchase'));
-		await writeFile(path.join(evidence, 'diagram-workflow-results.json'), JSON.stringify({ importSteps: 2, diagrams: final.model.views.length, primaryActions: ['Diagrams', 'Update Code', 'Chat with Codex', 'Update Diagrams'], inspectorInitiallyHidden: true, modelToCode: true, codeToModel: true, provider: 'simulated-original-cli' }, null, 2));
+		await writeFile(path.join(evidence, 'diagram-workflow-results.json'), JSON.stringify({ importSteps: 2, diagrams: final.model.views.length, primaryActions: ['Diagrams', 'Update Code', 'Chat with Codex', 'Update Diagrams'], inspectorInitiallyHidden: true, directFirstSetup: true, codexTerminalReused: true, returnToDiagrams: true, activeDiagramPreserved: true, cancelledBeforeInference: true, failedGenerationResumed: true, modelToCode: true, codeToModel: true, codeToModelVisibleChange: true, provider: 'simulated-original-cli' }, null, 2));
 		await app.close(); app = undefined;
 		window = await launch(); shell = window.locator('.ade-shell');
 		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
@@ -464,7 +507,7 @@ async function checkAiWorkflow() {
 	const counter = path.join(f.directory, 'calls');
 	if (!aiLive) {
 		await writeFile(counter, '0');
-		await writeFile(executable, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
+		await writeFile(executable, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync,existsSync} from 'node:fs';
 const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
 const schema=JSON.parse(readFileSync(args[args.indexOf('--output-schema')+1],'utf8'));

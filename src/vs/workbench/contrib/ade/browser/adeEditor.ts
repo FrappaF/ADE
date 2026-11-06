@@ -147,12 +147,14 @@ export class AdeEditor extends EditorPane {
 			this.iconButton(navigation, localize('ade.home', "Home"), Codicon.home, () => this.project.showHome());
 			this.button(navigation, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); });
 			const sync = this.button(navigation, localize('ade.updateCode', "Update Code"), () => { void this.code.sync('model'); });
-			sync.classList.add('ade-sync-project');
+			sync.classList.toggle('ade-sync-project', this.project.dirty && !this.code.changed);
 			this.explainDisabled(sync, !this.code.available || !this.code.context || this.code.busy || this.ai.busy, !this.code.context ? localize('ade.linkRequired', "Import a Codebase to Update Its Code from Diagram Changes.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
 			if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) {
 				this.button(navigation, localize('ade.ai.chat', "Chat with Codex"), () => { void this.ai.chat(); }).disabled = this.ai.busy || this.code.busy;
 				if (this.code.context?.diagramState === 'diagrams') {
-					this.button(navigation, localize('ade.updateDiagrams', "Update Diagrams"), () => { void this.ai.buildDiagrams(); }).disabled = this.ai.busy || this.code.busy;
+					const pending = this.ai.diagramProgress && this.ai.diagramProgress.status !== 'complete';
+					const update = this.button(navigation, localize('ade.updateDiagrams', "Update Diagrams"), () => { void (pending ? this.ai.resumeDiagrams() : this.ai.buildDiagrams()); });
+					update.disabled = this.ai.busy || this.code.busy; update.classList.toggle('ade-primary-action', this.code.changed && !pending);
 				}
 			}
 
@@ -909,10 +911,24 @@ export class AdeEditor extends EditorPane {
 		if (this.code.context.diagramState === 'index' || pending) {
 			const banner = dom.append(parent, dom.$('section.ade-workflow'));
 			banner.setAttribute('aria-label', localize('ade.diagramImport', "Build Diagrams"));
-			this.paragraph(banner, pending ? localize('ade.diagramProgress', "Build Diagrams · {0} of {1} Steps Completed · {2}", progress.completed, progress.total, progress.model) : localize('ade.indexReady', "Step 1 Complete · Code Analyzed. Step 2 · Let AI Turn the Source into Feature and Flow Diagrams."));
-			if (progress?.error) { this.paragraph(banner, progress.error); }
-			this.button(banner, pending ? localize('ade.resumeDiagrams', "Resume Diagrams") : localize('ade.buildDiagrams', "Build Diagrams with AI"), () => { void (pending ? this.ai.resumeDiagrams() : this.ai.buildDiagrams()); }).disabled = this.ai.busy || this.code.busy;
-			if (pending) { this.button(banner, localize('ade.restartDiagrams', "Start Again"), () => { void this.ai.buildDiagrams(); }).disabled = this.ai.busy || this.code.busy; }
+			const active = !!pending && this.ai.generatingDiagrams;
+			const started = !!pending && (progress.calls > 0 || progress.completed > 0 || progress.status === 'failed' || progress.status === 'questions');
+			this.paragraph(banner, active ? localize('ade.diagramRunning', "Building Diagrams · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && progress.status === 'failed' ? localize('ade.diagramPaused', "Diagram Generation Paused · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && !started ? localize('ade.diagramReady', "Ready to Build Diagrams · {0} Steps", progress.total) : pending ? localize('ade.diagramProgress', "Build Diagrams · {0} of {1} Steps Completed · {2}", progress.completed, progress.total, progress.model) : localize('ade.indexReady', "Step 1 Complete · Code Analyzed. Step 2 · Let AI Turn the Source into Feature and Flow Diagrams."));
+			if (active) {
+				const meter = dom.append(banner, dom.$('progress'));
+				meter.setAttribute('max', String(progress.total)); meter.setAttribute('value', String(progress.completed));
+				meter.setAttribute('aria-label', localize('ade.diagramGenerationProgress', "Diagram Generation Progress"));
+			} else {
+				if (pending && progress.error) { const error = dom.append(banner, dom.$('p')); error.setAttribute('role', 'alert'); error.textContent = localize('ade.diagramResumeHint', "Completed Steps Are Saved. Resume to Continue, or Open Generation Options for Details."); }
+				if (pending && progress.questions.length) { this.paragraph(banner, progress.questions.join(' ')); }
+				const resume = this.button(banner, started ? localize('ade.resumeDiagrams', "Resume Diagrams") : localize('ade.buildDiagrams', "Build Diagrams with AI"), () => { void (pending ? this.ai.resumeDiagrams() : this.ai.buildDiagrams()); });
+				resume.disabled = this.ai.busy || this.code.busy; resume.classList.toggle('ade-primary-action', started);
+				if (pending) {
+					const options = this.controls.details(banner, localize('ade.diagramJobOptions', "Generation Options"), 'diagram-job-options');
+					if (progress.error) { this.paragraph(options, progress.error); }
+					this.button(options, localize('ade.restartDiagrams', "Start Again"), () => { void this.ai.buildDiagrams(); }).disabled = this.ai.busy || this.code.busy;
+				}
+			}
 		} else if (this.code.changed) {
 			const banner = dom.append(parent, dom.$('section.ade-workflow'));
 			this.paragraph(banner, localize('ade.sourceChanged', "Code Has Changed. Choose Update Diagrams to Reflect the Changes Here."));
@@ -926,7 +942,11 @@ export class AdeEditor extends EditorPane {
 		toolbar.setAttribute('aria-label', localize('ade.tools', "Technical Tools"));
 		const status = dom.append(toolbar, dom.$('span.ade-sync-status'));
 		status.setAttribute('role', 'status');
-		status.textContent = this.ai.busy ? this.ai.status : this.code.busy || this.code.changed ? this.code.status : this.project.dirty ? localize('ade.unsaved', "Unsaved Changes") : localize('ade.saved', "Saved");
+		status.textContent = this.ai.busy ? this.ai.status : this.code.busy ? this.code.status : this.code.changed ? localize('ade.codeNeedsDiagrams', "Code Changed · Update Diagrams") : this.project.dirty ? localize('ade.unsaved', "Unsaved Changes") : this.ai.workflowStatus ?? localize('ade.saved', "Saved");
+		if (this.ai.chatLocation) {
+			const back = this.button(toolbar, localize('ade.backToDiagrams', "Back to Diagrams"), () => { void this.ai.returnToDiagrams(); });
+			back.setAttribute('aria-description', this.ai.chatLocation === 'terminal' ? localize('ade.codexInTerminal', "Codex Is Open in the Terminal") : localize('ade.codexInChat', "Codex Is Open in Chat"));
+		}
 		const moreTools = this.controls.details(toolbar, localize('ade.moreTools', "More Tools"), 'technical-tools');
 		this.button(moreTools, localize('ade.systemMap', "System Map"), () => this.project.showSystemMap());
 		this.button(moreTools, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search'); });

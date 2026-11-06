@@ -19,6 +19,10 @@ export interface IAdeAiService {
 	readonly canApply: boolean;
 	readonly canUndo: boolean;
 	readonly onDidChange: Event<void>;
+	readonly generatingDiagrams: boolean;
+	readonly workflowStatus: string | undefined;
+	readonly chatLocation: 'chat' | 'terminal' | undefined;
+	returnToDiagrams(): Promise<void>;
 	readonly diagramProgress: CodeDiagramProgress | undefined;
 	chat(): Promise<void>;
 	chooseDiagramModel(): Promise<void>;
@@ -46,6 +50,10 @@ class UnavailableAiService implements IAdeAiService {
 	readonly connectionStatus = '';
 	readonly canVerify = false; readonly canApply = false; readonly canUndo = false;
 	readonly onDidChange = Event.None;
+	readonly generatingDiagrams = false;
+	readonly workflowStatus = undefined;
+	readonly chatLocation = undefined;
+	async returnToDiagrams(): Promise<void> { }
 	readonly diagramProgress = undefined;
 	async chat(): Promise<void> { }
 	async chooseDiagramModel(): Promise<void> { }

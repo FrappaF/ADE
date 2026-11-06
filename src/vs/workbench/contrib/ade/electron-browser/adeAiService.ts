@@ -12,7 +12,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isDiffEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, INotificationHandle, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -28,13 +28,14 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { ITerminalService, ITerminalGroupService } from '../../terminal/browser/terminal.js';
+import { ITerminalService, ITerminalGroupService, ITerminalInstance } from '../../terminal/browser/terminal.js';
 import { IChatWidgetService, ChatViewPaneTarget } from '../../chat/browser/chat.js';
 import { getNewChatSessionResource } from '../../chat/common/model/chatUri.js';
 import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { IAdeAiService } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
+import { AdeInput } from '../browser/adeInput.js';
 import { openAdeTerminal } from '../browser/adeTerminal.js';
 import { getModelImpact } from '../common/modelImpact.js';
 import { CodePreview, CodeReconciliationContext, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
@@ -69,6 +70,13 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	private _connectionStatus: string | undefined;
 	private activityStatus: string | undefined;
 	private accountGeneration = 0;
+	private chatOpening = false;
+	private diagramRunning = false;
+	private diagramError: INotificationHandle | undefined;
+	get generatingDiagrams(): boolean { return this.diagramRunning; }
+	private conversation: { root: string; resource?: URI; terminal?: ITerminalInstance; attachedModel?: string } | undefined;
+	get workflowStatus(): string | undefined { return this.activityStatus; }
+	get chatLocation(): 'chat' | 'terminal' | undefined { return this.conversation?.terminal ? 'terminal' : this.conversation?.resource ? 'chat' : undefined; }
 	get connectionStatus(): string { return this._connectionStatus ?? localize('ade.ai.unchecked', "CLI Account Not Checked Yet"); }
 	private config: CliConfig | undefined;
 	diagramProgress: CodeDiagramProgress | undefined;
@@ -86,7 +94,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	get canUndo(): boolean { return this.session?.status === 'applied'; }
 
 	constructor(
-		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'projectRoot' | 'modelUri' | 'activeView'>,
+		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'projectRoot' | 'modelUri' | 'activeView' | 'onDidChange'>,
 		@IAdeCodeService private readonly code: IAdeCodeService,
 		@IQuickInputService private readonly quick: IQuickInputService,
 		@INotificationService private readonly notifications: INotificationService,
@@ -106,11 +114,17 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		@IAdeOperationService private readonly operations: AdeOperationService
 	) {
 		super();
+		let projectId = project.model.id;
+		this._register(project.onDidChange(() => {
+			if (projectId !== project.model.id) { this.conversation = undefined; projectId = project.model.id; }
+			if (!this.busy) { this.activityStatus = undefined; this.changes.fire(); }
+		}));
 		const saved = storage.get('ade.ai.cliConfig', StorageScope.PROFILE);
 		if (saved) { try { this.config = JSON.parse(saved); } catch { /* choose a connection again */ } }
 		const diagramJob = storage.get('ade.ai.diagramJob', StorageScope.WORKSPACE);
 		if (diagramJob) { try { this.diagramProgress = JSON.parse(diagramJob); } catch { /* invalid saved progress */ } }
 		this._register(code.onDidChange(() => {
+			if (this.conversation && code.context && this.conversation.root !== code.context.sourceRoot) { this.conversation = undefined; this.activityStatus = undefined; this.changes.fire(); }
 			if (this.session && code.context && this.session.root !== code.context.sourceRoot) { this.session = undefined; this.changes.fire(); }
 			if (this.diagramProgress && code.context && this.diagramProgress.sourceRoot !== code.context.sourceRoot) { this.diagramProgress = undefined; this.changes.fire(); }
 		}));
@@ -132,22 +146,24 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		this.report(localize('ade.ai.phase.done', "{0} · Completed", label));
 		return result;
 	}
-	private async run(task: (token: CancellationToken) => Promise<void>): Promise<void> {
+	private async run(task: (token: CancellationToken) => Promise<void>, diagramJob = false): Promise<void> {
 		if (this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { this.info(localize('ade.ai.disabled', "AI Features Are Disabled in Settings.")); return; }
 		const operation = this.operations.acquire('ai');
 		if (this.busy || !operation) { operation?.dispose(); this.notifications.info(localize('ade.ai.busy', "An A.D.E operation is already running. Wait for it to finish or cancel it before starting another.")); return; }
+		if (diagramJob) { this.diagramError?.close(); this.diagramError = undefined; }
 		this.busy = true; this.report(localize('ade.ai.starting', "Preparing AI Operation"));
+		const cancelled = () => diagramJob ? localize('ade.ai.diagramCancelled', "Diagram Generation Paused · Completed Steps Can Be Resumed") : localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.");
 		const cancellation = new CancellationTokenSource();
 		try {
 			if (!await this.trust.requestWorkspaceTrust({ message: localize('ade.ai.trust', "A.D.E runs the original AI CLI and reviewed project tests on this computer.") })) { this.info(localize('ade.ai.untrusted', "AI Operation Cancelled · Workspace Trust Was Not Granted.")); return; }
 			await this.progress.withProgress({ location: ProgressLocation.Notification, title: localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
-			if (cancellation.token.isCancellationRequested) { this.info(localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.")); }
+			if (cancellation.token.isCancellationRequested) { this.info(cancelled()); }
 		}
 		catch (error) {
-			const message = cancellation.token.isCancellationRequested ? localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.") : localize('ade.ai.error', "A.D.E implementation: {0}", error instanceof Error ? error.message : String(error));
-			this.report(message); if (cancellation.token.isCancellationRequested) { this.notifications.info(message); } else { this.notifications.error(message); }
+			const message = cancellation.token.isCancellationRequested ? cancelled() : localize('ade.ai.error', "A.D.E AI: {0}", error instanceof Error ? error.message : String(error));
+			this.report(message); if (cancellation.token.isCancellationRequested) { if (!diagramJob) { this.notifications.info(message); } } else if (diagramJob) { this.diagramError = this.notifications.notify({ severity: Severity.Error, message }); } else { this.notifications.error(message); }
 		}
-		finally { cancellation.dispose(); operation.dispose(); this.busy = false; this.changes.fire(); }
+		finally { cancellation.dispose(); operation.dispose(); this.busy = false; this.diagramRunning = false; this.changes.fire(); }
 	}
 	private async ensureConfigured(): Promise<boolean> {
 		if (!this.config) { this.info(localize('ade.ai.configurationNeeded', "Choose an AI Model, CLI and Budget to Continue. An Existing CLI Login Does Not Need to Be Repeated.")); await this.connect(); }
@@ -340,16 +356,31 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	/** One visible entry point to the user's Codex account, with the active diagram attached. */
 	async chat(): Promise<void> {
-		if (this.busy || this.operations.busy || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
-		if (!await this.trust.requestWorkspaceTrust()) { return; }
-		if (this.project.modelUri && !await this.project.save()) { return; }
+		if (this.busy || this.operations.busy || this.chatOpening || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
+		const opening = this.operations.acquire('ai');
+		if (!opening) { return; }
+		this.chatOpening = true; this.busy = true;
+		this.report(localize('ade.ai.chatOpening', "Opening Codex…"));
 		try {
+			if (!await this.trust.requestWorkspaceTrust() || this.project.modelUri && !await this.project.save()) { this.report(localize('ade.ai.chatNotOpened', "Codex Was Not Opened")); return; }
+			const root = this.code.context?.sourceRoot ?? this.project.projectRoot?.toString() ?? this.project.model.id;
+			if (this.conversation?.root !== root) { this.conversation = undefined; }
+			const terminal = this.conversation?.terminal;
+			if (terminal && !terminal.isDisposed) { this.terminals.setActiveInstance(terminal); await this.terminalGroups.showPanel(true); await terminal.focusWhenReady(); this.report(localize('ade.ai.chatTerminalReady', "Codex Is Open in the Terminal · Back to Diagrams to Continue")); return; }
+			if (terminal) { this.conversation = undefined; }
 			const native = this.codexAccount.account.status === 'signedIn' && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready') && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this.config || this.config.provider !== 'codex' || this.config.executable === 'codex');
 			if (native) {
 				await this.configuration.updateValue(AgentHostCodexAgentEnabledSettingId, true, ConfigurationTarget.USER);
-				const widget = await this.chatWidgets.openSession(getNewChatSessionResource('agent-host-codex'), ChatViewPaneTarget);
+				const resource = this.conversation?.resource ?? getNewChatSessionResource('agent-host-codex');
+				const widget = await this.chatWidgets.openSession(resource, ChatViewPaneTarget);
 				if (!widget) { throw new Error(localize('ade.ai.chatUnavailable', "Codex Chat Could Not Be Opened. Use AI Settings to Check the Connection.")); }
-				if (this.project.modelUri) { await widget.attachmentModel.addFile(this.project.modelUri); }
+				if (this.project.modelUri) {
+					const previous = this.conversation?.attachedModel;
+					if (previous && previous !== this.project.modelUri.toString()) { widget.attachmentModel.delete(previous); }
+					if (!widget.attachmentModel.fileAttachments.some(uri => uri.toString() === this.project.modelUri!.toString())) { await widget.attachmentModel.addFile(this.project.modelUri); }
+				}
+				widget.attachmentModel.updateContext(['ade:diagram-context'], [{ kind: 'generic', id: 'ade:diagram-context', name: localize('ade.ai.currentDiagramContext', "Current Diagram"), value: JSON.stringify({ model: this.project.modelUri?.fsPath, diagram: this.project.activeView ? { id: this.project.activeView.id, name: this.project.activeView.name } : null }) }]);
+				this.conversation = { root, resource, attachedModel: this.project.modelUri?.toString() };
 				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
 			} else {
 				const executable = await this.resolveCli('codex');
@@ -357,20 +388,57 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 				const account = await this.code.checkCliAccount('codex', executable);
 				if (account.status !== 'signedIn') { if (account.status === 'signedOut') { await this.signIn('codex', true); } else { await this.checkAccount('codex', executable); } return; }
 				const model = this.config?.provider === 'codex' ? this.config.model : undefined;
-				const prompt = localize('ade.ai.chatContext', "Help me work on this project's A.D.E diagrams and implementation. The model is {0}, active diagram: {1}. Preserve semantic IDs and valid model v3 references. Model edits appear in the visual editor; after code changes I will use Update Diagrams to reconcile them. I will describe the requested change next; do not edit files until I do.", this.project.modelUri?.fsPath ?? localize('ade.ai.noModelContext', "not created yet"), this.project.activeView?.name ?? this.project.model.name);
-				await openAdeTerminal(this.terminals, this.terminalGroups, { name: localize('ade.ai.codexChat', "Codex Chat · Your Account"), executable, args: [...(model ? ['--model', model] : []), prompt], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
+				const prompt = localize('ade.ai.chatContext', "Help me work on this project's A.D.E diagrams and implementation. The model is {0}, active diagram: {1}. Preserve semantic IDs and valid model v3 references. Resolve the current model from .ade/code-project.json before editing because snapshot paths can change. Model edits appear in the visual editor; after code changes I will use Update Diagrams to reconcile them. I will describe the requested change next; do not edit files until I do.", this.project.modelUri?.fsPath ?? localize('ade.ai.noModelContext', "not created yet"), this.project.activeView?.name ?? this.project.model.name);
+				const terminal = await openAdeTerminal(this.terminals, this.terminalGroups, { name: localize('ade.ai.codexChat', "Codex Chat · Your Account"), executable, args: [...(model ? ['--model', model] : []), prompt], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
+				this.conversation = { root, terminal };
+				this._register(terminal.onExit(() => { if (this.conversation?.terminal === terminal) { this.conversation = undefined; this.changes.fire(); } }));
 			}
-			this.info(localize('ade.ai.chatReady', "Codex Is Open with Your Account and Project Context. After Code Changes, Choose Update Diagrams."));
-		} catch (error) { this.notifications.error(localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error))); }
+			this.report(this.chatLocation === 'terminal' ? localize('ade.ai.chatTerminalReady', "Codex Is Open in the Terminal · Back to Diagrams to Continue") : localize('ade.ai.chatPaneReady', "Codex Chat Is Open · Your Diagram Is Attached"));
+		} catch (error) { this.conversation = undefined; const message = localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error)); this.report(message); this.notifications.error(message); }
+		finally { this.chatOpening = false; this.busy = false; opening.dispose(); this.changes.fire(); }
+	}
+
+	async returnToDiagrams(): Promise<void> {
+		this.terminalGroups.hidePanel();
+		await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		if (this.code.changed) { this.report(localize('ade.ai.reviewAfterChat', "Code Changed · Update Diagrams to Review the Result")); }
+	}
+
+	/** First use asks only for the diagram model; advanced coding settings stay separate. */
+	private async readyDiagramConfig(): Promise<CliConfig | undefined> {
+		if (!this.config) {
+			let executable = 'codex';
+			if (!await this.code.resolveCli(executable)) {
+				const selected = await this.quick.input({ title: localize('ade.ai.codexExecutable', "Codex Executable"), value: executable, prompt: localize('ade.ai.codexExecutableHint', "Install Codex with npm install -g @openai/codex, or enter the path to your existing Codex CLI."), ignoreFocusLost: true });
+				if (!selected) { this.report(localize('ade.ai.setupDeferred', "Setup Cancelled · Choose Build Diagrams to Continue")); return; }
+				if (!await this.code.resolveCli(selected)) { throw new Error(localize('ade.ai.codexExecutableMissing', "Codex Could Not Be Found. Check Its Installation or Executable Path.")); }
+				executable = selected;
+			}
+			const draft: CliConfig = { version: 1, provider: 'codex', connection: 'cli', model: '', executable, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 1 };
+			const model = await this.selectDiagramModel(draft);
+			if (!model) { this.report(localize('ade.ai.modelDeferred', "No Model Selected · Choose Build Diagrams to Continue")); return; }
+			this.config = { ...draft, model };
+			this.storage.store('ade.ai.cliConfig', JSON.stringify(this.config), StorageScope.PROFILE, StorageTarget.MACHINE);
+		}
+		if (!this.config.maxCalls) { return { ...this.config }; }
+		const executable = await this.resolveCli(this.config.provider);
+		if (!executable) { return undefined; }
+		const state = await this.code.checkCliAccount(this.config.provider, executable);
+		if (state.status === 'signedOut') {
+			await this.signIn(this.config.provider, true);
+			this.report(localize('ade.ai.finishDiagramSignIn', "Finish Signing In in the Terminal, Then Choose Build Diagrams Again")); return undefined;
+		}
+		if (state.status !== 'signedIn') { throw new Error(localize('ade.ai.diagramAccountCheck', "Could Not Verify the CLI Account. Check Its Connection and Retry Build Diagrams.")); }
+		return { ...this.config, executable };
 	}
 
 	async buildDiagrams(): Promise<void> { await this.generateDiagrams(false); }
 	async resumeDiagrams(): Promise<void> { await this.generateDiagrams(true); }
 	private async generateDiagrams(resume: boolean): Promise<void> {
-		if (this.busy || this.operations.busy || !this.code.context || !await this.ensureConfigured()) { return; }
+		if (this.busy || this.operations.busy || !this.code.context) { return; }
 		await this.run(async token => {
 			const context = this.code.context;
-			const configured = await this.readyConfig();
+			const configured = await this.readyDiagramConfig();
 			if (!configured || !context || !await this.project.save()) { return; }
 			const diagramModel = this.storage.get(`ade.ai.diagramModel.${configured.provider}`, StorageScope.PROFILE) ?? await this.selectDiagramModel(configured);
 			if (!diagramModel) { return; }
@@ -380,16 +448,22 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			let job: CodeDiagramProgress = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramPrepare', snapshot: context.snapshot, config: JSON.stringify(config), ...(resume && this.diagramProgress ? { resume: this.diagramProgress.id } : {}), clarification }, token));
 			this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.changes.fire();
 			if (!config.maxCalls) { this.info(localize('ade.ai.diagramsNoBudget', "Diagram Scope Prepared. Enable AI Requests in AI Settings to Generate It.")); return; }
-			const accepted = await this.dialogs.confirm({ message: localize('ade.ai.buildConfirm', "Build Semantic Diagrams with {0}?", config.model), detail: localize('ade.ai.buildScope', "{0} files and {1} indexed symbols; {4} additional documentation, binary or oversized files skipped. All symbols are processed in small batches, then composed into a system overview. Up to {2} additional requests; {3} already attempted. Source evidence is sent to your configured account. Code is kept intact and the previous model remains recoverable.", job.files, job.symbols, job.total - job.completed, job.calls, job.excluded), primaryButton: localize('ade.ai.buildButton', "Build Diagrams") });
+			const accepted = await this.dialogs.confirm({ message: localize('ade.ai.buildConfirm', "Build Semantic Diagrams with {0}?", config.model), detail: [localize('ade.ai.buildScopeShort', "{0} files · {1} indexed symbols.\nUp to {2} additional requests to {3}.", job.files, job.symbols, job.total - job.completed, config.provider === 'codex' ? 'Codex' : 'Claude Code'), localize('ade.ai.buildDisclosure', "Source evidence is sent through your signed-in CLI account to create a new diagram snapshot."), job.calls ? localize('ade.ai.buildAttempted', "{0} requests already attempted. Completed steps will be reused.", job.calls) : '', job.excluded ? localize('ade.ai.buildExcluded', "{0} documentation, binary or oversized files excluded.", job.excluded) : ''].filter(Boolean).join('\n\n'), primaryButton: localize('ade.ai.buildButton', "Build Diagrams") });
 			if (!accepted.confirmed) { return; }
+			this.diagramRunning = true;
 			while (job.status === 'ready' || job.status === 'running') {
 				this.report(localize('ade.ai.diagramStep', "Building Diagrams · {0} of {1} Steps · {2}", job.completed, job.total, job.model));
-				job = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramStep', snapshot: context.snapshot, id: job.id, reviewId: job.reviewId }, token));
+				try { job = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramStep', snapshot: context.snapshot, id: job.id, reviewId: job.reviewId }, token)); }
+				catch (error) {
+					this.diagramProgress = { ...job, status: 'failed', error: token.isCancellationRequested ? localize('ade.ai.diagramPaused', "Generation Paused · Resume to Keep Completed Steps") : error instanceof Error ? error.message : String(error) };
+					this.storage.store('ade.ai.diagramJob', JSON.stringify(this.diagramProgress), StorageScope.WORKSPACE, StorageTarget.MACHINE); throw error;
+				}
+				if (this.code.context?.snapshot !== context.snapshot) { throw new Error(localize('ade.ai.diagramProjectChanged', "The Active Project Changed. Open Its Diagrams to Continue.")); }
 				this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.changes.fire();
-				if (job.context) { await this.code.openContext(job.context); this.info(localize('ade.ai.diagramsReady', "Diagrams Ready · All {0} Indexed Symbols Have a Semantic View", job.symbols)); return; }
+				if (job.context) { await this.code.openContext(job.context); this.report(localize('ade.ai.diagramsReady', "Diagrams Ready · All {0} Indexed Symbols Have a Semantic View", job.symbols)); return; }
 				if (job.questions.length) { this.info(job.questions.join('\n')); return; }
 			}
-		});
+		}, true);
 	}
 
 	async chooseDiagramModel(): Promise<void> {
@@ -397,8 +471,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		await this.selectDiagramModel(this.config!);
 	}
 	private async selectDiagramModel(configured: CliConfig): Promise<string | undefined> {
-		const choices = this.nativeModels(configured.provider).sort((a, b) => (a.rates ? a.rates.input + a.rates.output : Infinity) - (b.rates ? b.rates.input + b.rates.output : Infinity));
-		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.diagramModel', "Model for Diagrams"), placeHolder: localize('ade.ai.diagramModelHint', "Choose a Lower-Cost Model for Interpretation. Your Coding Model Is Kept Separately.") }))?.id : await this.quick.input({ title: localize('ade.ai.diagramModel', "Model for Diagrams"), value: this.storage.get(`ade.ai.diagramModel.${configured.provider}`, StorageScope.PROFILE) ?? configured.model, prompt: localize('ade.ai.diagramModelManual', "Enter a model available to your CLI account. This model is saved separately for diagram generation."), ignoreFocusLost: true });
+		const choices = (configured.provider === 'codex' && configured.executable !== 'codex' && this.config?.executable !== 'codex' ? [] : this.nativeModels(configured.provider)).sort((a, b) => (a.rates ? a.rates.input + a.rates.output : Infinity) - (b.rates ? b.rates.input + b.rates.output : Infinity));
+		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.diagramModel', "Model for Diagrams"), placeHolder: localize('ade.ai.diagramModelHint', "Choose a Lower-Cost Model for Interpretation. Your Coding Model Is Kept Separately.") }))?.id : await this.quick.input({ title: localize('ade.ai.diagramModel', "Model for Diagrams"), value: this.storage.get(`ade.ai.diagramModel.${configured.provider}`, StorageScope.PROFILE) ?? configured.model, prompt: localize('ade.ai.diagramModelManual', "Use an exact model ID shown by /model in Codex or by your provider CLI. This model is saved separately for diagrams."), ignoreFocusLost: true });
 		if (model) { this.storage.store(`ade.ai.diagramModel.${configured.provider}`, model, StorageScope.PROFILE, StorageTarget.MACHINE); }
 		return model;
 	}
@@ -601,6 +675,7 @@ for (const [id, title, method] of [
 	['ade.ai.connect', localize2('ade.ai.connectCommand', "A.D.E: Connect Claude Code or Codex"), 'connect'],
 	['ade.ai.cli', localize2('ade.ai.cliCommand', "A.D.E: Open AI CLI"), 'openCli'],
 	['ade.ai.chooseDiagramModel', localize2('ade.ai.diagramModelCommand', "Choose Diagram Model"), 'chooseDiagramModel'],
+	['ade.ai.returnToDiagrams', localize2('ade.ai.returnToDiagramsCommand', "A.D.E: Back to Diagrams"), 'returnToDiagrams'],
 	['ade.ai.chat', localize2('ade.ai.chatCommand', "A.D.E: Chat with Codex"), 'chat'],
 	['ade.ai.buildDiagrams', localize2('ade.ai.buildDiagramsCommand', "A.D.E: Build Semantic Diagrams"), 'buildDiagrams'],
 	['ade.ai.resumeDiagrams', localize2('ade.ai.resumeDiagramsCommand', "A.D.E: Resume Diagram Generation"), 'resumeDiagrams'],
