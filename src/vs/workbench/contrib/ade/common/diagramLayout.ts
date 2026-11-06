@@ -12,7 +12,7 @@ export function diagramNodeWidth(name: string): number { return Math.max(208, Ma
 export const diagramNodeHeight = 96;
 
 /** Layer the directed graph, grouping cycles into a single layer and separating disconnected components. */
-export function arrangeDiagram(model: SemanticModel, view: ModelView, density: DiagramDensity = 'balanced'): ModelView['nodes'] {
+export function arrangeDiagram(model: SemanticModel, view: ModelView, density: DiagramDensity = 'spacious'): ModelView['nodes'] {
 	const ids = view.nodes.map(node => node.elementId);
 	const members = new Set(ids);
 	const edges = model.semantics.relations.filter(edge => view.relationIds.includes(edge.id) && members.has(edge.from) && members.has(edge.to));
@@ -42,17 +42,30 @@ export function arrangeDiagram(model: SemanticModel, view: ModelView, density: D
 			for (const target of outgoing.get(id)!) { const other = owner.get(target)!; if (other !== index) { levels[other] = Math.max(levels[other], levels[index] + 1); } }
 		}
 	}
-	const gap = density === 'compact' ? 88 : density === 'spacious' ? 224 : 152;
-	const rowGap = density === 'compact' ? 72 : density === 'spacious' ? 168 : 112;
+	const gap = density === 'compact' ? 88 : density === 'spacious' ? 320 : 152;
+	const rowGap = density === 'compact' ? 72 : density === 'spacious' ? 208 : 112;
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
-	const columns = new Map<number, string[]>();
-	for (const id of ids) { const level = levels[owner.get(id)!]; const column = columns.get(level) ?? []; column.push(id); columns.set(level, column); }
+	const order = new Map(ids.map((id, index) => [id, index]));
+	const layers = new Map<number, number[]>();
+	groups.forEach((_, index) => { const level = levels[index]; const layer = layers.get(level) ?? []; layer.push(index); layers.set(level, layer); });
 	const positions = new Map<string, { x: number; y: number }>();
-	let x = 0;
-	for (const [, column] of [...columns].sort(([a], [b]) => a - b)) {
-		column.sort();
-		column.forEach((id, index) => positions.set(id, { x, y: index * (diagramNodeHeight + rowGap) }));
-		x += Math.max(...column.map(id => diagramNodeWidth(elements.get(id)!.name))) + gap;
+	let layerX = 0;
+	for (const [, layer] of [...layers].sort(([a], [b]) => a - b)) {
+		layer.sort((a, b) => Math.min(...groups[a].map(id => order.get(id)!)) - Math.min(...groups[b].map(id => order.get(id)!)));
+		const count = layer.reduce((sum, group) => sum + groups[group].length, 0);
+		const targetHeight = Math.ceil(Math.sqrt(count)) * (diagramNodeHeight + rowGap);
+		let columnX = layerX, columnWidth = 0, y = 0, layerRight = layerX;
+		for (const index of layer) {
+			const group = groups[index].sort((a, b) => order.get(a)! - order.get(b)!);
+			const columns = group.length > 3 ? Math.ceil(Math.sqrt(group.length)) : 1;
+			const width = Math.max(...group.map(id => diagramNodeWidth(elements.get(id)!.name)));
+			const rows = Math.ceil(group.length / columns), groupWidth = columns * (width + gap) - gap;
+			if (y && y + rows * (diagramNodeHeight + rowGap) > targetHeight) { columnX += columnWidth + gap; columnWidth = 0; y = 0; }
+			group.forEach((id, position) => positions.set(id, { x: columnX + position % columns * (width + gap), y: y + Math.floor(position / columns) * (diagramNodeHeight + rowGap) }));
+			columnWidth = Math.max(columnWidth, groupWidth); layerRight = Math.max(layerRight, columnX + groupWidth);
+			y += rows * (diagramNodeHeight + rowGap);
+		}
+		layerX = layerRight + gap;
 	}
 	return view.nodes.map(node => ({ ...node, ...positions.get(node.elementId)! }));
 }

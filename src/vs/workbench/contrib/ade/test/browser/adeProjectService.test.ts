@@ -18,7 +18,7 @@ import { InMemoryFileSystemProvider } from '../../../../../platform/files/common
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { InMemoryStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { AdeProjectService } from '../../browser/adeProjectService.js';
-import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { IWorkspaceContextService, IWorkspaceFoldersChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
 import { testWorkspace } from '../../../../../platform/workspace/test/common/testWorkspace.js';
 import { projectDocuments } from './testProjectDocuments.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
@@ -62,14 +62,19 @@ suite('A.D.E project context', () => {
 	let files: DelayedFileService;
 	let dialogs: ModelDialogs;
 	let contextFolders: URI[] = [];
+	let workspaceChanges: Emitter<IWorkspaceFoldersChangeEvent>;
 	let confirmExisting = false;
-	const workspaceContext = new class extends mock<IWorkspaceContextService>() { override getWorkspace() { return testWorkspace(...contextFolders); } };
+	const workspaceContext = new class extends mock<IWorkspaceContextService>() {
+		override get onDidChangeWorkspaceFolders() { return workspaceChanges.event; }
+		override getWorkspace() { return testWorkspace(...contextFolders); }
+	};
 	const projectDialogs = new class extends mock<IDialogService>() { override async confirm() { return { confirmed: confirmExisting }; } };
 	let documents: ReturnType<typeof projectDocuments>;
 	const resource = URI.parse('test:/checkout.ade.json');
 
 	setup(async () => {
 		contextFolders = []; confirmExisting = false;
+		workspaceChanges = disposables.add(new Emitter<IWorkspaceFoldersChangeEvent>());
 		storage = disposables.add(new InMemoryStorageService());
 		files = disposables.add(new DelayedFileService(new NullLogService()));
 		const provider = disposables.add(new InMemoryFileSystemProvider());
@@ -91,6 +96,56 @@ suite('A.D.E project context', () => {
 		await project.openModelResource(snapshot);
 		assert.strictEqual(project.projectRoot?.toString(), folder.toString());
 	});
+	test('native workspace changes replace the active project and empty folders clear the old model', async () => {
+		const first = URI.parse('test:/first'), second = URI.parse('test:/second');
+		contextFolders = [first];
+		await files.writeFile(URI.joinPath(first, '.ade/model.json'), VSBuffer.fromString(JSON.stringify(checkoutModel)));
+		await files.writeFile(URI.joinPath(second, '.ade/model.json'), VSBuffer.fromString(JSON.stringify(libraryModel)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.restore();
+		contextFolders = [first, second];
+		await project.followWorkspace();
+		assert.strictEqual(project.projectRoot?.toString(), first.toString(), 'adding a root preserves the current project');
+		contextFolders = [second];
+		const switched = Event.toPromise(Event.filter(project.onDidChange, () => project.model.id === libraryModel.id && !project.loading));
+		workspaceChanges.fire({ added: [], removed: [], changed: [] });
+		await switched;
+		assert.deepStrictEqual([project.projectRoot?.toString(), project.model.id], [second.toString(), libraryModel.id]);
+		contextFolders = [URI.parse('test:/empty')];
+		await project.followWorkspace();
+		assert.deepStrictEqual([project.modelUri, project.section, project.model.semantics.elements.length, project.model.views.length], [undefined, 'home', 0, 0]);
+	});
+
+	test('cancelled folder switch keeps unsaved work and retry saves before opening the new folder', async () => {
+		const first = URI.parse('test:/first'), second = URI.parse('test:/second');
+		const source = URI.joinPath(first, '.ade/model.json');
+		contextFolders = [first];
+		await files.writeFile(source, VSBuffer.fromString(JSON.stringify(checkoutModel)));
+		await files.writeFile(URI.joinPath(second, '.ade/model.json'), VSBuffer.fromString(JSON.stringify(libraryModel)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.restore();
+		project.edit({ kind: 'rename', target: 'element', id: 'payment', name: 'Keep My Work' });
+		contextFolders = [second];
+		await project.followWorkspace();
+		assert.ok(project.error?.includes('workspace folder changed'));
+		assert.deepStrictEqual([project.dirty, project.editable, project.modelUri, project.projectRoot], [true, false, undefined, undefined]);
+		assert.ok(!JSON.parse((await files.readFile(source)).value.toString()).semantics.elements.some((element: { name: string }) => element.name === 'Keep My Work'));
+		dialogs.choice = ConfirmResult.SAVE;
+		await project.retry();
+		assert.strictEqual(project.model.id, libraryModel.id);
+		assert.ok(JSON.parse((await files.readFile(source)).value.toString()).semantics.elements.some((element: { name: string }) => element.name === 'Keep My Work'));
+	});
+
+	test('copied workspace state cannot restore a project belonging to a different folder', async () => {
+		contextFolders = [URI.parse('test:/new-folder')];
+		storage.store('ade.shell.model', resource.toString(), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		storage.store('ade.shell.workspace', JSON.stringify(['test:/old-folder']), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		storage.store('ade.shell.section', 'diagram', StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.restore();
+		assert.deepStrictEqual([project.modelUri, project.section, project.model.views.length], [undefined, 'home', 0]);
+	});
+
 	test('an existing project is opened only after confirmation, without overwriting its model', async () => {
 		const folder = URI.parse('test:/existing');
 		const model = URI.joinPath(folder, '.ade', 'model.json');

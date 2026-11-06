@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { arrangeDiagram } from '../../src/vs/workbench/contrib/ade/common/diagramLayout.ts';
 import { randomUUID } from 'node:crypto';
 import { readFile, lstat } from 'node:fs/promises';
 import { join, basename } from 'node:path';
@@ -222,7 +223,8 @@ function compose(previous: ImportSnapshot, state: CodeImport, units: Unit[], res
 			const relations = diagram.relations.map(key => { const id = relationKeys.get(key); if (!id) { throw new Error('Unknown diagram relationship'); } return id; });
 			const nodes = [...new Set([...diagram.nodes.map(resolve), ...model.semantics.relations.filter(item => relations.includes(item.id)).flatMap(item => [item.from, item.to])])];
 			const existing = model.views.find(view => view.id === id);
-			const view: ModelView = { id, name: diagram.name, kind: diagram.kind, ...(diagram.feature ? { featureId: resolve(`f:${diagram.feature}`) } : {}), nodes: nodes.map((elementId, index) => existing?.nodes.find(node => node.elementId === elementId) ?? { elementId, x: 40 + index % 4 * 280, y: 40 + Math.floor(index / 4) * 160 }), relationIds: relations };
+			const view: ModelView = { id, name: diagram.name, kind: diagram.kind, ...(diagram.feature ? { featureId: resolve(`f:${diagram.feature}`) } : {}), nodes: nodes.map((elementId, index) => existing?.nodes.find(node => node.elementId === elementId) ?? { elementId, x: 40 + index % 4 * 480, y: 40 + Math.floor(index / 4) * 280 }), relationIds: relations };
+			if (!existing && view.kind !== 'sequence') { view.nodes = arrangeDiagram(model, view, 'spacious'); }
 			const common = previous.commonModel.views.find(view => view.id === id);
 			if (existing && common) { for (const field of ['name', 'kind', 'featureId'] as const) { if (!isDeepStrictEqual(existing[field], common[field])) { if (existing[field] === undefined) { delete view[field]; } else { Object.assign(view, { [field]: existing[field] }); } } } }
 			model.views = model.views.filter(view => view.id !== id); model.views.push(view);

@@ -520,3 +520,250 @@
 	height: var(--vscode-spacing-size80);
 	accent-color: var(--vscode-progressBar-background);
 }
+
+/* The diagram is the surface; controls float above it and never resize the world. */
+.ade-shell.ade-canvas-mode {
+	position: relative;
+	overflow: hidden;
+}
+
+.ade-shell.ade-canvas-mode > .ade-content {
+	position: absolute;
+	inset: 0;
+	padding: 0;
+	overflow: clip;
+}
+
+.ade-canvas-mode .ade-workspace,
+.ade-canvas-mode .ade-visual,
+.ade-canvas-mode .ade-canvas-scroll {
+	position: absolute;
+	inset: 0;
+	display: block;
+	max-height: none;
+	border: 0;
+	border-radius: 0;
+}
+
+.ade-canvas-mode .ade-canvas-scroll {
+	overflow: clip;
+	touch-action: none;
+	cursor: grab;
+	background-image: radial-gradient(color-mix(in srgb, var(--vscode-editorIndentGuide-background1) 55%, transparent) 1px, transparent 1px);
+}
+
+.ade-canvas-mode .ade-canvas-scroll.is-panning {
+	cursor: grabbing;
+}
+
+.ade-canvas-mode .ade-canvas,
+.ade-canvas-mode .ade-canvas-content {
+	position: absolute;
+	top: 0;
+	left: 0;
+	overflow: visible;
+}
+
+.ade-canvas-mode .ade-canvas svg {
+	overflow: visible;
+}
+
+.ade-floating-menu,
+.ade-floating-zoom,
+.ade-canvas-mode aside.ade-properties {
+	position: absolute;
+	z-index: 5;
+	background: var(--vscode-editorWidget-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-large);
+	box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+	padding: var(--vscode-spacing-size80);
+}
+
+.ade-floating-menu,
+.ade-floating-zoom {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	max-width: calc(100% - 24px);
+}
+
+.ade-floating-menu {
+	flex-wrap: wrap;
+	top: var(--vscode-spacing-size120);
+	left: var(--vscode-spacing-size120);
+}
+
+.ade-floating-menu button,
+.ade-floating-menu summary,
+.ade-floating-zoom button {
+	white-space: nowrap;
+	margin: 0;
+	padding: var(--vscode-spacing-size60) var(--vscode-spacing-size80);
+}
+
+.ade-floating-menu > .ade-options {
+	position: static;
+}
+
+.ade-floating-menu > .ade-options > .ade-options-content {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 0;
+	width: min(360px, calc(100vw - 72px));
+	max-height: min(65vh, 560px);
+	overflow: auto;
+	padding: var(--vscode-spacing-size120);
+	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-large);
+	box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+}
+
+.ade-floating-menu .ade-navigation,
+.ade-floating-menu .ade-editing,
+.ade-floating-menu .ade-tools {
+	border: 0;
+	padding: var(--vscode-spacing-size40);
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-floating-menu .ade-tools {
+	display: block;
+}
+
+.ade-canvas-title {
+	max-width: 180px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-floating-zoom {
+	left: var(--vscode-spacing-size120);
+	bottom: var(--vscode-spacing-size120);
+}
+
+.ade-zoom-readout {
+	min-width: 4em;
+	text-align: center;
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-canvas-mode aside.ade-properties {
+	top: var(--vscode-spacing-size120);
+	right: var(--vscode-spacing-size120);
+	width: min(280px, calc(100% - 24px));
+	max-height: min(58%, 440px);
+	box-sizing: border-box;
+	overflow: auto;
+}
+
+.ade-canvas-mode aside.ade-properties > button:first-child {
+	float: right;
+}
+
+.ade-canvas-mode aside.ade-properties h2 {
+	font-size: var(--vscode-fontSize-body2);
+	font-weight: var(--vscode-fontWeight-regular);
+	color: var(--vscode-descriptionForeground);
+	margin-top: 0;
+}
+
+.ade-canvas-mode aside.ade-properties h3 {
+	font-size: var(--vscode-fontSize-heading3);
+	margin-block: var(--vscode-spacing-size80);
+}
+
+.ade-floating-workflow {
+	position: absolute;
+	z-index: 4;
+	left: var(--vscode-spacing-size120);
+	bottom: 68px;
+	width: min(400px, calc(100% - 24px));
+	max-height: 30%;
+	overflow: auto;
+}
+
+.ade-floating-workflow:empty {
+	display: none;
+}
+
+.ade-floating-workflow .ade-workflow {
+	margin: 0;
+	border-radius: var(--vscode-cornerRadius-large);
+	box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+}
+
+.ade-canvas-mode .ade-canvas-help {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+}
+
+.ade-canvas-mode .ade-canvas-help.is-pending {
+	left: var(--vscode-spacing-size120);
+	bottom: 68px;
+	width: auto;
+	height: auto;
+	clip-path: none;
+	background: var(--vscode-editorWidget-background);
+	padding: var(--vscode-spacing-size80);
+	z-index: 4;
+}
+
+.ade-canvas-mode .ade-edge-caption {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.ade-canvas-mode .ade-edge-caption.is-visible,
+.ade-canvas-mode .ade-edge-caption.is-hovered {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.ade-canvas-mode .ade-connection {
+	opacity: 0.42;
+}
+
+.ade-canvas-mode .is-focusing .ade-connection {
+	opacity: 0.12;
+}
+
+.ade-canvas-mode .ade-connection.is-related,
+.ade-canvas-mode .ade-connection:hover,
+.ade-canvas-mode .ade-connection:focus-visible {
+	opacity: 1;
+}
+
+.ade-canvas-mode.ade-narrow .ade-canvas-title {
+	max-width: 100px;
+}
+
+.ade-canvas-mode.ade-narrow aside.ade-properties {
+	top: 72px;
+	max-height: 45%;
+}
+
+.ade-floating-menu .ade-canvas-title {
+	font-size: var(--vscode-fontSize-body1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	margin: 0 var(--vscode-spacing-size80);
+}
+
+.ade-canvas-mode > .ade-content > .ade-status {
+	position: absolute;
+	z-index: 6;
+	right: var(--vscode-spacing-size120);
+	bottom: var(--vscode-spacing-size120);
+	max-width: min(400px, calc(100% - 24px));
+	max-height: 25%;
+	overflow: auto;
+	padding: var(--vscode-spacing-size80);
+	background: var(--vscode-editorWidget-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-inputValidation-errorBorder);
+	border-radius: var(--vscode-cornerRadius-medium);
+}

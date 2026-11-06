@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
-import { basename, dirname } from '../../../../base/common/resources.js';
+import { basename, dirname, isEqualOrParent } from '../../../../base/common/resources.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ConfirmResult, IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
@@ -41,6 +42,8 @@ export class AdeProjectService extends Disposable {
 	private generation = 0;
 	private restoring: Promise<void> | undefined;
 	private initialized = false;
+	private workspaceChangePending = false;
+	private switchingWorkspace: Promise<void> | undefined;
 	private _section: SemanticLocation['section'];
 	private inspectionId = '';
 	private readonly navigation = new SemanticNavigationHistory();
@@ -86,15 +89,70 @@ export class AdeProjectService extends Disposable {
 		this.navigation.reset(this.location);
 		const resource = storageService.get('ade.shell.model', StorageScope.WORKSPACE);
 		if (resource) {
-			try { this._modelUri = URI.parse(resource); } catch { /* Ignore obsolete workspace URI. */ }
+			try {
+				const candidate = URI.parse(resource);
+				const owner = storageService.get('ade.shell.workspace', StorageScope.WORKSPACE);
+				if (owner === this.workspaceIdentity || this.belongsToWorkspace(candidate) || !owner && !this.workspace.getWorkspace().folders.length) { this._modelUri = candidate; }
+			} catch { /* Ignore obsolete workspace URI. */ }
 		}
 		this._register(storageService.onWillSaveState(() => {
 			storageService.store('ade.shell.section', this._section, StorageScope.WORKSPACE, StorageTarget.MACHINE);
-			storageService.store('ade.shell.model', this._modelUri?.toString(), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			storageService.store('ade.shell.workspace', this.workspaceIdentity, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			storageService.store('ade.shell.model', this.modelUri?.toString(), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 			storageService.store('ade.shell.diagram', this.context.viewId, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 			storageService.store('ade.shell.diagramSelections', JSON.stringify(this.context.selections), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 			storageService.store('ade.shell.inspection', this.inspectionId, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		}));
+		const sync = this._register(new RunOnceScheduler(() => { void this.followWorkspace(); }, 0));
+		let observedWorkspace = this.workspaceIdentity;
+		const changed = () => {
+			if (observedWorkspace !== this.workspaceIdentity) { observedWorkspace = this.workspaceIdentity; sync.schedule(); }
+		};
+		if (workspace.onDidChangeWorkspaceFolders) { this._register(workspace.onDidChangeWorkspaceFolders(changed)); }
+		if (workspace.onDidChangeWorkbenchState) { this._register(workspace.onDidChangeWorkbenchState(changed)); }
+	}
+
+	private get workspaceIdentity(): string { return JSON.stringify(this.workspace.getWorkspace().folders.map(folder => folder.uri.toString())); }
+	private belongsToWorkspace(resource: URI): boolean { return this.workspace.getWorkspace().folders.some(folder => isEqualOrParent(resource, folder.uri)); }
+	get workspaceFolder(): URI | undefined { return this.workspace.getWorkspace().folders[0]?.uri; }
+
+	/** Follow native File > Open Folder and in-place workspace folder changes. */
+	async followWorkspace(): Promise<void> {
+		if (this.switchingWorkspace) { await this.switchingWorkspace; return this.followWorkspace(); }
+		if (!this.workspaceChangePending && this._modelUri && this.belongsToWorkspace(this._modelUri)) { return; }
+		this.switchingWorkspace = this.replaceWorkspaceProject();
+		try { await this.switchingWorkspace; } finally { this.switchingWorkspace = undefined; }
+	}
+
+	private async replaceWorkspaceProject(): Promise<void> {
+		// Hide the old diagram immediately, but retain a dirty document until save/discard.
+		++this.generation;
+		this.watchDisposables.clear();
+		this.workspaceChangePending = true;
+		this._loading = false;
+		this._section = 'diagram';
+		this.changeEmitter.fire();
+		if (!await this.prepareToReplace()) { return; }
+		++this.generation;
+		this.modelDisposables.clear();
+		this.document = undefined;
+		this._modelUri = undefined;
+		this.workspaceChangePending = false;
+		this._error = undefined;
+		this._saveError = undefined;
+		this._diagnostics = [];
+		this.inspectionId = '';
+		this.clearWorkspaceModel();
+		try { await this.restoreWorkspaceProject(); }
+		catch (error) { this._section = 'diagram'; this._error = localize('ade.workspace.openFailed', "Could not open the project in this folder: {0}", String(error.message ?? error)); this.changeEmitter.fire(); }
+	}
+
+	private clearWorkspaceModel(): void {
+		this.semantics.replace({ version: 3, id: generateUuid(), name: this.workspaceFolder ? basename(this.workspaceFolder) : localize('ade.emptyWorkspace', "Workspace"), semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] });
+		this.context = { viewId: '', selections: {} };
+		this._section = 'home';
+		this.navigation.reset(this.location);
+		this.changeEmitter.fire();
 	}
 
 	get dirty(): boolean { return this.document?.isDirty() ?? false; }
@@ -104,19 +162,19 @@ export class AdeProjectService extends Disposable {
 	get canUndo(): boolean { return this.document?.textEditorModel.canUndo() ?? false; }
 	get canRedo(): boolean { return this.document?.textEditorModel.canRedo() ?? false; }
 	get section(): SemanticLocation['section'] { return this._section; }
-	get modelUri(): URI | undefined { return this._modelUri; }
+	get modelUri(): URI | undefined { return this.workspaceChangePending ? undefined : this._modelUri; }
 	/** Imported snapshots belong to the project above .ade, never to the snapshot directory. */
 	get projectRoot(): URI | undefined {
-		if (!this._modelUri) { return undefined; }
-		let current = dirname(this._modelUri);
+		if (!this.modelUri) { return undefined; }
+		let current = dirname(this.modelUri);
 		while (dirname(current).path !== current.path) {
 			if (basename(current) === '.ade') { return dirname(current); }
 			current = dirname(current);
 		}
-		return dirname(this._modelUri);
+		return dirname(this.modelUri);
 	}
 	get loading(): boolean { return this._loading; }
-	get error(): string | undefined { return this._error; }
+	get error(): string | undefined { return this.workspaceChangePending ? localize('ade.workspace.pending', "The workspace folder changed. Save or discard changes to the previous project before continuing. Choose Retry to continue opening the current folder.") : this._error; }
 	get diagnostics(): readonly string[] { return this._diagnostics; }
 	get model() { return this.semantics.getSnapshot(); }
 	get activeView() { return this.section === 'element' || this.section === 'impact' || this.section === 'map' ? undefined : this.model.views.find(view => view.id === this.context.viewId); }
@@ -189,7 +247,7 @@ export class AdeProjectService extends Disposable {
 		const folder = folders.find(folder => folder.uri.toString() === active) ?? (folders.length === 1 ? folders[0] : undefined);
 		if (folder && (await this.fileService.exists(URI.joinPath(folder.uri, '.ade', 'code-project.json')) || await this.fileService.exists(URI.joinPath(folder.uri, '.ade', 'model.json'))) && generation === this.generation && !this._modelUri) {
 			await this.openProject(folder.uri);
-		}
+		} else if (folders.length && generation === this.generation && !this._modelUri) { this.clearWorkspaceModel(); }
 	}
 
 	showSystemMap(): void {
@@ -226,6 +284,7 @@ export class AdeProjectService extends Disposable {
 		this.document = undefined;
 		this._saveError = undefined;
 		this._modelUri = undefined;
+		this.workspaceChangePending = false;
 		this._error = undefined;
 		this._loading = false;
 		this._diagnostics = [];
@@ -256,7 +315,9 @@ export class AdeProjectService extends Disposable {
 	}
 
 	async retry(): Promise<void> {
-		if (this._modelUri) { await this.loadModel(this._modelUri); }
+		if (this.workspaceChangePending) { await this.followWorkspace(); }
+		else if (this._modelUri) { await this.loadModel(this._modelUri); }
+		else { await this.restoreWorkspaceProject(); }
 	}
 
 	/** Every visual edit is one transaction in the native text model's undo stack. */
@@ -277,7 +338,7 @@ export class AdeProjectService extends Disposable {
 	async redo(): Promise<void> { await this.document?.textEditorModel.redo(); }
 
 	async save(): Promise<boolean> {
-		if (!this.document || this.error) { return false; }
+		if (!this.document || this._error) { return false; }
 		const document = this.document;
 		try {
 			const success = await document.save();
@@ -391,6 +452,7 @@ export class AdeProjectService extends Disposable {
 		this.initialized = true;
 		this.restoring = undefined;
 		this._modelUri = resource;
+		this.workspaceChangePending = false;
 		this._loading = true;
 		this._error = undefined;
 		this._saveError = undefined;

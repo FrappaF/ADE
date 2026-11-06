@@ -8,7 +8,7 @@ import { localize } from '../../../../nls.js';
 import * as dom from '../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
@@ -31,6 +31,8 @@ import { DiagramBox, placeConnectionLabel, routeDiagramConnections } from '../co
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
 import { renderAdeSequence } from './adeSequence.js';
 import { renderAdeState, stateTransitionLabel } from './adeState.js';
+import { DiagramCamera, DiagramBounds, fitDiagramCamera, zoomDiagram } from '../common/diagramCamera.js';
+import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { diagramNodeHeight, diagramNodeWidth } from '../common/diagramLayout.js';
 import { IAction, Separator, toAction } from '../../../../base/common/actions.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -48,7 +50,18 @@ export class AdeEditor extends EditorPane {
 	static readonly ID = AdeInput.ID;
 	private root!: HTMLElement;
 	private readonly interactions = this._register(new DisposableStore());
-	private zoom = 1;
+	private camera: DiagramCamera = { x: 80, y: 112, zoom: 1 };
+	private cameraKey: string | undefined;
+	private readonly cameras = new Map<string, DiagramCamera>();
+	private worldBounds: DiagramBounds = { x: 0, y: 0, width: 1, height: 1 };
+	private floatingMenu: HTMLElement | undefined;
+	private floatingInspector: HTMLElement | undefined;
+	private zoomReadout: HTMLElement | undefined;
+	private showRelationshipLabels = false;
+	private suppressCanvasClick = false;
+	private get zoom(): number { return this.camera.zoom; }
+	private set zoom(value: number) { this.camera = zoomDiagram(this.camera, value, { x: (this.canvasViewport?.clientWidth ?? 800) / 2, y: (this.canvasViewport?.clientHeight ?? 600) / 2 }); }
+
 	private inspectorOpen = false;
 	private relationSelection: string | undefined;
 	private lastElementSelection = '';
@@ -77,8 +90,14 @@ export class AdeEditor extends EditorPane {
 		@IQuickInputService private readonly quick: IQuickInputService,
 		@INotificationService private readonly notifications: INotificationService,
 		@IHoverService private readonly hover: IHoverService,
+		@IWorkbenchLayoutService private readonly workbenchLayout: IWorkbenchLayoutService,
 	) {
 		super(AdeEditor.ID, group, telemetryService, themeService, storageService);
+		try {
+			const saved: Record<string, DiagramCamera> = JSON.parse(storageService.get('ade.canvas.cameras', StorageScope.WORKSPACE) ?? '{}');
+			for (const [key, camera] of Object.entries(saved).slice(-100)) { if (camera && [camera.x, camera.y, camera.zoom].every(Number.isFinite) && camera.zoom >= 0.05 && camera.zoom <= 3) { this.cameras.set(key, camera); } }
+		} catch { /* Ignore obsolete viewport state. */ }
+		this._register(storageService.onWillSaveState(() => storageService.store('ade.canvas.cameras', JSON.stringify(Object.fromEntries([...this.cameras].slice(-100))), StorageScope.WORKSPACE, StorageTarget.MACHINE)));
 		this._register(code.onDidChange(() => { if (this.root) { this.render(); } }));
 		this._register(ai.onDidChange(() => { if (this.root) { this.render(); } }));
 		this._register(project.onDidChange(() => { if (this.root) { this.render(); } }));
@@ -94,16 +113,25 @@ export class AdeEditor extends EditorPane {
 		this.root.setAttribute('aria-label', localize('ade.workbenchLabel', "A.D.E Visual Workbench"));
 		adeFocusedSurface.bindTo(this._register(this.contextKeyService.createScoped(this.root))).set('editor');
 		void this.project.restore();
+		// A restored editor is created before the workbench grid exists.
+		void this.workbenchLayout.whenRestored.then(() => {
+			if (this.root.isConnected && this.isVisible()) { this.workbenchLayout.setPartHidden(true, Parts.SIDEBAR_PART); }
+		});
 		this.render();
 		void this.ai.refreshConnection();
 		this._register(dom.addDisposableListener(this.root, 'keydown', (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && this.pendingConnection) { this.pendingConnection = undefined; this.render(); }
+			if (event.key === 'Escape') {
+				if (this.pendingConnection) { this.pendingConnection = undefined; this.render(); }
+				else if (this.inspectorOpen) { this.inspectorOpen = false; this.render(); this.canvasViewport?.focus(); }
+				this.controls.setExpanded('canvas-actions', false);
+			}
 		}));
 	}
 
 	override layout(dimension: dom.Dimension): void {
 		dom.size(this.root, dimension.width, dimension.height);
 		this.root.classList.toggle('ade-narrow', dimension.width < 850);
+		this.applyCamera();
 	}
 
 	override focus(): void { this.root?.focus(); }
@@ -114,6 +142,7 @@ export class AdeEditor extends EditorPane {
 		if (!this.controls.focusTarget(`node:${this.project.selectedId}`)) { this.focus(); }
 	}
 	private revealElement(id: string, viewId?: string): void {
+		this.relationSelection = undefined;
 		if (this.project.revealElement(id, viewId)) { this.focusSelection(); }
 	}
 
@@ -136,31 +165,21 @@ export class AdeEditor extends EditorPane {
 		}
 		this.canvasViewport = undefined;
 		this.canvasContent = undefined;
+		this.floatingMenu = undefined;
+		this.floatingInspector = undefined;
 		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
+		const canvasMode = this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error;
+		this.root.classList.toggle('ade-canvas-mode', canvasMode);
+		if (this.cameraKey) { this.cameras.set(this.cameraKey, { ...this.camera }); }
+		const cameraKey = canvasMode ? `${this.project.projectRoot?.toString() ?? 'demo'}:${this.project.model.id}:${this.project.activeView!.id}` : undefined;
+		if (cameraKey !== this.cameraKey) { this.camera = this.cameras.get(cameraKey ?? '') ?? { x: 80, y: 112, zoom: 1 }; this.cameraKey = cameraKey; this.inspectorOpen = false; }
 		this.interactions.clear();
 		this.controls.render(this.root, () => {
 			dom.clearNode(this.root);
-			const navigation = dom.append(this.root, dom.$('nav.ade-navigation'));
-			navigation.setAttribute('aria-label', localize('ade.navigation', "Project Navigation"));
-			this.iconButton(navigation, localize('ade.back', "Back"), Codicon.arrowLeft, () => this.project.goBack()).disabled = !this.project.canGoBack;
-			this.iconButton(navigation, localize('ade.forward', "Forward"), Codicon.arrowRight, () => this.project.goForward()).disabled = !this.project.canGoForward;
-			this.iconButton(navigation, localize('ade.home', "Home"), Codicon.home, () => this.project.showHome());
-			this.button(navigation, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); });
-			const sync = this.button(navigation, localize('ade.updateCode', "Update Code"), () => { void this.code.sync('model'); });
-			sync.classList.toggle('ade-sync-project', this.project.dirty && !this.code.changed);
-			this.explainDisabled(sync, !this.code.available || !this.code.context || this.code.busy || this.ai.busy, !this.code.context ? localize('ade.linkRequired', "Import a Codebase to Update Its Code from Diagram Changes.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
-			if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) {
-				this.button(navigation, localize('ade.ai.chat', "Chat with Codex"), () => { void this.ai.chat(); }).disabled = this.ai.busy || this.code.busy;
-				if (this.code.context?.diagramState === 'diagrams') {
-					const pending = this.ai.diagramProgress && this.ai.diagramProgress.status !== 'complete';
-					const update = this.button(navigation, localize('ade.updateDiagrams', "Update Diagrams"), () => { void (pending ? this.ai.resumeDiagrams() : this.ai.buildDiagrams()); });
-					update.disabled = this.ai.busy || this.code.busy; update.classList.toggle('ade-primary-action', this.code.changed && !pending);
-				}
-			}
-
+			if (!canvasMode) { this.renderNavigation(this.root); }
 			const content = dom.append(this.root, dom.$('main.ade-content'));
 			this.content = content;
-			this.renderWorkflow(content);
+			if (!canvasMode) { this.renderWorkflow(content); }
 			if (this.project.section === 'home') {
 				this.renderHome(content);
 			} else if (this.project.loading || this.project.error) {
@@ -180,10 +199,37 @@ export class AdeEditor extends EditorPane {
 			} else {
 				this.renderDiagram(content);
 			}
-			this.renderTools(dom.append(this.root, dom.$('nav.ade-tools')));
+			if (!canvasMode) { this.renderTools(dom.append(this.root, dom.$('nav.ade-tools'))); }
+			// Restore the camera before restoring keyboard focus: focus may reveal a node.
+			if (canvasMode) { this.applyCamera(); }
 		});
-		this.restoreCanvasScroll();
+		if (!canvasMode) { this.restoreCanvasScroll(); }
 		if (this.content) { this.content.scrollTop = this.contentPositions.get(this.renderedContext) ?? 0; }
+	}
+
+	private renderNavigation(parent: HTMLElement, canvas = false): void {
+		const navigation = dom.append(parent, dom.$('nav.ade-navigation'));
+		navigation.setAttribute('aria-label', localize('ade.navigation', "Project Navigation"));
+		this.iconButton(navigation, localize('ade.back', "Back"), Codicon.arrowLeft, () => this.project.goBack()).disabled = !this.project.canGoBack;
+		this.iconButton(navigation, localize('ade.forward', "Forward"), Codicon.arrowRight, () => this.project.goForward()).disabled = !this.project.canGoForward;
+		this.iconButton(navigation, localize('ade.home', "Home"), Codicon.home, () => this.project.showHome());
+		if (!canvas) { this.button(navigation, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); }); }
+		if (!canvas || !this.code.context) { this.renderPrimaryActions(navigation); }
+	}
+
+	private renderPrimaryActions(parent: HTMLElement): void {
+		if (this.ai.chatLocation && this.root.classList.contains('ade-canvas-mode')) { this.button(parent, localize('ade.backToDiagrams', "Back to Diagrams"), () => { void this.ai.returnToDiagrams(); }); }
+		const sync = this.button(parent, localize('ade.updateCode', "Update Code"), () => { void this.code.sync('model'); });
+		sync.classList.toggle('ade-sync-project', this.project.dirty && !this.code.changed);
+		this.explainDisabled(sync, !!this.project.error || !this.code.available || !this.code.context || this.code.busy || this.ai.busy, !this.code.context ? localize('ade.linkRequired', "Import a Codebase to Update Its Code from Diagram Changes.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
+		if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) {
+			this.button(parent, localize('ade.ai.chat', "Chat with Codex"), () => { void this.ai.chat(); }).disabled = !!this.project.error || this.ai.busy || this.code.busy;
+			if (this.code.context?.diagramState === 'diagrams') {
+				const pending = this.ai.diagramProgress && this.ai.diagramProgress.status !== 'complete';
+				const update = this.button(parent, localize('ade.updateDiagrams', "Update Diagrams"), () => { void (pending ? this.ai.resumeDiagrams() : this.ai.buildDiagrams()); });
+				update.disabled = !!this.project.error || this.ai.busy || this.code.busy; update.classList.toggle('ade-primary-action', this.code.changed && !pending);
+			}
+		}
 	}
 
 	private restoreCanvasScroll(): void {
@@ -198,6 +244,7 @@ export class AdeEditor extends EditorPane {
 
 	private renderHome(content: HTMLElement): void {
 		dom.append(content, dom.$('h1')).textContent = localize('ade.welcome', "Your System, in Context");
+		if (this.project.workspaceFolder && !this.project.modelUri) { this.paragraph(content, localize('ade.workspaceFolder', "Current Folder: {0}. Open an A.D.E project, create one, or import this codebase.", this.project.workspaceFolder.fsPath)); }
 		this.paragraph(content, localize('ade.intro', "Design and explore your system through its features and diagrams."));
 		this.button(content, localize('ade.openProject', "Open Project"), () => { void this.commandService.executeCommand('ade.openProject'); });
 		this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
@@ -210,10 +257,7 @@ export class AdeEditor extends EditorPane {
 	private renderDiagram(content: HTMLElement): void {
 		const model = this.project.model;
 		const view = this.project.activeView;
-		this.renderBreadcrumbs(content);
-		dom.append(content, dom.$('h1')).textContent = view?.name ?? model.name;
-
-		this.renderEditingToolbar(content);
+		if (!view) { this.renderBreadcrumbs(content); dom.append(content, dom.$('h1')).textContent = model.name; this.renderEditingToolbar(content); }
 		if (this.project.saveError) {
 			const error = dom.append(content, dom.$('p.ade-status'));
 			error.setAttribute('role', 'alert');
@@ -228,16 +272,12 @@ export class AdeEditor extends EditorPane {
 			this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
 			return;
 		}
-		if (view.kind === 'state') { renderAdeState(content, model, view, this.controls, id => this.project.inspectElement(id), id => { this.inspectorOpen = true; this.project.selectElement(id); this.render(); this.focusSelection(); }); }
 		const workspace = dom.append(content, dom.$('.ade-workspace'));
 		workspace.classList.toggle('has-inspector', this.inspectorOpen);
 		const visual = dom.append(workspace, dom.$('section.ade-visual'));
-		if (view.kind === 'sequence') { this.paragraph(visual, localize('ade.sequence.intent', "Declared sequence: invocations, reads and writes, one occurrence per relationship. Order is local to this diagram, not observed execution.")); }
 		this.renderCanvas(dom.append(visual, dom.$('.ade-canvas-scroll')), model, view);
-		if (view.id.startsWith('semantic:')) { this.paragraph(visual, localize('ade.ai.interpretationHint', "AI Interpretation · Review Inferred Responsibilities and Flows Against the Source.")); }
-		const diagramHelp = this.controls.details(visual, localize('ade.diagramHelp', "Diagram Help"), 'diagram-help');
-		this.paragraph(diagramHelp, localize('ade.relation.legend', "Relationships: solid arrow = invocation; dashed arrow = dependency; dashed triangle = realization. Read, write and transition types are named on each connection."));
-		const help = dom.append(this.pendingConnection ? visual : diagramHelp, dom.$('p'));
+		const help = dom.append(visual, dom.$('p.ade-canvas-help'));
+		help.classList.toggle('is-pending', !!this.pendingConnection);
 		help.id = 'ade-canvas-help';
 		help.textContent = view.kind === 'sequence' && this.project.editable
 			? localize('ade.sequence.help', "Select a participant or message to inspect its shared contract. Use Properties to order participants and messages or remove them from this diagram. Focus the background and use arrow keys to pan.")
@@ -248,11 +288,42 @@ export class AdeEditor extends EditorPane {
 		if (this.pendingConnection) { help.textContent = localize('ade.connection.pending', "Choose a Compatible Target on the Canvas for {0}, or Press Escape to Cancel.", relationLabels[this.pendingConnection.kind]); }
 		const accessibilityHint = getAdeAccessibilityHint(this.configurationService, this.keybindingService);
 		if (accessibilityHint) { help.textContent = localize('ade.canvasHelpWithHint', "{0} {1}", help.textContent, accessibilityHint); }
+		this.renderCanvasMenus(content, view);
 		if (this.inspectorOpen) {
-			const inspector = dom.append(workspace, dom.$('aside.ade-properties'));
-			this.button(inspector, localize('ade.closeProperties', "Close Properties"), () => { this.inspectorOpen = false; this.render(); });
+			const inspector = this.floatingInspector = dom.append(workspace, dom.$('aside.ade-properties'));
+			this.iconButton(inspector, localize('ade.closeProperties', "Close Properties"), Codicon.close, () => { this.inspectorOpen = false; this.render(); });
 			if (this.relationSelection) { this.renderRelationProperties(inspector, this.relationSelection); } else { this.renderProperties(inspector, model, view); }
 		}
+	}
+
+	private renderCanvasMenus(parent: HTMLElement, view: ModelView): void {
+		const menu = this.floatingMenu = dom.append(parent, dom.$('nav.ade-floating-menu'));
+		menu.setAttribute('aria-label', localize('ade.canvasActions', "Canvas Actions"));
+		this.button(menu, localize('ade.openProject', "Open Project"), () => { void this.commandService.executeCommand('ade.openProject'); }, 'canvas-open-project');
+		this.button(menu, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); });
+		const spread = this.button(menu, localize('ade.spreadOut', "Spread Out"), () => { this.project.edit({ kind: 'layout', viewId: view.id, density: 'spacious' }); this.focusSelection(); });
+		spread.disabled = !this.project.editable || view.kind === 'sequence';
+		const title = dom.append(menu, dom.$('h1.ade-canvas-title')); title.textContent = view.name; title.title = view.name;
+		const actions = this.controls.details(menu, localize('ade.canvasMenu', "Actions"), 'canvas-actions');
+		this.renderNavigation(actions, true);
+		if (this.code.context) { this.renderPrimaryActions(menu); }
+		this.renderEditingToolbar(actions);
+		const labels = this.button(actions, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !this.showRelationshipLabels; this.render(); });
+		labels.setAttribute('aria-pressed', String(this.showRelationshipLabels));
+		this.renderTools(dom.append(actions, dom.$('nav.ade-tools')));
+		const zoom = dom.append(parent, dom.$('nav.ade-floating-zoom'));
+		zoom.setAttribute('aria-label', localize('ade.canvasZoom', "Canvas Zoom"));
+		this.iconButton(zoom, localize('ade.zoomOut', "Zoom Out"), Codicon.remove, () => { this.zoom /= 1.2; this.applyCamera(); }, 'canvas-zoom-out');
+		this.zoomReadout = dom.append(zoom, dom.$('span.ade-zoom-readout'));
+		this.iconButton(zoom, localize('ade.zoomIn', "Zoom In"), Codicon.add, () => { this.zoom *= 1.2; this.applyCamera(); }, 'canvas-zoom-in');
+		this.button(zoom, localize('ade.fitDiagram', "Fit Diagram"), () => this.fitDiagram(), 'canvas-fit');
+		const workflow = dom.append(parent, dom.$('section.ade-floating-workflow')); this.renderWorkflow(workflow);
+		if (view.kind === 'state') { renderAdeState(this.controls.details(actions, localize('ade.state.lifecycle', "Lifecycle Details"), 'canvas-lifecycle'), this.project.model, view, this.controls, id => this.project.inspectElement(id), id => { this.inspectorOpen = true; this.project.selectElement(id); this.render(); this.focusSelection(); }); }
+		if (view.kind === 'sequence') { this.paragraph(this.controls.details(actions, localize('ade.sequence.info', "Sequence Details"), 'canvas-sequence'), localize('ade.sequence.intent', "Declared sequence: invocations, reads and writes, one occurrence per relationship. Order is local to this diagram, not observed execution.")); }
+		if (view.id.startsWith('semantic:')) { this.paragraph(this.controls.details(actions, localize('ade.ai.info', "Interpretation Details"), 'canvas-interpretation'), localize('ade.ai.interpretationHint', "AI Interpretation · Review Inferred Responsibilities and Flows Against the Source.")); }
+		const help = this.controls.details(actions, localize('ade.canvasHelpMenu', "Canvas Help"), 'canvas-help-menu');
+		this.paragraph(help, localize('ade.relation.legend', "Relationships: solid arrow = invocation; dashed arrow = dependency; dashed triangle = realization. Read, write and transition types are named on each connection."));
+		this.paragraph(help, localize('ade.infiniteCanvasHelp', "Drag the background to pan. Scroll to move; Ctrl or Command + scroll to zoom at the pointer. Arrow keys pan when the canvas is focused. Home fits the diagram. Select an element or connection for floating details."));
 	}
 
 	private renderSystemMap(content: HTMLElement): void {
@@ -383,7 +454,11 @@ export class AdeEditor extends EditorPane {
 		parent.setAttribute('role', 'region');
 		parent.setAttribute('aria-describedby', 'ade-canvas-help');
 		parent.setAttribute('aria-label', localize('ade.canvas', "Diagram: {0}", view.name));
+		parent.setAttribute('aria-roledescription', localize('ade.infiniteCanvas', "Infinite Diagram Canvas"));
+		this.installPan(parent);
 		if (!view.nodes.length) {
+			this.canvasContent = dom.append(dom.append(parent, dom.$('.ade-canvas')), dom.$('.ade-canvas-content'));
+			this.worldBounds = { x: 0, y: 0, width: 1, height: 1 };
 			this.paragraph(parent, localize('ade.emptyDiagram', "This diagram has no elements."));
 			return;
 		}
@@ -391,15 +466,20 @@ export class AdeEditor extends EditorPane {
 			const frame = dom.append(parent, dom.$('.ade-canvas'));
 			const canvas = dom.append(frame, dom.$('.ade-canvas-content'));
 			this.canvasContent = canvas;
-			const size = renderAdeSequence(canvas, model, view, this.controls, this.project.selectedId, id => { if (this.pendingConnection) { void this.finishConnection(id); } else { this.inspectorOpen = true; this.project.selectElement(id); this.render(); } }, {
+			const selectRelation = (id: string) => { this.inspectorOpen = true; this.relationSelection = id; this.render(); };
+			const size = renderAdeSequence(canvas, model, view, this.controls, this.project.selectedId, id => { if (this.pendingConnection) { void this.finishConnection(id); } else { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(id); this.render(); } }, {
+				selectRelation, selectedRelation: this.relationSelection,
 				element: (target, id) => this.installContextMenu(target, (x, y) => this.elementMenu(id, x, y)),
-				relation: (target, id) => this.installContextMenu(target, (x, y) => this.relationMenu(id, x, y))
+				relation: (target, id) => {
+					this.installContextMenu(target, (x, y) => this.relationMenu(id, x, y));
+					if (dom.isSVGElement(target)) { this.interactions.add(dom.addDisposableListener(target, 'click', () => selectRelation(id))); }
+				}
 			});
 			dom.size(canvas, size.width, size.height);
-			dom.size(frame, size.width * this.zoom, size.height * this.zoom);
+			dom.size(frame, 1, 1);
+			this.worldBounds = { x: 0, y: 0, width: size.width, height: size.height };
 			canvas.style.transformOrigin = '0 0';
 			canvas.style.transform = `scale(${this.zoom})`;
-			this.installPan(parent);
 			const sequence = getSequenceDiagram(model, view);
 			if (!sequence.messages.length) { this.paragraph(parent, localize('ade.sequence.empty', "No messages. Add an existing interaction or connect participants.")); }
 			if (sequence.unsupported.length) {
@@ -408,13 +488,11 @@ export class AdeEditor extends EditorPane {
 			return;
 		}
 		const height = diagramNodeHeight;
-		const left = Math.min(...view.nodes.map(node => node.x));
-		const top = Math.min(...view.nodes.map(node => node.y));
+
 		const frame = dom.append(parent, dom.$('.ade-canvas'));
 		const canvas = dom.append(frame, dom.$('.ade-canvas-content'));
 		this.canvasContent = canvas;
 		canvas.style.transformOrigin = '0 0';
-		this.installPan(parent);
 		const svg = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
 		svg.setAttribute('role', 'group');
 		svg.setAttribute('aria-label', localize('ade.connections', "Diagram Relationships"));
@@ -422,15 +500,12 @@ export class AdeEditor extends EditorPane {
 		const paths = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
 		const labels = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
 		svg.append(paths, labels);
-		const boxes = view.nodes.map(node => ({ id: node.elementId, x: node.x - left + 64, y: node.y - top + 64, width: diagramNodeWidth(model.semantics.elements.find(element => element.id === node.elementId)!.name), height }));
+		const boxes = view.nodes.map(node => ({ id: node.elementId, x: node.x, y: node.y, width: diagramNodeWidth(model.semantics.elements.find(element => element.id === node.elementId)!.name), height }));
 		const relationships = model.semantics.relations.filter(relation => view.relationIds.includes(relation.id));
 		const routes = routeDiagramConnections(boxes, relationships);
 		const connections = relationships.map(relation => ({ relation, route: routes.get(relation.id) }));
 		const points = connections.flatMap(connection => connection.route ?? []);
-		const shiftX = Math.max(0, 32 - Math.min(...boxes.map(box => box.x), ...points.map(point => point.x)));
-		const shiftY = Math.max(0, 32 - Math.min(...boxes.map(box => box.y), ...points.map(point => point.y)));
-		for (const box of boxes) { box.x += shiftX; box.y += shiftY; }
-		for (const point of points) { point.x += shiftX; point.y += shiftY; }
+
 		const occupied: DiagramBox[] = [...boxes];
 		for (const { relation, route } of connections) {
 			if (!route || route.length < 2) { continue; }
@@ -440,8 +515,10 @@ export class AdeEditor extends EditorPane {
 			const path = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
 			path.setAttribute('data-relation-id', relation.id);
 			path.setAttribute('d', `${route.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ')} M ${end.x - 10 * Math.cos(angle - 0.5)} ${end.y - 10 * Math.sin(angle - 0.5)} L ${end.x} ${end.y} L ${end.x - 10 * Math.cos(angle + 0.5)} ${end.y - 10 * Math.sin(angle + 0.5)}`);
+			const related = this.relationSelection === relation.id || this.inspectorOpen && (relation.from === this.project.selectedId || relation.to === this.project.selectedId);
+			const visibleCaption = this.showRelationshipLabels || related;
 			const group = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
-			group.setAttribute('class', `ade-connection${this.relationSelection === relation.id ? ' selected' : ''}`);
+			group.setAttribute('class', `ade-connection${this.relationSelection === relation.id ? ' selected' : ''}${related ? ' is-related' : ''}`);
 			group.setAttribute('tabindex', '0'); group.setAttribute('role', 'button');
 			group.setAttribute('data-relation-id', relation.id);
 			const fromName = model.semantics.elements.find(element => element.id === relation.from)!.name;
@@ -476,21 +553,31 @@ export class AdeEditor extends EditorPane {
 			this.interactions.add(dom.addDisposableListener(group, 'click', (event: MouseEvent) => { void select(event); }));
 			this.interactions.add(dom.addDisposableListener(group, 'keydown', (event: KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void select(); } }));
 			this.installContextMenu(group, context);
+			const caption = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
+			caption.setAttribute('class', `ade-edge-caption${visibleCaption ? ' is-visible' : ''}`); labels.appendChild(caption);
+			const reveal = () => caption.classList.add('is-hovered');
+			const conceal = () => caption.classList.remove('is-hovered');
+			for (const target of [group, caption]) {
+				this.interactions.add(dom.addDisposableListener(target, 'pointerenter', reveal));
+				this.interactions.add(dom.addDisposableListener(target, 'pointerleave', conceal));
+				this.interactions.add(dom.addDisposableListener(target, 'focus', reveal));
+				this.interactions.add(dom.addDisposableListener(target, 'blur', conceal));
+			}
 			const label = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'text');
 			label.setAttribute('class', 'ade-connection-label');
 			label.textContent = view.kind === 'state' && relation.kind === 'transition' ? stateTransitionLabel(relation) : [relationLabels[relation.kind], relation.name, relation.condition ? `[${relation.condition}]` : '', relation.errorCode].filter(Boolean).join(' · ');
 			label.setAttribute('data-relation-id', relation.id);
 			this.interactions.add(dom.addDisposableListener(label, 'click', (event: MouseEvent) => { void select(event); }));
 			this.installContextMenu(label, context);
-			labels.appendChild(label);
+			caption.appendChild(label);
 			const placement = placeConnectionLabel(route, label.getComputedTextLength() + 12, occupied);
-			occupied.push(placement.box);
+			if (visibleCaption) { occupied.push(placement.box); }
 			const { x, y, width: labelWidth } = placement.box;
 			const background = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
 			background.setAttribute('class', 'ade-connection-background');
 			background.setAttribute('x', String(x)); background.setAttribute('y', String(y));
 			background.setAttribute('width', String(labelWidth)); background.setAttribute('height', String(placement.box.height));
-			labels.insertBefore(background, label);
+			caption.insertBefore(background, label);
 			label.setAttribute('x', String(x + 6)); label.setAttribute('y', String(y + 14));
 			if (placement.detached) {
 				const leader = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -498,14 +585,18 @@ export class AdeEditor extends EditorPane {
 				const attachmentX = Math.max(x, Math.min(placement.anchor.x, x + labelWidth));
 				const attachmentY = Math.max(y, Math.min(placement.anchor.y, y + placement.box.height));
 				leader.setAttribute('d', `M ${placement.anchor.x} ${placement.anchor.y} L ${attachmentX} ${attachmentY}`);
-				paths.appendChild(leader);
+				caption.insertBefore(leader, background);
 			}
 		}
+		const minX = Math.min(...occupied.map(box => box.x), ...points.map(point => point.x));
+		const minY = Math.min(...occupied.map(box => box.y), ...points.map(point => point.y));
 		const canvasWidth = Math.max(...occupied.map(box => box.x + box.width), ...points.map(point => point.x)) + 32;
 		const canvasHeight = Math.max(...occupied.map(box => box.y + box.height), ...points.map(point => point.y)) + 32;
-		dom.size(frame, canvasWidth * this.zoom, canvasHeight * this.zoom);
-		dom.size(canvas, canvasWidth, canvasHeight);
-		svg.setAttribute('width', String(canvasWidth)); svg.setAttribute('height', String(canvasHeight));
+		this.worldBounds = { x: minX, y: minY, width: canvasWidth - minX, height: canvasHeight - minY };
+		canvas.classList.toggle('is-focusing', this.inspectorOpen);
+		dom.size(frame, 1, 1);
+		dom.size(canvas, 1, 1);
+		svg.setAttribute('width', '1'); svg.setAttribute('height', '1');
 		// Measure labels at their logical size before applying the viewport zoom.
 		canvas.style.transform = `scale(${this.zoom})`;
 		const positions = new Map(boxes.map(box => [box.id, box]));
@@ -542,6 +633,14 @@ export class AdeEditor extends EditorPane {
 		if (!element) { return; }
 		dom.append(detail, dom.$('h3')).textContent = element.name;
 		this.paragraph(detail, localize('ade.elementKind', "Type: {0}", elementLabels[element.kind]));
+		const floating = this.root.classList.contains('ade-canvas-mode') && !!view;
+		if (floating) {
+			if (element.description) { this.paragraph(detail, element.description); }
+			if (this.project.editable) {
+				for (const [label, command] of [[localize('ade.renameElement', "Rename Element"), 'ade.renameElement'], [localize('ade.editDescription', "Edit Description"), 'ade.description'], [localize('ade.connectSelection', "Connect Selection"), 'ade.connect']]) { this.button(detail, label, () => { void this.commandService.executeCommand(command); }).disabled = command === 'ade.connect' && view?.kind === 'state' && element.kind !== 'state'; }
+			}
+			detail = this.controls.details(detail, localize('ade.elementMore', "Details and Actions"), `element-more:${element.id}`);
+		}
 		if (this.project.section !== 'impact') { this.button(detail, localize('ade.showImpact.button', "Show Change Impact"), () => this.project.showImpact(element.id), 'show-impact'); }
 		if (element.kind === 'state' && element.parentId) {
 			const resource = model.semantics.elements.find(candidate => candidate.id === element.parentId && candidate.kind === 'resource');
@@ -575,11 +674,11 @@ export class AdeEditor extends EditorPane {
 				[localize('ade.connectSelection', "Connect Selection"), 'ade.connect'],
 				[localize('ade.deleteElement', "Delete Element"), 'ade.deleteElement']
 			]) {
-				if (command === 'ade.connect' && !view) { continue; }
+				if (command === 'ade.connect' && !view || floating && ['ade.renameElement', 'ade.description', 'ade.connect'].includes(command)) { continue; }
 				this.button(detail, label, () => { void this.commandService.executeCommand(command); }).disabled = command === 'ade.connect' && view?.kind === 'state' && element.kind !== 'state';
 			}
 		}
-		if (element.description) { this.paragraph(detail, element.description); }
+		if (element.description && !floating) { this.paragraph(detail, element.description); }
 		if (element.behavior) {
 			dom.append(detail, dom.$('h3')).textContent = localize('ade.behavior.heading', "Behavioral Contract");
 			this.paragraph(detail, localize('ade.behavior.intent', "Contract declarations describe expected behavior."));
@@ -671,7 +770,7 @@ export class AdeEditor extends EditorPane {
 			if (this.project.editable && this.project.activeView.kind !== 'sequence') { this.button(options, localize('ade.layout', "Arrange Diagram"), () => { void this.commandService.executeCommand('ade.layout'); }); }
 			this.button(toolbar, localize('ade.createRelationship', "Create Relationship…"), () => { void this.beginConnection(this.project.selectedId); }).disabled = !this.project.editable;
 			this.button(options, localize('ade.readDiagram', "Read Diagram"), () => { void this.commandService.executeCommand('ade.readContext'); });
-			this.button(toolbar, localize('ade.fitDiagram', "Fit Diagram"), () => this.fitDiagram());
+			if (!this.root.classList.contains('ade-canvas-mode')) { this.button(toolbar, localize('ade.fitDiagram', "Fit Diagram"), () => this.fitDiagram()); }
 			this.iconButton(options, localize('ade.zoomOut', "Zoom Out"), Codicon.remove, () => { this.zoom = Math.max(0.4, this.zoom - 0.2); this.render(); });
 			this.iconButton(options, localize('ade.zoomReset', "Reset Zoom"), Codicon.screenNormal, () => { this.zoom = 1; this.render(); });
 			this.iconButton(options, localize('ade.zoomIn', "Zoom In"), Codicon.add, () => { this.zoom = Math.min(2, this.zoom + 0.2); this.render(); });
@@ -685,44 +784,69 @@ export class AdeEditor extends EditorPane {
 	}
 
 	private fitDiagram(): void {
-		const viewport = this.canvasViewport;
-		const canvas = this.canvasContent;
-		if (!viewport || !canvas) { return; }
-		const style = dom.getWindow(viewport).getComputedStyle(viewport);
-		const heightLimit = parseFloat(style.maxHeight);
-		const availableHeight = Number.isFinite(heightLimit) ? heightLimit : viewport.clientHeight;
-		// Scrollbars can disappear after fitting; use the stable border box for width.
-		const availableWidth = viewport.offsetWidth - parseFloat(style.borderLeftWidth) - parseFloat(style.borderRightWidth);
-		this.zoom = Math.max(0.1, Math.min(1, (availableWidth - 2) / canvas.offsetWidth, (availableHeight - 2) / canvas.offsetHeight));
-		this.render();
-		if (this.canvasViewport) { this.canvasViewport.scrollLeft = 0; this.canvasViewport.scrollTop = 0; }
+		if (!this.canvasViewport) { return; }
+		this.camera = fitDiagramCamera(this.worldBounds, { width: this.canvasViewport.clientWidth, height: this.canvasViewport.clientHeight });
+		this.applyCamera();
+	}
+
+	private applyCamera(): void {
+		if (!this.canvasContent || !this.canvasViewport) { return; }
+		this.canvasContent.style.transform = `translate(${this.camera.x}px, ${this.camera.y}px) scale(${this.camera.zoom})`;
+		this.canvasViewport.style.backgroundPosition = `${this.camera.x}px ${this.camera.y}px`;
+		let grid = 24 * this.zoom;
+		while (grid < 16) { grid *= 2; }
+		while (grid > 48) { grid /= 2; }
+		this.canvasViewport.style.backgroundSize = `${grid}px ${grid}px`;
+		if (this.zoomReadout) { this.zoomReadout.textContent = `${Math.round(this.zoom * 100)}%`; }
+		const menu = this.floatingMenu;
+		const inspector = this.floatingInspector;
+		if (menu && inspector) { inspector.style.top = menu.offsetLeft + menu.offsetWidth + inspector.offsetWidth + 24 > this.root.clientWidth ? `${menu.offsetTop + menu.offsetHeight + 12}px` : ''; }
+		if (this.cameraKey) { this.cameras.set(this.cameraKey, { ...this.camera }); }
 	}
 
 	private installPan(parent: HTMLElement): void {
+		this.interactions.add(dom.addDisposableListener(parent, 'wheel', (event: WheelEvent) => {
+			event.preventDefault();
+			if (event.ctrlKey || event.metaKey) {
+				const bounds = parent.getBoundingClientRect();
+				this.camera = zoomDiagram(this.camera, this.zoom * Math.exp(-event.deltaY * 0.002), { x: event.clientX - bounds.left, y: event.clientY - bounds.top });
+			} else { this.camera.x -= event.deltaX; this.camera.y -= event.deltaY; }
+			this.applyCamera();
+		}, { passive: false }));
 		this.interactions.add(dom.addDisposableListener(parent, 'keydown', (event: KeyboardEvent) => {
 			if (event.target !== parent) { return; }
-			const step = event.shiftKey ? 80 : 40;
-			const offset = event.key === 'ArrowLeft' ? [-step, 0] : event.key === 'ArrowRight' ? [step, 0] : event.key === 'ArrowUp' ? [0, -step] : event.key === 'ArrowDown' ? [0, step] : undefined;
-			if (offset) {
-				event.preventDefault();
-				event.stopPropagation();
-				parent.scrollLeft += offset[0];
-				parent.scrollTop += offset[1];
-			}
+			const step = event.shiftKey ? 160 : 64;
+			const offset = event.key === 'ArrowLeft' ? [step, 0] : event.key === 'ArrowRight' ? [-step, 0] : event.key === 'ArrowUp' ? [0, step] : event.key === 'ArrowDown' ? [0, -step] : undefined;
+			if (offset) { event.preventDefault(); event.stopPropagation(); this.camera.x += offset[0]; this.camera.y += offset[1]; this.applyCamera(); }
+			else if (event.key === 'Home') { event.preventDefault(); this.fitDiagram(); }
 		}));
 		let drag: { x: number; y: number; left: number; top: number } | undefined;
 		this.interactions.add(dom.addDisposableListener(parent, 'pointerdown', (event: PointerEvent) => {
-			if (event.button === 1 || (event.button === 0 && event.altKey)) {
-				drag = { x: event.clientX, y: event.clientY, left: parent.scrollLeft, top: parent.scrollTop };
-				parent.setPointerCapture(event.pointerId);
-				event.preventDefault();
+			this.controls.setExpanded('canvas-actions', false);
+			this.suppressCanvasClick = false;
+			const target = event.target as Element;
+			if (event.button === 1 || event.button === 0 && (event.altKey || !target.closest('button, [role="button"], .ade-connection-label, [data-relation-id]'))) {
+				drag = { x: event.clientX, y: event.clientY, left: this.camera.x, top: this.camera.y };
+				parent.setPointerCapture(event.pointerId); parent.focus(); parent.classList.add('is-panning'); event.preventDefault();
 			}
 		}));
 		this.interactions.add(dom.addDisposableListener(parent, 'pointermove', (event: PointerEvent) => {
-			if (drag) { parent.scrollLeft = drag.left - event.clientX + drag.x; parent.scrollTop = drag.top - event.clientY + drag.y; }
+			if (drag) { this.camera.x = drag.left + event.clientX - drag.x; this.camera.y = drag.top + event.clientY - drag.y; this.applyCamera(); }
 		}));
-		this.interactions.add(dom.addDisposableListener(parent, 'pointerup', () => { drag = undefined; }));
-		this.interactions.add(dom.addDisposableListener(parent, 'pointercancel', () => { drag = undefined; }));
+		this.interactions.add(dom.addDisposableListener(parent, 'pointerup', (event: PointerEvent) => {
+			if (drag) { this.suppressCanvasClick = Math.abs(event.clientX - drag.x) + Math.abs(event.clientY - drag.y) > 3; drag = undefined; parent.classList.remove('is-panning'); }
+		}));
+		this.interactions.add(dom.addDisposableListener(parent, 'pointercancel', () => { drag = undefined; parent.classList.remove('is-panning'); }));
+		this.interactions.add(dom.addDisposableListener(parent, 'click', (event: MouseEvent) => { if (this.suppressCanvasClick && event.detail > 0) { this.suppressCanvasClick = false; event.preventDefault(); event.stopPropagation(); } }, true));
+		this.interactions.add(dom.addDisposableListener(parent, 'focusin', (event: FocusEvent) => {
+			const target = event.target as HTMLElement;
+			if (!target.classList.contains('ade-node')) { return; }
+			const bounds = target.getBoundingClientRect(), viewport = parent.getBoundingClientRect();
+			if (bounds.right < viewport.left + 24 || bounds.left > viewport.right - 24 || bounds.bottom < viewport.top + 80 || bounds.top > viewport.bottom - 64) {
+				this.camera.x += viewport.left + viewport.width / 2 - (bounds.left + bounds.width / 2);
+				this.camera.y += viewport.top + viewport.height / 2 - (bounds.top + bounds.height / 2); this.applyCamera();
+			}
+		}));
 	}
 
 	private installNodeEditing(button: HTMLButtonElement, view: ModelView, id: string): void {
@@ -771,8 +895,8 @@ export class AdeEditor extends EditorPane {
 		this.interactions.add(this.hover.setupManagedHover(getDefaultHoverDelegate('mouse'), button, disabled ? reason : button.getAttribute('aria-label') ?? button.textContent ?? ''));
 	}
 
-	private iconButton(parent: HTMLElement, label: string, icon: ThemeIcon, action: () => void): HTMLButtonElement {
-		const button = this.button(parent, label, action);
+	private iconButton(parent: HTMLElement, label: string, icon: ThemeIcon, action: () => void, id = label): HTMLButtonElement {
+		const button = this.button(parent, label, action, id);
 		button.setAttribute('aria-label', label);
 		dom.clearNode(button); button.appendChild(renderIcon(icon));
 		this.interactions.add(this.hover.setupManagedHover(getDefaultHoverDelegate('mouse'), button, label));
@@ -943,7 +1067,7 @@ export class AdeEditor extends EditorPane {
 		const status = dom.append(toolbar, dom.$('span.ade-sync-status'));
 		status.setAttribute('role', 'status');
 		status.textContent = this.ai.busy ? this.ai.status : this.code.busy ? this.code.status : this.code.changed ? localize('ade.codeNeedsDiagrams', "Code Changed · Update Diagrams") : this.project.dirty ? localize('ade.unsaved', "Unsaved Changes") : this.ai.workflowStatus ?? localize('ade.saved', "Saved");
-		if (this.ai.chatLocation) {
+		if (this.ai.chatLocation && !this.root.classList.contains('ade-canvas-mode')) {
 			const back = this.button(toolbar, localize('ade.backToDiagrams', "Back to Diagrams"), () => { void this.ai.returnToDiagrams(); });
 			back.setAttribute('aria-description', this.ai.chatLocation === 'terminal' ? localize('ade.codexInTerminal', "Codex Is Open in the Terminal") : localize('ade.codexInChat', "Codex Is Open in Chat"));
 		}
@@ -958,6 +1082,7 @@ export class AdeEditor extends EditorPane {
 			[localize('ade.openProject', "Open Project"), 'ade.openProject'],
 			[localize('ade.openModel', "Open Model"), 'ade.openModel'],
 			[localize('ade.importCode', "Import Codebase"), 'ade.importCodebase'],
+			[localize('ade.diagramNavigation', "Diagram Navigation"), 'ade.showNavigation'],
 			[localize('ade.files', "Files"), 'ade.openFiles'],
 			[localize('ade.terminal', "Terminal"), 'ade.openTerminal'],
 			[localize('ade.debug', "Debug"), 'workbench.view.debug'],

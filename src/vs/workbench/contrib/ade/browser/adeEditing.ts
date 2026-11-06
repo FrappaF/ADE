@@ -253,8 +253,8 @@ class EditingUI {
 			}
 		} else if (command === 'layout' && view) {
 			const density = await this.quickInput.pick([
-				{ label: localize('ade.layout.balanced', "Balanced"), density: 'balanced' as const },
 				{ label: localize('ade.layout.spacious', "Spacious"), density: 'spacious' as const },
+				{ label: localize('ade.layout.balanced', "Balanced"), density: 'balanced' as const },
 				{ label: localize('ade.layout.compact', "Compact"), density: 'compact' as const }
 			], { title: localize('ade.layout.density', "Diagram Spacing") });
 			if (density) { this.edit({ kind: 'layout', viewId: view.id, density: density.density }); }

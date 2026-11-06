@@ -37,6 +37,7 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 	'workbench.startupEditor': 'adeHome',
 	'workbench.secondarySideBar.defaultVisibility': 'hidden',
 	'window.restoreWindows': 'all',
+	'window.openFoldersInNewWindow': 'off',
 	'terminal.integrated.gpuAcceleration': 'off',
 	'chat.agentHost.codexAgent.enabled': false,
 	'chat.agentHost.claudeAgent.enabled': false,
@@ -47,6 +48,7 @@ const navigationOnly = process.argv.includes('--navigation-only');
 const sequenceOnly = process.argv.includes('--sequence-only');
 const stateOnly = process.argv.includes('--state-only');
 const impactOnly = process.argv.includes('--impact-only');
+const canvasOnly = process.argv.includes('--canvas-only');
 const workflowOnly = process.argv.includes('--diagram-workflow');
 const codeOnly = process.argv.includes('--code-only') || workflowOnly;
 const aiOnly = process.argv.includes('--ai-only') || aiLive;
@@ -69,7 +71,7 @@ const args = [root, workspace, `--user-data-dir=${userData}`, `--extensions-dir=
 	'--disable-extension=vscode.vscode-api-tests'];
 const uxOnly = process.argv.includes('--ux-only');
 const followupOnly = process.argv.includes('--followup-only');
-if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly) {
+if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly || canvasOnly) {
 	// Prove the product shell works independently of built-in extension activation too.
 	for (const entry of await readdir(path.join(root, 'extensions'), { withFileTypes: true })) {
 		if (!entry.isDirectory()) { continue; }
@@ -95,7 +97,7 @@ async function launch() {
 	const deadline = Date.now() + 90000;
 	while (Date.now() < deadline) {
 		for (const window of app.windows()) {
-			if (await window.locator('.ade-shell').isVisible().catch(() => false)) { window.setDefaultTimeout(30000); await window.waitForFunction(() => !document.querySelector('.ade-content')?.textContent.includes('Loading model…')); if (!workflowOnly) { await openProperties(window); } return window; }
+			if (await window.locator('.ade-shell').isVisible().catch(() => false)) { window.setDefaultTimeout(30000); await window.waitForFunction(() => !document.querySelector('.ade-content')?.textContent.includes('Loading model…')); if (!workflowOnly && !canvasOnly) { await runCommand(window, 'A.D.E: Show Diagram Navigation'); await openProperties(window); } return window; }
 		}
 		await new Promise(resolve => setTimeout(resolve, 250));
 	}
@@ -111,10 +113,14 @@ async function revealAdeButton(window, name) {
 }
 async function clickAdeButton(window, name) { await (await revealAdeButton(window, name)).click(); }
 async function openProperties(window) {
-	const button = window.locator('.ade-shell').getByRole('button', { name: 'Properties', exact: true });
-	if (await button.isVisible() && await button.getAttribute('aria-pressed') !== 'true') { await button.click(); }
+	const button = window.locator('.ade-shell').getByRole('button', { name: 'Properties', exact: true, includeHidden: true });
+	if (await button.count() && await button.getAttribute('aria-pressed') !== 'true') { await clickAdeButton(window, 'Properties'); }
+	const menu = window.locator('.ade-floating-menu > details');
+	if (await menu.count() && await menu.evaluate(element => element.open)) { await menu.locator(':scope > summary').click(); }
 }
 async function openAiSettings(window) {
+	const menu = window.locator('.ade-floating-menu > details');
+	if (await menu.count() && !await menu.evaluate(element => element.open)) { await menu.locator(':scope > summary').click(); }
 	const tools = window.locator('.ade-shell details').filter({ has: window.locator('summary', { hasText: /^More Tools$/ }) });
 	if (!await tools.evaluate(element => element.open)) { await tools.locator(':scope > summary').click(); }
 	const settings = tools.locator('details').filter({ has: window.locator('summary', { hasText: /^AI Settings and Advanced Actions$/ }) });
@@ -123,9 +129,9 @@ async function openAiSettings(window) {
 }
 
 async function openModelFile(window, file) {
-	const options = window.locator('.ade-sidebar summary').filter({ hasText: /^Navigation Options$/ });
-	if (await options.isVisible() && !await options.evaluate(element => element.parentElement.open)) { await options.click(); }
-	await window.locator('.ade-sidebar').getByRole('button', { name: 'Open Model', exact: true }).click();
+	await runCommand(window, 'A.D.E: Open Model');
+	await window.locator('.quick-input-widget').getByText('Open A.D.E Model', { exact: true }).waitFor();
+
 	const input = window.locator('.quick-input-widget input:visible');
 	await input.waitFor();
 	await input.fill(path.dirname(file) + path.sep);
@@ -276,6 +282,115 @@ async function checkContractEditing(window) {
 	console.log('PASS: native contract creation, validation, cancellation, editing, removal, undo/redo and shared details across two diagrams with accessible reading.');
 }
 
+async function checkInfiniteCanvas() {
+	const names = ['game.js', 'preload', 'create', 'drawTamagotchi', 'createStatBar', 'createGlassButton', 'update', 'updateProgressBar', 'updateTamagotchiExpression', 'feed', 'play', 'sleep', 'animateTamagotchi', 'degradeStats', 'incrementAge', 'showFeedback', 'disableButtons'];
+	const elements = names.map((name, index) => ({ id: `node-${index}`, kind: index ? 'action' : 'component', name }));
+	const relations = names.slice(1).flatMap((name, index) => [
+		{ id: `edge-${index}`, kind: 'dependency', from: `node-${index + 1}`, to: `node-${(index + 1) % 16 + 1}`, name },
+		{ id: `cross-${index}`, kind: 'dependency', from: `node-${index + 1}`, to: `node-${(index + 5) % 16 + 1}`, name: 'update' }
+	]);
+	const model = { version: 3, id: 'canvas-example', name: 'Virtual Pet', semantics: { elements, relations }, views: [{ id: 'game', kind: 'structure', name: 'Game Flow', nodes: elements.map((element, index) => ({ elementId: element.id, x: 40 + index % 4 * 260, y: 40 + Math.floor(index / 4) * 140 })), relationIds: relations.map(relation => relation.id) }], codeMappings: [], verifications: [] };
+	model.semantics.relations.push({ id: 'sequence-call', kind: 'invocation', from: 'node-1', to: 'node-2', name: 'Initialize Game' });
+	model.views.push({ id: 'sequence', kind: 'sequence', name: 'Game Sequence', nodes: model.views[0].nodes.slice(1, 3), relationIds: ['sequence-call'] });
+	await writeFile(modelFile, JSON.stringify(model));
+	let window = await launch(), shell = window.locator('.ade-shell');
+	await runCommand(window, 'A.D.E: Open Model');
+	await window.locator('.quick-input-widget').getByText('Open A.D.E Model', { exact: true }).waitFor();
+	const input = window.locator('.quick-input-widget input:visible');
+	await input.fill(path.dirname(modelFile) + path.sep);
+	await window.locator('.quick-input-widget').getByText(path.basename(modelFile), { exact: true }).dblclick();
+	await shell.locator('.ade-node').first().waitFor();
+	const viewport = shell.locator('.ade-canvas-scroll');
+	const geometry = await shell.evaluate(root => { const rootBox = root.getBoundingClientRect(), canvas = root.querySelector('.ade-canvas-scroll').getBoundingClientRect(); return { width: canvas.width / rootBox.width, height: canvas.height / rootBox.height }; });
+	assert.ok(geometry.width > .98 && geometry.height > .98, 'Canvas fills the editor');
+	assert.equal(await shell.locator('.ade-edge-caption.is-visible').count(), 0, 'Relationship labels do not cover the resting diagram');
+	await shell.getByRole('button', { name: 'Spread Out', exact: true }).click();
+	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
+	await window.waitForFunction(() => !document.querySelector('.ade-shell')?.textContent.includes('Unsaved Changes'));
+	const spread = JSON.parse(await readFile(modelFile, 'utf8'));
+	assert.deepEqual(spread.semantics, model.semantics);
+	assert.ok(Math.max(...spread.views[0].nodes.map(node => node.x)) > 1000);
+	const before = await readFile(modelFile, 'utf8');
+	await window.waitForFunction(() => document.querySelector('.ade-canvas-scroll')?.clientWidth > 100);
+	const box = await window.evaluate(() => { const r = document.querySelector('.ade-canvas-scroll').getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; });
+	assert.ok(box.width > 100 && box.height > 100);
+	const matrix = () => window.evaluate(() => { const m = new DOMMatrix(getComputedStyle(document.querySelector('.ade-canvas-content')).transform); return { x: m.e, y: m.f, zoom: m.a }; });
+	const initial = await matrix();
+	await window.mouse.move(box.x + 980, box.y + 650); await window.mouse.down(); await window.mouse.move(box.x + 500, box.y + 500, { steps: 6 }); await window.mouse.up();
+	const moved = await matrix(); assert.ok(Math.abs(moved.x - initial.x) > 300);
+	assert.deepEqual(await viewport.evaluate(element => [element.scrollLeft, element.scrollTop]), [0, 0]);
+	await viewport.evaluate(element => element.addEventListener('wheel', event => { const r = element.getBoundingClientRect(); window.__canvasWheelPoint = { x: event.clientX - r.left, y: event.clientY - r.top }; }, { once: true }));
+	await window.mouse.move(box.x + 500, box.y + 400); await window.keyboard.down('Control'); await window.mouse.wheel(0, -200); await window.keyboard.up('Control');
+	const zoomed = await matrix(); assert.ok(zoomed.zoom > moved.zoom);
+	const anchor = await window.evaluate(() => window.__canvasWheelPoint);
+	assert.ok(Math.abs((anchor.x - moved.x) / moved.zoom - (anchor.x - zoomed.x) / zoomed.zoom) < .1, JSON.stringify({ anchor, moved, zoomed }));
+	assert.equal(await readFile(modelFile, 'utf8'), before, 'Pan and zoom never edit the model');
+	await shell.locator('.ade-floating-zoom').getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	const beforeSelection = await matrix();
+	const first = shell.locator('.ade-node').first(); await first.focus(); await window.keyboard.press('Enter');
+	const inspector = shell.locator('aside.ade-properties'); await inspector.waitFor();
+	const panel = await inspector.boundingBox(), after = await viewport.boundingBox();
+	assert.deepEqual(await matrix(), beforeSelection, 'Opening details preserves the diagram camera');
+	const visibleNode = await first.boundingBox();
+	assert.ok(visibleNode.x + visibleNode.width > box.x && visibleNode.x < box.x + box.width && visibleNode.y + visibleNode.height > box.y && visibleNode.y < box.y + box.height, 'The selected node stays visible');
+	assert.ok(panel.width <= 300 && panel.height <= 450); assert.equal(after.width, box.width); assert.equal(after.height, box.height);
+	await window.screenshot({ path: path.join(evidence, 'infinite-canvas-details.png') });
+	await first.focus(); const nodeLeft = await first.evaluate(element => parseFloat(element.style.left));
+	await window.keyboard.press('ArrowLeft');
+	assert.equal(await first.evaluate(element => parseFloat(element.style.left)), nodeLeft - 20);
+	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+	await window.waitForFunction(left => parseFloat(document.querySelector('.ade-node').style.left) === left, nodeLeft);
+	await inspector.getByRole('button', { name: 'Close Properties', exact: true }).click();
+	await viewport.focus(); const previous = await matrix(); await window.keyboard.press('ArrowRight'); assert.ok((await matrix()).x < previous.x);
+	const edge = shell.locator('.ade-connection').first(); await edge.focus(); await window.keyboard.press('Enter');
+	await inspector.waitFor();
+	await window.screenshot({ path: path.join(evidence, 'infinite-canvas-relation.png') });
+	await inspector.getByRole('button', { name: 'Close Properties', exact: true }).click();
+	await shell.locator('.ade-floating-zoom').getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+	await window.screenshot({ path: path.join(evidence, 'infinite-canvas.png') });
+	await writeFile(path.join(evidence, 'infinite-canvas-results.json'), JSON.stringify({ canvasFillsEditor: true, unboundedPan: true, pointerZoom: true, cameraDoesNotEditModel: true, spaciousLayout: true, compactFloatingInspector: true, selectionPreservesCamera: true, keyboardEditAndUndo: true, relationInspector: true }, null, 2));
+	const savedCamera = await matrix();
+	await app.close(); app = undefined;
+	window = await launch(); shell = window.locator('.ade-shell');
+	await shell.getByRole('heading', { name: 'Game Flow', exact: true }).waitFor();
+	assert.deepEqual(await matrix(), savedCamera, 'The camera survives application restart');
+	await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
+	await pickValue(window, 'Choose Diagram', 'Game Sequence');
+	await shell.locator('.ade-sequence-message').click();
+	await shell.locator('aside.ade-properties').getByRole('heading', { name: 'Relationship Properties', exact: true }).waitFor();
+	await shell.locator('aside.ade-properties').getByText('Initialize Game', { exact: true }).waitFor();
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(640, 760));
+	await window.waitForFunction(() => document.querySelector('.ade-shell')?.clientWidth < 650);
+	const floatingBounds = await shell.evaluate(root => { const menu = root.querySelector('.ade-floating-menu').getBoundingClientRect(), panel = root.querySelector('aside.ade-properties').getBoundingClientRect(); return { menuBottom: menu.bottom, panelTop: panel.top }; });
+	assert.ok(floatingBounds.panelTop >= floatingBounds.menuBottom, 'Floating panels do not overlap the menu in a narrow window');
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 900));
+	await window.waitForFunction(() => document.querySelector('.ade-shell')?.clientWidth > 1000);
+	await window.screenshot({ path: path.join(evidence, 'infinite-canvas-sequence.png') });
+	// Invoke the same native action as File > Open Folder, reusing this window.
+	const nextFolder = path.join(directory, 'second-project'), emptyFolder = path.join(directory, 'empty-project');
+	await mkdir(path.join(nextFolder, '.ade'), { recursive: true }); await mkdir(emptyFolder);
+	const nextModel = structuredClone(checkoutModel); nextModel.id = 'second-project'; nextModel.name = 'Second Project'; nextModel.views[0].name = 'Second Project Diagram';
+	await writeFile(path.join(nextFolder, '.ade/model.json'), JSON.stringify(nextModel));
+	for (const folder of [nextFolder, emptyFolder]) {
+		await runCommand(window, 'File: Open Folder...');
+		const widget = window.locator('.quick-input-widget');
+		await widget.getByText('Open Folder', { exact: true }).waitFor();
+		await widget.locator('input:visible').fill(folder + path.sep);
+		await widget.getByRole('button', { name: 'OK', exact: true }).click();
+		args[1] = folder;
+		await window.waitForFunction(() => !!document.querySelector('.ade-shell') && !document.querySelector('.quick-input-widget input:focus'));
+		if (folder === nextFolder) { await shell.getByRole('heading', { name: 'Second Project Diagram', exact: true }).waitFor(); }
+		else { await shell.getByText('Current Folder:', { exact: false }).waitFor(); assert.equal(await shell.locator('.ade-node').count(), 0); }
+		assert.equal(await shell.locator('.ade-canvas-title').getByText('Game Flow', { exact: true }).count(), 0);
+	}
+	await window.screenshot({ path: path.join(evidence, 'workspace-switched-empty.png') });
+	const resultsFile = path.join(evidence, 'infinite-canvas-results.json');
+	await writeFile(resultsFile, JSON.stringify({ ...JSON.parse(await readFile(resultsFile, 'utf8')), nativeOpenFolder: true, emptyFolderClearsProject: true, cameraRestoredAfterRestart: true, sequenceMessageClickable: true, narrowFloatingPanels: true }, null, 2));
+	await app.close(); app = undefined;
+	console.log('PASS: native File > Open Folder opens the new project and clears old diagrams in an empty folder.');
+	console.log('PASS: full canvas, unbounded pan, pointer-anchored zoom, spacious layout and floating element/relationship details.');
+}
+
 async function checkCodeBridge() {
 	// Exercise the real original-CLI protocol without claiming a live-model benchmark.
 	const simulatedCli = path.join(directory, 'm6-simulated-codex.mjs');
@@ -371,7 +486,8 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		const generated = await snapshot();
 		assert.equal(generated.model.views.length, 2);
 		assert.ok(generated.model.semantics.elements.some(item => item.kind === 'feature'));
-		await window.locator('.ade-sidebar').getByRole('button', { name: 'Purchase Flow', exact: true }).click();
+		await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
+		await pickValue(window, 'Choose Diagram', 'Purchase Flow');
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'checkout', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
 		await enterValue(window, 'Name', 'reviewedPurchase');
@@ -406,7 +522,8 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await shell.getByRole('heading', { name: 'Purchase Flow', exact: true }).waitFor({ timeout: 90000 });
 		await shell.getByRole('button', { name: 'Update Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 		await shell.locator('.ade-workflow').waitFor({ state: 'hidden' });
-		await window.locator('.ade-sidebar').getByRole('button', { name: 'Purchase Flow', exact: true }).click();
+		await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
+		await pickValue(window, 'Choose Diagram', 'Purchase Flow');
 		assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'reviewedPurchase');
 		await shell.locator('.ade-node').getByText('Accept Non-Negative Payments', { exact: true }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'diagram-workflow.png') });
@@ -1504,6 +1621,7 @@ async function checkManualFollowup() {
 
 try {
 	if (followupOnly) { await checkManualFollowup(); }
+	if (canvasOnly) { await checkInfiniteCanvas(); }
 	if (aiOnly) { await checkAiWorkflow(); }
 	if (codeOnly) { await checkCodeBridge(); }
 	if (projectsOnly) { await checkIndependentProjects(); }
@@ -1512,7 +1630,7 @@ try {
 	if (sequenceOnly) { await checkSequenceDiagram(); }
 	if (navigationOnly) { await checkSemanticNavigation(); }
 	if (uxOnly) { await checkVisualUX(); }
-	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly && !aiOnly && !followupOnly) {
+	if (!process.argv.includes('--extension-only') && !uxOnly && !navigationOnly && !sequenceOnly && !stateOnly && !impactOnly && !projectsOnly && !codeOnly && !aiOnly && !followupOnly && !canvasOnly) {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
 		let sidebar = window.locator('.ade-sidebar');
@@ -1733,7 +1851,7 @@ try {
 		await app.close();
 		app = undefined;
 	}
-	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly) {
+	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly || canvasOnly) {
 		console.log('PASS: native-only smoke completed without an Extension Development Host.');
 	} else {
 		await copyFile(path.join(root, 'ade/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));
@@ -1749,6 +1867,8 @@ try {
 } catch (error) {
 	console.error(error);
 	if (electronOutput) { console.error(electronOutput); }
+	const logRoot = path.join(userData, 'logs');
+	for (const file of await readdir(logRoot, { recursive: true }).catch(() => [])) { if (file.endsWith('renderer.log')) { console.error((await readFile(path.join(logRoot, file), 'utf8')).split('\n').filter(line => /\[error\]|^\s+at /.test(line)).join('\n').slice(-12000)); } }
 	if (app) {
 		for (const [index, window] of app.windows().entries()) {
 			const state = await window.locator('.ade-shell, .quick-input-widget:visible, .notifications-toasts:visible').allInnerTexts().catch(() => []);
