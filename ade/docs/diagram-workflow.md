@@ -31,3 +31,11 @@ Gli aggiornamenti riusano le chiavi semantiche precedenti e mantengono nomi/desc
 I risultati accettati di ogni gruppo sono salvati in `.ade/diagram-imports/<id>.json`, insieme a modello/provider, budget approvato, domande, errori e consumi disponibili. **Resume Diagrams** riparte dal gruppo incompleto dopo una nuova conferma delle richieste rimaste. I gruppi già completati non vengono reinviati. Una modifica al sorgente o al documento invalida il lavoro in corso; **Start Again** prepara una nuova generazione. I lavori incompleti creati con il vecchio contratto «un simbolo per nodo» richiedono **Start Again**. Le chiavi dei modelli già completati possono essere riutilizzate. Il puntatore attivo cambia solo dopo la validazione finale del documento e una nuova verifica delle revisioni; un errore non pubblica diagrammi incompleti.
 
 La [revisione UX del 6 novembre](ux-ai-workflow.md) distingue le verifiche nell’app con CLI simulata dalla validazione ancora necessaria con l’account reale.
+
+## Modello ed eseguibile CLI
+
+**Original CLI Executable** identifica il programma da avviare: `codex` oppure il percorso completo della CLI. **Model ID from Your CLI** identifica il modello disponibile nell’account; non va inserito nel campo dell’eseguibile. Il percorso viene verificato prima di salvare la configurazione.
+
+Se `codex --version` funziona nel terminale ma ADE non trova `codex`, recuperare il percorso con `command -v codex` su macOS/Linux oppure `(Get-Command codex).Source` in PowerShell. Inserire quel percorso completo in **Choose Model and CLI → Original CLI Executable**, poi scegliere **Refresh Account and Models**. Questo è utile con installazioni `nvm` presenti in una versione di Node diversa da quella nel PATH dell’app. Non occorre reinstallare la CLI o ripetere un login già valido.
+
+Se una vecchia configurazione contiene un eseguibile inesistente e ADE trova la CLI standard, **Repair CLI Executable** permette di usare la CLI trovata oppure scegliere un percorso verificato. La scelta conserva il modello di coding e quello dei diagrammi; annullare non cambia le impostazioni e non avvia inferenze.

@@ -12,7 +12,7 @@ import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ServiceIdentifier } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
+import { IInputOptions, IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -56,6 +56,7 @@ suite('A.D.E native AI orchestration', () => {
 		const code = { changed: false, openContext: async (value: CodeContext) => { opened.push(value); }, context, onDidChange: changed.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
 		const picks: ((items: readonly Choice[]) => Choice | Choice[] | undefined)[] = [];
 		const inputs: string[] = [];
+		const inputOptions: IInputOptions[] = [];
 		const chats: { resource: string; attachments: string[]; focused: boolean }[] = [];
 		const pickerTitles: string[] = [];
 		const editorInputs: object[] = [];
@@ -83,7 +84,7 @@ suite('A.D.E native AI orchestration', () => {
 		const project = { model: structuredClone(checkoutModel), modelUri: URI.file(context.model), onDidChange: projectChanged.event, save: async () => true };
 		const projectService = stub(IAdeProjectService, project);
 		const codeService = stub(IAdeCodeService, code);
-		stub(IQuickInputService, { pick: async (items: Choice[], options?: { title: string }) => { if (options) { pickerTitles.push(options.title); } return picks.shift()?.(items); }, input: async () => inputs.shift() });
+		stub(IQuickInputService, { pick: async (items: Choice[], options?: { title: string }) => { if (options) { pickerTitles.push(options.title); } return picks.shift()?.(items); }, input: async (options?: IInputOptions) => { if (options) { inputOptions.push(options); } return inputs.shift(); } });
 		stub(INotificationService, { notify: (notification: { message: string }) => { errors.push(notification.message); return { close: () => { closedAlerts++; } }; }, error: (message: string) => errors.push(message), info: (message: string) => infos.push(message) });
 		stub(IProgressService, { withProgress: async (_options: object, task: () => Promise<void>) => task() });
 		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed }; } });
@@ -115,7 +116,7 @@ suite('A.D.E native AI orchestration', () => {
 				}
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
-		return { service, operations, opened, chats, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, errors, infos, terminals, requests, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+		return { service, operations, opened, chats, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -299,6 +300,53 @@ suite('A.D.E native AI orchestration', () => {
 		const saved = JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!);
 		assert.deepStrictEqual({ model: saved.model, connection: saved.connection, maxCalls: saved.maxCalls }, { model: 'native-model', connection: 'cli', maxCalls: 1 });
 	});
+	test('a model ID cannot be saved as the CLI executable', async () => {
+		const f = fixture(false);
+		f.setCliResolver(async executable => executable === 'codex' ? '/installed/codex' : undefined);
+		f.picks.push(items => items.find(item => item.provider === 'codex'), items => items.find(item => item.id === 'configure'), items => items[0]);
+		f.inputs.push('codex-terra-5.6');
+		await f.service.connect();
+		assert.strictEqual(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE), undefined);
+		assert.match(f.errors[0], /model ID belongs in the Model field/i);
+		assert.ok(!f.pickerTitles.some(title => title.startsWith('Agent Run Budget')));
+		const field = f.inputOptions.find(options => options.title === 'Original CLI Executable')!;
+		assert.match(field.prompt!, /not a model ID/);
+		assert.ok(await field.validateInput!('codex-terra-5.6'));
+		assert.strictEqual(await field.validateInput!('codex'), undefined);
+	});
+
+	test('an invalid saved executable can use installed Codex while preserving both model settings', async () => {
+		const f = fixture(true, 'codex-terra-5.6');
+		f.storage.store('ade.ai.diagramModel.codex', 'economical-diagram-model', StorageScope.PROFILE, StorageTarget.MACHINE);
+		f.setCliResolver(async executable => executable === 'codex' ? '/installed/codex' : undefined);
+		f.picks.push(items => items.find(item => item.id === 'installed'));
+		await f.service.buildDiagrams();
+		const saved = JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!);
+		assert.deepStrictEqual([saved.executable, saved.model, f.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE)], ['codex', 'native-model', 'economical-diagram-model']);
+		assert.deepStrictEqual(f.requests, ['diagramPrepare', 'diagramStep']);
+		assert.deepStrictEqual([f.errors, f.terminals, f.signIns], [[], [], 0]);
+		assert.ok(f.pickerTitles.includes('Repair CLI Executable'));
+	});
+
+	test('cancelling executable repair keeps settings and starts no inference', async () => {
+		const f = fixture(true, 'codex-terra-5.6');
+		f.setCliResolver(async executable => executable === 'codex' ? '/installed/codex' : undefined);
+		await f.service.buildDiagrams();
+		assert.strictEqual(JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!).executable, 'codex-terra-5.6');
+		assert.deepStrictEqual([f.requests, f.terminals, f.errors], [[], [], []]);
+	});
+
+	test('executable repair accepts a validated custom path without changing the model', async () => {
+		const f = fixture(true, 'codex-terra-5.6');
+		f.setCliResolver(async executable => executable === 'codex' || executable === '/custom account/codex' ? executable : undefined);
+		f.picks.push(items => items.find(item => item.id === 'choose'));
+		f.inputs.push(' /custom account/codex ');
+		await f.service.openCli();
+		const saved = JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!);
+		assert.deepStrictEqual([saved.executable, saved.model], ['/custom account/codex', 'native-model']);
+		assert.deepStrictEqual(f.terminals, [{ config: { name: 'Codex', executable: '/custom account/codex', args: ['--model', 'native-model'], cwd: f.root } }]);
+	});
+
 	test('Codex uses native ChatGPT sign-in when ready and the official CLI login otherwise', async () => {
 		const f = fixture(false);
 		f.setups.push({ agent: 'codex', download: 'ready' });

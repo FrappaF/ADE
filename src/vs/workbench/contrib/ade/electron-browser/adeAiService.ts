@@ -219,9 +219,36 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		this.activityStatus = undefined;
 		this.changes.fire();
 	}
+	private async chooseCliExecutable(provider: CliConfig['provider'], value: string, model?: string): Promise<string | undefined> {
+		const hint = localize('ade.ai.executableHint', "Enter the CLI program name ({0}) or its absolute path, not a model ID. The selected model ({1}) is configured separately.", provider, model ?? localize('ade.ai.modelNext', "chosen separately"));
+		const validate = async (input: string): Promise<string | undefined> => {
+			try { if (input.trim() && await this.code.resolveCli(input.trim())) { return undefined; } } catch { /* Show a field error without persisting an unusable command. */ }
+			return localize('ade.ai.invalidExecutable', "Executable not found. Enter {0} or the full path to the installed CLI. A model ID belongs in the Model field.", provider);
+		};
+		const executable = await this.quick.input({ title: localize('ade.ai.executable', "Original CLI Executable"), value, prompt: hint, validateInput: validate, ignoreFocusLost: true });
+		if (!executable) { return undefined; }
+		const error = await validate(executable);
+		if (error) { this.setConnectionStatus(error); this.notifications.error(error); return undefined; }
+		return executable.trim();
+	}
 	private async resolveCli(provider: CliConfig['provider']): Promise<string | undefined> {
 		const executable = this.config?.provider === provider ? this.config.executable : provider;
 		const resolved = await this.code.resolveCli(executable);
+		if (!resolved && executable !== provider && this.config?.provider === provider) {
+			const installed = await this.code.resolveCli(provider);
+			if (installed) {
+				const choice = await this.quick.pick([
+					{ label: localize('ade.ai.useInstalledCli', "Use Installed {0} CLI", provider === 'codex' ? 'Codex' : 'Claude Code'), description: installed, id: 'installed' },
+					{ label: localize('ade.ai.chooseExecutable', "Choose Executable Path"), id: 'choose' }
+				], { title: localize('ade.ai.repairExecutable', "Repair CLI Executable"), placeHolder: localize('ade.ai.executableMismatch', "Cannot find program {0}. The executable and model ({1}) are separate settings.", executable, this.config.model) });
+				const replacement = choice?.id === 'installed' ? provider : choice?.id === 'choose' ? await this.chooseCliExecutable(provider, executable, this.config.model) : undefined;
+				if (!replacement) { this.setConnectionStatus(localize('ade.ai.executableUnchanged', "CLI Configuration Unchanged. Choose an Installed Executable to Continue.")); return undefined; }
+				this.config = { ...this.config, executable: replacement };
+				this.storage.store('ade.ai.cliConfig', JSON.stringify(this.config), StorageScope.PROFILE, StorageTarget.MACHINE);
+				this.setConnectionStatus(localize('ade.ai.executableRepaired', "CLI Executable Updated · Model Kept: {0}", this.config.model));
+				return this.code.resolveCli(replacement);
+			}
+		}
 		if (!resolved) {
 			const installation = provider === 'codex'
 				? localize('ade.ai.installCodex', "Install the official CLI in a terminal with: npm install -g @openai/codex.")
@@ -323,7 +350,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.model', "Choose a Model Available to Your Account") }))?.id
 			: await this.quick.input({ title: localize('ade.ai.modelManual', "Model ID from Your CLI"), value: this.config?.provider === provider ? this.config.model : undefined, prompt: localize('ade.ai.noCatalog', "No account catalog is available yet. Sign in and refresh, or enter an exact model ID. Access is checked by the provider."), ignoreFocusLost: true });
 		if (!model) { this.info(localize('ade.ai.noModel', "No Model Selected. Choose Model and CLI Before Implementing a Feature.")); return; }
-		const executable = await this.quick.input({ title: localize('ade.ai.executable', "Original CLI Executable"), value: this.config?.provider === provider ? this.config.executable : provider, prompt: localize('ade.ai.executableHint', "Use the installed CLI name or its absolute executable path. Credentials remain with the provider."), ignoreFocusLost: true });
+		const executable = await this.chooseCliExecutable(provider, this.config?.provider === provider ? this.config.executable : provider, model);
 		if (!executable) { return; }
 		const budget = await this.quick.pick([
 			{ label: localize('ade.ai.budgetTwo', "Plan and Implementation · At Most Two Agent Runs"), maxCalls: 2 },
@@ -409,9 +436,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		if (!this.config) {
 			let executable = 'codex';
 			if (!await this.code.resolveCli(executable)) {
-				const selected = await this.quick.input({ title: localize('ade.ai.codexExecutable', "Codex Executable"), value: executable, prompt: localize('ade.ai.codexExecutableHint', "Install Codex with npm install -g @openai/codex, or enter the path to your existing Codex CLI."), ignoreFocusLost: true });
+				const selected = await this.chooseCliExecutable('codex', executable);
 				if (!selected) { this.report(localize('ade.ai.setupDeferred', "Setup Cancelled · Choose Build Diagrams to Continue")); return; }
-				if (!await this.code.resolveCli(selected)) { throw new Error(localize('ade.ai.codexExecutableMissing', "Codex Could Not Be Found. Check Its Installation or Executable Path.")); }
 				executable = selected;
 			}
 			const draft: CliConfig = { version: 1, provider: 'codex', connection: 'cli', model: '', executable, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 1 };
