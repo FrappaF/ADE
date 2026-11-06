@@ -89,7 +89,7 @@ function windows(content: string, offsets: number[], limit: number): { start: nu
 export async function prepareAiReconciliation(previous: ImportSnapshot, next: CodeImport, configValue: unknown, sourceFiles: string[], resolutions: PreparedReconciliation['resolutions'] = [], signal?: AbortSignal, clarification = ''): Promise<PreparedReconciliation> {
 	const config = readProviderConfig(configValue);
 	if (clarification.length > 8000) { throw new Error('Reconciliation clarification exceeds 8000 characters'); }
-	if (sourceFiles.length > 20 || new Set(sourceFiles).size !== sourceFiles.length) { throw new Error('Select at most 20 unique source files'); }
+	if (new Set(sourceFiles).size !== sourceFiles.length) { throw new Error('Select unique source files'); }
 	const handles: Record<string, string> = {};
 	const inverse: Record<string, string> = {};
 	const ids = [...new Set([previous.commonModel, previous.model, next.model].flatMap(model => [...model.semantics.elements, ...model.semantics.relations, ...model.views].map(item => item.id)))].sort();

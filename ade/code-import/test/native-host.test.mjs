@@ -53,6 +53,19 @@ test('native boundary identifies malformed AI requests without disclosing config
 		});
 	}
 });
+test('reconciliation accepts more than 20 source files while enforcing the context budget', async t => {
+	const files = Object.fromEntries(Array.from({ length: 26 }, (_, index) => [`task${index}.py`, `def task${index}():\n    return ${index}\n`]));
+	const root = await workspace(t, files);
+	const initial = await call({ operation: 'import', root, syntaxOnly: true });
+	await writeFile(join(root, 'task0.py'), 'def task0():\n    return 99\n');
+	const preview = JSON.parse(await productionEngine.execute(JSON.stringify({ operation: 'preview', snapshot: initial.snapshot })));
+	const request = { operation: 'reconciliationPrepare', token: preview.token, config: JSON.stringify(config), sourceFiles: Object.keys(files) };
+	const prepared = JSON.parse(await productionEngine.execute(JSON.stringify(request)));
+	const context = JSON.parse(JSON.parse(prepared.contents).prompt.split('\n').slice(1).join('\n'));
+	assert.deepEqual(context.sources.map(source => source.file).sort(), Object.keys(files).sort());
+	await assert.rejects(productionEngine.execute(JSON.stringify({ ...request, config: JSON.stringify({ ...config, maxContextBytes: 1024 }) })), /exceeds the saved byte budget/);
+	await assert.rejects(productionEngine.execute(JSON.stringify({ ...request, sourceFiles: [...request.sourceFiles, request.sourceFiles[0]] })), /duplicate/);
+});
 test('native boundary imports, previews contract/rename/delete, preserves annotation, publishes and recovers', async t => {
 	const root = await workspace(t, { 'gateway.ts': 'export function charge(amount: number): boolean { return amount > 0; }', 'checkout.ts': 'import {charge as pay} from "./gateway"; export function checkout(value: number): boolean { return pay(value); }', 'unused.ts': 'export function unused() {}', 'steady.py': 'def steady():\n    return 1\n' });
 	const initial = await call({ operation: 'import', root });
