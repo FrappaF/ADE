@@ -23,7 +23,8 @@ import { IUtilityProcessWorker, IUtilityProcessWorkerWorkbenchService } from '..
 import { IAdeOperationService } from '../../browser/adeOperationService.js';
 import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeProjectWorkspaceService } from '../../browser/adeProjectWorkspace.js';
-import { adeCodeProtocolVersion, CodeBridgeProtocol } from '../../common/codeBridge.js';
+import { adeCodeProtocolVersion, CodeBridgeProtocol, CodeContext } from '../../common/codeBridge.js';
+import { checkoutModel } from '../../common/checkoutModel.js';
 import { AdeCodeService } from '../../electron-browser/adeCodeService.js';
 
 suite('A.D.E native code bridge compatibility', () => {
@@ -34,6 +35,7 @@ suite('A.D.E native code bridge compatibility', () => {
 		const stub = <T extends object>(id: ServiceIdentifier<T>, values: object = {}) => instantiation.stub(id, Object.assign(new (mock<T>())(), values));
 		let protocol = initial, created = 0, disposed = 0;
 		const calls: string[] = [];
+		const commands: string[] = [];
 		const channel: IChannel = { listen: () => Event.None, async call<T>(command: string): Promise<T> {
 			calls.push(command);
 			if (command === 'protocol') { if (protocol instanceof Error) { throw protocol; } return protocol as T; }
@@ -43,12 +45,23 @@ suite('A.D.E native code bridge compatibility', () => {
 			created++;
 			return Object.assign(new (mock<IUtilityProcessWorker>())(), { client: Object.assign(new (mock<IPCClient<string>>())(), { getChannel: () => channel }), onDidTerminate: new Promise<never>(() => {}), dispose: () => { disposed++; } });
 		} });
-		stub(IAdeProjectService, { onDidChange: Event.None });
+		const model = structuredClone(checkoutModel);
+		stub(IAdeProjectService, { onDidChange: Event.None, model });
 		stub(IAdeOperationService, { onDidChange: Event.None });
 		stub(IShellEnvironmentService, { getShellEnv: async () => ({ PATH: '/cli' }) });
-		stub(IFileDialogService); stub(IQuickInputService); stub(INotificationService); stub(IProgressService); stub(IFileService); stub(IEditorService); stub(IAdeProjectWorkspaceService); stub(IConfigurationService); stub(ICommandService);
+		stub(IFileDialogService); stub(IQuickInputService); stub(INotificationService); stub(IProgressService); stub(IFileService); stub(IEditorService); stub(IAdeProjectWorkspaceService); stub(IConfigurationService);
+		stub(ICommandService, { executeCommand: async (command: string) => { commands.push(command); } });
 		const service = store.add(instantiation.createInstance(AdeCodeService));
-		return { service, calls, stats: () => ({ created, disposed }), setProtocol: (value: CodeBridgeProtocol) => { protocol = value; } };
+		return { service, calls, commands, model, stats: () => ({ created, disposed }), setProtocol: (value: CodeBridgeProtocol) => { protocol = value; } };
+	}
+	for (const direction of [undefined, 'code', 'model'] as const) {
+		test(`Sync ${direction ?? 'both'} builds the first diagrams before checking alignment`, async () => {
+			const f = fixture(compatible);
+			const context: CodeContext = { snapshot: '/project/.ade/imports/index', model: '/project/.ade/imports/index/model.ade.json', sourceRoot: '/project', revision: 'fixture', scope: { include: ['**'], exclude: [], excludedDirectories: [], respectGitignore: true, languageOverrides: {} }, files: [], declarations: [], dependencies: [], providers: [], diagnostics: [], diagramState: 'index' };
+			f.service.context = context;
+			await f.service.sync(direction);
+			assert.deepStrictEqual({ commands: f.commands, calls: f.calls }, { commands: ['ade.ai.buildDiagrams'], calls: [] });
+		});
 	}
 	test('checks the bundled engine before requests and reuses a compatible worker', async () => {
 		const f = fixture(compatible);

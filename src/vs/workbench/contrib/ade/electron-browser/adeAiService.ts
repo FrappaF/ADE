@@ -38,6 +38,7 @@ import { IAdeOperationService, AdeOperationService } from '../browser/adeOperati
 import { AdeInput } from '../browser/adeInput.js';
 import { openAdeTerminal } from '../browser/adeTerminal.js';
 import { getModelImpact } from '../common/modelImpact.js';
+import { isSourceEvidenceModel } from '../common/semanticModel.js';
 import { CodePreview, CodeReconciliationContext, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
 
 interface CliConfig {
@@ -510,7 +511,12 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		await this.collaborate('interpret');
 	}
 	async reconcile(preview: CodePreview, resolutions: CodeResolution[] = [], direction?: 'model' | 'code'): Promise<CodePreview | undefined> {
-		if (this.busy || this.operations.busy || !await this.ensureConfigured()) { return undefined; }
+		if (this.busy || this.operations.busy || !this.code.context) { return undefined; }
+		if (this.code.context.diagramState === 'index' || isSourceEvidenceModel(this.project.model) || !this.project.model.views.some(view => view.nodes.length > 0)) {
+			await this.buildDiagrams();
+			return undefined;
+		}
+		if (!await this.ensureConfigured()) { return undefined; }
 		let result: CodePreview | undefined;
 		await this.run(async token => {
 			const config = await this.readyConfig();

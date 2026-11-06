@@ -28,6 +28,7 @@ import { IShellEnvironmentService } from '../../../services/environment/electron
 import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { AdeInput } from '../browser/adeInput.js';
+import { isSourceEvidenceModel } from '../common/semanticModel.js';
 import { IAdeProjectWorkspaceService, AdeProjectWorkspace } from '../browser/adeProjectWorkspace.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { adeCodeChannel, adeCodeProtocolVersion, CliAccountState, CliRuntimeEnvironment, CodeBridgeProtocol, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeSource } from '../common/codeBridge.js';
@@ -186,6 +187,10 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 	private async reviewSync(renames: CodeRename[] = [], scope = this.context?.scope, resolutions: CodeResolution[] = [], reviewed?: CodePreview, direction?: 'model' | 'code'): Promise<void> {
 		const current = this.context;
 		if (!current || this.busy) { this.notifications.info(localize('ade.code.syncBusy', "Wait for the active A.D.E operation to finish before preparing Sync.")); return; }
+		if (current.diagramState === 'index' || isSourceEvidenceModel(this.project.model) || !this.project.model.views.some(view => view.nodes.length > 0)) {
+			await this.commands.executeCommand('ade.ai.buildDiagrams');
+			return;
+		}
 		if (this.project.dirty && !await this.project.save()) { return; }
 		const version = this.project.documentVersion;
 		let preview: CodePreview | undefined = reviewed;

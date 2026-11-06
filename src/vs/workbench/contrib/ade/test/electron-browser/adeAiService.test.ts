@@ -223,6 +223,18 @@ suite('A.D.E native AI orchestration', () => {
 		const result = await f.service.reconcile(preview);
 		assert.deepStrictEqual({ requests: f.requests, token: result?.token, errors: f.errors }, { requests: ['reconciliationPrepare', 'reconciliationPropose'], token: 'proposal', errors: [] });
 	});
+	for (const state of ['index', 'legacyIndex', 'emptyViews'] as const) {
+		test(`Sync generates diagrams when the design is ${state}, even with no code changes`, async () => {
+			const f = fixture(false);
+			if (state === 'index') { f.code.context.diagramState = 'index'; }
+			if (state === 'legacyIndex') { f.project.model.id = 'code:legacy'; f.project.model.semantics.elements = f.project.model.semantics.elements.filter(element => element.kind !== 'feature'); }
+			if (state === 'emptyViews') { f.project.model.views = []; }
+			f.picks.push(items => items[0]);
+			const preview: CodePreview = { token: 'preview', context: f.code.context, files: { added: [], changed: [], removed: [], unchanged: [] }, declarations: { added: [], changed: [], removed: [] }, dependencies: { added: [], changed: [], removed: [] }, conflicts: [], impact: { elementIds: [], viewIds: [] }, parsed: [], reused: [], semanticAnalyzed: [], semanticReused: [], reconciliation: { status: 'aligned', origin: 'none', commonRevision: 'fixture', sourceEdits: [], diagnostics: [] } };
+			await f.service.reconcile(preview);
+			assert.deepStrictEqual({ requests: f.requests, opened: f.opened.length, errors: f.errors }, { requests: ['diagramPrepare', 'diagramStep'], opened: 1, errors: [] });
+		});
+	}
 	test('zero-call Sync budget prepares context without making an inference request', async () => {
 		const f = fixture(true, 'codex', 0);
 		f.picks.push(items => [items[0]]);
