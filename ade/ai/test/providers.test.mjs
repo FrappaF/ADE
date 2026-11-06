@@ -53,7 +53,7 @@ test('subprocesses preserve literal arguments, bound output, and terminate on de
 });
 
 test('provider errors distinguish quota, authentication and model access without leaking stderr', async () => {
-	for (const [output, expected] of [['429 quota exceeded', /quota or rate limit/], ['401 authentication failed', /authentication failed/], ['model is not available', /selected model is unavailable/]]) {
+	for (const [output, expected] of [['429 quota exceeded', /quota or rate limit/], ['401 authentication failed', /authentication failed/], ['model is not available', /selected model .* unavailable/], ['{"error":{"code":"model_not_found"}}', /selected model .* unavailable/], ["The model isn't supported with this account", /selected model .* unavailable/], ['error: unknown feature: hooks', /rejected an A.D.E command option/], ['error: unexpected argument --ephemeral', /rejected an A.D.E command option/], ['invalid_json_schema: schema rejected', /rejected the structured output schema/]]) {
 		const provider = createCliProvider(async () => ({ code: 1, stdout: '', stderr: output + ' private-fixture-value' }));
 		await assert.rejects(provider.complete(config, 'context', {}), error => expected.test(error.message) && !error.message.includes('private-fixture-value'));
 	}
