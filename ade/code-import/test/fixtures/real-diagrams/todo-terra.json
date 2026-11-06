@@ -1,0 +1,1491 @@
+[
+	{
+		"case": "todo-rails",
+		"model": "gpt-5.6-terra",
+		"files": {
+			"app/controllers/todos_controller.rb": "class TodosController < ApplicationController\n  def index; @todos = Todo.all; end\n  def create; Todo.create(todo_params); end\n  def update; Todo.find(params[:id]).update(completed: true); end\n  def destroy; Todo.find(params[:id]).destroy; end\n  def todo_params; params.require(:todo).permit(:title, :completed); end\nend",
+			"app/models/todo.rb": "class Todo < ApplicationRecord\n validates :title, presence: true\nend",
+			"app/views/todos/index.html.erb": "<h1>Tasks</h1><form action=\"/todos\" method=\"post\"><input name=\"todo[title]\"><button>Add task</button></form>",
+			"config/application.rb": "class Application\n def boot; initialize_framework; end\nend",
+			"config/features.yml": "features:\n  todos:\n    enabled: true\n",
+			"config/routes.rb": "Rails.application.routes.draw do\n resources :todos\n root \"todos#index\"\nend",
+			"test/todo_test.rb": "class TodoTest\n def test_creation; assert Todo.new(title: \"Read\").valid?; end\nend"
+		},
+		"inventory": [
+			[
+				"u0",
+				"app/controllers/todos_controller.rb",
+				1,
+				"TodosController",
+				0,
+				319
+			],
+			[
+				"u1",
+				"app/controllers/todos_controller.rb",
+				1,
+				"index",
+				48,
+				81
+			],
+			[
+				"u2",
+				"app/controllers/todos_controller.rb",
+				1,
+				"create",
+				84,
+				125
+			],
+			[
+				"u3",
+				"app/controllers/todos_controller.rb",
+				1,
+				"update",
+				128,
+				191
+			],
+			[
+				"u4",
+				"app/controllers/todos_controller.rb",
+				1,
+				"destroy",
+				194,
+				242
+			],
+			[
+				"u5",
+				"app/controllers/todos_controller.rb",
+				1,
+				"todo_params",
+				245,
+				315
+			],
+			[
+				"u6",
+				"app/models/todo.rb",
+				1,
+				"Todo",
+				0,
+				68
+			],
+			[
+				"u7",
+				"app/views/todos/index.html.erb",
+				0,
+				null,
+				0,
+				108
+			],
+			[
+				"u8",
+				"config/application.rb",
+				1,
+				"Application",
+				0,
+				58
+			],
+			[
+				"u9",
+				"config/application.rb",
+				1,
+				"boot",
+				19,
+				54
+			],
+			[
+				"u10",
+				"config/features.yml",
+				0,
+				null,
+				0,
+				37
+			],
+			[
+				"u11",
+				"config/routes.rb",
+				1,
+				null,
+				0,
+				74
+			],
+			[
+				"u12",
+				"test/todo_test.rb",
+				1,
+				"TodoTest",
+				0,
+				81
+			],
+			[
+				"u13",
+				"test/todo_test.rb",
+				1,
+				"test_creation",
+				16,
+				77
+			]
+		],
+		"response": {
+			"summary": "Todo application supporting task listing and creation, completion, and deletion.",
+			"questions": [],
+			"features": [
+				{
+					"key": "todos",
+					"name": "Task management",
+					"description": "Manage persisted todo tasks."
+				}
+			],
+			"elements": [
+				{
+					"symbol": "u0",
+					"kind": "controller",
+					"name": "Todos controller",
+					"description": "Handles task requests.",
+					"feature": "todos",
+					"parent": "todos"
+				},
+				{
+					"symbol": "u1",
+					"kind": "action",
+					"name": "List tasks",
+					"description": "Loads all tasks.",
+					"feature": "todos",
+					"parent": "u0"
+				},
+				{
+					"symbol": "u2",
+					"kind": "action",
+					"name": "Create task",
+					"description": "Creates a task from permitted input.",
+					"feature": "todos",
+					"parent": "u0"
+				},
+				{
+					"symbol": "u3",
+					"kind": "action",
+					"name": "Complete task",
+					"description": "Marks a selected task completed.",
+					"feature": "todos",
+					"parent": "u0"
+				},
+				{
+					"symbol": "u4",
+					"kind": "action",
+					"name": "Delete task",
+					"description": "Deletes a selected task.",
+					"feature": "todos",
+					"parent": "u0"
+				},
+				{
+					"symbol": "u6",
+					"kind": "resource",
+					"name": "Todo task",
+					"description": "Persisted task with a required title and completion value.",
+					"feature": "todos",
+					"parent": "todos"
+				}
+			],
+			"concepts": [
+				{
+					"key": "task-user",
+					"kind": "actor",
+					"name": "Task user",
+					"description": "Person using the task page.",
+					"feature": "todos",
+					"parent": null,
+					"source": "u7"
+				},
+				{
+					"key": "task-page",
+					"kind": "view",
+					"name": "Task page",
+					"description": "Task page offering a title field and Add task submission.",
+					"feature": "todos",
+					"parent": "todos",
+					"source": "u7"
+				}
+			],
+			"relations": [
+				{
+					"key": "r-user-page",
+					"kind": "invocation",
+					"from": "task-user",
+					"to": "task-page",
+					"name": "uses",
+					"condition": null,
+					"evidence": [
+						"u7"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-page-create",
+					"kind": "invocation",
+					"from": "task-page",
+					"to": "u2",
+					"name": "submits task",
+					"condition": null,
+					"evidence": [
+						"u7"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-list-todos",
+					"kind": "read",
+					"from": "u1",
+					"to": "u6",
+					"name": "loads all tasks",
+					"condition": null,
+					"evidence": [
+						"u1"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-create-todo",
+					"kind": "write",
+					"from": "u2",
+					"to": "u6",
+					"name": "creates task",
+					"condition": null,
+					"evidence": [
+						"u2",
+						"u5"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-complete-todo",
+					"kind": "write",
+					"from": "u3",
+					"to": "u6",
+					"name": "sets completed",
+					"condition": null,
+					"evidence": [
+						"u3"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-delete-todo",
+					"kind": "write",
+					"from": "u4",
+					"to": "u6",
+					"name": "deletes task",
+					"condition": null,
+					"evidence": [
+						"u4"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-controller-todos",
+					"kind": "realization",
+					"from": "u0",
+					"to": "todos",
+					"name": "delivers",
+					"condition": null,
+					"evidence": [
+						"u0"
+					],
+					"classification": "inferred"
+				}
+			],
+			"diagrams": [
+				{
+					"key": "task-actions",
+					"name": "Task actions",
+					"kind": "activity",
+					"feature": "todos",
+					"nodes": [
+						"task-user",
+						"task-page",
+						"u2",
+						"u3",
+						"u4",
+						"u6"
+					],
+					"relations": [
+						"r-user-page",
+						"r-page-create",
+						"r-create-todo",
+						"r-complete-todo",
+						"r-delete-todo"
+					],
+					"intent": "Show how a user creates, completes, and removes persisted tasks."
+				}
+			],
+			"overview": {
+				"key": "todo-app",
+				"name": "Todo application",
+				"intent": "Task-management capabilities and their persisted task data."
+			},
+			"coverage": {
+				"targets": {
+					"u0": "u0",
+					"u1": "u1",
+					"u2": "u2",
+					"u3": "u3",
+					"u4": "u4",
+					"u5": "u2",
+					"u6": "u6",
+					"u7": "task-page",
+					"u8": "x:framework",
+					"u9": "x:framework",
+					"u10": "x:config",
+					"u11": "x:framework",
+					"u12": "x:test",
+					"u13": "x:test"
+				}
+			}
+		}
+	},
+	{
+		"case": "todo-rails-scaffold",
+		"model": "gpt-5.6-terra",
+		"files": {
+			"app/controllers/todos_controller.rb": "class TodosController < ApplicationController\n  def index; @todos = Todo.all; end\n  def create; Todo.create(todo_params); end\n  def update; Todo.find(params[:id]).update(completed: true); end\n  def destroy; Todo.find(params[:id]).destroy; end\n  def todo_params; params.require(:todo).permit(:title, :completed); end\nend",
+			"app/models/todo.rb": "class Todo < ApplicationRecord\n validates :title, presence: true\nend",
+			"app/views/todos/index.html.erb": "<h1>Tasks</h1><form action=\"/todos\" method=\"post\"><input name=\"todo[title]\"><button>Add task</button></form>",
+			"config/application.rb": "class Application\n def boot; initialize_framework; end\nend",
+			"config/features.yml": "features:\n  todos:\n    enabled: true\n",
+			"config/initializers/setup_0.rb": "module Setup0\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_1.rb": "module Setup1\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_10.rb": "module Setup10\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_11.rb": "module Setup11\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_12.rb": "module Setup12\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_13.rb": "module Setup13\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_14.rb": "module Setup14\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_15.rb": "module Setup15\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_16.rb": "module Setup16\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_17.rb": "module Setup17\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_18.rb": "module Setup18\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_19.rb": "module Setup19\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_2.rb": "module Setup2\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_20.rb": "module Setup20\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_21.rb": "module Setup21\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_3.rb": "module Setup3\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_4.rb": "module Setup4\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_5.rb": "module Setup5\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_6.rb": "module Setup6\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_7.rb": "module Setup7\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_8.rb": "module Setup8\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/initializers/setup_9.rb": "module Setup9\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+			"config/routes.rb": "Rails.application.routes.draw do\n resources :todos\n root \"todos#index\"\nend",
+			"test/todo_test.rb": "class TodoTest\n def test_creation; assert Todo.new(title: \"Read\").valid?; end\nend"
+		},
+		"inventory": [
+			[
+				"u0",
+				"app/controllers/todos_controller.rb",
+				1,
+				"TodosController",
+				0,
+				319
+			],
+			[
+				"u1",
+				"app/controllers/todos_controller.rb",
+				1,
+				"index",
+				48,
+				81
+			],
+			[
+				"u2",
+				"app/controllers/todos_controller.rb",
+				1,
+				"create",
+				84,
+				125
+			],
+			[
+				"u3",
+				"app/controllers/todos_controller.rb",
+				1,
+				"update",
+				128,
+				191
+			],
+			[
+				"u4",
+				"app/controllers/todos_controller.rb",
+				1,
+				"destroy",
+				194,
+				242
+			],
+			[
+				"u5",
+				"app/controllers/todos_controller.rb",
+				1,
+				"todo_params",
+				245,
+				315
+			],
+			[
+				"u6",
+				"app/models/todo.rb",
+				1,
+				"Todo",
+				0,
+				68
+			],
+			[
+				"u7",
+				"app/views/todos/index.html.erb",
+				0,
+				null,
+				0,
+				108
+			],
+			[
+				"u8",
+				"config/application.rb",
+				1,
+				"Application",
+				0,
+				58
+			],
+			[
+				"u9",
+				"config/application.rb",
+				1,
+				"boot",
+				19,
+				54
+			],
+			[
+				"u10",
+				"config/features.yml",
+				0,
+				null,
+				0,
+				37
+			],
+			[
+				"u11",
+				"config/initializers/setup_0.rb",
+				1,
+				"Setup0",
+				0,
+				100
+			],
+			[
+				"u12",
+				"config/initializers/setup_0.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u13",
+				"config/initializers/setup_1.rb",
+				1,
+				"Setup1",
+				0,
+				100
+			],
+			[
+				"u14",
+				"config/initializers/setup_1.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u15",
+				"config/initializers/setup_10.rb",
+				1,
+				"Setup10",
+				0,
+				101
+			],
+			[
+				"u16",
+				"config/initializers/setup_10.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u17",
+				"config/initializers/setup_11.rb",
+				1,
+				"Setup11",
+				0,
+				101
+			],
+			[
+				"u18",
+				"config/initializers/setup_11.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u19",
+				"config/initializers/setup_12.rb",
+				1,
+				"Setup12",
+				0,
+				101
+			],
+			[
+				"u20",
+				"config/initializers/setup_12.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u21",
+				"config/initializers/setup_13.rb",
+				1,
+				"Setup13",
+				0,
+				101
+			],
+			[
+				"u22",
+				"config/initializers/setup_13.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u23",
+				"config/initializers/setup_14.rb",
+				1,
+				"Setup14",
+				0,
+				101
+			],
+			[
+				"u24",
+				"config/initializers/setup_14.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u25",
+				"config/initializers/setup_15.rb",
+				1,
+				"Setup15",
+				0,
+				101
+			],
+			[
+				"u26",
+				"config/initializers/setup_15.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u27",
+				"config/initializers/setup_16.rb",
+				1,
+				"Setup16",
+				0,
+				101
+			],
+			[
+				"u28",
+				"config/initializers/setup_16.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u29",
+				"config/initializers/setup_17.rb",
+				1,
+				"Setup17",
+				0,
+				101
+			],
+			[
+				"u30",
+				"config/initializers/setup_17.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u31",
+				"config/initializers/setup_18.rb",
+				1,
+				"Setup18",
+				0,
+				101
+			],
+			[
+				"u32",
+				"config/initializers/setup_18.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u33",
+				"config/initializers/setup_19.rb",
+				1,
+				"Setup19",
+				0,
+				101
+			],
+			[
+				"u34",
+				"config/initializers/setup_19.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u35",
+				"config/initializers/setup_2.rb",
+				1,
+				"Setup2",
+				0,
+				100
+			],
+			[
+				"u36",
+				"config/initializers/setup_2.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u37",
+				"config/initializers/setup_20.rb",
+				1,
+				"Setup20",
+				0,
+				101
+			],
+			[
+				"u38",
+				"config/initializers/setup_20.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u39",
+				"config/initializers/setup_21.rb",
+				1,
+				"Setup21",
+				0,
+				101
+			],
+			[
+				"u40",
+				"config/initializers/setup_21.rb",
+				1,
+				"configure",
+				17,
+				97
+			],
+			[
+				"u41",
+				"config/initializers/setup_3.rb",
+				1,
+				"Setup3",
+				0,
+				100
+			],
+			[
+				"u42",
+				"config/initializers/setup_3.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u43",
+				"config/initializers/setup_4.rb",
+				1,
+				"Setup4",
+				0,
+				100
+			],
+			[
+				"u44",
+				"config/initializers/setup_4.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u45",
+				"config/initializers/setup_5.rb",
+				1,
+				"Setup5",
+				0,
+				100
+			],
+			[
+				"u46",
+				"config/initializers/setup_5.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u47",
+				"config/initializers/setup_6.rb",
+				1,
+				"Setup6",
+				0,
+				100
+			],
+			[
+				"u48",
+				"config/initializers/setup_6.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u49",
+				"config/initializers/setup_7.rb",
+				1,
+				"Setup7",
+				0,
+				100
+			],
+			[
+				"u50",
+				"config/initializers/setup_7.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u51",
+				"config/initializers/setup_8.rb",
+				1,
+				"Setup8",
+				0,
+				100
+			],
+			[
+				"u52",
+				"config/initializers/setup_8.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u53",
+				"config/initializers/setup_9.rb",
+				1,
+				"Setup9",
+				0,
+				100
+			],
+			[
+				"u54",
+				"config/initializers/setup_9.rb",
+				1,
+				"configure",
+				16,
+				96
+			],
+			[
+				"u55",
+				"config/routes.rb",
+				1,
+				null,
+				0,
+				74
+			],
+			[
+				"u56",
+				"test/todo_test.rb",
+				1,
+				"TodoTest",
+				0,
+				81
+			],
+			[
+				"u57",
+				"test/todo_test.rb",
+				1,
+				"test_creation",
+				16,
+				77
+			]
+		],
+		"response": {
+			"summary": "Todo task management application with task listing and CRUD operations.",
+			"questions": [],
+			"features": [
+				{
+					"key": "f-todos",
+					"name": "Todo Management",
+					"description": "Manage titled tasks and mark them completed."
+				}
+			],
+			"elements": [
+				{
+					"symbol": "u0",
+					"kind": "controller",
+					"name": "Todos Controller",
+					"description": "Handles todo collection and item requests.",
+					"feature": "f-todos",
+					"parent": null
+				},
+				{
+					"symbol": "u1",
+					"kind": "action",
+					"name": "List Tasks",
+					"description": "Retrieves all todos.",
+					"feature": "f-todos",
+					"parent": "u0"
+				},
+				{
+					"symbol": "u2",
+					"kind": "action",
+					"name": "Create Task",
+					"description": "Creates a todo from permitted task fields.",
+					"feature": "f-todos",
+					"parent": "u0"
+				},
+				{
+					"symbol": "u3",
+					"kind": "action",
+					"name": "Complete Task",
+					"description": "Marks a selected todo completed.",
+					"feature": "f-todos",
+					"parent": "u0"
+				},
+				{
+					"symbol": "u4",
+					"kind": "action",
+					"name": "Delete Task",
+					"description": "Deletes a selected todo.",
+					"feature": "f-todos",
+					"parent": "u0"
+				},
+				{
+					"symbol": "u6",
+					"kind": "resource",
+					"name": "Todo",
+					"description": "Persisted task with a required title and completion status.",
+					"feature": "f-todos",
+					"parent": null
+				}
+			],
+			"concepts": [
+				{
+					"key": "c-user",
+					"kind": "actor",
+					"name": "User",
+					"description": "Person managing tasks through the task page.",
+					"feature": "f-todos",
+					"parent": null,
+					"source": "u7"
+				},
+				{
+					"key": "c-task-page",
+					"kind": "view",
+					"name": "Task Page",
+					"description": "Displays the Tasks heading and provides a form to add a task.",
+					"feature": "f-todos",
+					"parent": null,
+					"source": "u7"
+				}
+			],
+			"relations": [
+				{
+					"key": "r-user-list",
+					"kind": "invocation",
+					"from": "c-user",
+					"to": "u1",
+					"name": "opens task list",
+					"condition": null,
+					"evidence": [
+						"u55"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-user-create",
+					"kind": "invocation",
+					"from": "c-user",
+					"to": "u2",
+					"name": "submits new task",
+					"condition": null,
+					"evidence": [
+						"u7",
+						"u55"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-user-complete",
+					"kind": "invocation",
+					"from": "c-user",
+					"to": "u3",
+					"name": "completes task",
+					"condition": null,
+					"evidence": [
+						"u55"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-user-delete",
+					"kind": "invocation",
+					"from": "c-user",
+					"to": "u4",
+					"name": "deletes task",
+					"condition": null,
+					"evidence": [
+						"u55"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-page-create",
+					"kind": "invocation",
+					"from": "c-task-page",
+					"to": "u2",
+					"name": "posts task form",
+					"condition": null,
+					"evidence": [
+						"u7"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-list-read",
+					"kind": "read",
+					"from": "u1",
+					"to": "u6",
+					"name": "loads all tasks",
+					"condition": null,
+					"evidence": [
+						"u1"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-create-write",
+					"kind": "write",
+					"from": "u2",
+					"to": "u6",
+					"name": "stores task",
+					"condition": "permitted task fields supplied",
+					"evidence": [
+						"u2",
+						"u5"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-complete-write",
+					"kind": "write",
+					"from": "u3",
+					"to": "u6",
+					"name": "sets completed",
+					"condition": "selected task exists",
+					"evidence": [
+						"u3"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-delete-write",
+					"kind": "write",
+					"from": "u4",
+					"to": "u6",
+					"name": "removes task",
+					"condition": "selected task exists",
+					"evidence": [
+						"u4"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-controller-feature",
+					"kind": "realization",
+					"from": "u0",
+					"to": "f-todos",
+					"name": "delivers",
+					"condition": null,
+					"evidence": [
+						"u0"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-resource-feature",
+					"kind": "realization",
+					"from": "u6",
+					"to": "f-todos",
+					"name": "stores task data for",
+					"condition": null,
+					"evidence": [
+						"u6"
+					],
+					"classification": "inferred"
+				}
+			],
+			"diagrams": [
+				{
+					"key": "d-task-operations",
+					"name": "Task Operations",
+					"kind": "activity",
+					"feature": "f-todos",
+					"nodes": [
+						"c-user",
+						"c-task-page",
+						"u1",
+						"u2",
+						"u3",
+						"u4",
+						"u6"
+					],
+					"relations": [
+						"r-user-list",
+						"r-user-create",
+						"r-user-complete",
+						"r-user-delete",
+						"r-page-create",
+						"r-list-read",
+						"r-create-write",
+						"r-complete-write",
+						"r-delete-write"
+					],
+					"intent": "Show how a user lists, creates, completes, and deletes tasks."
+				}
+			],
+			"overview": {
+				"key": "overview-todos",
+				"name": "Todo Management Overview",
+				"intent": "Show the task-management capability, its controller, task resource, page, and user interactions."
+			},
+			"coverage": {
+				"targets": {
+					"u0": "u0",
+					"u1": "u1",
+					"u2": "u2",
+					"u3": "u3",
+					"u4": "u4",
+					"u5": "u0",
+					"u6": "u6",
+					"u7": "c-task-page",
+					"u8": "x:framework",
+					"u9": "x:framework",
+					"u10": "x:config",
+					"u11": "x:framework",
+					"u12": "x:framework",
+					"u13": "x:framework",
+					"u14": "x:framework",
+					"u15": "x:framework",
+					"u16": "x:framework",
+					"u17": "x:framework",
+					"u18": "x:framework",
+					"u19": "x:framework",
+					"u20": "x:framework",
+					"u21": "x:framework",
+					"u22": "x:framework",
+					"u23": "x:framework",
+					"u24": "x:framework",
+					"u25": "x:framework",
+					"u26": "x:framework",
+					"u27": "x:framework",
+					"u28": "x:framework",
+					"u29": "x:framework",
+					"u30": "x:framework",
+					"u31": "x:framework",
+					"u32": "x:framework",
+					"u33": "x:framework",
+					"u34": "x:framework",
+					"u35": "x:framework",
+					"u36": "x:framework",
+					"u37": "x:framework",
+					"u38": "x:framework",
+					"u39": "x:framework",
+					"u40": "x:framework",
+					"u41": "x:framework",
+					"u42": "x:framework",
+					"u43": "x:framework",
+					"u44": "x:framework",
+					"u45": "x:framework",
+					"u46": "x:framework",
+					"u47": "x:framework",
+					"u48": "x:framework",
+					"u49": "x:framework",
+					"u50": "x:framework",
+					"u51": "x:framework",
+					"u52": "x:framework",
+					"u53": "x:framework",
+					"u54": "x:framework",
+					"u55": "u0",
+					"u56": "x:test",
+					"u57": "x:test"
+				}
+			}
+		}
+	},
+	{
+		"case": "todo-go",
+		"model": "gpt-5.6-terra",
+		"files": {
+			"tasks.go": "package tasks\ntype Task struct { ID int; Title string; Completed bool }\ntype Store struct { Tasks map[int]Task; NextID int }\nfunc (s *Store) Create(title string) Task { s.NextID++; t := Task{ID:s.NextID,Title:title}; s.Tasks[t.ID]=t; return t }\nfunc (s *Store) Complete(id int) { t := s.Tasks[id]; t.Completed=true; s.Tasks[id]=t }\nfunc (s *Store) Delete(id int) { delete(s.Tasks,id) }\nfunc (s *Store) List() []Task { out:=[]Task{}; for _,t:=range s.Tasks { out=append(out,t) }; return out }\n"
+		},
+		"inventory": [
+			[
+				"u0",
+				"tasks.go",
+				1,
+				"Task",
+				19,
+				71
+			],
+			[
+				"u1",
+				"tasks.go",
+				1,
+				"Store",
+				77,
+				124
+			],
+			[
+				"u2",
+				"tasks.go",
+				1,
+				"Create",
+				125,
+				244
+			],
+			[
+				"u3",
+				"tasks.go",
+				1,
+				"Complete",
+				245,
+				331
+			],
+			[
+				"u4",
+				"tasks.go",
+				1,
+				"Delete",
+				332,
+				385
+			],
+			[
+				"u5",
+				"tasks.go",
+				1,
+				"List",
+				386,
+				491
+			],
+			[
+				"u6",
+				"tasks.go",
+				0,
+				null,
+				0,
+				19
+			],
+			[
+				"u7",
+				"tasks.go",
+				0,
+				null,
+				71,
+				77
+			]
+		],
+		"response": {
+			"summary": "In-memory task management supports creating, listing, completing, and deleting tasks.",
+			"questions": [],
+			"features": [
+				{
+					"key": "f-task-management",
+					"name": "Task management",
+					"description": "Maintain a collection of tasks and their completion status."
+				}
+			],
+			"elements": [
+				{
+					"symbol": "u0",
+					"kind": "resource",
+					"name": "Task",
+					"description": "Task entity with identifier, title, and completion flag.",
+					"feature": "f-task-management",
+					"parent": null
+				},
+				{
+					"symbol": "u1",
+					"kind": "resource",
+					"name": "Store",
+					"description": "In-memory task collection and next-ID counter.",
+					"feature": "f-task-management",
+					"parent": null
+				},
+				{
+					"symbol": "u2",
+					"kind": "action",
+					"name": "Create task",
+					"description": "Assign an ID and add a task to the store.",
+					"feature": "f-task-management",
+					"parent": null
+				},
+				{
+					"symbol": "u3",
+					"kind": "action",
+					"name": "Complete task",
+					"description": "Mark a stored task completed.",
+					"feature": "f-task-management",
+					"parent": null
+				},
+				{
+					"symbol": "u4",
+					"kind": "action",
+					"name": "Delete task",
+					"description": "Remove a task from the store.",
+					"feature": "f-task-management",
+					"parent": null
+				},
+				{
+					"symbol": "u5",
+					"kind": "action",
+					"name": "List tasks",
+					"description": "Return all stored tasks.",
+					"feature": "f-task-management",
+					"parent": null
+				}
+			],
+			"concepts": [
+				{
+					"key": "c-incomplete",
+					"kind": "state",
+					"name": "Incomplete",
+					"description": "A task whose completion flag is false.",
+					"feature": "f-task-management",
+					"parent": "u0",
+					"source": "u0"
+				},
+				{
+					"key": "c-completed",
+					"kind": "state",
+					"name": "Completed",
+					"description": "A task whose completion flag is true.",
+					"feature": "f-task-management",
+					"parent": "u0",
+					"source": "u3"
+				}
+			],
+			"relations": [
+				{
+					"key": "r-create-store",
+					"kind": "write",
+					"from": "u2",
+					"to": "u1",
+					"name": "stores task",
+					"condition": null,
+					"evidence": [
+						"u2"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-complete-read-store",
+					"kind": "read",
+					"from": "u3",
+					"to": "u1",
+					"name": "loads task",
+					"condition": null,
+					"evidence": [
+						"u3"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-complete-store",
+					"kind": "write",
+					"from": "u3",
+					"to": "u1",
+					"name": "stores completion",
+					"condition": null,
+					"evidence": [
+						"u3"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-delete-store",
+					"kind": "write",
+					"from": "u4",
+					"to": "u1",
+					"name": "removes task",
+					"condition": null,
+					"evidence": [
+						"u4"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-list-store",
+					"kind": "read",
+					"from": "u5",
+					"to": "u1",
+					"name": "enumerates tasks",
+					"condition": null,
+					"evidence": [
+						"u5"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-task-completion",
+					"kind": "transition",
+					"from": "c-incomplete",
+					"to": "c-completed",
+					"name": "complete",
+					"condition": null,
+					"evidence": [
+						"u0",
+						"u3"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-create-feature",
+					"kind": "realization",
+					"from": "u2",
+					"to": "f-task-management",
+					"name": "supports",
+					"condition": null,
+					"evidence": [
+						"u2"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-complete-feature",
+					"kind": "realization",
+					"from": "u3",
+					"to": "f-task-management",
+					"name": "supports",
+					"condition": null,
+					"evidence": [
+						"u3"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-delete-feature",
+					"kind": "realization",
+					"from": "u4",
+					"to": "f-task-management",
+					"name": "supports",
+					"condition": null,
+					"evidence": [
+						"u4"
+					],
+					"classification": "inferred"
+				},
+				{
+					"key": "r-list-feature",
+					"kind": "realization",
+					"from": "u5",
+					"to": "f-task-management",
+					"name": "supports",
+					"condition": null,
+					"evidence": [
+						"u5"
+					],
+					"classification": "inferred"
+				}
+			],
+			"diagrams": [
+				{
+					"key": "d-task-lifecycle",
+					"name": "Task lifecycle",
+					"kind": "state",
+					"feature": "f-task-management",
+					"nodes": [
+						"u0",
+						"c-incomplete",
+						"c-completed",
+						"u3"
+					],
+					"relations": [
+						"r-task-completion"
+					],
+					"intent": "Show the completion state change for a task."
+				},
+				{
+					"key": "d-task-operations",
+					"name": "Task operations",
+					"kind": "activity",
+					"feature": "f-task-management",
+					"nodes": [
+						"u1",
+						"u2",
+						"u3",
+						"u4",
+						"u5"
+					],
+					"relations": [
+						"r-create-store",
+						"r-complete-read-store",
+						"r-complete-store",
+						"r-delete-store",
+						"r-list-store"
+					],
+					"intent": "Show how task operations access the in-memory store."
+				}
+			],
+			"overview": {
+				"key": "overview-task-management",
+				"name": "Task management model",
+				"intent": "Summarize task data, in-memory storage, and supported operations."
+			},
+			"coverage": {
+				"targets": {
+					"u0": "u0",
+					"u1": "u1",
+					"u2": "u2",
+					"u3": "u3",
+					"u4": "u4",
+					"u5": "u5",
+					"u6": "x:syntax",
+					"u7": "x:syntax"
+				}
+			}
+		}
+	}
+]

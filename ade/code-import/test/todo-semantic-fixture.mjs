@@ -26,7 +26,7 @@ export const todoFiles = {
 export function interpretTodo(input) {
 	const context = expandDiagramContext(input);
 	const result = interpretTodoDomain(context);
-	return input.format === 'compact-v3' && !input.compact ? compactDiagramReply(context, result) : result;
+	return input.format === 'compact-v4' && !input.compact ? compactDiagramReply(context, result) : result;
 }
 
 function interpretTodoDomain(context) {

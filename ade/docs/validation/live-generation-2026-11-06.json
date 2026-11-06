@@ -1,0 +1,277 @@
+{
+	"kind": "real-codex-cli-comparison",
+	"fixtures": [
+		"Ruby TODO with HTML/YAML",
+		"Ruby TODO with 22 framework initializer files",
+		"Go TODO"
+	],
+	"models": [
+		{
+			"model": "gpt-5.6-luna",
+			"attempts": 6,
+			"passed": 4,
+			"cases": [
+				{
+					"name": "todo-rails",
+					"run": 1,
+					"passed": false,
+					"calls": 1,
+					"indexedSymbols": 12,
+					"sourceUnits": 14,
+					"error": "Invalid diagram structure: incompatibleRelation at /semantics/relations/2 (invocation, contract, controller)",
+					"durationMs": 34657,
+					"usage": [
+						{
+							"inputTokens": 10304,
+							"outputTokens": 1754,
+							"inputBytes": 12131,
+							"outputBytes": 4844
+						}
+					]
+				},
+				{
+					"name": "todo-rails",
+					"run": 2,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 12,
+					"sourceUnits": 14,
+					"usage": [
+						{
+							"inputTokens": 10304,
+							"outputTokens": 1621,
+							"inputBytes": 12131,
+							"outputBytes": 4470
+						}
+					],
+					"elements": 11,
+					"relations": 12,
+					"views": 3,
+					"durationMs": 33508
+				},
+				{
+					"name": "todo-rails-scaffold",
+					"run": 1,
+					"passed": false,
+					"calls": 1,
+					"indexedSymbols": 56,
+					"sourceUnits": 58,
+					"error": "Unknown coverage responsibility c:todo-controller at row 0 (u0); declare it in elements or concepts",
+					"durationMs": 45954,
+					"usage": [
+						{
+							"inputTokens": 13140,
+							"outputTokens": 2367,
+							"inputBytes": 20697,
+							"outputBytes": 5341
+						}
+					]
+				},
+				{
+					"name": "todo-rails-scaffold",
+					"run": 2,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 56,
+					"sourceUnits": 58,
+					"usage": [
+						{
+							"inputTokens": 13142,
+							"outputTokens": 2383,
+							"inputBytes": 20697,
+							"outputBytes": 5920
+						}
+					],
+					"elements": 12,
+					"relations": 11,
+					"views": 3,
+					"durationMs": 46078
+				},
+				{
+					"name": "todo-go",
+					"run": 1,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 6,
+					"sourceUnits": 8,
+					"usage": [
+						{
+							"inputTokens": 9911,
+							"outputTokens": 1307,
+							"inputBytes": 10846,
+							"outputBytes": 3171
+						}
+					],
+					"elements": 8,
+					"relations": 6,
+					"views": 3,
+					"durationMs": 26231
+				},
+				{
+					"name": "todo-go",
+					"run": 2,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 6,
+					"sourceUnits": 8,
+					"usage": [
+						{
+							"inputTokens": 9907,
+							"outputTokens": 1397,
+							"inputBytes": 10846,
+							"outputBytes": 3324
+						}
+					],
+					"elements": 8,
+					"relations": 7,
+					"views": 2,
+					"durationMs": 28141
+				}
+			]
+		},
+		{
+			"model": "gpt-5.6-terra",
+			"attempts": 6,
+			"passed": 6,
+			"cases": [
+				{
+					"name": "todo-rails",
+					"run": 1,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 12,
+					"sourceUnits": 14,
+					"usage": [
+						{
+							"inputTokens": 11833,
+							"outputTokens": 1480,
+							"inputBytes": 12131,
+							"outputBytes": 3109
+						}
+					],
+					"elements": 8,
+					"relations": 7,
+					"views": 2,
+					"durationMs": 43085
+				},
+				{
+					"name": "todo-rails-scaffold",
+					"run": 1,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 56,
+					"sourceUnits": 58,
+					"usage": [
+						{
+							"inputTokens": 14667,
+							"outputTokens": 1902,
+							"inputBytes": 20697,
+							"outputBytes": 4895
+						}
+					],
+					"elements": 8,
+					"relations": 11,
+					"views": 2,
+					"durationMs": 49281
+				},
+				{
+					"name": "todo-go",
+					"run": 1,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 6,
+					"sourceUnits": 8,
+					"usage": [
+						{
+							"inputTokens": 11436,
+							"outputTokens": 1527,
+							"inputBytes": 10846,
+							"outputBytes": 3946
+						}
+					],
+					"elements": 8,
+					"relations": 10,
+					"views": 3,
+					"durationMs": 40493
+				},
+				{
+					"name": "todo-rails",
+					"run": 1,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 12,
+					"sourceUnits": 14,
+					"usage": [
+						{
+							"inputTokens": 11829,
+							"outputTokens": 1486,
+							"inputBytes": 12131,
+							"outputBytes": 3533
+						}
+					],
+					"elements": 8,
+					"relations": 8,
+					"views": 2,
+					"durationMs": 40317
+				},
+				{
+					"name": "todo-rails-scaffold",
+					"run": 1,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 56,
+					"sourceUnits": 58,
+					"usage": [
+						{
+							"inputTokens": 14669,
+							"outputTokens": 1977,
+							"inputBytes": 20697,
+							"outputBytes": 4619
+						}
+					],
+					"elements": 8,
+					"relations": 9,
+					"views": 2,
+					"durationMs": 51889
+				},
+				{
+					"name": "todo-go",
+					"run": 1,
+					"passed": true,
+					"calls": 1,
+					"indexedSymbols": 6,
+					"sourceUnits": 8,
+					"usage": [
+						{
+							"inputTokens": 11436,
+							"outputTokens": 1414,
+							"inputBytes": 10846,
+							"outputBytes": 3474
+						}
+					],
+					"elements": 8,
+					"relations": 9,
+					"views": 2,
+					"durationMs": 37618
+				}
+			]
+		}
+	],
+	"recommendedForTheseFixtures": "gpt-5.6-terra",
+	"realMonetaryCostKnown": false,
+	"renderedInDesktop": true,
+	"acceptance": [
+		"compact model includes actions and task resources",
+		"connected views",
+		"scaffolding is excluded from domain objects",
+		"source files unchanged",
+		"diagram references and endpoint roles validated"
+	],
+	"notes": [
+		"Six independent final-contract generations per model; three generated fixtures, repeated twice.",
+		"The 58-source-unit Rails fixture represents the reported small-project bookkeeping failure.",
+		"Real monetary charges are not reported by the CLI. Success ratios apply to this corpus, not every project.",
+		"Recorded real model responses are retained as offline regression fixtures.",
+		"This report covers final-contract trials; exploratory calls and the authentication probe are recorded separately under .build/ade-live."
+	]
+}

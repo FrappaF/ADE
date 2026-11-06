@@ -1,68 +1,88 @@
-# Generazione semantica: contesto e output compatti
+# Generazione semantica: protocollo e prove reali
 
-Il modello IA decide responsabilità, aggregazioni, esclusioni e diagrammi. Gli strumenti costruiscono evidenze compatte, verificano le decisioni e producono il documento ADE. Nessun parser decide automaticamente cosa debba diventare un oggetto di dominio.
+L’IA sceglie oggetti, capacità, aggregazioni, esclusioni, relazioni e flussi. Gli strumenti preparano le evidenze, espongono le regole ADE, risolvono riferimenti univoci e proiettano il modello dichiarato in un’overview completa.
 
 ```mermaid
 flowchart LR
-    A[Codebase in qualsiasi linguaggio] --> B[Indice e finestre sorgente]
-    B --> C[File condivisi e frammenti deduplicati]
-    C --> D{Contesto piccolo?}
-    D -->|Sì| E[Una richiesta IA: modello e diagrammi]
-    D -->|No| F[Gruppi con checkpoint]
-    F --> G[Sintesi IA: responsabilità e metadati]
-    E --> H[Verifica copertura e riferimenti]
-    G --> H
-    H --> I[Identità stabili e layout]
-    I --> J[Pubblicazione snapshot]
+    A[Sorgenti in qualsiasi linguaggio] --> B[Indice e finestre condivise]
+    B --> C[Schema con riferimenti sorgente obbligatori]
+    D[Validatore ADE] --> E[Grammatica di ruoli e relazioni]
+    C --> F[Modello IA]
+    E --> F
+    F --> G[Oggetti, relazioni, copertura e flussi]
+    G --> H[Risoluzione univoca e overview strutturale]
+    H --> I[Validazione e controllo revisioni]
+    I --> J[Snapshot visuale pubblicato]
 ```
 
-| Passaggio | Dati e responsabilità |
-| --- | --- |
-| Evidenze | Dichiarazioni disponibili e intervalli aggiuntivi di testo; HTML, SQL, configurazione e linguaggi senza parser seguono lo stesso protocollo. Ignore e scope continuano a filtrare i file. |
-| Compattazione deterministica | Una tabella file contiene percorso, linguaggio e frammenti. Le righe delle unità contengono riferimenti e intervalli, senza hash, percorsi ripetuti o header duplicati. Finestre sovrapposte di classe/metodo condividono il medesimo testo. Gli spazi tra frammenti restano sconosciuti. |
-| IA | Produce poche capacità e responsabilità, relazioni supportate dalle evidenze e viste connesse. Può interpretare simboli indicizzati come concetti di dominio: un simbolo non implica un nodo. |
-| Copertura | `coverage.targets[i]` assegna la riga `i` a una responsabilità `uN` o `c:key`. Molte righe possono sostenere lo stesso oggetto. `x:key` esclude direttamente la riga; `coverage.exclusions` dichiara una motivazione per chiave. |
-| Verifica | Lo schema ha `minItems = maxItems = numero di righe` per il vettore. ADE verifica che le destinazioni esistano, che ogni esclusione rimandi a una motivazione non ambigua, che non siano inventati riferimenti e che gli oggetti e le relazioni compaiano nei diagrammi. |
-| Pubblicazione | La conversione risolve i riferimenti, mantiene identità e modifiche manuali e dispone i nodi. Il modello viene pubblicato solo dopo i controlli strutturali e una nuova verifica delle revisioni. |
+## Contesto
 
-## Struttura dei dati
+`format: "compact-v4"` mantiene una tabella file con percorso, linguaggio e frammenti, e righe `units` nel formato `[ref, fileIndex, indexed, name, start, end]`. Gli offset sono posizioni UTF-16 del testo, indipendenti dal linguaggio della codebase. I frammenti sovrapposti vengono uniti; gli intervalli non divulgati restano sconosciuti. Header e corpi non vengono ripetuti. Routing, template e linguaggi senza parser seguono lo stesso protocollo delle dichiarazioni indicizzate.
 
-Il prompt contiene istruzioni brevi, una legenda e JSON con `format: "compact-v3"`. Le righe di `units` sono `[ref, fileIndex, indexed, name, start, end]`. `indexed` vale 1 quando esiste un simbolo selezionabile; un nome uguale al percorso è sostituito da `null`. Gli intervalli sono offset di stringa JavaScript, quindi unità UTF-16. Sono metadati sul testo, non un vincolo sul linguaggio della codebase. Solo i frammenti effettivamente inviati sono evidenze conosciute.
+Il contesto include `relationGrammar`, derivata direttamente da `isCompatibleRelation`, e le regole sul proprietario degli stati. Ad esempio `transition` collega stati della stessa risorsa; `write` collega un esecutore a una risorsa. Questo evita che il modello debba indovinare le convenzioni interne di ADE.
 
-Esempio della sola decisione di copertura per tre righe: due parti dell'implementazione sostengono il medesimo oggetto Tasks; una terza è bootstrap escluso esplicitamente dall'IA.
+## Output
+
+La CLI riceve uno schema specifico per la richiesta:
+
+- `elements.symbol` ammette solo i riferimenti indicizzati effettivamente disponibili; nuovi attori, stati e risorse inferite appartengono a `concepts`, con un’ancora sorgente disponibile.
+- `coverage.targets` ha una proprietà obbligatoria per ogni unità sorgente. Il modello assegna direttamente riferimenti, senza contare posizioni.
+- Le esclusioni sono codici vincolati dallo schema: `x:framework`, `x:test`, `x:config`, `x:syntax`, `x:generated`, `x:outside-scope`. Il codice scelto dall’IA esprime la motivazione; non esiste una seconda tabella di chiavi da sincronizzare.
+- `overview` contiene chiave stabile, nome e intento. Gli strumenti ne proiettano nodi e relazioni dal modello dichiarato, quando rientra in 24 nodi. `diagrams` contiene eventuali viste focalizzate aggiuntive. Per modelli più grandi il modello compone viste strutturali in `diagrams`.
 
 ```json
 {
-  "targets": ["c:tasks", "c:tasks", "x:bootstrap"],
-  "exclusions": [
-    { "key": "bootstrap", "reason": "Bootstrap del framework senza responsabilità applicative" }
-  ]
+  "targets": {
+    "u0": "c:tasks",
+    "u1": "c:tasks",
+    "u50": "u0",
+    "u51": "x:framework"
+  }
 }
 ```
 
-Non esistono elenchi di indici delle esclusioni da sincronizzare con il vettore: la destinazione `x:bootstrap` identifica direttamente la ragione. Le chiavi possono essere riutilizzate per righe non adiacenti; dichiarazioni identiche sono deduplicate, quelle contraddittorie sono rifiutate. Elementi, concetti, relazioni e diagrammi sono dichiarati una sola volta nelle rispettive collezioni. Per le associazioni non servono motivazioni ripetute: il vettore dichiara già l'aggregazione. Le omissioni dettagliate vengono ricostruite localmente per traceability e checkpoint, senza inventare scelte semantiche.
+La dichiarazione di un elemento e la destinazione primaria della sua evidenza hanno significati distinti. Un’azione dichiarata con `symbol: "u50"` resta nel modello anche se `coverage.targets.u50` sostiene una risorsa diversa. La conversione conserva entrambe le tracce. La copertura può sostenere anche una capacità `f:key`.
 
-## Budget e progetti grandi
+I riferimenti abbreviati vengono risolti soltanto quando corrispondono a una singola chiave dichiarata. Un nome visuale non viene usato per indovinare identità. Se due oggetti condividono una chiave, sono necessari riferimenti espliciti `c:key` e `f:key`. Riferimenti inventati e relazioni semanticamente incompatibili continuano a bloccare la pubblicazione.
 
-La scelta fra richiesta unica e gruppi usa la dimensione serializzata delle evidenze compattate. Una richiesta unica ammette fino a 160 unità. I gruppi ammettono fino a 40 unità e si riducono con budget inferiori. Il prompt reale più lo schema vengono controllati ancora prima della CLI: non superano il 75% del budget in byte salvato. Il 25% restante lascia margine per la risposta; è una stima prudenziale, non un calcolo esatto di token né una garanzia sulla finestra del modello. La conferma riporta richieste e limiti in byte.
+L’overview include gli oggetti dichiarati e tutti gli estremi delle relazioni scelte dall’IA, comprese eventuali capacità coinvolte. Non serve ripetere un secondo elenco completo degli oggetti. Viste focalizzate con relazioni includono automaticamente i relativi estremi; bozze isolate con un solo nodo senza relazioni vengono assorbite dall’overview. Gli strumenti non inventano ruoli o interazioni.
 
-La sintesi riceve responsabilità già analizzate, interazioni e catalogo compatto, senza reinviare i corpi sorgente. La copertura precedente è un vettore con motivazioni di esclusione raggruppate. Il catalogo mantiene le unità originali per consentire rimappature esplicite. Le descrizioni sono limitate; la lista delle responsabilità inviata alla sintesi rimane limitata a 160 voci e dichiara le eventuali omissioni. Il catalogo e la copertura restano lineari nel numero di unità: se la sintesi eccede il limite, ADE chiede un budget maggiore o uno scope ridotto prima dell'inferenza. Non presume di aver analizzato materiale assente.
+## Budget e ripresa
 
-Il formato riduce la duplicazione; non certifica qualità, costo o capacità di un modello economico reale. I test con provider simulato verificano protocollo, dimensioni, traceability e pubblicazione, non sostituiscono la valutazione semantica sul progetto dell'utente.
+Il prompt completo più lo schema non superano il 75% del budget in byte configurato. Il resto è margine stimato per la risposta, non un limite token certificato. La scelta fra richiesta unica (fino a 160 unità) e gruppi (fino a 40) usa le evidenze compattate. La sintesi riceve responsabilità e catalogo, senza ripetere i corpi sorgente. I limiti e le omissioni del riepilogo sono espliciti; un contesto troppo grande si ferma prima della CLI.
 
-## Errori e ripresa
+Non ci sono riparazioni a pagamento o escalation automatiche. Resume riusa i passi completati e include solo una diagnosi precedente limitata a 1.200 caratteri. I job incompleti dei contratti precedenti richiedono **Generation Options → Start Again**; le chiavi dei diagrammi già pubblicati restano riutilizzabili.
 
-Un vettore incompleto è rifiutato dallo schema della CLI e dalla validazione locale. Un'esclusione senza motivo o una destinazione sconosciuta riporta la riga e il riferimento coinvolti. ADE non sceglie una destinazione né aggiunge esclusioni per far passare il risultato.
+## Verifica con modelli reali
 
-Non ci sono richieste automatiche di riparazione o escalation del modello. **Resume Diagrams** richiede una nuova conferma e riusa i passi completati; al modello viene passato solo un riepilogo dell'errore precedente, fino a 1.200 caratteri. La risposta fallita non viene aggiunta alla conversazione. I checkpoint incompleti creati con il protocollo precedente richiedono **Generation Options → Start Again**; i diagrammi già pubblicati conservano le chiavi riutilizzabili.
+La prova usa la stessa `createCodeEngine` e lo stesso `createCliProvider` della distribuzione, con sorgenti di test generati. Salva prompt, schema, risposta, consumi e risultato; controlla tutte le operazioni TODO, il modello di dominio, le viste collegate, i riferimenti e la conservazione esatta dei sorgenti.
 
-## Misura riproducibile
+| Modello | Generazioni riuscite sul contratto finale |
+| --- | --- |
+| `gpt-5.6-luna` | 4 / 6 |
+| `gpt-5.6-terra` | 6 / 6 |
 
-Sul TODO Ruby generato per lo smoke test, con 14 unità e le stesse decisioni simulate:
+Il campione comprende Ruby/HTML/YAML, Ruby con 22 initializer (58 unità sorgente) e Go; ogni progetto è stato generato due volte. Terra è consigliato su questo flusso. Non sono disponibili addebiti monetari effettivi; le percentuali misurano il campione, non una garanzia su codebase arbitrarie. Il [rapporto registrato](validation/live-generation-2026-11-06.json) contiene risultati e token riportati dalla CLI. I diagrammi reali sono stati aperti nell’app desktop.
 
-| Blocco confrontato | Formato esplicito | Formato compatto | Riduzione |
-| --- | ---: | ---: | ---: |
-| Evidenze | 3.006 byte | 1.794 byte | 40,3% |
-| Copertura | 1.037 byte | 277 byte | 73,3% |
+### Ripetere la prova
 
-Il confronto delle evidenze esclude gli header del formato precedente ed è quindi conservativo rispetto alla duplicazione rimossa. Questi valori misurano i due blocchi, non l'intero prompt, token o addebiti. Lo smoke test desktop `node ade/scripts/smoke-desktop.mjs --semantic-import` salva contesto e misure in `.build/ade-smoke/semantic-todo-context.json` e `semantic-todo-compact-metrics.json`. La [misura registrata](validation/compact-generation-2026-11-06.json) deriva da un provider simulato e conserva i limiti della verifica.
+Questa invocazione effettua fino a sei richieste reali, utilizzando il login della CLI selezionata:
+
+```bash
+ADE_AI_MODEL=gpt-5.6-terra npm run ade:ai:diagram-live -- --runs 2 --max-calls 6
+```
+
+`ADE_AI_EXECUTABLE` seleziona il binario; `ADE_AI_CODEX_HOME` permette una sessione di prova separata senza modificare il processo chiamante. I risultati e le risposte rimangono sotto `.build/ade-live`, escluso da Git.
+
+Per rigiocare risposte reali senza inferenza, specificare `--replay <cartella-della-prova>`, lo stesso modello e lo stesso numero di run. Il replay verifica che prompt e schema coincidano esattamente con la registrazione. Il risultato viene marcato come replay e conta zero chiamate esterne.
+
+Le risposte reali selezionate sono anche conservate in `ade/code-import/test/fixtures/real-diagrams/todo-terra.json`. I test di regressione le applicano a inventari sorgente identici, senza account o rete. I test simulati rimangono distinti da queste verifiche.
+
+### Verificare il rendering
+
+```bash
+ADE_GENERATED_MODEL=/percorso/allo/snapshot/model.ade.json \
+  node ade/scripts/smoke-desktop.mjs --generated-diagrams
+```
+
+La prova apre lo snapshot nell’app, controlla i nodi visibili e salva i primi due diagrammi in `.build/ade-smoke/live-generated-0.png` e `live-generated-1.png`. Lo smoke con CLI simulata continua a verificare modifica, aggiornamento codice e ripresa, senza certificare il comportamento di un provider reale su quei passaggi.
