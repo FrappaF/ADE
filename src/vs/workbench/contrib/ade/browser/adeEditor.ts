@@ -1045,7 +1045,19 @@ export class AdeEditor extends EditorPane {
 			banner.setAttribute('aria-label', localize('ade.diagramImport', "Build Diagrams"));
 			const active = !!pending && this.ai.generatingDiagrams;
 			const started = !!pending && (progress.calls > 0 || progress.completed > 0 || progress.status === 'failed' || progress.status === 'questions');
-			this.paragraph(banner, active ? localize('ade.diagramRunning', "Building Diagrams · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && progress.status === 'failed' ? localize('ade.diagramPaused', "Diagram Generation Paused · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && !started ? localize('ade.diagramReady', "Ready to Build Diagrams · {0} Steps", progress.total) : pending ? localize('ade.diagramProgress', "Build Diagrams · {0} of {1} Steps Completed · {2}", progress.completed, progress.total, progress.model) : localize('ade.indexReady', "Source Evidence Ready · Create Capability and Flow Diagrams with AI"));
+			const nextDiagram = progress?.plan?.find(item => item.status !== 'complete');
+			this.paragraph(banner, pending && progress.status === 'plan' ? localize('ade.diagramPlanReady', "Diagram Plan Ready · {0} Proposed Views", progress.plan?.length ?? 0) : active && nextDiagram ? localize('ade.diagramViewRunning', "Generating {0} · {1} of {2} Diagrams Ready", nextDiagram.name, progress.plan!.filter(item => item.status === 'complete').length, progress.plan!.length) : active ? localize('ade.diagramPlanning', "Analyzing Code and Planning Diagrams · {0} of {1} Steps", progress.completed, progress.total) : pending && progress.status === 'failed' ? localize('ade.diagramPaused', "Diagram Generation Paused · {0} of {1} Steps Completed", progress.completed, progress.total) : pending && !started ? localize('ade.diagramReady', "Ready to Propose Diagrams") : pending ? localize('ade.diagramProgress', "Build Diagrams · {0} of {1} Steps Completed · {2}", progress.completed, progress.total, progress.model) : localize('ade.indexReady', "Source Evidence Ready · Create Capability and Flow Diagrams with AI"));
+			if (pending && progress.plan?.length) {
+				const details = this.controls.details(banner, localize('ade.diagramPlanDetails', "Diagram Plan and Steps"), 'diagram-plan');
+				const list = dom.append(details, dom.$('ol.ade-diagram-plan'));
+				for (const item of progress.plan) {
+					const row = dom.append(list, dom.$('li'));
+					const label = dom.append(row, dom.$('span'));
+					label.textContent = localize('ade.diagramPlanItem', "{0} · {1} · {2}", item.name, viewLabels[item.kind], item.status === 'complete' ? localize('ade.diagramStepComplete', "Ready") : active && item === nextDiagram ? localize('ade.diagramStepRunning', "Generating") : localize('ade.diagramStepPending', "Pending"));
+					this.paragraph(row, item.intent);
+				}
+			}
+
 			if (active) {
 				const meter = dom.append(banner, dom.$('progress'));
 				meter.setAttribute('max', String(progress.total)); meter.setAttribute('value', String(progress.completed));
@@ -1053,7 +1065,7 @@ export class AdeEditor extends EditorPane {
 			} else {
 				if (pending && progress.error) { const error = dom.append(banner, dom.$('p')); error.setAttribute('role', 'alert'); error.textContent = localize('ade.diagramResumeHint', "Completed Steps Are Saved. Resume to Continue, or Open Generation Options for Details."); }
 				if (pending && progress.questions.length) { this.paragraph(banner, progress.questions.join(' ')); }
-				const resume = this.button(banner, started ? localize('ade.resumeDiagrams', "Resume Diagrams") : localize('ade.buildDiagrams', "Build Diagrams with AI"), () => { void (pending ? this.ai.resumeDiagrams() : this.ai.buildDiagrams()); });
+				const resume = this.button(banner, progress?.status === 'plan' ? localize('ade.reviewDiagramPlan', "Review Diagram Plan") : started ? localize('ade.resumeDiagrams', "Resume Diagrams") : localize('ade.buildDiagrams', "Build Diagrams with AI"), () => { void (pending ? this.ai.resumeDiagrams() : this.ai.buildDiagrams()); });
 				resume.disabled = this.ai.busy || this.code.busy; resume.classList.toggle('ade-primary-action', started);
 				if (pending) {
 					const options = this.controls.details(banner, localize('ade.diagramJobOptions', "Generation Options"), 'diagram-job-options');

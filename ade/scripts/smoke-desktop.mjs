@@ -394,22 +394,23 @@ async function checkInfiniteCanvas() {
 }
 
 async function checkSemanticTodo() {
-	const { todoFile, todoSource, todoFiles, interpretTodo } = await import('../code-import/test/todo-semantic-fixture.mjs');
-	const { expandDiagramContext, compactDiagramReply } = await import('../code-import/test/compact-diagram-fixture.mjs');
+	const { todoFile, todoSource, todoFiles } = await import('../code-import/test/todo-semantic-fixture.mjs');
+	const recordsPath = path.join(root, 'ade/code-import/test/fixtures/real-diagrams/planned-terra.json');
+	const record = JSON.parse(await readFile(recordsPath, 'utf8')).find(item => item.case === 'todo-rails');
 	const sourceRoot = path.join(workspace, 'todo-with-ade');
 	for (const [file, content] of Object.entries({ [todoFile]: todoSource, ...todoFiles })) { await mkdir(path.dirname(path.join(sourceRoot, file)), { recursive: true }); await writeFile(path.join(sourceRoot, file), content); }
 	const bin = path.join(directory, 'bin'), counter = path.join(directory, 'semantic-calls');
 	await mkdir(bin);
 	await writeFile(counter, '0');
 	await writeFile(path.join(bin, 'codex'), `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync} from 'node:fs';
-import {interpretTodo} from ${JSON.stringify(path.join(root, 'ade/code-import/test/todo-semantic-fixture.mjs'))};
+const record=JSON.parse(readFileSync(${JSON.stringify(recordsPath)},'utf8')).find(item=>item.case==='todo-rails');
 const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
 if(args[0]!=='exec'){process.exit(1);}
 const input=readFileSync(0,'utf8'), context=JSON.parse(input.slice(input.indexOf('\\n')+1));
-writeFileSync(${JSON.stringify(path.join(evidence, 'semantic-todo-context.json'))},JSON.stringify(context));
+if(context.step!=='diagram'){writeFileSync(${JSON.stringify(path.join(evidence, 'semantic-todo-context.json'))},JSON.stringify(context));}
 writeFileSync(${JSON.stringify(counter)},String(Number(readFileSync(${JSON.stringify(counter)},'utf8'))+1));
-writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(interpretTodo(context)));
+writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(record.calls.find(item=>item.step===context.step&&item.diagramKey===(context.diagram?.key??null)).response));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output_tokens:200}})+'\\n');
 `);
 	await chmod(path.join(bin, 'codex'), 0o700);
@@ -434,38 +435,33 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 	await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
 	await widget.getByText('Model for Diagrams', { exact: true }).waitFor();
 	if (await widget.locator('.quick-input-list-row .label-name').first().isVisible()) { await window.keyboard.press('Enter'); } else { await enterValue(window, 'Model for Diagrams', 'economical-todo-model'); }
-	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();
-	await shell.getByRole('heading', { name: 'Task Management', exact: true }).waitFor({ timeout: 90000 });
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click();
+	const generate = window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate 4 Diagrams', exact: true });
+	await generate.waitFor({ timeout: 90000 });
+	await window.screenshot({ path: path.join(evidence, 'diagram-plan-review.png') });
+	await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Cancel', exact: true }).click();
+	assert.equal(await readFile(counter, 'utf8'), '1', 'declining the plan makes no view request');
+	assert.equal(await shell.locator('.ade-node').count(), 0);
+	await shell.getByRole('button', { name: 'Review Diagram Plan', exact: true, disabled: false }).click();
+	await generate.click();
+	await shell.getByRole('heading', { name: record.calls[0].response.plan[0].name, exact: true }).waitFor({ timeout: 90000 });
 	await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
-	assert.equal(await readFile(counter, 'utf8'), '1');
+	assert.equal(await readFile(counter, 'utf8'), String(record.calls.length));
 	const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
 	const model = JSON.parse(await readFile(path.join(sourceRoot, '.ade/imports', pointer.active, 'model.ade.json'), 'utf8'));
-	assert.equal(model.semantics.elements.length, 8); assert.equal(model.views.length, 2);
+	assert.deepEqual(model.views.map(view => view.kind), ['structure', 'activity', 'sequence', 'state']);
 	assert.ok(model.views.every(view => view.nodes.length >= 2 && view.relationIds.length));
-	const wireContext = JSON.parse(await readFile(path.join(evidence, 'semantic-todo-context.json'), 'utf8'));
-	const expanded = expandDiagramContext(wireContext);
-	const expected = interpretTodo(expanded), compact = compactDiagramReply(expanded, expected);
-	const compactMetrics = {
-		sourceUnits: wireContext.units.length,
-		explicitEvidenceBytes: Buffer.byteLength(JSON.stringify({ required: expanded.required, symbols: expanded.symbols })),
-		compactEvidenceBytes: Buffer.byteLength(JSON.stringify({ files: wireContext.files, units: wireContext.units })),
-		explicitCoverageBytes: Buffer.byteLength(JSON.stringify(expected.omissions)),
-		compactCoverageBytes: Buffer.byteLength(JSON.stringify(compact.coverage)),
-		note: 'Same simulated TODO decisions. Evidence comparison excludes legacy headers; byte counts are not measured model tokens or charges.'
-	};
-	await writeFile(path.join(evidence, 'semantic-todo-compact-metrics.json'), JSON.stringify(compactMetrics, null, 2));
-	assert.equal(await sidebar.getByRole('button', { name: /\.(?:rb|erb|yml)$/ }).count(), 0);
-	await window.keyboard.press(process.platform === 'darwin' ? 'Meta+b' : 'Control+b');
-	await window.waitForFunction(() => document.querySelector('.ade-canvas-scroll')?.clientWidth > 1000);
-	await shell.locator('.ade-floating-zoom').getByRole('button', { name: 'Fit Diagram', exact: true }).click();
-	await window.screenshot({ path: path.join(evidence, 'semantic-todo-overview.png') });
-	await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
-	await pickValue(window, 'Choose Diagram', 'Add a Task');
-	await shell.locator('.ade-floating-zoom').getByRole('button', { name: 'Fit Diagram', exact: true }).click();
-	await window.screenshot({ path: path.join(evidence, 'semantic-todo-flow.png') });
-	await writeFile(path.join(evidence, 'semantic-todo-results.json'), JSON.stringify({ provider: 'simulated-original-cli', language: 'Ruby with HTML templates and YAML configuration', modelCalls: 1, elements: model.semantics.elements.length, domainObjects: model.semantics.elements.filter(item => item.kind !== 'feature').length, relations: model.semantics.relations.length, diagrams: model.views.length, indexHidden: true, sourceFilesAreNotFeatures: true, connectedViews: true }, null, 2));
+	for (const view of model.views) {
+		await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
+		await pickValue(window, 'Choose Diagram', view.name);
+		await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+		assert.equal(await shell.locator('.ade-node').count(), view.nodes.length);
+		assert.equal(await shell.locator('svg path[data-relation-id]:not(.ade-connection-hit)').count(), view.relationIds.length);
+		await window.screenshot({ path: path.join(evidence, `planned-${view.kind}.png`) });
+	}
+	await writeFile(path.join(evidence, 'semantic-todo-results.json'), JSON.stringify({ provider: 'replay-recorded-real-cli-output', paidCalls: 0, replayedCalls: record.calls.length, planReviewedBeforeViews: true, declinedPlanResumed: true, types: model.views.map(view => view.kind), allApprovedViewsPresent: true }, null, 2));
 	await app.close(); app = undefined;
-	console.log('PASS: Ruby TODO source evidence becomes two connected capability/behavior diagrams in one model call, without a file/symbol forest.');
+	console.log('PASS: recorded real model proposal is reviewed before generation, cancel/resume preserves the plan, all four approved diagram types render in the desktop canvas.');
 }
 
 async function checkGeneratedDiagrams() {
@@ -476,12 +472,12 @@ async function checkGeneratedDiagrams() {
 	const window = await launch(), shell = window.locator('.ade-shell');
 	await shell.locator('.ade-node').first().waitFor({ timeout: 90000 });
 	await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).waitFor();
-	for (const [index, view] of document.views.slice(0, 2).entries()) {
+	for (const [index, view] of document.views.entries()) {
 		await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
 		await pickValue(window, 'Choose Diagram', view.name);
 		await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
 		assert.equal(await shell.locator('.ade-node').count(), view.nodes.length);
-		assert.equal(await shell.locator('svg path[data-relation-id]').count(), view.relationIds.length);
+		assert.equal(await shell.locator('svg path[data-relation-id]:not(.ade-connection-hit)').count(), view.relationIds.length);
 		await window.screenshot({ path: path.join(evidence, `live-generated-${index}.png`) });
 	}
 	await app.close(); app = undefined;
@@ -492,7 +488,7 @@ async function checkCodeBridge() {
 	// Exercise the real original-CLI protocol without claiming a live-model benchmark.
 	const simulatedCli = path.join(directory, 'm6-simulated-codex.mjs');
 	await writeFile(simulatedCli, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync,existsSync} from 'node:fs';
-const {expandDiagramContext,compactDiagramReply}=await import(${JSON.stringify(path.join(root, 'ade/code-import/test/compact-diagram-fixture.mjs'))});
+const {expandDiagramContext,compactDiagramReply,plannedDiagramReply}=await import(${JSON.stringify(path.join(root, 'ade/code-import/test/compact-diagram-fixture.mjs'))});
 const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
 if(args[0]!=='exec'){
@@ -507,7 +503,8 @@ const rawContext=JSON.parse(input.slice(input.indexOf('\\n')+1));
 const context=expandDiagramContext(rawContext);
 if(context.step&&existsSync(${JSON.stringify(path.join(directory, 'fail-diagrams'))})){writeSync(2,'Simulated provider unavailable');process.exit(1);}
 let value;
-if(context.step){
+if(context.step==='diagram'){value=plannedDiagramReply(context);}
+else if(context.step){
 const overview=context.step==='overview';
 const edges=context.dependencies.filter(edge=>context.required.some(item=>item.ref===edge.from)&&context.required.some(item=>item.ref===edge.to));
 const relations=edges.map((edge,i)=>({key:'interaction-'+context.batch+'-'+i,kind:'dependency',from:edge.from,to:edge.to,name:'Uses payment processing',condition:null,evidence:[edge.from,edge.to],classification:'inferred'}));
@@ -524,7 +521,7 @@ const source=context.sources.find(source=>source.file===fact.evidence.file);
 value={summary:'Reconcile the diagram rename',questions:[],modelEdits:[],sourceEdits:[{file:source.file,revision:source.revision,search:'function '+item.code.name+'(',replacement:'function '+item.model.name+'('}],bindings:[{elementId:item.id,file:source.file,name:item.model.name,syntaxKind:fact.syntaxKind}]};
 }
 }
-writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(context.step?compactDiagramReply(context,value):value));
+writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(context.step&&context.step!=='diagram'?compactDiagramReply(context,value):value));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output_tokens:50}})+'\\n');\n`);
 	await chmod(simulatedCli, 0o700);
 	if (workflowOnly) {
@@ -573,14 +570,15 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await widget.getByText(/^(Model for Diagrams)$/).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'ux-first-setup.png') });
 		if (await widget.locator('.quick-input-list-row .label-name').first().isVisible()) { await window.keyboard.press('Enter'); } else { await enterValue(window, 'Model for Diagrams', 'simulated-economical-model'); }
-		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).waitFor();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'ux-diagram-review.png') });
 		const original = (await snapshot()).folder;
 		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Cancel', exact: true }).click();
 		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true, disabled: false }).waitFor();
 		assert.equal((await snapshot()).folder, original);
 		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
-		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate 2 Diagrams', exact: true }).click();
 		await shell.getByRole('heading', { name: 'Purchasing Overview', exact: true }).waitFor({ timeout: 90000 });
 		assert.equal(await shell.locator('aside.ade-properties').count(), 0);
 		assert.equal(await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).isVisible(), true);
@@ -615,12 +613,13 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await shell.getByRole('button', { name: 'Back to Diagrams', exact: true }).click();
 		await writeFile(path.join(directory, 'fail-diagrams'), 'offline');
 		await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).click();
-		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();		await shell.getByRole('button', { name: 'Resume Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click();		await shell.getByRole('button', { name: 'Resume Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 		await window.screenshot({ path: path.join(evidence, 'ux-diagrams-paused.png') });
 		await rm(path.join(directory, 'fail-diagrams'));
 		await shell.getByRole('button', { name: 'Resume Diagrams', exact: true }).click();
-		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Build Diagrams', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click();
 
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate 2 Diagrams', exact: true }).click();
 		await shell.getByRole('heading', { name: 'Purchase Flow', exact: true }).waitFor({ timeout: 90000 });
 		await shell.getByRole('button', { name: 'Update Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 		await shell.locator('.ade-workflow').waitFor({ state: 'hidden' });

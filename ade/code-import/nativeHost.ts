@@ -23,7 +23,7 @@ import { isSourcePath } from './paths.ts';
 import { executeCollaboration } from '../ai/engine.ts';
 import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
 import type { StructuredProvider } from '../ai/contracts.ts';
-import { prepareDiagramImport, advanceDiagramImport, readDiagramJob, diagramProgress, finishDiagramImport } from '../ai/diagramImport.ts';
+import { prepareDiagramImport, advanceDiagramImport, readDiagramJob, approveDiagramPlan, diagramProgress, finishDiagramImport } from '../ai/diagramImport.ts';
 
 const nonempty = { type: 'string', minLength: 1 };
 const requestSchemas = [
@@ -34,7 +34,7 @@ const requestSchemas = [
 	{ type: 'object', additionalProperties: false, required: ['operation', 'token', 'config', 'sourceFiles'], properties: { operation: { const: 'reconciliationPrepare' }, token: nonempty, config: nonempty, clarification: { type: 'string', maxLength: 8000 }, sourceFiles: { type: 'array', uniqueItems: true, items: nonempty }, resolutions: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'token', 'reviewId'], properties: { operation: { const: 'reconciliationPropose' }, token: nonempty, reviewId: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'config'], properties: { operation: { const: 'diagramPrepare' }, snapshot: nonempty, config: nonempty, resume: nonempty, clarification: { type: 'string', maxLength: 8000 } } },
-	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'id', 'reviewId'], properties: { operation: { const: 'diagramStep' }, snapshot: nonempty, id: nonempty, reviewId: nonempty } },
+	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'id', 'reviewId'], properties: { operation: { enum: ['diagramStep', 'diagramApprovePlan'] }, snapshot: nonempty, id: nonempty, reviewId: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'target'], properties: { operation: { const: 'restore' }, snapshot: nonempty, target: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'file', 'revision', 'start', 'end'], properties: { operation: { const: 'source' }, snapshot: nonempty, file: nonempty, revision: nonempty, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 0 } } }
 ];
@@ -180,7 +180,7 @@ export function createCodeEngine(provider?: StructuredProvider): CodeEngine { re
 				if (pointer && join(previous.state.sourceRoot, '.ade', 'imports', pointer) !== previous.directory) { throw new Error('Open the active snapshot before Sync or recovery'); }
 			}
 			if (request.operation === 'inspect') { result = context(previous.directory, previous.state, previous.model); }
-			else if (request.operation === 'diagramPrepare' || request.operation === 'diagramStep') {
+			else if (request.operation === 'diagramPrepare' || request.operation === 'diagramStep' || request.operation === 'diagramApprovePlan') {
 				result = await lock(previous.state.sourceRoot, async () => {
 					await assertNoInterruptedOperation(previous.state.sourceRoot);
 					if (await active(previous.state.sourceRoot) !== previous.directory.split(/[\\/]/).pop()) { throw new Error('Open the active project before building diagrams'); }
@@ -188,8 +188,12 @@ export function createCodeEngine(provider?: StructuredProvider): CodeEngine { re
 					next = await analyze(next, [], previous.state, false, signal);
 					if (request.operation === 'diagramPrepare') { return diagramProgress(await prepareDiagramImport(previous, next, JSON.parse(request.config), request.resume, request.clarification, signal)); }
 					const job = await readDiagramJob(previous.state.sourceRoot, request.id);
+					if (request.operation === 'diagramApprovePlan') { await approveDiagramPlan(job, previous, next, request.reviewId, signal); return diagramProgress(job); }
 					const advanced = await advanceDiagramImport(job, previous, next, request.reviewId, signal, provider);
-					if (!advanced.model) { return diagramProgress(advanced.job); }
+					if (!advanced.model) {
+						if ((await readSnapshot(previous.directory)).inputHash !== previous.inputHash || (await importCode(next.sourceRoot, next.projectId, { previous: next, signal })).revision !== next.revision) { throw new Error('Project changed during diagram generation'); }
+						return diagramProgress(advanced.job);
+					}
 					try {
 						const current = await readSnapshot(previous.directory);
 						const observed = await importCode(next.sourceRoot, next.projectId, { previous: next, signal });

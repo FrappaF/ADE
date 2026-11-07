@@ -11,7 +11,7 @@ import { join, dirname } from 'node:path';
 import { createCodeEngine } from '../nativeHost.ts';
 import { readSnapshot } from '../snapshot.ts';
 import { samples } from './samples.mjs';
-import { expandDiagramContext, compactDiagramReply } from './compact-diagram-fixture.mjs';
+import { expandDiagramContext, compactDiagramReply, plannedDiagramReply } from './compact-diagram-fixture.mjs';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { todoFile, todoSource, todoFiles, interpretTodo } from './todo-semantic-fixture.mjs';
 
@@ -39,7 +39,9 @@ async function fixture(t, file = 'purchase.py', source = 'def purchase(amount):\
 	const prompts = [];
 	const schemas = [];
 	const provider = { async complete(selected, prompt, schema) {
-		assert.equal(selected.model, config.model); assert.ok(schema.properties.diagrams || schema.properties.sourceEdits);
+		assert.equal(selected.model, config.model); assert.ok(schema.properties.diagrams || schema.properties.nodes || schema.properties.sourceEdits);
+		const raw = JSON.parse(prompt.slice(prompt.indexOf('\n') + 1));
+		if (raw.step === 'diagram') { return { value: plannedDiagramReply(raw), usage: { inputTokens: 100, outputTokens: 50 }, cost: null }; }
 		schemas.push(schema);
 		const context = expandDiagramContext(JSON.parse(prompt.slice(prompt.indexOf('\n') + 1))); prompts.push(context);
 		return { value: compactDiagramReply(context, await reply(context)), usage: { inputTokens: 200, outputTokens: 100 }, cost: null };
@@ -48,7 +50,7 @@ async function fixture(t, file = 'purchase.py', source = 'def purchase(amount):\
 	const call = async request => JSON.parse(await engine.execute(JSON.stringify(request)));
 	const initial = await call({ operation: 'import', root, syntaxOnly: true });
 	const prepare = (snapshot = initial.snapshot, extra = {}) => call({ operation: 'diagramPrepare', snapshot, config: JSON.stringify(config), ...extra });
-	const step = job => call({ operation: 'diagramStep', snapshot: initial.snapshot, id: job.id, reviewId: job.reviewId });
+	const step = job => call({ operation: job.status === 'plan' ? 'diagramApprovePlan' : 'diagramStep', snapshot: initial.snapshot, id: job.id, reviewId: job.reviewId });
 	const finish = async job => { while (job.status !== 'complete') { job = await step(job); } return job; };
 	return { root, initial, prepare, step, finish, call, prompts, schemas, source, file, setReply: fn => { reply = fn; }, restart: () => { engine = createCodeEngine(provider); } };
 }
@@ -230,6 +232,7 @@ test('semantic import handles all deterministic language profiles and extracts a
 test('resume after provider failure reuses completed batches across process restarts', async t => {
 	const f = await fixture(t, 'purchase.py', Array.from({ length: 201 }, (_, i) => `def buy_${i}():\n    return ${i}\n`).join('\n'));
 	let job = await f.step(await f.prepare()); assert.equal(job.completed, 1);
+	assert.equal(f.schemas[0].properties.plan.minItems, 0, 'partial evidence batches need not invent a diagram proposal');
 	f.setReply(() => { throw new Error('Provider unavailable'); });
 	await assert.rejects(f.step(job), /Provider unavailable/);
 	f.restart(); f.setReply(context => {
@@ -272,14 +275,14 @@ test('rebuilding retains manually edited semantic names and diagram positions', 
 	await writeFile(done.context.model, JSON.stringify(model));
 	f.setReply(context => { assert.ok(context.features.some(item => item.key === 'checkout')); assert.ok(context.priorComposition.diagrams.some(item => item.key === 'overview')); const result = interpretation(context); result.features = []; return result; });
 	let job = await f.prepare(done.context.snapshot);
-	while (job.status !== 'complete') { job = await f.call({ operation: 'diagramStep', snapshot: done.context.snapshot, id: job.id, reviewId: job.reviewId }); }
+	while (job.status !== 'complete') { job = await f.call({ operation: job.status === 'plan' ? 'diagramApprovePlan' : 'diagramStep', snapshot: done.context.snapshot, id: job.id, reviewId: job.reviewId }); }
 	const current = await readSnapshot(job.context.snapshot);
 	assert.equal(current.model.semantics.elements.find(item => item.id === element.id).name, 'My Purchase');
 	assert.equal(current.model.views.find(item => item.id === view.id).nodes[0].x, 777);
 	assert.equal(current.model.views.find(item => item.id === view.id).name, 'My Diagram');
 	f.restart();
 	const snapshot = job.context.snapshot; job = await f.prepare(snapshot);
-	while (job.status !== 'complete') { job = await f.call({ operation: 'diagramStep', snapshot, id: job.id, reviewId: job.reviewId }); }
+	while (job.status !== 'complete') { job = await f.call({ operation: job.status === 'plan' ? 'diagramApprovePlan' : 'diagramStep', snapshot, id: job.id, reviewId: job.reviewId }); }
 	assert.equal((await readSnapshot(job.context.snapshot)).model.views.find(item => item.id === view.id).nodes[0].x, 777);
 });
 
@@ -335,7 +338,7 @@ test('a tiny Ruby TODO app becomes connected domain diagrams, not files, scaffol
 	assert.ok(current.model.codeMappings.some(item => item.symbol.startsWith('evidence:support:')));
 	assert.equal(current.state.files.length, before.state.files.length, 'the source index remains complete and sealed');
 	let rebuilt = await f.prepare(done.context.snapshot);
-	while (rebuilt.status !== 'complete') { rebuilt = await f.call({ operation: 'diagramStep', snapshot: done.context.snapshot, id: rebuilt.id, reviewId: rebuilt.reviewId }); }
+	while (rebuilt.status !== 'complete') { rebuilt = await f.call({ operation: rebuilt.status === 'plan' ? 'diagramApprovePlan' : 'diagramStep', snapshot: done.context.snapshot, id: rebuilt.id, reviewId: rebuilt.reviewId }); }
 	assert.equal((await readSnapshot(rebuilt.context.snapshot)).model.codeMappings.length, current.model.codeMappings.length);
 	for (const [name, source] of Object.entries({ [f.file]: todoSource, ...todoFiles })) { assert.equal(await readFile(join(f.root, name), 'utf8'), source); }
 });

@@ -4,6 +4,8 @@ La [revisione UX del 6 novembre](ux-ai-workflow.md) semplifica il primo avvio, r
 
 Il seguito M6 introduce [importazione semantica in due passi, chat Codex e UI centrata sui diagrammi](diagram-workflow.md): classificazione IA di tutti i simboli, contesto compatto multilinguaggio, generazione riprendibile, scelta separata del modello per i diagrammi e azioni dirette per aggiornare codice e viste.
 
+La generazione M6 comprende ora un piano proposto dall’IA e revisionato prima delle viste: ogni diagramma approvato è uno step riprendibile, con pubblicazione dell’intero insieme validato. Riusa struttura, attività, sequenza e stati già disponibili in M3; l’estensione a nuove notazioni resta in M9. La [specifica del protocollo](semantic-generation-protocol.md) e il [verbale delle prove](validation/planned-generation-2026-11-06.json) descrivono contesto, richieste e verifiche.
+
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
 Il feedback dei test manuali del 5 novembre 2026 è sviluppato nella [roadmap delle correzioni](manual-test-roadmap.md), sulla branch `fix/manual-test-followup`. L’incremento implementa riconoscimento dell’account CLI e feedback AI, coerenza fra progetto/Files/terminale e Sync globale, leggibilità ed editing contestuale dei diagrammi. Il [verbale](manual-test-verification.md) registra risultati e limiti delle verifiche senza estendere la copertura delle milestone successive.

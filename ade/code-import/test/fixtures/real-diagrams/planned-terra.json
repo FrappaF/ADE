@@ -1,0 +1,1087 @@
+[
+  {
+    "case": "todo-rails",
+    "model": "gpt-5.6-terra",
+    "recordedAt": "2026-11-06",
+    "note": "Actual generated fixture and real CLI responses. A redundant overview request, when present in an earlier run, is omitted because the final workflow projects that approved view locally. This is a regression replay, not a new inference or an exact prompt replay.",
+    "files": {
+      "test/todo_test.rb": "class TodoTest\n def test_creation; assert Todo.new(title: \"Read\").valid?; end\nend",
+      "config/routes.rb": "Rails.application.routes.draw do\n resources :todos\n root \"todos#index\"\nend",
+      "config/features.yml": "features:\n  todos:\n    enabled: true\n",
+      "config/application.rb": "class Application\n def boot; initialize_framework; end\nend",
+      "app/models/todo.rb": "class Todo < ApplicationRecord\n validates :title, presence: true\nend",
+      "app/controllers/todos_controller.rb": "class TodosController < ApplicationController\n  def index; @todos = Todo.all; end\n  def create; Todo.create(todo_params); end\n  def update; Todo.find(params[:id]).update(completed: true); end\n  def destroy; Todo.find(params[:id]).destroy; end\n  def todo_params; params.require(:todo).permit(:title, :completed); end\nend",
+      "app/views/todos/index.html.erb": "<h1>Tasks</h1><form action=\"/todos\" method=\"post\"><input name=\"todo[title]\"><button>Add task</button></form>"
+    },
+    "calls": [
+      {
+        "step": "project",
+        "diagramKey": null,
+        "response": {
+          "summary": "Todo management application with task listing, creation, completion, and deletion backed by a Todo record.",
+          "questions": [],
+          "features": [
+            {
+              "key": "todos",
+              "name": "Todo management",
+              "description": "Manage tasks through the Todo controller, task form, and persistent Todo records."
+            }
+          ],
+          "elements": [
+            {
+              "symbol": "u0",
+              "kind": "controller",
+              "name": "Todos controller",
+              "description": "Handles task collection and member operations.",
+              "feature": "todos",
+              "parent": "f:todos"
+            },
+            {
+              "symbol": "u1",
+              "kind": "action",
+              "name": "List tasks",
+              "description": "Retrieves all Todo records for the task page.",
+              "feature": "todos",
+              "parent": "u0"
+            },
+            {
+              "symbol": "u2",
+              "kind": "action",
+              "name": "Create task",
+              "description": "Creates a Todo from permitted task input.",
+              "feature": "todos",
+              "parent": "u0"
+            },
+            {
+              "symbol": "u3",
+              "kind": "action",
+              "name": "Complete task",
+              "description": "Finds a Todo and marks it completed.",
+              "feature": "todos",
+              "parent": "u0"
+            },
+            {
+              "symbol": "u4",
+              "kind": "action",
+              "name": "Delete task",
+              "description": "Finds and destroys a Todo.",
+              "feature": "todos",
+              "parent": "u0"
+            },
+            {
+              "symbol": "u6",
+              "kind": "resource",
+              "name": "Todo",
+              "description": "Persistent task record with a required title and completion status.",
+              "feature": "todos",
+              "parent": "f:todos"
+            }
+          ],
+          "concepts": [
+            {
+              "key": "task-page",
+              "kind": "view",
+              "name": "Tasks page",
+              "description": "Task-facing page with a title field and Add task form.",
+              "feature": "todos",
+              "parent": "f:todos",
+              "source": "u7"
+            },
+            {
+              "key": "user",
+              "kind": "actor",
+              "name": "User",
+              "description": "Person who uses the tasks page to manage tasks.",
+              "feature": "todos",
+              "parent": null,
+              "source": "u7"
+            },
+            {
+              "key": "incomplete",
+              "kind": "state",
+              "name": "Incomplete",
+              "description": "Todo has not been marked completed.",
+              "feature": "todos",
+              "parent": "u6",
+              "source": "u3"
+            },
+            {
+              "key": "completed",
+              "kind": "state",
+              "name": "Completed",
+              "description": "Todo has been marked completed.",
+              "feature": "todos",
+              "parent": "u6",
+              "source": "u3"
+            }
+          ],
+          "relations": [
+            {
+              "key": "r-user-uses-task-page",
+              "kind": "invocation",
+              "from": "c:user",
+              "to": "c:task-page",
+              "name": "uses",
+              "condition": null,
+              "evidence": [
+                "u7"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-task-page-creates-task",
+              "kind": "invocation",
+              "from": "c:task-page",
+              "to": "u2",
+              "name": "submits task",
+              "condition": null,
+              "evidence": [
+                "u7",
+                "u11"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-list-reads-todos",
+              "kind": "read",
+              "from": "u1",
+              "to": "u6",
+              "name": "loads all tasks",
+              "condition": null,
+              "evidence": [
+                "u1"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-create-writes-todo",
+              "kind": "write",
+              "from": "u2",
+              "to": "u6",
+              "name": "creates",
+              "condition": null,
+              "evidence": [
+                "u2",
+                "u5"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-complete-writes-todo",
+              "kind": "write",
+              "from": "u3",
+              "to": "u6",
+              "name": "marks completed",
+              "condition": null,
+              "evidence": [
+                "u3"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-delete-writes-todo",
+              "kind": "write",
+              "from": "u4",
+              "to": "u6",
+              "name": "destroys",
+              "condition": null,
+              "evidence": [
+                "u4"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-incomplete-to-completed",
+              "kind": "transition",
+              "from": "c:incomplete",
+              "to": "c:completed",
+              "name": "complete",
+              "condition": "when the completion update succeeds",
+              "evidence": [
+                "u3"
+              ],
+              "classification": "inferred"
+            }
+          ],
+          "diagrams": [],
+          "plan": [
+            {
+              "key": "todo-overview",
+              "name": "Todo management structure",
+              "kind": "structure",
+              "feature": null,
+              "intent": "Show the user-facing task page, controller operations, and persistent Todo resource.",
+              "focus": [
+                "f:todos",
+                "c:user",
+                "c:task-page",
+                "u0",
+                "u1",
+                "u2",
+                "u3",
+                "u4",
+                "u6"
+              ]
+            },
+            {
+              "key": "create-task-flow",
+              "name": "Create task workflow",
+              "kind": "activity",
+              "feature": "todos",
+              "intent": "Explain how a user submits a title and a Todo is created.",
+              "focus": [
+                "c:user",
+                "c:task-page",
+                "u2",
+                "u6"
+              ]
+            },
+            {
+              "key": "create-task-sequence",
+              "name": "Create task interaction",
+              "kind": "sequence",
+              "feature": "todos",
+              "intent": "Show the evidenced form submission and resulting Todo write.",
+              "focus": [
+                "c:user",
+                "c:task-page",
+                "u2",
+                "u6"
+              ]
+            },
+            {
+              "key": "todo-lifecycle",
+              "name": "Todo completion lifecycle",
+              "kind": "state",
+              "feature": "todos",
+              "intent": "Show the two evidenced Todo completion states and completion transition.",
+              "focus": [
+                "u6",
+                "c:incomplete",
+                "c:completed",
+                "u3"
+              ]
+            }
+          ],
+          "overview": {
+            "key": "todo-overview",
+            "name": "Todo management structure",
+            "intent": "Structural overview of the task-management capability and its primary responsibilities."
+          },
+          "coverage": {
+            "targets": {
+              "u0": "f:todos",
+              "u1": "u1",
+              "u2": "u2",
+              "u3": "u3",
+              "u4": "u4",
+              "u5": "u2",
+              "u6": "u6",
+              "u7": "c:task-page",
+              "u8": "x:framework",
+              "u9": "x:framework",
+              "u10": "x:config",
+              "u11": "u0",
+              "u12": "x:test",
+              "u13": "x:test"
+            }
+          }
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "create-task-flow",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "c:user",
+            "c:task-page",
+            "u2",
+            "u6"
+          ],
+          "relations": [
+            "r-user-uses-task-page",
+            "r-task-page-creates-task",
+            "r-create-writes-todo"
+          ]
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "create-task-sequence",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "c:user",
+            "c:task-page",
+            "u2",
+            "u6"
+          ],
+          "relations": [
+            "r-user-uses-task-page",
+            "r-task-page-creates-task",
+            "r-create-writes-todo"
+          ]
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "todo-lifecycle",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "u6",
+            "c:incomplete",
+            "c:completed"
+          ],
+          "relations": [
+            "r-incomplete-to-completed"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "case": "todo-rails-scaffold",
+    "model": "gpt-5.6-terra",
+    "recordedAt": "2026-11-06",
+    "note": "Actual generated fixture and real CLI responses. A redundant overview request, when present in an earlier run, is omitted because the final workflow projects that approved view locally. This is a regression replay, not a new inference or an exact prompt replay.",
+    "files": {
+      "test/todo_test.rb": "class TodoTest\n def test_creation; assert Todo.new(title: \"Read\").valid?; end\nend",
+      "config/routes.rb": "Rails.application.routes.draw do\n resources :todos\n root \"todos#index\"\nend",
+      "config/features.yml": "features:\n  todos:\n    enabled: true\n",
+      "config/application.rb": "class Application\n def boot; initialize_framework; end\nend",
+      "app/models/todo.rb": "class Todo < ApplicationRecord\n validates :title, presence: true\nend",
+      "app/controllers/todos_controller.rb": "class TodosController < ApplicationController\n  def index; @todos = Todo.all; end\n  def create; Todo.create(todo_params); end\n  def update; Todo.find(params[:id]).update(completed: true); end\n  def destroy; Todo.find(params[:id]).destroy; end\n  def todo_params; params.require(:todo).permit(:title, :completed); end\nend",
+      "app/views/todos/index.html.erb": "<h1>Tasks</h1><form action=\"/todos\" method=\"post\"><input name=\"todo[title]\"><button>Add task</button></form>",
+      "config/initializers/setup_8.rb": "module Setup8\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_2.rb": "module Setup2\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_6.rb": "module Setup6\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_20.rb": "module Setup20\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_3.rb": "module Setup3\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_13.rb": "module Setup13\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_17.rb": "module Setup17\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_14.rb": "module Setup14\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_0.rb": "module Setup0\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_10.rb": "module Setup10\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_16.rb": "module Setup16\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_1.rb": "module Setup1\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_21.rb": "module Setup21\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_18.rb": "module Setup18\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_7.rb": "module Setup7\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_4.rb": "module Setup4\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_9.rb": "module Setup9\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_19.rb": "module Setup19\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_11.rb": "module Setup11\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_15.rb": "module Setup15\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_12.rb": "module Setup12\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n",
+      "config/initializers/setup_5.rb": "module Setup5\n  def self.configure\n    # Framework startup only; no task behavior\n    true\n  end\nend\n"
+    },
+    "calls": [
+      {
+        "step": "project",
+        "diagramKey": null,
+        "response": {
+          "summary": "Todo application semantic model and proposed diagram plan.",
+          "questions": [],
+          "features": [
+            {
+              "key": "todos",
+              "name": "Todo management",
+              "description": "Create, list, complete, and remove todo items."
+            }
+          ],
+          "elements": [
+            {
+              "symbol": "u0",
+              "kind": "controller",
+              "name": "Todos controller",
+              "description": "Handles todo collection and item operations.",
+              "feature": "todos",
+              "parent": null
+            },
+            {
+              "symbol": "u1",
+              "kind": "action",
+              "name": "List todos",
+              "description": "Retrieves all todo items.",
+              "feature": "todos",
+              "parent": "u0"
+            },
+            {
+              "symbol": "u2",
+              "kind": "action",
+              "name": "Create todo",
+              "description": "Creates a todo from permitted input.",
+              "feature": "todos",
+              "parent": "u0"
+            },
+            {
+              "symbol": "u3",
+              "kind": "action",
+              "name": "Complete todo",
+              "description": "Finds a todo and marks it completed.",
+              "feature": "todos",
+              "parent": "u0"
+            },
+            {
+              "symbol": "u4",
+              "kind": "action",
+              "name": "Delete todo",
+              "description": "Finds and removes a todo.",
+              "feature": "todos",
+              "parent": "u0"
+            },
+            {
+              "symbol": "u6",
+              "kind": "resource",
+              "name": "Todo",
+              "description": "Persisted task with a required title and completion status.",
+              "feature": "todos",
+              "parent": null
+            }
+          ],
+          "concepts": [
+            {
+              "key": "c-todo-user",
+              "kind": "actor",
+              "name": "Todo user",
+              "description": "Person interacting with the todo interface and routes.",
+              "feature": "todos",
+              "parent": null,
+              "source": "u7"
+            },
+            {
+              "key": "c-todos-view",
+              "kind": "view",
+              "name": "Todo page",
+              "description": "Task page with a form for adding a todo.",
+              "feature": "todos",
+              "parent": null,
+              "source": "u7"
+            },
+            {
+              "key": "c-pending-todo",
+              "kind": "state",
+              "name": "Pending",
+              "description": "Todo has not been marked completed.",
+              "feature": "todos",
+              "parent": "u6",
+              "source": "u3"
+            },
+            {
+              "key": "c-completed-todo",
+              "kind": "state",
+              "name": "Completed",
+              "description": "Todo has been marked completed.",
+              "feature": "todos",
+              "parent": "u6",
+              "source": "u3"
+            }
+          ],
+          "relations": [
+            {
+              "key": "r-user-uses-page",
+              "kind": "invocation",
+              "from": "c-todo-user",
+              "to": "c-todos-view",
+              "name": "uses",
+              "condition": null,
+              "evidence": [
+                "u7"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-page-creates-todo",
+              "kind": "invocation",
+              "from": "c-todos-view",
+              "to": "u2",
+              "name": "submits new todo",
+              "condition": null,
+              "evidence": [
+                "u7"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-list-reads-todos",
+              "kind": "read",
+              "from": "u1",
+              "to": "u6",
+              "name": "lists",
+              "condition": null,
+              "evidence": [
+                "u1"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-create-writes-todo",
+              "kind": "write",
+              "from": "u2",
+              "to": "u6",
+              "name": "creates",
+              "condition": null,
+              "evidence": [
+                "u2"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-complete-reads-todo",
+              "kind": "read",
+              "from": "u3",
+              "to": "u6",
+              "name": "finds",
+              "condition": null,
+              "evidence": [
+                "u3"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-complete-writes-todo",
+              "kind": "write",
+              "from": "u3",
+              "to": "u6",
+              "name": "marks completed",
+              "condition": null,
+              "evidence": [
+                "u3"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-delete-reads-todo",
+              "kind": "read",
+              "from": "u4",
+              "to": "u6",
+              "name": "finds",
+              "condition": null,
+              "evidence": [
+                "u4"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-delete-writes-todo",
+              "kind": "write",
+              "from": "u4",
+              "to": "u6",
+              "name": "removes",
+              "condition": null,
+              "evidence": [
+                "u4"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-todo-completes",
+              "kind": "transition",
+              "from": "c-pending-todo",
+              "to": "c-completed-todo",
+              "name": "mark completed",
+              "condition": "when the completion update succeeds",
+              "evidence": [
+                "u3"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "r-controller-routes",
+              "kind": "dependency",
+              "from": "u0",
+              "to": "todos",
+              "name": "serves todo routes",
+              "condition": null,
+              "evidence": [
+                "u55"
+              ],
+              "classification": "inferred"
+            }
+          ],
+          "diagrams": [],
+          "plan": [
+            {
+              "key": "todo-structure",
+              "name": "Todo management structure",
+              "kind": "structure",
+              "feature": null,
+              "intent": "Show the user-facing page, controller operations, and persisted Todo resource that make up the application.",
+              "focus": [
+                "c-todo-user",
+                "c-todos-view",
+                "u0",
+                "u1",
+                "u2",
+                "u3",
+                "u4",
+                "u6"
+              ]
+            },
+            {
+              "key": "todo-create-activity",
+              "name": "Create a todo",
+              "kind": "activity",
+              "feature": "todos",
+              "intent": "Explain the evidenced add-task path from form submission to Todo creation.",
+              "focus": [
+                "c-todo-user",
+                "c-todos-view",
+                "u2",
+                "u6"
+              ]
+            },
+            {
+              "key": "todo-completion-sequence",
+              "name": "Complete a todo",
+              "kind": "sequence",
+              "feature": "todos",
+              "intent": "Show the ordered find-and-update interaction used to complete a Todo.",
+              "focus": [
+                "c-todo-user",
+                "u3",
+                "u6"
+              ]
+            },
+            {
+              "key": "todo-lifecycle",
+              "name": "Todo completion lifecycle",
+              "kind": "state",
+              "feature": "todos",
+              "intent": "Show the pending-to-completed state change supported by the completion update.",
+              "focus": [
+                "u6",
+                "c-pending-todo",
+                "c-completed-todo"
+              ]
+            }
+          ],
+          "overview": {
+            "key": "todo-structure",
+            "name": "Todo management structure",
+            "intent": "Provide the stable structural overview of todo interactions and persistence."
+          },
+          "coverage": {
+            "targets": {
+              "u0": "u0",
+              "u1": "u1",
+              "u2": "u2",
+              "u3": "u3",
+              "u4": "u4",
+              "u5": "u0",
+              "u6": "u6",
+              "u7": "c-todos-view",
+              "u8": "x:framework",
+              "u9": "x:framework",
+              "u10": "x:config",
+              "u11": "x:framework",
+              "u12": "x:framework",
+              "u13": "x:framework",
+              "u14": "x:framework",
+              "u15": "x:framework",
+              "u16": "x:framework",
+              "u17": "x:framework",
+              "u18": "x:framework",
+              "u19": "x:framework",
+              "u20": "x:framework",
+              "u21": "x:framework",
+              "u22": "x:framework",
+              "u23": "x:framework",
+              "u24": "x:framework",
+              "u25": "x:framework",
+              "u26": "x:framework",
+              "u27": "x:framework",
+              "u28": "x:framework",
+              "u29": "x:framework",
+              "u30": "x:framework",
+              "u31": "x:framework",
+              "u32": "x:framework",
+              "u33": "x:framework",
+              "u34": "x:framework",
+              "u35": "x:framework",
+              "u36": "x:framework",
+              "u37": "x:framework",
+              "u38": "x:framework",
+              "u39": "x:framework",
+              "u40": "x:framework",
+              "u41": "x:framework",
+              "u42": "x:framework",
+              "u43": "x:framework",
+              "u44": "x:framework",
+              "u45": "x:framework",
+              "u46": "x:framework",
+              "u47": "x:framework",
+              "u48": "x:framework",
+              "u49": "x:framework",
+              "u50": "x:framework",
+              "u51": "x:framework",
+              "u52": "x:framework",
+              "u53": "x:framework",
+              "u54": "x:framework",
+              "u55": "u0",
+              "u56": "x:test",
+              "u57": "x:test"
+            }
+          }
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "todo-create-activity",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "c:c-todo-user",
+            "c:c-todos-view",
+            "u2",
+            "u6"
+          ],
+          "relations": [
+            "r-user-uses-page",
+            "r-page-creates-todo",
+            "r-create-writes-todo"
+          ]
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "todo-completion-sequence",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "u3",
+            "u6"
+          ],
+          "relations": [
+            "r-complete-reads-todo",
+            "r-complete-writes-todo"
+          ]
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "todo-lifecycle",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "u6",
+            "c:c-pending-todo",
+            "c:c-completed-todo"
+          ],
+          "relations": [
+            "r-todo-completes"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "case": "todo-go",
+    "model": "gpt-5.6-terra",
+    "recordedAt": "2026-11-06",
+    "note": "Actual generated fixture and real CLI responses. A redundant overview request, when present in an earlier run, is omitted because the final workflow projects that approved view locally. This is a regression replay, not a new inference or an exact prompt replay.",
+    "files": {
+      "tasks.go": "package tasks\ntype Task struct { ID int; Title string; Completed bool }\ntype Store struct { Tasks map[int]Task; NextID int }\nfunc (s *Store) Create(title string) Task { s.NextID++; t := Task{ID:s.NextID,Title:title}; s.Tasks[t.ID]=t; return t }\nfunc (s *Store) Complete(id int) { t := s.Tasks[id]; t.Completed=true; s.Tasks[id]=t }\nfunc (s *Store) Delete(id int) { delete(s.Tasks,id) }\nfunc (s *Store) List() []Task { out:=[]Task{}; for _,t:=range s.Tasks { out=append(out,t) }; return out }\n"
+    },
+    "calls": [
+      {
+        "step": "project",
+        "diagramKey": null,
+        "response": {
+          "summary": "In-memory task management with creation, completion, deletion, and listing.",
+          "questions": [],
+          "features": [
+            {
+              "key": "task-management",
+              "name": "Task management",
+              "description": "Manage an in-memory collection of tasks and their completion status."
+            }
+          ],
+          "elements": [
+            {
+              "symbol": "u0",
+              "kind": "resource",
+              "name": "Task",
+              "description": "Task domain record with identity, title, and completion status.",
+              "feature": "task-management",
+              "parent": null
+            },
+            {
+              "symbol": "u1",
+              "kind": "component",
+              "name": "Store",
+              "description": "In-memory task collection and identifier allocator.",
+              "feature": "task-management",
+              "parent": null
+            },
+            {
+              "symbol": "u2",
+              "kind": "action",
+              "name": "Create task",
+              "description": "Allocates an identifier and stores a new task.",
+              "feature": "task-management",
+              "parent": "u1"
+            },
+            {
+              "symbol": "u3",
+              "kind": "action",
+              "name": "Complete task",
+              "description": "Marks a stored task as completed.",
+              "feature": "task-management",
+              "parent": "u1"
+            },
+            {
+              "symbol": "u4",
+              "kind": "action",
+              "name": "Delete task",
+              "description": "Removes a task by identifier.",
+              "feature": "task-management",
+              "parent": "u1"
+            },
+            {
+              "symbol": "u5",
+              "kind": "action",
+              "name": "List tasks",
+              "description": "Returns the tasks held by the store.",
+              "feature": "task-management",
+              "parent": "u1"
+            }
+          ],
+          "concepts": [
+            {
+              "key": "pending-task",
+              "kind": "state",
+              "name": "Pending",
+              "description": "A task whose completion status is false.",
+              "feature": "task-management",
+              "parent": "u0",
+              "source": "u0"
+            },
+            {
+              "key": "completed-task",
+              "kind": "state",
+              "name": "Completed",
+              "description": "A task whose completion status is true.",
+              "feature": "task-management",
+              "parent": "u0",
+              "source": "u0"
+            }
+          ],
+          "relations": [
+            {
+              "key": "create-task",
+              "kind": "write",
+              "from": "u2",
+              "to": "u0",
+              "name": "stores new task",
+              "condition": null,
+              "evidence": [
+                "u2"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "complete-read-task",
+              "kind": "read",
+              "from": "u3",
+              "to": "u0",
+              "name": "loads task",
+              "condition": null,
+              "evidence": [
+                "u3"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "complete-write-task",
+              "kind": "write",
+              "from": "u3",
+              "to": "u0",
+              "name": "stores completed task",
+              "condition": null,
+              "evidence": [
+                "u3"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "delete-task",
+              "kind": "write",
+              "from": "u4",
+              "to": "u0",
+              "name": "removes task",
+              "condition": null,
+              "evidence": [
+                "u4"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "list-tasks",
+              "kind": "read",
+              "from": "u5",
+              "to": "u0",
+              "name": "reads tasks",
+              "condition": null,
+              "evidence": [
+                "u5"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "mark-completed",
+              "kind": "transition",
+              "from": "c:pending-task",
+              "to": "c:completed-task",
+              "name": "mark complete",
+              "condition": "when Complete is called for the task",
+              "evidence": [
+                "u0",
+                "u3"
+              ],
+              "classification": "inferred"
+            },
+            {
+              "key": "store-task-management",
+              "kind": "realization",
+              "from": "u1",
+              "to": "f:task-management",
+              "name": "supports",
+              "condition": null,
+              "evidence": [
+                "u1"
+              ],
+              "classification": "inferred"
+            }
+          ],
+          "diagrams": [],
+          "plan": [
+            {
+              "key": "task-management-overview",
+              "name": "Task management structure",
+              "kind": "structure",
+              "feature": null,
+              "intent": "Show the task resource, its in-memory store, and the operations that manage it.",
+              "focus": [
+                "f:task-management",
+                "u0",
+                "u1",
+                "u2",
+                "u3",
+                "u4",
+                "u5"
+              ]
+            },
+            {
+              "key": "task-operations",
+              "name": "Task operations",
+              "kind": "activity",
+              "feature": "task-management",
+              "intent": "Show how task-management operations read or modify the task collection.",
+              "focus": [
+                "u0",
+                "u2",
+                "u3",
+                "u4",
+                "u5"
+              ]
+            },
+            {
+              "key": "complete-task-sequence",
+              "name": "Complete a task",
+              "kind": "sequence",
+              "feature": "task-management",
+              "intent": "Show the evidenced read-modify-write interaction used to complete a stored task.",
+              "focus": [
+                "u3",
+                "u0"
+              ]
+            },
+            {
+              "key": "task-lifecycle",
+              "name": "Task lifecycle",
+              "kind": "state",
+              "feature": "task-management",
+              "intent": "Show the completion-status transition supported by task storage.",
+              "focus": [
+                "u0",
+                "c:pending-task",
+                "c:completed-task"
+              ]
+            }
+          ],
+          "overview": {
+            "key": "task-management-overview",
+            "name": "Task management structure",
+            "intent": "Structural overview of in-memory task storage and its management operations."
+          },
+          "coverage": {
+            "targets": {
+              "u0": "u0",
+              "u1": "u1",
+              "u2": "u2",
+              "u3": "u3",
+              "u4": "u4",
+              "u5": "u5",
+              "u6": "x:syntax",
+              "u7": "x:syntax"
+            }
+          }
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "task-operations",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "u2",
+            "u0",
+            "u3",
+            "u4",
+            "u5"
+          ],
+          "relations": [
+            "create-task",
+            "complete-read-task",
+            "complete-write-task",
+            "delete-task",
+            "list-tasks"
+          ]
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "complete-task-sequence",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "u3",
+            "u0"
+          ],
+          "relations": [
+            "complete-read-task",
+            "complete-write-task"
+          ]
+        }
+      },
+      {
+        "step": "diagram",
+        "diagramKey": "task-lifecycle",
+        "response": {
+          "questions": [],
+          "nodes": [
+            "u0",
+            "c:pending-task",
+            "c:completed-task"
+          ],
+          "relations": [
+            "mark-completed"
+          ]
+        }
+      }
+    ]
+  }
+]

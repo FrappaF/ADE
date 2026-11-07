@@ -1,0 +1,257 @@
+{
+  "kind": "real-cli-planned-diagram-generation",
+  "recordedAt": "2026-11-06T18:51:54.858091+00:00",
+  "model": "gpt-5.6-terra",
+  "workflow": "planned-v1",
+  "cases": [
+    {
+      "name": "todo-rails",
+      "run": 1,
+      "passed": true,
+      "calls": 4,
+      "indexedSymbols": 12,
+      "sourceUnits": 14,
+      "elements": 11,
+      "relations": 14,
+      "views": 4,
+      "durationMs": 67959,
+      "usage": [
+        {
+          "inputTokens": 12195,
+          "outputTokens": 1917,
+          "inputBytes": 14389,
+          "outputBytes": 5837
+        },
+        {
+          "inputTokens": 11083,
+          "outputTokens": 170,
+          "inputBytes": 7008,
+          "outputBytes": 178
+        },
+        {
+          "inputTokens": 10930,
+          "outputTokens": 128,
+          "inputBytes": 6409,
+          "outputBytes": 87
+        },
+        {
+          "inputTokens": 10047,
+          "outputTokens": 60,
+          "inputBytes": 3296,
+          "outputBytes": 103
+        }
+      ],
+      "plan": [
+        {
+          "name": "Todo management structure",
+          "kind": "structure",
+          "intent": "Show the task interface, routed controller, actions, and persistent Todo resource as one capability."
+        },
+        {
+          "name": "Create task workflow",
+          "kind": "activity",
+          "intent": "Explain how a user submits a task title and the application permits fields and persists the new task."
+        },
+        {
+          "name": "Complete task interaction",
+          "kind": "sequence",
+          "intent": "Show the evidenced find-then-write interaction used to complete an identified task."
+        },
+        {
+          "name": "Todo completion lifecycle",
+          "kind": "state",
+          "intent": "Show the evidenced completion-status transition for a Todo."
+        }
+      ]
+    },
+    {
+      "name": "todo-rails-scaffold",
+      "run": 1,
+      "passed": true,
+      "calls": 4,
+      "indexedSymbols": 56,
+      "sourceUnits": 58,
+      "elements": 10,
+      "relations": 10,
+      "views": 4,
+      "durationMs": 69650,
+      "usage": [
+        {
+          "inputTokens": 15033,
+          "outputTokens": 2062,
+          "inputBytes": 22955,
+          "outputBytes": 5558
+        },
+        {
+          "inputTokens": 10839,
+          "outputTokens": 117,
+          "inputBytes": 5885,
+          "outputBytes": 147
+        },
+        {
+          "inputTokens": 10632,
+          "outputTokens": 126,
+          "inputBytes": 5096,
+          "outputBytes": 99
+        },
+        {
+          "inputTokens": 10032,
+          "outputTokens": 44,
+          "inputBytes": 3132,
+          "outputBytes": 104
+        }
+      ],
+      "plan": [
+        {
+          "name": "Todo management structure",
+          "kind": "structure",
+          "intent": "Show the user-facing page, controller operations, and persisted Todo resource that make up the application."
+        },
+        {
+          "name": "Create a todo",
+          "kind": "activity",
+          "intent": "Explain the evidenced add-task path from form submission to Todo creation."
+        },
+        {
+          "name": "Complete a todo",
+          "kind": "sequence",
+          "intent": "Show the ordered find-and-update interaction used to complete a Todo."
+        },
+        {
+          "name": "Todo completion lifecycle",
+          "kind": "state",
+          "intent": "Show the pending-to-completed state change supported by the completion update."
+        }
+      ]
+    },
+    {
+      "name": "todo-go",
+      "run": 1,
+      "passed": true,
+      "calls": 4,
+      "indexedSymbols": 6,
+      "sourceUnits": 8,
+      "elements": 8,
+      "relations": 7,
+      "views": 4,
+      "durationMs": 56976,
+      "usage": [
+        {
+          "inputTokens": 11802,
+          "outputTokens": 1420,
+          "inputBytes": 13104,
+          "outputBytes": 3899
+        },
+        {
+          "inputTokens": 10557,
+          "outputTokens": 155,
+          "inputBytes": 5040,
+          "outputBytes": 149
+        },
+        {
+          "inputTokens": 10364,
+          "outputTokens": 83,
+          "inputBytes": 4224,
+          "outputBytes": 93
+        },
+        {
+          "inputTokens": 9995,
+          "outputTokens": 37,
+          "inputBytes": 3042,
+          "outputBytes": 98
+        }
+      ],
+      "plan": [
+        {
+          "name": "Task management structure",
+          "kind": "structure",
+          "intent": "Show the task resource, its in-memory store, and the operations that manage it."
+        },
+        {
+          "name": "Task operations",
+          "kind": "activity",
+          "intent": "Show how task-management operations read or modify the task collection."
+        },
+        {
+          "name": "Complete a task",
+          "kind": "sequence",
+          "intent": "Show the evidenced read-modify-write interaction used to complete a stored task."
+        },
+        {
+          "name": "Task lifecycle",
+          "kind": "state",
+          "intent": "Show the completion-status transition supported by task storage."
+        }
+      ]
+    }
+  ],
+  "scope": "Generated TODO sources: Ruby with HTML/YAML, the same application with 22 startup-only initializers, and Go. Each completed a reviewed four-view plan through the production engine and CLI provider.",
+  "overview": "A small overview is a saved tool projection of the AI-authored semantic model, without another inference.",
+  "resumeTest": {
+    "case": "todo-rails",
+    "failure": "Sequence response included an isolated input-contract participant. Validation kept the active index and completed overview/activity unchanged.",
+    "resumed": {
+      "completed": 3,
+      "calls": 3
+    },
+    "newCalls": 2,
+    "passed": true,
+    "views": 4,
+    "totalAttemptedCalls": 5,
+    "fix": "Sequence node enums now contain only possible message participants; the prompt excludes unused evidence anchors. Explicit resume reused the accepted analysis and completed views."
+  },
+  "earlierObservedIssues": [
+    "A routing contract attempted to invoke a controller; planning instructions now explain the valid role grammar and aggregation of routing evidence.",
+    "Plan focus used bare concept and relationship keys. Unambiguous concept keys resolve to semantic references; a declared relation key resolves to its declared endpoints.",
+    "The first exploratory CLI launches could not reach workspace routing in the restricted command sandbox. No model response was obtained from those launches; the later tests used the authorized network path."
+  ],
+  "verification": {
+    "sourceFiles": "Exact contents/hashes unchanged in every accepted fixture.",
+    "structure": "Every approved diagram exists with the expected kind, valid shared references and supported relationships.",
+    "offline": "Versioned real responses for all three fixtures replay through the current production boundary, separately from synthetic protocol tests.",
+    "desktop": "Review, cancel and resume of the real recorded proposal; all four diagram types render with matching visible node/relation counts.",
+    "runtime": "No runtime execution or observed traces are claimed by these diagrams."
+  },
+  "cost": {
+    "monetaryCharge": null,
+    "note": "CLI token usage is recorded above. Actual monetary rates/charges are unavailable. Four views require four model requests including proposal on these small projects, plus a local overview step."
+  },
+  "notes": [
+    "Final representative cases were selected from the last compatible runs, not presented as a statistically representative reliability benchmark.",
+    "Exploratory failures and explicit resume are reported separately; historical Luna/Terra single-call benchmark results do not measure this multi-step workflow.",
+    "Raw prompts, schemas, responses and generated source projects remain under ignored .build/ade-live. No account credentials are versioned."
+  ],
+  "automatedChecks": {
+    "codeImportRegressionTests": 153,
+    "finalTargetedGenerationTests": 51,
+    "serviceTests": 53,
+    "typeChecks": [
+      "ade:check",
+      "ade/ai check",
+      "ade/code-import check"
+    ],
+    "clientBuild": "build-fast --client-only passed",
+    "desktopWorkflows": [
+      "semantic-import: real recorded proposal, cancel/review/resume and four typed views",
+      "diagram-workflow: model edits, guided code update, chat, diagram refresh and restart with simulated CLI",
+      "generated-diagrams: all four views of the last real CLI output open with matching node and relationship counts"
+    ]
+  },
+  "latestDesktopVerification": {
+    "recordedAt": "2026-11-07T00:35:16.582757+00:00",
+    "case": "todo-rails",
+    "origin": "Actual completed real CLI generation; no inference performed by the render check.",
+    "views": [
+      "structure",
+      "activity",
+      "sequence",
+      "state"
+    ],
+    "screenshots": [
+      ".build/ade-smoke/live-generated-0.png",
+      ".build/ade-smoke/live-generated-1.png",
+      ".build/ade-smoke/live-generated-2.png",
+      ".build/ade-smoke/live-generated-3.png"
+    ]
+  }
+}

@@ -29,7 +29,7 @@ import { ITerminalService, ITerminalGroupService } from '../../../terminal/brows
 import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { IAdeOperationService, AdeOperationService } from '../../browser/adeOperationService.js';
-import { CliAccountState, CodeContext, CodePreview, CodeRequest } from '../../common/codeBridge.js';
+import { CliAccountState, CodeContext, CodeDiagramProgress, CodePreview, CodeRequest } from '../../common/codeBridge.js';
 import { AdeAiService } from '../../electron-browser/adeAiService.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 
@@ -62,6 +62,9 @@ suite('A.D.E native AI orchestration', () => {
 		const editorInputs: object[] = [];
 		let confirmed = true, failDiagram = false, hiddenPanels = 0, closedAlerts = 0;
 		const dialogDetails: string[] = [];
+		const confirmations: boolean[] = [];
+		let plannedProgress: CodeDiagramProgress | undefined;
+		let planApproved = false;
 		const attachmentFiles = new Map<string, URI[]>();
 		const deletedAttachments: string[] = [];
 		const diagramContexts: string[] = [];
@@ -88,7 +91,7 @@ suite('A.D.E native AI orchestration', () => {
 		stub(IQuickInputService, { pick: async (items: Choice[], options?: { title: string }) => { if (options) { pickerTitles.push(options.title); } return picks.shift()?.(items); }, input: async (options?: IInputOptions) => { if (options) { inputOptions.push(options); } return inputs.shift(); } });
 		stub(INotificationService, { notify: (notification: { message: string }) => { errors.push(notification.message); return { close: () => { closedAlerts++; } }; }, error: (message: string) => errors.push(message), info: (message: string) => infos.push(message) });
 		stub(IProgressService, { withProgress: async (_options: object, task: () => Promise<void>) => task() });
-		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed }; } });
+		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed: confirmations.shift() ?? confirmed }; } });
 		stub(IFileService, { createFolder: async () => {}, writeFile: async () => {} });
 		stub(IEditorService, { openEditor: async (input: object) => { editorInputs.push(input); return undefined; } });
 		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => { await focusRequested.complete(); await terminalFocus; }, onExit: terminalExit.event }; }, setActiveInstance: () => {} });
@@ -109,15 +112,22 @@ suite('A.D.E native AI orchestration', () => {
 					case 'verify': return JSON.stringify({ ...session, status: 'passed', verification: { code: 0, output: 'Passed', durationMs: 1 } });
 					case 'apply': return JSON.stringify({ ...session, status: 'applied' });
 					case 'undo': return JSON.stringify({ ...session, status: 'undone' });
-					case 'diagramPrepare': return JSON.stringify({ inputBudgetBytes: 49152, responseHeadroomBytes: 16384, id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'ready', completed: 0, total: 2, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0 });
-					case 'diagramStep': if (failDiagram) { throw new Error('Provider Offline'); } return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'complete', completed: 2, total: 2, calls: 2, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, context: { ...context, diagramState: 'diagrams' } });
+					case 'diagramPrepare': if (plannedProgress) { return JSON.stringify(plannedProgress); } return JSON.stringify({ inputBudgetBytes: 49152, responseHeadroomBytes: 16384, id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'ready', completed: 0, total: 2, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0 });
+					case 'diagramApprovePlan': assert.ok(plannedProgress?.plan); planApproved = true; plannedProgress.status = 'ready'; return JSON.stringify(plannedProgress);
+					case 'diagramStep': if (failDiagram) { throw new Error('Provider Offline'); }
+						if (plannedProgress) {
+							if (plannedProgress.completed === 0) { plannedProgress.status = 'plan'; plannedProgress.completed = 1; }
+							else { assert.equal(planApproved, true); plannedProgress.completed++; plannedProgress.plan![plannedProgress.completed - 2].status = 'complete'; if (plannedProgress.completed === plannedProgress.total) { plannedProgress.status = 'complete'; plannedProgress.context = { ...context, diagramState: 'diagrams' }; } }
+							return JSON.stringify(plannedProgress);
+						}
+						return JSON.stringify({ id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'complete', completed: 2, total: 2, calls: 2, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, context: { ...context, diagramState: 'diagrams' } });
 					case 'reconciliationPrepare': sourceSelections.push((JSON.parse(input) as { sourceFiles: string[] }).sourceFiles); return JSON.stringify({ reviewId: 'reconcile-context', contents: '{"prompt":"reviewed"}', metrics: { inputBytes: 1000, schemaBytes: 100, sourceBytes: 8000, disclosedBytes: 500, estimatedTokens: 275 } });
 					case 'reconciliationPropose': return JSON.stringify({ token: 'proposal', context, ai: { summary: 'Reconcile payment', questions: [] } });
 					default: throw new Error('Unexpected fixture operation');
 				}
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
-		return { service, operations, opened, chats, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+		return { service, operations, opened, chats, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -156,6 +166,24 @@ suite('A.D.E native AI orchestration', () => {
 		assert.match(f.dialogDetails[0], /49152 bytes per request.*16384 bytes/s);
 		assert.equal(f.errors.length, 0);
 	});
+	test('the diagram proposal is reviewed separately before per-view steps', async () => {
+		const f = fixture(); f.picks.push(items => items[0]); f.useDiagramPlan();
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual(f.requests, ['diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'diagramStep', 'diagramStep']);
+		assert.match(f.dialogDetails[1], /Overview · Structure.*System responsibilities.*Checkout Interaction · Sequence.*Request and persistence order/s);
+		assert.match(f.dialogDetails[1], /2 diagrams · Up to 1 additional requests/);
+		assert.equal(f.opened.length, 1);
+	});
+
+	test('declining the proposal keeps it reviewable and resume does not analyze sources again', async () => {
+		const f = fixture(); f.picks.push(items => items[0]); f.useDiagramPlan(); f.confirmations.push(true, false);
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual({ requests: f.requests, status: f.service.diagramProgress?.status, opened: f.opened.length }, { requests: ['diagramPrepare', 'diagramStep'], status: 'plan', opened: 0 });
+		await f.service.resumeDiagrams();
+		assert.deepStrictEqual(f.requests, ['diagramPrepare', 'diagramStep', 'diagramPrepare', 'diagramApprovePlan', 'diagramStep', 'diagramStep']);
+		assert.equal(f.opened.length, 1);
+	});
+
 	test('zero-budget diagram generation prepares scope without inference', async () => {
 		const f = fixture(true, 'codex', 0); f.picks.push(items => items[0]);
 		await f.service.buildDiagrams();

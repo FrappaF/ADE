@@ -36,6 +36,7 @@ import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { IAdeAiService } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { AdeInput } from '../browser/adeInput.js';
+import { viewLabels } from '../browser/adeLabels.js';
 import { openAdeTerminal } from '../browser/adeTerminal.js';
 import { getModelImpact } from '../common/modelImpact.js';
 import { isSourceEvidenceModel } from '../common/semanticModel.js';
@@ -475,11 +476,22 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			let job: CodeDiagramProgress = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramPrepare', snapshot: context.snapshot, config: JSON.stringify(config), ...(resume && this.diagramProgress ? { resume: this.diagramProgress.id } : {}), clarification }, token));
 			this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.changes.fire();
 			if (!config.maxCalls) { this.info(localize('ade.ai.diagramsNoBudget', "Diagram Scope Prepared. Enable AI Requests in AI Settings to Generate It.")); return; }
-			const accepted = await this.dialogs.confirm({ message: localize('ade.ai.buildConfirm', "Build Semantic Diagrams with {0}?", config.model), detail: [localize('ade.ai.buildScopeShort', "{0} files · {1} indexed symbols.\nUp to {2} additional requests to {3}.", job.files, job.symbols, job.total - job.completed, config.provider === 'codex' ? 'Codex' : 'Claude Code'), localize('ade.ai.buildDisclosure', "Source evidence is sent through your signed-in CLI account to create a new diagram snapshot."), job.inputBudgetBytes ? localize('ade.ai.diagramContextBudget', "Input and schema: up to {0} bytes per request. {1} bytes left as estimated response headroom.", job.inputBudgetBytes, job.responseHeadroomBytes ?? 0) : '', job.calls ? localize('ade.ai.buildAttempted', "{0} requests already attempted. Completed steps will be reused.", job.calls) : '', job.excluded ? localize('ade.ai.buildExcluded', "{0} documentation, binary or oversized files excluded.", job.excluded) : ''].filter(Boolean).join('\n\n'), primaryButton: localize('ade.ai.buildButton', "Build Diagrams") });
+			const accepted = job.status === 'plan' ? { confirmed: true } : await this.dialogs.confirm({ message: localize('ade.ai.buildConfirm', "Propose a Diagram Plan with {0}?", config.model), detail: [localize('ade.ai.buildScopeShort', "{0} files · {1} indexed symbols.\nUp to {2} additional requests to {3}.", job.files, job.symbols, job.remainingRequests ?? job.total - job.completed, config.provider === 'codex' ? 'Codex' : 'Claude Code'), localize('ade.ai.buildDisclosure', "Source evidence is sent through your signed-in CLI account to analyze responsibilities and propose necessary diagrams. You will review the proposal before generating its views."), job.inputBudgetBytes ? localize('ade.ai.diagramContextBudget', "Input and schema: up to {0} bytes per request. {1} bytes left as estimated response headroom.", job.inputBudgetBytes, job.responseHeadroomBytes ?? 0) : '', job.calls ? localize('ade.ai.buildAttempted', "{0} requests already attempted. Completed steps will be reused.", job.calls) : '', job.excluded ? localize('ade.ai.buildExcluded', "{0} documentation, binary or oversized files excluded.", job.excluded) : ''].filter(Boolean).join('\n\n'), primaryButton: localize('ade.ai.buildButton', "Propose Diagrams") });
 			if (!accepted.confirmed) { return; }
 			this.diagramRunning = true;
-			while (job.status === 'ready' || job.status === 'running') {
-				this.report(localize('ade.ai.diagramStep', "Building Diagrams · {0} of {1} Steps · {2}", job.completed, job.total, job.model));
+			while (job.status === 'ready' || job.status === 'running' || job.status === 'plan') {
+				if (job.status === 'plan') {
+					this.diagramRunning = false; this.report(localize('ade.ai.diagramPlanReady', "Diagram Plan Ready · Review Before Generating Views"));
+					const plan = job.plan ?? [];
+					const approved = await this.dialogs.confirm({ message: localize('ade.ai.reviewDiagramPlan', "Review the Proposed Diagrams"), detail: [plan.map((item, index) => localize('ade.ai.diagramPlanRow', "{0}. {1} · {2}\n{3}", index + 1, item.name, viewLabels[item.kind], item.intent)).join('\n\n'), localize('ade.ai.diagramPlanBudget', "{0} diagrams · Up to {1} additional requests to {2}. Each diagram is a saved step. All approved diagrams must pass validation before the new snapshot is published.", plan.length, job.remainingRequests ?? plan.length, job.model)].join('\n\n'), primaryButton: localize('ade.ai.generatePlan', "Generate {0} Diagrams", plan.length) });
+					if (!approved.confirmed) { this.report(localize('ade.ai.diagramPlanSaved', "Diagram Plan Saved · Review Diagram Plan to Continue")); return; }
+					if (this.code.context?.snapshot !== context.snapshot) { throw new Error(localize('ade.ai.diagramProjectChanged', "The Active Project Changed. Open Its Diagrams to Continue.")); }
+					job = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramApprovePlan', snapshot: context.snapshot, id: job.id, reviewId: job.reviewId }, token));
+					this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.diagramRunning = true; this.changes.fire();
+					continue;
+				}
+				const nextDiagram = job.plan?.find(item => item.status !== 'complete');
+				this.report(nextDiagram ? localize('ade.ai.generatingView', "Generating {0} · {1} · {2}", nextDiagram.name, viewLabels[nextDiagram.kind], job.model) : localize('ade.ai.planningDiagramStep', "Analyzing Responsibilities and Planning Diagrams · {0} of {1} Steps · {2}", job.completed, job.total, job.model));
 				try { job = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramStep', snapshot: context.snapshot, id: job.id, reviewId: job.reviewId }, token)); }
 				catch (error) {
 					this.diagramProgress = { ...job, status: 'failed', error: token.isCancellationRequested ? localize('ade.ai.diagramPaused', "Generation Paused · Resume to Keep Completed Steps") : error instanceof Error ? error.message : String(error) };
