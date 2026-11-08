@@ -9,7 +9,7 @@ import { readFile, lstat } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { isDeepStrictEqual } from 'node:util';
-import { elementKinds, relationKinds, isCompatibleRelation, readSemanticModel, InvalidSemanticModelError, type SemanticModel, type SemanticElement, type SemanticRelation, type ModelView } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { elementKinds, relationKinds, viewKinds, notationRules, elementDetailsSchema, relationDetailsSchema, isCompatibleRelation, readSemanticModel, InvalidSemanticModelError, type SemanticModel, type SemanticElement, type SemanticRelation, type ModelView } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
 import { managed, atomicJson, active, snapshotId } from '../code-import/projectStore.ts';
 import { sourceFile, contentHash } from '../code-import/sourceChanges.ts';
 import { isDisclosableSource } from '../code-import/paths.ts';
@@ -18,6 +18,7 @@ import type { CodeImport } from '../code-import/importCode.ts';
 import { object, text, array } from '../code-import/schemas.ts';
 import { readProviderConfig, type ProviderConfig, type StructuredProvider } from './contracts.ts';
 import { createCliProvider } from './providers.ts';
+import { diagramColumnConstraints, validateDiagramColumnConstraints } from './diagramConstraints.ts';
 import { packDiagramEvidence } from './diagramEvidence.ts';
 import { diagramPlanSchema, diagramPlanningInstruction, diagramViewInstruction, diagramChoices, validateDiagramPlan, validatePlannedDiagram, type DiagramPlanItem } from './diagramPlanning.ts';
 
@@ -26,10 +27,11 @@ interface Feature { key: string; name: string; description: string }
 interface Classification { symbol: string; kind: SemanticElement['kind']; name: string; description: string; feature: string; parent: string | null }
 interface Omission { symbol: string; representedBy: string | null; reason: string }
 interface Concept { key: string; kind: SemanticElement['kind']; name: string; description: string; feature: string; parent: string | null; source: string }
+interface DiagramConnection { kind: SemanticRelation['kind']; from: string; to: string; name: string; evidence: string[]; details: SemanticRelation['details'] | null }
 interface Relation { key: string; kind: SemanticRelation['kind']; from: string; to: string; name: string; condition: string | null; evidence: string[]; classification: 'static' | 'inferred' }
 interface DiagramHints { features: Feature[]; concepts: { key: string; name: string; kind: string; feature: string }[]; diagrams: { key: string; name: string; kind?: ModelView['kind']; feature: string | null }[]; relations: string[] }
 export interface Diagram { key: string; name: string; kind: ModelView['kind']; feature: string | null; nodes: string[]; relations: string[]; intent: string }
-export interface DiagramInterpretation { summary: string; questions: string[]; features: Feature[]; elements: Classification[]; omissions?: Omission[]; concepts: Concept[]; relations: Relation[]; diagrams: Diagram[] }
+export interface DiagramInterpretation { notation?: { elements: { ref: string; details: SemanticElement['details'] }[]; relations: { key: string; details: SemanticRelation['details'] }[] }; summary: string; questions: string[]; features: Feature[]; elements: Classification[]; omissions?: Omission[]; concepts: Concept[]; relations: Relation[]; diagrams: Diagram[] }
 export interface DiagramImportJob {
 	version: 1; id: string; root: string; snapshot: string; snapshotHash: string; sourceRevision: string;
 	config: ProviderConfig; inventoryHash: string; unitCount: number; symbolCount: number; files: string[];
@@ -55,7 +57,7 @@ const interpretationProperties = {
 	elements: { ...array(object(elementProperties)), maxItems: 64 },
 	concepts: { ...array(object(conceptProperties)), maxItems: 60 },
 	relations: { ...array(object({ key, kind: { type: 'string', enum: relationKinds }, from: reference, to: reference, name: short, condition: { anyOf: [short, { type: 'null' }] }, evidence: { ...array(reference), minItems: 1, maxItems: 12 }, classification: { type: 'string', enum: ['static', 'inferred'] } })), maxItems: 100 },
-	diagrams: { ...array(object({ key, name: short, kind: { type: 'string', enum: ['structure', 'activity', 'sequence', 'state'] }, feature: { anyOf: [key, { type: 'null' }] }, nodes: { ...array(reference), minItems: 1, maxItems: 24 }, relations: { ...array(key), maxItems: 100 }, intent: short })), maxItems: 6 }
+	diagrams: { ...array(object({ key, name: short, kind: { type: 'string', enum: viewKinds }, feature: { anyOf: [key, { type: 'null' }] }, nodes: { ...array(reference), minItems: 1, maxItems: 24 }, relations: { ...array(key), maxItems: 100 }, intent: short })), maxItems: 16 }
 };
 const exclusionReasons: Record<string, string> = {
 	'x:framework': 'AI classified this source as supporting framework startup or glue.',
@@ -69,7 +71,8 @@ const coverageTarget = { anyOf: [{ type: 'string', maxLength: 100, pattern: '^(?
 const coverageSchema = (refs: string[] = []) => object({ targets: object(Object.fromEntries(refs.map(ref => [ref, { $ref: '#/$defs/coverageTarget' }]))) });
 const overviewSchema = object({ key, name: short, intent: short });
 export const diagramInterpretationSchema = { ...object({ ...interpretationProperties, overview: overviewSchema, coverage: coverageSchema() }), $defs: { coverageTarget } };
-const storedSchema = object({ ...interpretationProperties, diagrams: { ...interpretationProperties.diagrams, maxItems: 7 }, omissions: { ...array(object({ symbol: reference, representedBy: nullableReference, reason: short })), maxItems: 100000 } });
+const notationSchema = object({ elements: { ...array(object({ ref: reference, details: elementDetailsSchema })), maxItems: 80 }, relations: { ...array(object({ key, details: relationDetailsSchema })), maxItems: 100 } });
+const storedSchema = object({ ...interpretationProperties, notation: notationSchema, diagrams: { ...interpretationProperties.diagrams, maxItems: 16 }, omissions: { ...array(object({ symbol: reference, representedBy: nullableReference, reason: short })), maxItems: 100000 } }, ['notation']);
 const ajv = new Ajv2020();
 const valid = ajv.compile<DiagramInterpretation>(storedSchema);
 const validPlan = ajv.compile<DiagramPlanItem[]>(diagramPlanSchema);
@@ -91,7 +94,7 @@ OUTPUT coverage.targets is an OBJECT keyed by the exact source refs, e.g. {"u0":
 Use uN for source refs, f:key for features, c:key for concepts. Reuse stable keys. Concepts cite one disclosed source anchor; their supporting units are mapped by coverage. Parents resolve to feature/component/resource/controller/action; states belong to a resource. Relations cite disclosed evidence; static relationships must match a supplied dependency, behavioral inference is inferred. Include evidenced interactions between distinct responsibilities; no self-edge is needed inside an aggregate. Every relation in a diagram includes both endpoints. All selected responsibilities must be visible or containment ancestors. Preserve human intent and unrelated changes.
 overview provides a stable key, name and intent; tools project the full AI-declared model into a structure overview when it fits 24 nodes, automatically including its relationships. diagrams contains only additional focused views, and may be empty. For larger models, provide structure views covering the model in diagrams. Do not copy the overview into diagrams. project sees the whole small project and produces the FINAL model in one call. symbols extracts a few responsibilities/interactions with complete coverage; diagrams are drafts and may be empty. overview composes final views from prior responsibilities and compact coverage, explicitly merging them when useful; avoid copying source catalogs into the model. If evidence is insufficient, ask specific questions, never fabricate understanding. Return only the strict schema with concise names/descriptions.`.replace(/\n/g, ' ');
 
-const planningInstruction = diagramImportInstruction.slice(0, diagramImportInstruction.indexOf('overview provides')) + diagramPlanningInstruction;
+const planningInstruction = diagramImportInstruction.slice(0, diagramImportInstruction.indexOf('overview provides')).replace('Framework startup, tests and feature flags are supporting evidence: aggregate or exclude them, do not create startup/test/config diagrams unless infrastructure/testing is the explicit application purpose.', 'Framework boilerplate is supporting evidence; aggregate it. Explicit schema, deployment and network declarations support their corresponding architecture views. Do not discard infrastructure just because the application purpose is a business feature.').replace('Parents resolve to feature/component/resource/controller/action;', 'Parents may also be system/container/package/class/interface/entity/table/deploymentNode/networkNode/process/dataStore;') + diagramPlanningInstruction;
 
 /** All indexed symbols are inventoried; additional text languages are read in bounded complete chunks. */
 async function inventory(state: CodeImport, signal?: AbortSignal): Promise<{ units: Unit[]; excluded: DiagramImportJob['excluded'] }> {
@@ -157,7 +160,7 @@ export async function readDiagramJob(root: string, id: string): Promise<DiagramI
 	const job: DiagramImportJob = JSON.parse(await readFile(path, 'utf8'));
 	if (job.batchSize !== undefined && (!Number.isSafeInteger(job.batchSize) || job.batchSize < 1 || job.batchSize > 40) || job.singlePass !== undefined && typeof job.singlePass !== 'boolean') { throw new Error('Invalid diagram batching manifest'); }
 	if (job.version !== 1 || job.id !== id || job.root !== root || job.snapshot !== join(root, '.ade', 'imports', basename(job.snapshot)) || !snapshotId(basename(job.snapshot)) || !Array.isArray(job.results) || job.completed !== job.results.length + (job.generated?.length ?? 0) || !job.results.every(result => valid({ ...result, omissions: result.omissions ?? [] })) || !Number.isSafeInteger(job.calls) || job.calls < job.completed - (job.projectedOverview && job.generated?.length ? 1 : 0) || job.total !== (job.singlePass ? 1 : Math.ceil(job.unitCount / (job.batchSize ?? batchSize)) + 1) + (job.plan?.length ?? 0)) { throw new Error('Inconsistent diagram checkpoint'); }
-	if (job.strategy === 'planned-v1' && (job.analysisTotal !== (job.singlePass ? 1 : Math.ceil(job.unitCount / (job.batchSize ?? batchSize)) + 1) || job.plan && (!validPlan(job.plan) || !Array.isArray(job.generated) || job.generated.length > job.plan.length || job.generated.some((item, index) => item.key !== job.plan![index].key || item.kind !== job.plan![index].kind || !valid({ summary: 'Stored diagram', questions: [], features: [], elements: [], concepts: [], relations: [], diagrams: [item], omissions: [] }))) || job.planApproved && !job.plan)) { throw new Error('Inconsistent diagram plan checkpoint'); }
+	if (job.strategy === 'planned-v1' && (job.analysisTotal !== (job.singlePass ? 1 : Math.ceil(job.unitCount / (job.batchSize ?? batchSize)) + 1) || job.plan && (!validPlan(job.plan) || !Array.isArray(job.generated) || job.generated.length > job.plan.length || job.generated.some((item, index) => item.key !== job.plan![index].key || item.kind !== job.plan![index].kind || !valid({ summary: 'Stored diagram', questions: [], features: [], elements: [], concepts: [], relations: [], diagrams: [item], omissions: [] }))) || job.planApproved && !job.plan || job.status === 'complete' && job.generated?.length !== job.plan?.length)) { throw new Error('Inconsistent diagram plan checkpoint'); }
 	readProviderConfig(job.config);
 	return job;
 }
@@ -222,13 +225,21 @@ function normalizeReferences(wire: CompactInterpretation, previous: DiagramInter
 			const key = ref.slice(2), values = aliases.get(key) ?? new Set<string>(); values.add(ref); aliases.set(key, values);
 		}
 	}
+	const declared = new Set([...previous, wire].flatMap(item => [...item.features.map(feature => `f:${feature.key}`), ...item.concepts.map(concept => `c:${concept.key}`), ...item.elements.map(element => element.symbol)]));
+	const namespacedAliases = new Map<string, Set<string>>();
+	for (const ref of declared) {
+		const match = /^(?<namespace>[cf]):\k<namespace>-(?<key>.+)$/.exec(ref);
+		if (match?.groups) { const alias = `${match.groups.namespace}:${match.groups.key}`, values = namespacedAliases.get(alias) ?? new Set<string>(); values.add(ref); namespacedAliases.set(alias, values); }
+	}
 	const resolve = (ref: string): string => {
+		if (!declared.has(ref) && namespacedAliases.get(ref)?.size === 1) { return [...namespacedAliases.get(ref)!][0]; }
 		if (/^(?:[cfx]:|u\d+$)/.test(ref)) { return ref; }
 		const matches = aliases.get(ref);
 		return matches?.size === 1 ? [...matches][0] : ref;
 	};
 	return { ...wire,
 		elements: wire.elements.map(item => ({ ...item, parent: item.parent ? resolve(item.parent) : null })),
+		...(wire.notation ? { notation: { elements: wire.notation.elements.map(item => ({ ...item, ref: resolve(item.ref) })), relations: wire.notation.relations } } : {}),
 		concepts: wire.concepts.map(item => ({ ...item, parent: item.parent ? resolve(item.parent) : null })),
 		relations: wire.relations.map(item => ({ ...item, from: resolve(item.from), to: resolve(item.to) })),
 		diagrams: wire.diagrams.map(item => ({ ...item, nodes: item.nodes.map(resolve) })),
@@ -239,6 +250,16 @@ function normalizeReferences(wire: CompactInterpretation, previous: DiagramInter
 		}))] })) } : {}),
 		coverage: { ...wire.coverage, targets: Object.fromEntries(Object.entries(wire.coverage.targets).map(([ref, target]) => [ref, resolve(target)])) }
 	};
+}
+
+/** The structural overview projects AI-declared facts; focused C4 or data views keep their own identities. */
+function ensureSharedOverview(wire: CompactInterpretation): void {
+	if (!wire.plan?.length || wire.plan[0].kind === 'structure') { return; }
+	const used = new Set(wire.plan.map(item => item.key));
+	let key = wire.overview.key;
+	for (let suffix = 1; used.has(key); suffix++) { key = `${wire.overview.key.slice(0, 50)}-shared-${suffix}`; }
+	wire.overview = { ...wire.overview, key, name: `${wire.overview.name.slice(0, 1180)} · Shared Design` };
+	wire.plan.unshift({ ...wire.overview, kind: 'structure', feature: null, focus: [...wire.elements.map(item => item.symbol), ...wire.concepts.map(item => `c:${item.key}`)].slice(0, 24) });
 }
 
 /** Coverage describes traceability; declarations, rather than primary coverage targets, retain objects. */
@@ -291,8 +312,17 @@ export async function prepareDiagramImport(previous: ImportSnapshot, next: CodeI
 	let boundedBatch = 40;
 	while (boundedBatch > 1 && units.some((_, index) => index % boundedBatch === 0 && Buffer.byteLength(JSON.stringify(packDiagramEvidence(units.slice(index, index + boundedBatch)))) + reserved > inputLimit(config))) { boundedBatch--; }
 	const singlePass = units.length <= 160 && Buffer.byteLength(JSON.stringify(packDiagramEvidence(units))) + reserved <= inputLimit(config);
-	const job: DiagramImportJob = { version: 1, id: randomUUID(), root: next.sourceRoot, snapshot: previous.directory, snapshotHash: previous.inputHash, sourceRevision: next.revision, config, inventoryHash, unitCount: units.length, symbolCount: units.filter(unit => unit.id).length, files: [...new Set(units.map(unit => unit.file))], strategy: planned ? 'planned-v1' : 'compact-v4', ...(planned ? { analysisTotal: singlePass ? 1 : Math.ceil(units.length / boundedBatch) + 1 } : {}), batchSize: boundedBatch, singlePass, total: singlePass ? 1 : Math.ceil(units.length / boundedBatch) + 1, completed: 0, calls: 0, status: 'ready', results: [], usage: [], excluded, questions: [], clarification: '', hints };
+	const job: DiagramImportJob = { version: 1, id: randomUUID(), root: next.sourceRoot, snapshot: previous.directory, snapshotHash: previous.inputHash, sourceRevision: next.revision, config, inventoryHash, unitCount: units.length, symbolCount: units.filter(unit => unit.id).length, files: [...new Set(units.map(unit => unit.file))], strategy: planned ? 'planned-v1' : 'compact-v4', ...(planned ? { analysisTotal: singlePass ? 1 : Math.ceil(units.length / boundedBatch) + 1 } : {}), batchSize: boundedBatch, singlePass, total: singlePass ? 1 : Math.ceil(units.length / boundedBatch) + 1, completed: 0, calls: 0, status: 'ready', results: [], usage: [], excluded, questions: [], clarification: clarification.slice(0, 8000), hints };
 	await save(job); return job;
+}
+
+/** Source handles are presentation-local; persistent keys use the resolved semantic identity. */
+function resolveSemanticReference(project: string, units: Unit[], ref: string): string {
+	if (ref.startsWith('f:')) { return entityId(project, 'feature', ref.slice(2)); }
+	if (ref.startsWith('c:')) { return entityId(project, 'concept', ref.slice(2)); }
+	const unit = units.find(unit => unit.ref === ref);
+	if (!unit?.id) { throw new Error('Unknown source symbol reference'); }
+	return unit.id;
 }
 
 /** The model chooses semantics and composition; tools only resolve identities, validate and lay out accepted views. */
@@ -303,13 +333,7 @@ function compose(previous: ImportSnapshot, state: CodeImport, units: Unit[], res
 	assertManualIdentities(previous, state);
 	model.semantics.elements = model.semantics.elements.filter(item => !previousSourceIds.has(item.id) || sourceIds.has(item.id));
 	for (const item of state.model.semantics.elements) { if (!model.semantics.elements.some(current => current.id === item.id)) { model.semantics.elements.push(structuredClone(item)); } }
-	const resolve = (ref: string): string => {
-		if (ref.startsWith('f:')) { return entityId(model.id, 'feature', ref.slice(2)); }
-		if (ref.startsWith('c:')) { return entityId(model.id, 'concept', ref.slice(2)); }
-		const unit = units.find(unit => unit.ref === ref);
-		if (!unit?.id) { throw new Error('Unknown source symbol reference'); }
-		return unit.id;
-	};
+	const resolve = (ref: string): string => resolveSemanticReference(model.id, units, ref);
 	const usedFeatures = new Set(results.flatMap(result => [...result.elements.map(item => item.feature), ...result.concepts.map(item => item.feature), ...result.diagrams.flatMap(item => item.feature ? [item.feature] : [])]));
 	results = [{ summary: '', questions: [], features: hints?.features.filter(item => usedFeatures.has(item.key)) ?? [], elements: [], concepts: [], relations: [], diagrams: [] }, ...results];
 	const knownFeatures = new Set<string>();
@@ -325,8 +349,9 @@ function compose(previous: ImportSnapshot, state: CodeImport, units: Unit[], res
 			if (!knownFeatures.has(item.feature)) { throw new Error('A classified element has no declared feature'); }
 			const previousElement = previous.model.semantics.elements.find(element => element.id === item.id);
 			const common = previous.commonModel.semantics.elements.find(element => element.id === item.id);
-			const updated: SemanticElement = { ...previousElement, id: item.id, kind: item.kind, name: item.name, description: item.description, parentId: item.parent ? resolve(item.parent) : resolve(`f:${item.feature}`) };
-			if (previousElement && common) { for (const field of ['name', 'description', 'kind', 'behavior', 'parentId'] as const) { if (!isDeepStrictEqual(previousElement[field], common[field])) { if (previousElement[field] === undefined) { delete updated[field]; } else { Object.assign(updated, { [field]: previousElement[field] }); } } } }
+			const details = [...results].reverse().flatMap(result => result.notation?.elements ?? []).find(entry => resolve(entry.ref) === item.id)?.details;
+			const updated: SemanticElement = { ...previousElement, ...(details ? { details } : {}), id: item.id, kind: item.kind, name: item.name, description: item.description, parentId: item.parent ? resolve(item.parent) : resolve(`f:${item.feature}`) };
+			if (previousElement && common) { for (const field of ['name', 'description', 'kind', 'behavior', 'parentId', 'details'] as const) { if (!isDeepStrictEqual(previousElement[field], common[field])) { if (previousElement[field] === undefined) { delete updated[field]; } else { Object.assign(updated, { [field]: previousElement[field] }); } } } }
 			model.semantics.elements = model.semantics.elements.filter(element => element.id !== item.id); model.semantics.elements.push(updated);
 		}
 	}
@@ -342,6 +367,12 @@ function compose(previous: ImportSnapshot, state: CodeImport, units: Unit[], res
 		const parent = model.semantics.elements.find(parent => parent.id === item.parentId);
 		if (parent && !['feature', 'component', 'resource', 'controller', 'action'].includes(parent.kind)) { if (parent.parentId) { item.parentId = parent.parentId; } else { delete item.parentId; } }
 	}
+	for (const result of results) {
+		const elementRefs = result.notation?.elements.map(item => item.ref) ?? [], relationRefs = result.notation?.relations.map(item => item.key) ?? [];
+		if (new Set(elementRefs).size !== elementRefs.length || new Set(relationRefs).size !== relationRefs.length) { throw new Error('Duplicate notation annotation'); }
+		for (const ref of elementRefs) { if (!model.semantics.elements.some(item => item.id === resolve(ref))) { throw new Error(`Unknown notation element ${ref}`); } }
+		for (const key of relationRefs) { if (!results.some(result => result.relations.some(item => item.key === key))) { throw new Error(`Unknown notation relationship ${key}`); } }
+	}
 	const elementIds = new Set(model.semantics.elements.map(item => item.id));
 	const oldRelations = new Set(previous.state.model.semantics.relations.map(item => item.id));
 	model.semantics.relations = model.semantics.relations.filter(item => elementIds.has(item.from) && elementIds.has(item.to) && (!oldRelations.has(item.id) || state.model.semantics.relations.some(current => current.id === item.id)));
@@ -354,9 +385,10 @@ function compose(previous: ImportSnapshot, state: CodeImport, units: Unit[], res
 			if (existing && (existing.from !== from || existing.to !== to)) { throw new Error('Conflicting semantic relationship keys'); }
 			if (item.classification === 'static' && (item.kind !== 'dependency' || !state.semantic?.dependencies.some(edge => edge.from === from && edge.to === to))) { throw new Error('AI relationship claims unsupported deterministic evidence'); }
 			model.semantics.relations = model.semantics.relations.filter(relation => relation.id !== id);
-			const updated: SemanticRelation = { id, from, to, kind: item.kind, name: item.name, ...(item.condition ? { condition: item.condition } : {}) };
+			const details = [...results].reverse().flatMap(result => result.notation?.relations ?? []).find(entry => entry.key === item.key)?.details;
+			const updated: SemanticRelation = { ...(details ? { details } : {}), id, from, to, kind: item.kind, name: item.name, ...(item.condition ? { condition: item.condition } : {}) };
 			const common = previous.commonModel.semantics.relations.find(relation => relation.id === id);
-			if (existing && common) { for (const field of ['from', 'to', 'kind', 'name', 'condition', 'errorCode'] as const) { if (!isDeepStrictEqual(existing[field], common[field])) { if (existing[field] === undefined) { delete updated[field]; } else { Object.assign(updated, { [field]: existing[field] }); } } } }
+			if (existing && common) { for (const field of ['from', 'to', 'kind', 'name', 'condition', 'errorCode', 'details'] as const) { if (!isDeepStrictEqual(existing[field], common[field])) { if (existing[field] === undefined) { delete updated[field]; } else { Object.assign(updated, { [field]: existing[field] }); } } } }
 			model.semantics.relations.push(updated);
 			relationKeys.set(item.key, id);
 		}
@@ -406,9 +438,9 @@ function compose(previous: ImportSnapshot, state: CodeImport, units: Unit[], res
 		}
 		for (const id of classified) { if (!model.semantics.elements.some(item => item.id === id)) { throw new Error('A selected responsibility has no final diagram; explicitly merge or omit implementation details'); } }
 		const domain = model.semantics.elements.filter(item => item.kind !== 'feature');
-		if (domain.length > (units.length <= 160 ? 24 : 96)) { throw new Error('The semantic model still mirrors the source inventory; aggregate implementation details into domain responsibilities'); }
+		if (domain.length > (units.length <= 160 ? model.views.some(view => notationRules[view.kind]) ? 64 : 24 : 96)) { throw new Error('The semantic model still mirrors the source inventory; aggregate implementation details into domain responsibilities'); }
 		if (!domain.length) { throw new Error('No domain responsibilities were identified; ask for clarification rather than publishing a feature-only diagram'); }
-		if (domain.length > 1 && model.views.some(view => view.nodes.length < 2 && !(view.kind === 'sequence' && view.relationIds.length))) { throw new Error('A one-element diagram does not explain this project; compose responsibilities and interactions together'); }
+		if (domain.length > 1 && model.views.some(view => view.nodes.length < 2 && !(view.kind === 'sequence' && view.relationIds.length) && !(notationRules[view.kind] && view.nodes.length === 1 && model.semantics.elements.some(element => element.id === view.nodes[0].elementId && element.details?.members.length)))) { throw new Error('A one-element diagram does not explain this project; compose responsibilities and interactions together'); }
 		const shownRelations = new Set(model.views.flatMap(view => view.relationIds));
 		for (const result of results) { for (const relation of result.relations) { const id = entityId(model.id, 'relation', relation.key); if (model.semantics.relations.some(item => item.id === id) && !shownRelations.has(id)) { throw new Error('A semantic interaction is missing from the final diagrams'); } } }
 		const overview = finalResults.flatMap(result => result.diagrams.filter(diagram => !diagram.feature).map(diagram => entityId(model.id, 'diagram', diagram.key)));
@@ -443,15 +475,18 @@ async function advancePlannedDiagram(job: DiagramImportJob, previous: ImportSnap
 		return acceptPlannedView(job, previous, next, units, { key: item.key, name: item.name, kind: item.kind, feature: item.feature, intent: item.intent, nodes: choices.elements.map(element => element.ref), relations: choices.relations.map(relation => relation.key) });
 	}
 	const references = choices.elements.map(element => element.ref), keys = choices.relations.map(relation => relation.key);
-	const schema = object({ questions: { ...array(short), maxItems: 12 }, nodes: { ...array({ type: 'string', enum: references }), minItems: 1, maxItems: 24 }, relations: { ...array(keys.length ? { type: 'string', enum: keys } : key), maxItems: keys.length ? 100 : 0 } });
+	const properties = { questions: { ...array(short), maxItems: 12 }, nodes: { ...array({ type: 'string', enum: references }), minItems: 1, maxItems: 24 }, relations: { ...array(keys.length ? { type: 'string', enum: keys } : key), maxItems: keys.length ? 100 : 0 } };
 	const focus = new Set(item.focus);
 	const sourceRefs = new Set([...job.results.flatMap(result => [...result.elements.filter(element => focus.has(element.symbol)).map(element => element.symbol), ...result.concepts.filter(concept => focus.has(`c:${concept.key}`)).map(concept => concept.source)]), ...choices.relations.filter(relation => focus.has(relation.from) || focus.has(relation.to)).flatMap(relation => relation.evidence)]);
 	const evidenceUnits = units.filter(unit => sourceRefs.has(unit.ref));
-	const context = { step: 'diagram', format: 'planned-v1', diagram: item, index, overview: index === 0, graph: { elements: choices.elements, relations: choices.relations.map(({ key, kind, from, to, name, condition }) => ({ key, kind, from, to, name, condition })) }, evidence: packDiagramEvidence(evidenceUnits.slice(0, 12)), omittedEvidenceUnits: Math.max(0, evidenceUnits.length - 12), clarification: job.clarification, previousValidation: job.feedback };
+	const disclosed = evidenceUnits.slice(0, 12).map(unit => unit.ref);
+	const rule = notationRules[item.kind];
+	const schema = object({ ...properties, ...(rule ? { connections: { ...array(object({ kind: { type: 'string', enum: rule.relations }, from: { type: 'string', enum: references }, to: { type: 'string', enum: references }, name: short, evidence: { ...array(disclosed.length ? { type: 'string', enum: disclosed } : reference), minItems: 1, maxItems: 12 }, details: { anyOf: [relationDetailsSchema, { type: 'null' }] } })), maxItems: disclosed.length ? 6 : 0 } } : {}) });
+	const context = { step: 'diagram', format: 'planned-v1', diagram: item, notationRule: notationRules[item.kind], index, overview: index === 0, graph: { elements: choices.elements, relations: choices.relations.map(({ key, kind, from, to, name, condition }) => ({ key, kind, from, to, name, condition })) }, evidence: packDiagramEvidence(evidenceUnits.slice(0, 12)), omittedEvidenceUnits: Math.max(0, evidenceUnits.length - 12), clarification: job.clarification, previousValidation: job.feedback };
 	const prompt = diagramViewInstruction + '\n' + JSON.stringify(context);
 	const inputBytes = Buffer.byteLength(prompt) + Buffer.byteLength(JSON.stringify(schema));
 	if (inputBytes > inputLimit(job.config)) { throw new Error('Diagram view context exceeds the configured budget; increase it before preparing this project'); }
-	const validate = new Ajv2020().compile<{ questions: string[]; nodes: string[]; relations: string[] }>(schema);
+	const validate = new Ajv2020().compile<{ questions: string[]; nodes: string[]; relations: string[]; connections?: DiagramConnection[] }>(schema);
 	job.status = 'running'; job.calls++; await save(job);
 	try {
 		const response = await provider.complete(job.config, prompt, schema, signal);
@@ -459,12 +494,35 @@ async function advancePlannedDiagram(job: DiagramImportJob, previous: ImportSnap
 		job.usage.push({ ...response.usage, inputBytes, outputBytes: Buffer.byteLength(JSON.stringify(response.value)) });
 		if (!validate(response.value)) { throw new Error(`Invalid planned diagram output: ${validate.errors?.map(error => `${error.instancePath} ${error.message}`).join('; ')}`); }
 		if (response.value.questions.length) { job.status = 'questions'; job.questions = response.value.questions; await save(job); return { job }; }
-		const relations = index === 0 && choices.elements.length <= 24 ? keys : response.value.relations;
-		const nodes = [...new Set([...(index === 0 && choices.elements.length <= 24 ? references : response.value.nodes), ...choices.relations.filter(relation => relations.includes(relation.key)).flatMap(relation => [relation.from, relation.to])])];
+		const amended = structuredClone(job);
+		const additions: string[] = [];
+		for (const connection of response.value.connections ?? []) {
+			const existing = amended.results.flatMap(result => result.relations).find(relation => relation.kind === connection.kind && relation.from === connection.from && relation.to === connection.to);
+			if (existing) { additions.push(existing.key); continue; }
+			const key = `view-${contentHash(JSON.stringify([item.key, connection.kind, resolveSemanticReference(previous.model.id, units, connection.from), resolveSemanticReference(previous.model.id, units, connection.to)])).slice(0, 40)}`;
+			amended.results.at(-1)!.relations.push({ key, kind: connection.kind, from: connection.from, to: connection.to, name: connection.name, condition: null, evidence: connection.evidence, classification: 'inferred' });
+			if (connection.details) {
+				const notation = amended.results.at(-1)!.notation ??= { elements: [], relations: [] };
+				notation.relations.push({ key, details: connection.details });
+			}
+			additions.push(key);
+		}
+		if (!amended.results.every(result => valid({ ...result, omissions: result.omissions ?? [] }))) { throw new Error('Diagram connections exceed the shared graph contract'); }
+		const updatedChoices = diagramChoices(item, amended.results);
+		const relations = [...new Set([...(index === 0 && choices.elements.length <= 24 ? keys : response.value.relations), ...additions])];
+		const nodes = [...new Set([...(index === 0 && choices.elements.length <= 24 ? references : response.value.nodes), ...updatedChoices.relations.filter(relation => relations.includes(relation.key)).flatMap(relation => [relation.from, relation.to])])];
 		const diagram: Diagram = { key: item.key, name: item.name, kind: item.kind, feature: item.feature, intent: item.intent, nodes, relations };
 		if (nodes.length > 24) { throw new Error(`Diagram ${item.key} exceeds its presentation budget`); }
-		validatePlannedDiagram(diagram, item, job.results);
-		return await acceptPlannedView(job, previous, next, units, diagram);
+		validatePlannedDiagram(diagram, item, amended.results);
+		// The overview remains a local projection of AI-declared facts, including links added by typed steps.
+		if (amended.projectedOverview && amended.generated?.[0]) {
+			const overview = amended.generated[0];
+			for (const key of additions) {
+				const relation = amended.results.flatMap(result => result.relations).find(relation => relation.key === key)!;
+				if (overview.nodes.includes(relation.from) && overview.nodes.includes(relation.to) && !overview.relations.includes(key)) { overview.relations.push(key); }
+			}
+		}
+		return await acceptPlannedView(amended, previous, next, units, diagram);
 	} catch (error) {
 		job.status = 'failed'; job.error = signal?.aborted ? 'Diagram generation cancelled; completed steps can be resumed' : error instanceof Error ? error.message : 'Diagram generation failed';
 		await save(job); throw error;
@@ -511,6 +569,7 @@ export async function advanceDiagramImport(job: DiagramImportJob, previous: Impo
 	const batch = overview ? [] : job.singlePass ? units : units.slice(job.completed * size, (job.completed + 1) * size);
 	const features = [...new Map([...(job.hints?.features ?? []), ...job.results.flatMap(result => result.features)].map(item => [item.key, item])).values()];
 	const packed = packDiagramEvidence(batch);
+	const columnConstraints = diagramColumnConstraints(overview ? units : batch);
 	const responsibilities = job.results.flatMap(result => [...result.elements.map(({ symbol, name, kind, feature, description, parent }) => ({ ref: symbol, name, kind, feature, description: description.slice(0, 360), parent })), ...result.concepts.map(({ key, name, kind, feature, description, parent }) => ({ ref: `c:${key}`, name, kind, feature, description: description.slice(0, 360), parent }))]);
 	const edges = next.semantic?.dependencies.filter(edge => batch.some(unit => unit.id === edge.from || unit.id === edge.to)) ?? [];
 	const related = new Set(edges.flatMap(edge => [edge.from, edge.to]));
@@ -521,10 +580,11 @@ export async function advanceDiagramImport(job: DiagramImportJob, previous: Impo
 		step: job.singlePass ? 'project' : overview ? 'overview' : 'symbols', batch: job.completed, ...(job.strategy === 'planned-v1' ? { workflow: 'planned-v1' } : {}),
 		format: 'compact-v4', unitColumns: ['ref', 'fileIndex', 'indexed', 'name', 'start', 'end'],
 		relationGrammar, graphRules: 'Use only listed endpoint roles. Transition edges connect two states owned by the same resource. To mark completion, use a write to the resource; do not connect an action to a state via transition. Avoid a lone state without an evidenced state machine.',
-		project: { name: next.model.name, files: job.files.length, sourceUnits: units.length, presentationBudget: { maxResponsibilities: !job.singlePass && !overview ? 12 : units.length <= 160 ? 12 : 96, maxDiagrams: job.strategy === 'planned-v1' ? 7 : 6, maxNodesPerDiagram: 24 }, target: 'few connected capability and domain diagrams, not a source inventory' },
+		project: { name: next.model.name, files: job.files.length, sourceUnits: units.length, presentationBudget: { maxResponsibilities: !job.singlePass && !overview ? 12 : units.length <= 160 ? 64 : 96, maxDiagrams: job.strategy === 'planned-v1' ? 16 : 6, maxNodesPerDiagram: 24 }, target: 'few connected capability and domain diagrams, not a source inventory' },
 		...packed,
+		verifiedColumnConstraints: columnConstraints.slice(0, 96), omittedColumnConstraints: Math.max(0, columnConstraints.length - 96),
 		neighbors: neighbors.map(({ ref, name, file, language, header }) => ({ ref, name, file, language, header })),
-		features, responsibilities: overview ? responsibilities.slice(0, 160).map(item => ({ ...item, name: item.name.slice(0, 160) })) : [],
+		features, notation: overview ? job.results.flatMap(result => result.notation ? [result.notation] : []) : [], responsibilities: overview ? responsibilities.slice(0, 160).map(item => ({ ...item, name: item.name.slice(0, 160) })) : [],
 		overviewCoverage: overview ? { total: responsibilities.length, included: Math.min(160, responsibilities.length), omitted: Math.max(0, responsibilities.length - 160), detailedDiagrams: job.results.flatMap(result => result.diagrams).length } : undefined,
 		priorComposition: job.hints ? { concepts: job.hints.concepts, diagrams: job.hints.diagrams, relations: job.hints.relations } : undefined,
 		existingKeys: job.results.map(result => ({ concepts: result.concepts.map(item => item.key), diagrams: result.diagrams.map(item => item.key), relations: result.relations.map(item => item.key) })),
@@ -536,7 +596,7 @@ export async function advanceDiagramImport(job: DiagramImportJob, previous: Impo
 	};
 	const availableUnits = overview ? units : batch;
 	const refs = availableUnits.map(unit => unit.ref), indexed = availableUnits.filter(unit => unit.id).map(unit => unit.ref);
-	const schema = { ...object({ ...interpretationProperties, ...(job.strategy === 'planned-v1' ? { plan: { ...diagramPlanSchema, minItems: job.singlePass || overview ? 1 : 0 }, diagrams: { ...interpretationProperties.diagrams, maxItems: 0 } } : {}), elements: { ...array(object({ ...elementProperties, symbol: indexed.length ? { type: 'string', enum: indexed } : reference })), maxItems: indexed.length ? 64 : 0 }, overview: overviewSchema, concepts: { ...array(object({ ...conceptProperties, source: { type: 'string', enum: refs } })), maxItems: 60 }, relations: { ...array(object({ key, kind: { type: 'string', enum: relationKinds }, from: reference, to: reference, name: short, condition: { anyOf: [short, { type: 'null' }] }, evidence: { ...array({ type: 'string', enum: [...new Set([...refs, ...neighbors.map(unit => unit.ref)])] }), minItems: 1, maxItems: 12 }, classification: { type: 'string', enum: ['inferred'] } })), maxItems: 100 }, coverage: coverageSchema(refs) }), $defs: { coverageTarget } };
+	const schema = { ...object({ ...interpretationProperties, ...(job.strategy === 'planned-v1' ? { notation: notationSchema, plan: { ...diagramPlanSchema, minItems: job.singlePass || overview ? 1 : 0 }, diagrams: { ...interpretationProperties.diagrams, maxItems: 0 } } : {}), elements: { ...array(object({ ...elementProperties, symbol: indexed.length ? { type: 'string', enum: indexed } : reference })), maxItems: indexed.length ? 64 : 0 }, overview: overviewSchema, concepts: { ...array(object({ ...conceptProperties, source: { type: 'string', enum: refs } })), maxItems: 60 }, relations: { ...array(object({ key, kind: { type: 'string', enum: relationKinds }, from: reference, to: reference, name: short, condition: { anyOf: [short, { type: 'null' }] }, evidence: { ...array({ type: 'string', enum: [...new Set([...refs, ...neighbors.map(unit => unit.ref)])] }), minItems: 1, maxItems: 12 }, classification: { type: 'string', enum: ['inferred'] } })), maxItems: 100 }, coverage: coverageSchema(refs) }), $defs: { coverageTarget } };
 	const validateWire = new Ajv2020().compile<CompactInterpretation>(schema);
 	const prompt = (job.strategy === 'planned-v1' ? planningInstruction : diagramImportInstruction) + '\n' + JSON.stringify(context);
 	const inputBytes = Buffer.byteLength(prompt) + Buffer.byteLength(JSON.stringify(schema));
@@ -550,13 +610,15 @@ export async function advanceDiagramImport(job: DiagramImportJob, previous: Impo
 		const wire = response.value;
 		if (wire.questions.length) { job.status = 'questions'; job.questions = wire.questions; await save(job); return { job }; }
 		const normalized = normalizeReferences(wire, job.results, job.hints);
+		ensureSharedOverview(normalized);
 		const result = expandCoverage(normalized, overview ? units : batch, job.results, job.hints);
+		validateDiagramColumnConstraints(result, diagramColumnConstraints(units));
 		if (job.strategy === 'planned-v1') {
 			const used = new Set([...result.elements, ...result.concepts].map(item => item.feature));
 			for (const feature of job.hints?.features ?? []) { if (used.has(feature.key) && !result.features.some(item => item.key === feature.key)) { result.features.push(feature); } }
 		}
 		const published = !!job.singlePass || overview;
-		if (published && result.elements.length + result.concepts.length > (units.length <= 160 ? 24 : 96)) { throw new Error('The semantic model still mirrors the source inventory; aggregate implementation details into domain responsibilities'); }
+		if (published && result.elements.length + result.concepts.length > (units.length <= 160 ? normalized.plan?.some(item => notationRules[item.kind]) ? 64 : 24 : 96)) { throw new Error('The semantic model still mirrors the source inventory; aggregate implementation details into domain responsibilities'); }
 		if (published && job.strategy !== 'planned-v1' && !result.diagrams.length) { throw new Error('AI must produce purposeful diagrams'); }
 		const required = (overview ? units : batch).filter(unit => unit.id).map(unit => unit.ref);
 		const available = overview ? units : batch;
@@ -585,7 +647,7 @@ export async function advanceDiagramImport(job: DiagramImportJob, previous: Impo
 		if (published && job.strategy === 'planned-v1') {
 			const plan = normalized.plan!;
 			if (!validPlan(plan)) { throw new Error('The normalized diagram plan exceeds its presentation budget'); }
-			validateDiagramPlan(plan, wire.overview.key, results);
+			validateDiagramPlan(plan, normalized.overview.key, results);
 			if (plan.some(item => job.files.some(file => item.name === file || item.name === basename(file)))) { throw new Error('A file listing is not a semantic diagram'); }
 			job.plan = plan; job.generated = []; job.projectedOverview = diagramChoices(plan[0], results).elements.length <= 24; job.total += plan.length; job.approval = undefined;
 		}

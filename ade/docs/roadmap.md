@@ -4,7 +4,7 @@ La [revisione UX del 6 novembre](ux-ai-workflow.md) semplifica il primo avvio, r
 
 Il seguito M6 introduce [importazione semantica in due passi, chat Codex e UI centrata sui diagrammi](diagram-workflow.md): classificazione IA di tutti i simboli, contesto compatto multilinguaggio, generazione riprendibile, scelta separata del modello per i diagrammi e azioni dirette per aggiornare codice e viste.
 
-La generazione M6 comprende ora un piano proposto dall’IA e revisionato prima delle viste: ogni diagramma approvato è uno step riprendibile, con pubblicazione dell’intero insieme validato. Riusa struttura, attività, sequenza e stati già disponibili in M3; l’estensione a nuove notazioni resta in M9. La [specifica del protocollo](semantic-generation-protocol.md) e il [verbale delle prove](validation/planned-generation-2026-11-06.json) descrivono contesto, richieste e verifiche.
+La generazione M6 comprende ora un piano proposto dall’IA e revisionato prima delle viste: ogni diagramma approvato è uno step riprendibile, con pubblicazione dell’intero insieme validato. Su richiesta dell’utente viene anticipata la parte di M9 relativa alle notazioni: ai quattro tipi originali si aggiungono C4 context/container/component, ERD, schema DB, deployment, classi, use case, componenti UML, package, DFD e rete. Il [catalogo](diagram-catalog.md) distingue contenuto, uso e limiti. La [specifica del protocollo](semantic-generation-protocol.md) e il [verbale delle prove](validation/planned-generation-2026-11-06.json) descrivono contesto, richieste e verifiche.
 
 A.D.E punta a rendere il modello visuale l'ambiente quotidiano del software engineer: progettazione, esplorazione, implementazione assistita dall'IA e verifica del comportamento. La [visione](vision.md) definisce il prodotto; questa roadmap descrive come arrivarci in incrementi verificabili.
 
@@ -367,6 +367,8 @@ Il motore e il protocollo IA devono essere indipendenti dal linguaggio. La dispo
 **Criterio di completamento:** un utente può installare e avviare A.D.E su una macchina di prova, creare o importare il progetto supportato, esplorare una feature, cambiarne il flusso con l'IA, verificare l'esecuzione e riconciliare una successiva modifica esterna. Nessuna perdita di dati negli scenari di recupero previsti.
 
 ## M9 — Altri stack, piattaforme e collaborazione
+
+**Incremento anticipato su richiesta dell’utente:** il [catalogo delle notazioni](diagram-catalog.md) aggiunge i dodici tipi mancanti della lista di progettazione software al modello, all’editor e alla pianificazione IA. Le altre attività e i criteri generali di M9 restano aperti.
 
 **Obiettivo:** ampliare A.D.E senza compromettere coerenza e affidabilità.
 

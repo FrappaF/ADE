@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readSemanticModel, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './semanticModel.js';
+import { readSemanticModel, type ElementDetails, type RelationDetails, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './semanticModel.js';
 import { getDiagramGroups } from './visualNavigation.js';
 import { isSequenceMessage } from './sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from './stateDiagram.js';
@@ -12,7 +12,7 @@ import { arrangeDiagram, type DiagramDensity } from './diagramLayout.js';
 export type VisualEdit =
 	| { kind: 'feature'; id: string; name: string }
 	| { kind: 'resource'; id: string; name: string; parentId?: string }
-	| { kind: 'diagram'; id: string; name: string; featureId?: string; viewKind: 'structure' | 'activity' | 'sequence' }
+	| { kind: 'diagram'; id: string; name: string; featureId?: string; viewKind: Exclude<ModelView['kind'], 'state'> }
 	| { kind: 'stateDiagram'; id: string; name: string; featureId: string; resourceId: string }
 	| { kind: 'stateLifecycle'; viewId: string; resourceId: string }
 	| { kind: 'stateTransition'; viewId: string; id: string }
@@ -27,6 +27,9 @@ export type VisualEdit =
 	| { kind: 'renameRelation'; id: string; name: string }
 	| { kind: 'description'; id: string; description: string }
 	| { kind: 'behavior'; id: string; behavior: ModelBehavior }
+	| { kind: 'parent'; id: string; parentId?: string }
+	| { kind: 'elementDetails'; id: string; details: ElementDetails }
+	| { kind: 'relationDetails'; id: string; details: RelationDetails }
 	| { kind: 'condition'; id: string; condition: string }
 	| { kind: 'relationError'; id: string; errorCode?: string }
 	| { kind: 'updateRelation'; id: string; from: string; to: string; relationKind: RelationKind; name: string; condition?: string; errorCode?: string }
@@ -206,6 +209,24 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit): Semanti
 			const relation = candidate.semantics.relations.find(relation => relation.id === edit.id);
 			if (!relation) { throw new Error(`Unknown relation: ${edit.id}`); }
 			relation.name = edit.name;
+			break;
+		}
+		case 'parent': {
+			const element = candidate.semantics.elements.find(element => element.id === edit.id);
+			if (!element) { throw new Error(`Unknown element: ${edit.id}`); }
+			if (edit.parentId) { element.parentId = edit.parentId; } else { delete element.parentId; }
+			break;
+		}
+		case 'elementDetails': {
+			const element = candidate.semantics.elements.find(element => element.id === edit.id);
+			if (!element) { throw new Error(`Unknown element: ${edit.id}`); }
+			element.details = structuredClone(edit.details);
+			break;
+		}
+		case 'relationDetails': {
+			const relation = candidate.semantics.relations.find(relation => relation.id === edit.id);
+			if (!relation) { throw new Error(`Unknown relation: ${edit.id}`); }
+			relation.details = structuredClone(edit.details);
 			break;
 		}
 		case 'condition': {

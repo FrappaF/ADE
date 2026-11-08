@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModel, ModelView } from './semanticModel.js';
+import type { SemanticModel, ModelView, SemanticElement } from './semanticModel.js';
 
 export type DiagramDensity = 'compact' | 'balanced' | 'spacious';
 
@@ -59,15 +59,16 @@ export function arrangeDiagram(model: SemanticModel, view: ModelView, density: D
 		for (const index of layer) {
 			const group = groups[index].sort((a, b) => order.get(a)! - order.get(b)!);
 			const columns = group.length > 3 ? Math.ceil(Math.sqrt(group.length)) : 1;
-			const width = Math.max(...group.map(id => diagramNodeWidth(elements.get(id)!.name)));
+			const width = Math.max(...group.map(id => notationNodeSize(elements.get(id)!).width));
+			const groupHeight = Math.max(...group.map(id => notationNodeSize(elements.get(id)!).height));
 			const rows = Math.ceil(group.length / columns), groupWidth = columns * (width + gap) - gap;
-			if (y && y + rows * (diagramNodeHeight + rowGap) > targetHeight) { columnX += columnWidth + gap; columnWidth = 0; y = 0; }
-			group.forEach((id, position) => positions.set(id, { x: columnX + position % columns * (width + gap), y: y + Math.floor(position / columns) * (diagramNodeHeight + rowGap) }));
+			if (y && y + rows * (groupHeight + rowGap) > targetHeight) { columnX += columnWidth + gap; columnWidth = 0; y = 0; }
+			group.forEach((id, position) => positions.set(id, { x: columnX + position % columns * (width + gap), y: y + Math.floor(position / columns) * (groupHeight + rowGap) }));
 			columnWidth = Math.max(columnWidth, groupWidth); layerRight = Math.max(layerRight, columnX + groupWidth);
-			y += rows * (diagramNodeHeight + rowGap);
+			y += rows * (groupHeight + rowGap);
 		}
 		const bandIds = layer.flatMap(index => groups[index]);
-		bands.push({ ids: bandIds, x: layerX, width: layerRight - layerX, height: Math.max(...bandIds.map(id => positions.get(id)!.y + diagramNodeHeight)) });
+		bands.push({ ids: bandIds, x: layerX, width: layerRight - layerX, height: Math.max(...bandIds.map(id => positions.get(id)!.y + notationNodeSize(elements.get(id)!).height)) });
 		layerX = layerRight + gap;
 	}
 	// Long causal chains should occupy the canvas in bands, not shrink to an
@@ -86,4 +87,43 @@ export function arrangeDiagram(model: SemanticModel, view: ModelView, density: D
 		}
 	}
 	return view.nodes.map(node => ({ ...node, ...positions.get(node.elementId)! }));
+}
+
+/** Text compartments are used consistently by geometry, native rendering and accessible reading. */
+export function notationLines(element: SemanticElement): string[] {
+	return [...[element.details?.technology, element.details?.environment].filter((value): value is string => !!value), ...(element.details?.members ?? []).map(member => `${member.key === 'none' ? '' : member.key.toUpperCase() + ' '}${member.name}${member.kind === 'method' ? '()' : ''}${member.type ? ': ' + member.type : ''}${['table', 'entity', 'resource'].includes(element.kind) && member.kind === 'attribute' && !member.required ? ' ?' : ''}`)];
+}
+export function notationNodeSize(element: SemanticElement): { width: number; height: number } {
+	if (element.kind === 'start' || element.kind === 'end') { return { width: 80, height: 80 }; }
+	const lines = notationLines(element);
+	const width = Math.max(208, Math.min(440, Math.max(element.name.length, ...lines.map(line => line.length)) * 8 + 40));
+	const columns = Math.max(1, Math.floor((width - 32) / 8));
+	return { width, height: Math.max(96, 60 + Math.ceil(element.name.length / columns) * 20 + lines.reduce((rows, line) => rows + Math.ceil(line.length / columns), 0) * 22) };
+}
+
+/** Boundaries use declared containment/hosting and never invent grouping from file paths. */
+export function notationBoundaries(model: SemanticModel, view: ModelView): { elementId: string; name: string; x: number; y: number; width: number; height: number }[] {
+	if (!['c4Container', 'c4Component', 'component', 'package', 'deployment', 'network', 'useCase', 'databaseSchema'].includes(view.kind)) { return []; }
+	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
+	return view.nodes.flatMap(node => {
+		const element = elements.get(node.elementId)!;
+		if (!['system', 'container', 'package', 'deploymentNode', 'networkNode', 'dataStore', 'resource'].includes(element.kind)) { return []; }
+		const children = notationGroupMembers(model, view, element.id);
+		children.delete(element.id);
+		const nodes = view.nodes.filter(child => children.has(child.elementId));
+		if (!nodes.length) { return []; }
+		const boxes = nodes.map(child => ({ ...child, ...notationNodeSize(elements.get(child.elementId)!) }));
+		const x = Math.min(...boxes.map(box => box.x)) - 24, y = Math.min(...boxes.map(box => box.y)) - 44;
+		return [{ elementId: element.id, name: element.name, x, y, width: Math.max(...boxes.map(box => box.x + box.width)) - x + 24, height: Math.max(...boxes.map(box => box.y + box.height)) - y + 24 }];
+	});
+}
+
+/** A visible boundary moves its declared descendants and hosted elements as one local layout edit. */
+export function notationGroupMembers(model: SemanticModel, view: ModelView, root: string): Set<string> {
+	const members = new Set([root]);
+	for (let count = 0; count < model.semantics.elements.length; count++) {
+		for (const child of model.semantics.elements) { if (child.parentId && members.has(child.parentId)) { members.add(child.id); } }
+		for (const relation of model.semantics.relations) { if (view.relationIds.includes(relation.id) && relation.kind === 'hosting' && members.has(relation.from)) { members.add(relation.to); } }
+	}
+	return members;
 }

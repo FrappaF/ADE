@@ -4,9 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 /** The domain has no workbench, filesystem, Node or Electron dependencies. */
-export const elementKinds = ['feature', 'actor', 'component', 'resource', 'view', 'controller', 'contract', 'action', 'state'] as const;
+export const elementKinds = ['feature', 'actor', 'component', 'resource', 'view', 'controller', 'contract', 'action', 'state', 'system', 'container', 'entity', 'table', 'class', 'interface', 'package', 'deploymentNode', 'artifact', 'networkNode', 'useCase', 'process', 'dataStore', 'decision', 'start', 'end'] as const;
+export const containmentKinds: readonly ElementKind[] = ['feature', 'component', 'resource', 'controller', 'action', 'system', 'container', 'entity', 'table', 'class', 'interface', 'package', 'deploymentNode', 'networkNode', 'process', 'dataStore'];
+export const viewKinds = ['structure', 'activity', 'sequence', 'state', 'c4Context', 'c4Container', 'c4Component', 'erd', 'databaseSchema', 'deployment', 'class', 'useCase', 'component', 'package', 'dataFlow', 'network'] as const;
 export type ElementKind = typeof elementKinds[number];
-export const relationKinds = ['invocation', 'dependency', 'read', 'write', 'transition', 'realization'] as const;
+export const relationKinds = ['invocation', 'dependency', 'read', 'write', 'transition', 'realization', 'association', 'inheritance', 'composition', 'aggregation', 'implementation', 'hosting', 'communication', 'dataFlow', 'include', 'extend', 'controlFlow'] as const;
 export type RelationKind = typeof relationKinds[number];
 
 export interface ModelField {
@@ -25,6 +27,20 @@ export interface ModelBehavior {
 	acceptanceCriteria: { id: string; given: string; when: string; then: string }[];
 }
 
+/** Language-neutral declarations shared by data, class and infrastructure views. */
+export interface ElementDetails {
+	technology: string;
+	environment: string;
+	members: { name: string; type: string; kind: 'attribute' | 'method'; key: 'none' | 'primary' | 'foreign' | 'unique'; required: boolean }[];
+}
+export interface RelationDetails {
+	sourceMultiplicity: string;
+	sourceMember: string;
+	targetMultiplicity: string;
+	targetMember: string;
+	protocol: string;
+}
+
 export interface SemanticElement {
 	id: string;
 	kind: ElementKind;
@@ -33,6 +49,7 @@ export interface SemanticElement {
 	parentId?: string;
 	behavior?: ModelBehavior;
 	legacyKind?: 'class';
+	details?: ElementDetails;
 }
 
 export interface SemanticRelation {
@@ -44,13 +61,14 @@ export interface SemanticRelation {
 	condition?: string;
 	errorCode?: string;
 	classification?: 'legacy-unclassified';
+	details?: RelationDetails;
 }
 
 export interface ModelView {
 	id: string;
 	featureId?: string;
 	name: string;
-	kind: 'structure' | 'activity' | 'sequence' | 'state';
+	kind: typeof viewKinds[number];
 	nodes: { elementId: string; x: number; y: number }[];
 	relationIds: string[];
 }
@@ -121,6 +139,9 @@ const behavior = object({
 	acceptanceCriteria: array(object({ id: identifier, given: nonempty, when: nonempty, then: nonempty }))
 });
 
+export const elementDetailsSchema = object({ technology: text, environment: text, members: array(object({ name: nonempty, type: text, kind: { type: 'string', enum: ['attribute', 'method'] }, key: { type: 'string', enum: ['none', 'primary', 'foreign', 'unique'] }, required: { type: 'boolean' } })) });
+export const relationDetailsSchema = object({ sourceMultiplicity: { ...text, pattern: '^(?:|\\*|[0-9]+(?:\\.\\.(?:[0-9]+|\\*))?)$' }, targetMultiplicity: { ...text, pattern: '^(?:|\\*|[0-9]+(?:\\.\\.(?:[0-9]+|\\*))?)$' }, sourceMember: text, targetMember: text, protocol: text });
+
 /** Portable JSON Schema; the committed JSON artifact is checked against this source. */
 function modelSchema(version: 2 | 3): Schema {
 	return {
@@ -132,16 +153,16 @@ function modelSchema(version: 2 | 3): Schema {
 			semantics: object({
 				elements: array(object({
 					id: identifier, kind: { type: 'string', enum: elementKinds }, name: nonempty,
-					description: text, parentId: identifier, behavior, legacyKind: { type: 'string', enum: ['class'] }
-				}, ['description', 'parentId', 'behavior', 'legacyKind'])),
+					description: text, parentId: identifier, behavior, details: elementDetailsSchema, legacyKind: { type: 'string', enum: ['class'] }
+				}, ['description', 'parentId', 'behavior', 'legacyKind', 'details'])),
 				relations: array(object({
 					id: identifier, kind: { type: 'string', enum: relationKinds }, from: identifier, to: identifier, name: text,
-					condition: nonempty, errorCode: identifier, classification: { type: 'string', enum: ['legacy-unclassified'] }
-				}, ['condition', 'errorCode', 'classification']))
+					condition: nonempty, errorCode: identifier, details: relationDetailsSchema, classification: { type: 'string', enum: ['legacy-unclassified'] }
+				}, ['condition', 'errorCode', 'classification', 'details']))
 			}),
 			views: array(object({
 				...(version === 3 ? { featureId: identifier } : {}),
-				id: identifier, name: nonempty, kind: { type: 'string', enum: ['structure', 'activity', 'sequence', 'state'] },
+				id: identifier, name: nonempty, kind: { type: 'string', enum: viewKinds },
 				nodes: array(object({ elementId: identifier, x: { type: 'number' }, y: { type: 'number' } })),
 				relationIds: array(identifier)
 			}, ['featureId'])),
@@ -201,18 +222,29 @@ function checkShape(value: unknown, schema: Schema, path: string, diagnostics: M
 	}
 }
 
-const callers: readonly ElementKind[] = ['actor', 'view', 'component', 'controller', 'action'];
-const executors: readonly ElementKind[] = ['component', 'controller', 'action'];
+const callers: readonly ElementKind[] = ['actor', 'view', 'component', 'controller', 'action', 'system', 'container', 'class', 'process'];
+const executors: readonly ElementKind[] = ['component', 'controller', 'action', 'system', 'container', 'class', 'process'];
 
 /** The compatibility matrix is shared by validation and future visual editors. */
 export function isCompatibleRelation(kind: RelationKind, from: ElementKind, to: ElementKind): boolean {
 	switch (kind) {
 		case 'dependency': return true;
-		case 'invocation': return callers.includes(from) && [...executors, 'contract', 'view'].includes(to);
+		case 'invocation': return callers.includes(from) && [...executors, 'contract', 'interface', 'view'].includes(to);
 		case 'read':
-		case 'write': return executors.includes(from) && to === 'resource';
+		case 'write': return executors.includes(from) && ['resource', 'entity', 'table', 'dataStore'].includes(to);
 		case 'transition': return from === 'state' && to === 'state';
-		case 'realization': return ['component', 'controller', 'action', 'resource', 'view'].includes(from) && ['feature', 'contract'].includes(to);
+		case 'realization': return ['component', 'controller', 'action', 'resource', 'view'].includes(from) && ['feature', 'contract', 'interface'].includes(to);
+		case 'association': return ['entity', 'table', 'class', 'interface', 'actor', 'useCase', 'resource'].includes(from) && ['entity', 'table', 'class', 'interface', 'actor', 'useCase', 'resource'].includes(to);
+		case 'inheritance': return ['class', 'interface'].includes(from) && ['class', 'interface'].includes(to);
+		case 'composition':
+		case 'aggregation': return ['class', 'entity', 'component', 'package', 'system', 'container'].includes(from) && ['class', 'entity', 'component', 'package', 'container', 'interface', 'resource'].includes(to);
+		case 'implementation': return ['class', 'component', 'container'].includes(from) && ['interface', 'contract'].includes(to);
+		case 'hosting': return ['deploymentNode', 'networkNode'].includes(from) && ['deploymentNode', 'networkNode', 'artifact', 'container', 'resource', 'dataStore'].includes(to);
+		case 'communication': return ['actor', 'system', 'container', 'component', 'deploymentNode', 'networkNode', 'resource', 'dataStore'].includes(from) && ['actor', 'system', 'container', 'component', 'deploymentNode', 'networkNode', 'resource', 'dataStore'].includes(to);
+		case 'controlFlow': return ['actor', 'view', 'controller', 'action', 'decision', 'process', 'start'].includes(from) && ['view', 'controller', 'action', 'decision', 'process', 'end'].includes(to);
+		case 'dataFlow': return ['actor', 'system', 'process', 'dataStore', 'resource'].includes(from) && ['actor', 'system', 'process', 'dataStore', 'resource'].includes(to) && (from === 'process' || to === 'process');
+		case 'include':
+		case 'extend': return from === 'useCase' && to === 'useCase';
 	}
 }
 
@@ -254,7 +286,7 @@ export function validateSemanticModel(value: unknown): ModelDiagnostic[] {
 		const path = `/semantics/elements/${index}`;
 		if (element.parentId) {
 			const parent = reference(element.parentId, `${path}/parentId`);
-			if (parent && !['feature', 'component', 'resource', 'controller', 'action'].includes(parent.kind)) {
+			if (parent && !containmentKinds.includes(parent.kind)) {
 				report('invalidParent', `${path}/parentId`, parent.id, parent.kind);
 			}
 			const seen = new Set([element.id]);
@@ -267,6 +299,10 @@ export function validateSemanticModel(value: unknown): ModelDiagnostic[] {
 				seen.add(current.parentId);
 				current = byId.get(current.parentId);
 			}
+		}
+		if (element.details) {
+			unique(element.details.members.map(member => `${member.kind}:${member.name}:${member.kind === 'method' ? member.type : ''}`), `${path}/details/members`);
+			for (const member of element.details.members) { if (member.kind === 'method' && member.key !== 'none' || element.kind === 'table' && member.kind !== 'attribute') { report('shape', `${path}/details/members`, 'Keys describe attributes; physical tables contain columns, not methods'); } }
 		}
 		if (element.behavior) {
 			const behavior = element.behavior;
@@ -289,6 +325,9 @@ export function validateSemanticModel(value: unknown): ModelDiagnostic[] {
 		if (from && to && (!isCompatibleRelation(relation.kind, from.kind, to.kind) || (relation.kind === 'transition' && from.parentId !== to.parentId))) {
 			report('incompatibleRelation', path, relation.kind, from.kind, to.kind);
 		}
+		if (relation.details && from && to) {
+			for (const [endpoint, member] of [[from, relation.details.sourceMember], [to, relation.details.targetMember]] as const) { if (member && !endpoint.details?.members.some(item => item.name === member)) { report('missingReference', `${path}/details`, endpoint.id, member); } }
+		}
 		if (from && relation.errorCode && !from.behavior?.errors.some(error => error.code === relation.errorCode)) {
 			report('missingError', `${path}/errorCode`, relation.errorCode, from.id);
 		}
@@ -298,6 +337,8 @@ export function validateSemanticModel(value: unknown): ModelDiagnostic[] {
 	});
 	model.views.forEach((view, index) => {
 		const path = `/views/${index}`;
+		for (const node of view.nodes) { const element = byId.get(node.elementId); if (element && !acceptsNotationElement(view.kind, element)) { report('shape', path, `Unsupported ${element.kind} in ${view.kind}`); } }
+		for (const id of view.relationIds) { const relation = relationById.get(id); if (relation && !acceptsNotationRelation(view.kind, relation)) { report('shape', path, `Unsupported ${relation.kind} in ${view.kind}`); } }
 		if (view.featureId) {
 			const feature = reference(view.featureId, `${path}/featureId`);
 			if (feature && feature.kind !== 'feature') { report('invalidParent', `${path}/featureId`, feature.id, feature.kind); }
@@ -449,4 +490,33 @@ export class SemanticModelService {
 /** A deterministic source index is evidence for AI, never the user-facing diagram model. */
 export function isSourceEvidenceModel(model: SemanticModel): boolean {
 	return model.id.startsWith('code:') && !model.semantics.elements.some(element => element.kind === 'feature');
+}
+
+interface NotationRule { core: readonly ElementKind[]; elements: readonly ElementKind[]; relations: readonly RelationKind[]; purpose: string }
+/** Rules describe notation, never infer source semantics. Structure remains a cross-perspective overview. */
+export const notationRules: Partial<Record<ModelView['kind'], NotationRule>> = {
+	c4Context: { core: ['system'], elements: ['actor', 'system'], relations: ['communication', 'dependency'], purpose: 'System boundary, people and external systems; no implementation details.' },
+	c4Container: { core: ['container', 'dataStore', 'resource'], elements: ['actor', 'system', 'container', 'resource', 'dataStore'], relations: ['communication', 'dependency'], purpose: 'Deployable applications, APIs, services and data stores inside a software system; name evidenced technologies and protocols.' },
+	c4Component: { core: ['component', 'controller'], elements: ['container', 'component', 'controller', 'interface', 'contract', 'resource'], relations: ['dependency', 'communication', 'implementation', 'realization'], purpose: 'Internal responsibilities of one container and their interfaces; retain the container boundary.' },
+	erd: { core: ['entity', 'resource'], elements: ['entity', 'resource'], relations: ['association', 'composition', 'aggregation'], purpose: 'Logical domain entities, attributes and explicitly known cardinalities; no fabricated keys.' },
+	databaseSchema: { core: ['table'], elements: ['table', 'dataStore', 'resource'], relations: ['association'], purpose: 'Physical tables, columns, data types, primary/foreign/unique keys and nullability supported by schema/migrations.' },
+	deployment: { core: ['deploymentNode', 'networkNode'], elements: ['system', 'deploymentNode', 'networkNode', 'artifact', 'container', 'resource', 'dataStore'], relations: ['hosting', 'communication', 'dependency'], purpose: 'Execution environments host deployable artifacts; distinguish declared deployment from observed running infrastructure.' },
+	class: { core: ['class', 'interface'], elements: ['class', 'interface'], relations: ['association', 'inheritance', 'composition', 'aggregation', 'implementation', 'dependency'], purpose: 'Language-neutral class/interface members and OO relationships supported by declarations.' },
+	useCase: { core: ['useCase'], elements: ['actor', 'useCase', 'system'], relations: ['association', 'include', 'extend'], purpose: 'Actors use system capabilities; include/extend only when supported. Keep a system boundary.' },
+	component: { core: ['component', 'container'], elements: ['component', 'interface', 'contract', 'container'], relations: ['dependency', 'implementation', 'realization', 'communication'], purpose: 'UML components and their provided/required interfaces, with explicit dependency directions.' },
+	package: { core: ['package'], elements: ['package'], relations: ['dependency'], purpose: 'Architectural packages/layers and inter-package dependencies, rather than a file inventory.' },
+	dataFlow: { core: ['process'], elements: ['actor', 'system', 'process', 'dataStore', 'resource'], relations: ['dataFlow'], purpose: 'Named data moves through processes, stores and external entities; arrows describe payloads, not control calls.' },
+	network: { core: ['networkNode', 'deploymentNode'], elements: ['networkNode', 'deploymentNode', 'container', 'system'], relations: ['communication', 'hosting'], purpose: 'Declared network boundaries, subnets, gateways and connections/protocols; never infer production infrastructure from application code.' }
+};
+
+export function acceptsNotationElement(kind: ModelView['kind'], element: Pick<SemanticElement, 'kind'>): boolean {
+	return !notationRules[kind] || notationRules[kind]!.elements.includes(element.kind);
+}
+export function acceptsNotationRelation(kind: ModelView['kind'], relation: Pick<SemanticRelation, 'kind'>): boolean {
+	return !notationRules[kind] || notationRules[kind]!.relations.includes(relation.kind);
+}
+
+
+export function notationRelationLabel(relation: SemanticRelation): string {
+	return [relation.details?.sourceMultiplicity, relation.details?.sourceMember, relation.name, relation.details?.targetMember, relation.details?.targetMultiplicity, relation.details?.protocol].filter(Boolean).join(' · ');
 }

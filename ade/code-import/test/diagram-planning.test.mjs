@@ -34,7 +34,7 @@ async function fixture(t) {
 		const concept = (key, kind, name, parent = null) => ({ key, kind, name, parent, description: name, feature: 'tasks', source: anchor });
 		const relation = (key, kind, from, to) => ({ key, kind, from: 'c:' + from, to: 'c:' + to, name: key, condition: null, evidence: [anchor], classification: 'inferred' });
 		const value = {
-			summary: 'Task management', questions: [], features: [{ key: 'tasks', name: 'Tasks', description: 'Manage tasks' }], elements: [],
+			notation: { elements: [], relations: [] }, summary: 'Task management', questions: [], features: [{ key: 'tasks', name: 'Tasks', description: 'Manage tasks' }], elements: [],
 			concepts: [concept('user', 'actor', 'User'), concept('list', 'view', 'Task List'), concept('create', 'action', 'Create Task'), concept('task', 'resource', 'Task'), concept('open', 'state', 'Open', 'c:task'), concept('done', 'state', 'Done', 'c:task')],
 			// Intentionally different from scenario order, which must remain local to its view.
 			relations: [relation('save', 'write', 'create', 'task'), relation('finish', 'transition', 'open', 'done'), relation('create', 'invocation', 'list', 'create'), relation('choose', 'invocation', 'user', 'list')],
@@ -134,4 +134,11 @@ test('plan focus resolves declared relation keys and sequence schemas exclude no
 	const sequence = getSequenceDiagram(model, model.views.find(item => item.kind === 'sequence'));
 	assert.equal(sequence.participants.some(item => item.name === 'Task Input'), false);
 	assert.equal(sequence.messages.length, 3);
+});
+
+// The initial clarification must be present before the first paid request, not only after Resume.
+test('initial user diagram instructions reach the first analysis context', async t => {
+	const f = await fixture(t);
+	await f.step(await f.prepare({ clarification: 'Prefer architecture boundaries for review' }));
+	assert.equal(f.requests[0].clarification, 'Prefer architecture boundaries for review');
 });

@@ -1,0 +1,223 @@
+{
+	"version": 1,
+	"date": "2026-11-08",
+	"timezone": "Europe/Rome",
+	"scope": "Twelve added architecture/data/infrastructure notations; sixteen total including the generic semantic overview. Requested M9 notation increment only; other M9 work remains open.",
+	"environment": {
+		"os": "Linux x64",
+		"node": "24.22.1",
+		"electron": "43.8.3",
+		"cli": "Official Codex CLI 0.163.0",
+		"codeBridgeProtocol": 4
+	},
+	"types": [
+		"structure",
+		"activity",
+		"sequence",
+		"state",
+		"c4Context",
+		"c4Container",
+		"c4Component",
+		"erd",
+		"databaseSchema",
+		"deployment",
+		"class",
+		"useCase",
+		"component",
+		"package",
+		"dataFlow",
+		"network"
+	],
+	"realInference": {
+		"kind": "fresh-authenticated-original-cli",
+		"model": "gpt-5.6-terra",
+		"fixture": "Public Java/Python/SQL/Compose task completion architecture",
+		"files": 6,
+		"indexedSymbols": 6,
+		"sourceUnits": 11,
+		"actualCalls": 8,
+		"analysisCalls": 1,
+		"viewCalls": 7,
+		"localOverviewSteps": 1,
+		"views": [
+			{
+				"name": "Task system containers · Shared Design",
+				"kind": "structure",
+				"nodes": 21,
+				"relations": 22
+			},
+			{
+				"name": "Task system containers",
+				"kind": "c4Container",
+				"nodes": 4,
+				"relations": 2
+			},
+			{
+				"name": "Task database schema",
+				"kind": "databaseSchema",
+				"nodes": 3,
+				"relations": 1
+			},
+			{
+				"name": "Task completion classes",
+				"kind": "class",
+				"nodes": 3,
+				"relations": 3
+			},
+			{
+				"name": "Local Compose deployment",
+				"kind": "deployment",
+				"nodes": 8,
+				"relations": 8
+			},
+			{
+				"name": "Task completion data flow",
+				"kind": "dataFlow",
+				"nodes": 3,
+				"relations": 2
+			},
+			{
+				"name": "Complete task interaction",
+				"kind": "sequence",
+				"nodes": 5,
+				"relations": 6
+			},
+			{
+				"name": "Task completion lifecycle",
+				"kind": "state",
+				"nodes": 3,
+				"relations": 1
+			}
+		],
+		"domainElements": 21,
+		"relations": 22,
+		"inputTokens": 89919,
+		"outputTokens": 7094,
+		"largestInputBytes": 25445,
+		"configuredInputLimitBytes": 196608,
+		"durationMs": 198147,
+		"sourceBytesPreserved": true,
+		"sqlColumnsVerified": {
+			"users": [
+				{
+					"name": "id",
+					"type": "BIGINT",
+					"key": "primary",
+					"required": true
+				},
+				{
+					"name": "name",
+					"type": "VARCHAR(100)",
+					"key": "none",
+					"required": true
+				}
+			],
+			"tasks": [
+				{
+					"name": "id",
+					"type": "BIGINT",
+					"key": "primary",
+					"required": true
+				},
+				{
+					"name": "owner_id",
+					"type": "BIGINT",
+					"key": "foreign",
+					"required": true
+				},
+				{
+					"name": "title",
+					"type": "VARCHAR(200)",
+					"key": "none",
+					"required": true
+				},
+				{
+					"name": "completed",
+					"type": "BOOLEAN",
+					"key": "none",
+					"required": true
+				}
+			]
+		},
+		"limits": "One final fresh case, not a statistical reliability comparison. CLI token usage includes provider overhead; no price or cheapest-model claim."
+	},
+	"developmentFindings": [
+		"Initial clarification was ignored on first analysis; now forwarded and tested.",
+		"A C4 proposal must retain its own identity beside the local structural overview.",
+		"View focus may contain supporting context; actual view nodes follow notation roles and need a core subject.",
+		"Explicit NOT NULL contradictions are now rejected using conservative deterministic SQL evidence; the real incorrect output is kept as a negative regression.",
+		"A typed step can infer missing links between existing objects from disclosed evidence in the same approved request; no additional automatic repair call.",
+		"Stable tool connection keys use resolved semantic identities; recorded output tests explicitly rebase keys for a different project namespace.",
+		"Publication now finishes the returned staged job, including the final diagram and all completion flags.",
+		"Changes inside a declaration could remove the class model from reconciliation context when its signature stayed equal. Body changes now include the model and an indexed/concept distinction."
+	],
+	"validation": {
+		"allImporterAndAiTests": {
+			"passed": 198,
+			"failed": 0,
+			"command": "node --test --test-isolation=none ade/code-import/test/*.test.mjs ade/ai/test/*.test.mjs"
+		},
+		"domainAndNotationTargets": {
+			"passed": 108,
+			"failed": 0,
+			"note": "Includes domain tests and overlapping planning/notation/constraint targets, not an additional independent total."
+		},
+		"bidirectionalClassMemberRegression": {
+			"passed": true,
+			"provider": "Simulated structured provider; production source review, apply and snapshot path",
+			"checks": "Java priority int -> long from class design; external long -> double updates class members; class view and identity preserved."
+		},
+		"workbenchServices": {
+			"passed": 53,
+			"failed": 0
+		},
+		"checks": [
+			"ADE TypeScript",
+			"AI TypeScript",
+			"code engine TypeScript",
+			"targeted workbench ESLint",
+			"incremental client and native engine build"
+		],
+		"nativeNotationUi": {
+			"passed": true,
+			"fixture": "Authored sixteen-notation fixture, not live inference",
+			"checks": [
+				"All sixteen canvases render",
+				"Compartments fit cards",
+				"Attribute editing persists",
+				"Boundary arrow movement moves members once and preserves external actors",
+				"Relationship label visibility can be toggled"
+			]
+		},
+		"realOutputDesktop": {
+			"passed": true,
+			"checks": "All eight views of the final real generated model opened with matching visible node and relation counts; screenshots captured."
+		},
+		"workflowDesktop": {
+			"passed": true,
+			"provider": "Simulated CLI; native Electron app and production import/review/publish path",
+			"checks": "Import, approved diagram plan, contextual editing, Update Code review/apply, chat, diagram refresh, checkpoint resume and restart."
+		},
+		"manualSequenceDesktop": {
+			"passed": true,
+			"checks": "Create sequence, reuse interactions, reorder participants and messages, view-only removal, self messages, shared contracts, accessible reading, measured labels, stable Fit Diagram, narrow-window keyboard pan, save and restart."
+		},
+		"manualStateDesktop": {
+			"passed": true,
+			"checks": "Create resource lifecycle, reuse states/transitions, guarded and self transitions, shared event/error/contract edits, transition table, accessible reading, keyboard move, view-only removal, undo/redo, save/restart and narrow-window interaction."
+		}
+	},
+	"artifacts": {
+		"catalog": "../diagram-catalog.md",
+		"authoredExample": "../../examples/architecture.ade.json",
+		"recordedRealOutputs": "../../code-import/test/fixtures/real-diagrams/architecture-terra.json",
+		"screenshots": ".build/ade-smoke/live-generated-0.png through live-generated-7.png; notation-*.png are authored UI fixtures."
+	},
+	"limitations": [
+		"Base editable notations, not complete UML/C4 conformance. No combined sequence fragments, parallel state regions or runtime discovery.",
+		"ERD multiplicities are textual; database views do not execute DDL or provision infrastructure.",
+		"SQL constraint facts cover complete unquoted CREATE TABLE statements without strings/comments; ambiguous or unsupported syntax is not certified.",
+		"Other notation types are exercised with authored fixtures and domain validators, not all by real inference.",
+		"Reconciliation regression provider is simulated; actual model inference in this increment was exercised for diagram generation."
+	]
+}

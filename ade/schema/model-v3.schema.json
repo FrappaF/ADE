@@ -42,7 +42,23 @@
 									"controller",
 									"contract",
 									"action",
-									"state"
+									"state",
+									"system",
+									"container",
+									"entity",
+									"table",
+									"class",
+									"interface",
+									"package",
+									"deploymentNode",
+									"artifact",
+									"networkNode",
+									"useCase",
+									"process",
+									"dataStore",
+									"decision",
+									"start",
+									"end"
 								]
 							},
 							"name": {
@@ -224,6 +240,66 @@
 								],
 								"additionalProperties": false
 							},
+							"details": {
+								"type": "object",
+								"properties": {
+									"technology": {
+										"type": "string"
+									},
+									"environment": {
+										"type": "string"
+									},
+									"members": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"name": {
+													"type": "string",
+													"minLength": 1,
+													"pattern": "\\S"
+												},
+												"type": {
+													"type": "string"
+												},
+												"kind": {
+													"type": "string",
+													"enum": [
+														"attribute",
+														"method"
+													]
+												},
+												"key": {
+													"type": "string",
+													"enum": [
+														"none",
+														"primary",
+														"foreign",
+														"unique"
+													]
+												},
+												"required": {
+													"type": "boolean"
+												}
+											},
+											"required": [
+												"name",
+												"type",
+												"kind",
+												"key",
+												"required"
+											],
+											"additionalProperties": false
+										}
+									}
+								},
+								"required": [
+									"technology",
+									"environment",
+									"members"
+								],
+								"additionalProperties": false
+							},
 							"legacyKind": {
 								"type": "string",
 								"enum": [
@@ -257,7 +333,18 @@
 									"read",
 									"write",
 									"transition",
-									"realization"
+									"realization",
+									"association",
+									"inheritance",
+									"composition",
+									"aggregation",
+									"implementation",
+									"hosting",
+									"communication",
+									"dataFlow",
+									"include",
+									"extend",
+									"controlFlow"
 								]
 							},
 							"from": {
@@ -282,6 +369,36 @@
 								"type": "string",
 								"minLength": 1,
 								"pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+							},
+							"details": {
+								"type": "object",
+								"properties": {
+									"sourceMultiplicity": {
+										"type": "string",
+										"pattern": "^(?:|\\*|[0-9]+(?:\\.\\.(?:[0-9]+|\\*))?)$"
+									},
+									"targetMultiplicity": {
+										"type": "string",
+										"pattern": "^(?:|\\*|[0-9]+(?:\\.\\.(?:[0-9]+|\\*))?)$"
+									},
+									"sourceMember": {
+										"type": "string"
+									},
+									"targetMember": {
+										"type": "string"
+									},
+									"protocol": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"sourceMultiplicity",
+									"targetMultiplicity",
+									"sourceMember",
+									"targetMember",
+									"protocol"
+								],
+								"additionalProperties": false
 							},
 							"classification": {
 								"type": "string",
@@ -333,7 +450,19 @@
 							"structure",
 							"activity",
 							"sequence",
-							"state"
+							"state",
+							"c4Context",
+							"c4Container",
+							"c4Component",
+							"erd",
+							"databaseSchema",
+							"deployment",
+							"class",
+							"useCase",
+							"component",
+							"package",
+							"dataFlow",
+							"network"
 						]
 					},
 					"nodes": {

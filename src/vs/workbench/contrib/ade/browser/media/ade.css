@@ -767,3 +767,93 @@
 	border: var(--vscode-strokeThickness) solid var(--vscode-inputValidation-errorBorder);
 	border-radius: var(--vscode-cornerRadius-medium);
 }
+
+/* Notation changes the semantic silhouette; floating actions and canvas stay shared. */
+.ade-shell .ade-node-member {
+	display: block;
+	text-align: left;
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-body2);
+	line-height: 22px;
+	border-top: 1px solid var(--vscode-panel-border);
+}
+.ade-shell .ade-node[data-notation-kind="useCase"] {
+	border-radius: 50%;
+}
+.ade-shell .ade-node[data-notation-kind="dataStore"],
+.ade-shell .ade-node[data-notation-kind="resource"] {
+	border-radius: 24px / 12px;
+	border-top-width: 3px;
+	border-bottom-width: 3px;
+}
+.ade-shell .ade-node[data-notation-kind="package"] {
+	border-top-width: 10px;
+	border-radius: var(--vscode-cornerRadius-small);
+}
+.ade-shell .ade-node[data-notation-kind="deploymentNode"],
+.ade-shell .ade-node[data-notation-kind="networkNode"] {
+	box-shadow: 5px -5px 0 var(--vscode-editor-background), 6px -6px 0 var(--vscode-panel-border);
+}
+.ade-shell .ade-node[data-notation-kind="system"],
+.ade-shell .ade-node[data-notation-kind="container"] {
+	border-width: 2px;
+}
+.ade-shell .ade-node[data-notation-kind="process"] {
+	border-radius: 32px;
+}
+.ade-shell .ade-node[data-notation-kind="decision"] {
+	clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.ade-shell .ade-connection path.ade-composition {
+	fill: var(--vscode-editor-foreground);
+}
+.ade-shell .ade-notation-boundary {
+	fill: none;
+	stroke: var(--vscode-descriptionForeground);
+	stroke-opacity: 0.55;
+	stroke-dasharray: 8 6;
+}
+
+.ade-shell .ade-notation-boundary-label {
+	fill: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+.ade-shell .ade-notation-boundary,
+.ade-shell .ade-notation-boundary-label {
+	pointer-events: none;
+}
+
+.ade-shell .ade-node.is-boundary {
+	border-color: transparent;
+	border-width: 1px;
+	background: var(--vscode-editor-background);
+	text-align: left;
+	box-shadow: none;
+	border-radius: var(--vscode-cornerRadius-small);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	line-height: 20px;
+}
+.ade-shell .ade-node.is-boundary[data-kind]::before {
+	display: none;
+}
+
+
+.ade-shell .ade-node[data-notation-kind="start"],
+.ade-shell .ade-node[data-notation-kind="end"] {
+	border-radius: 50%;
+}
+.ade-shell .ade-node[data-notation-kind="end"] {
+	border-style: double;
+	border-width: 4px;
+}
+.ade-shell .ade-node[data-notation-kind="start"][data-kind]::before,
+.ade-shell .ade-node[data-notation-kind="end"][data-kind]::before,
+.ade-shell .ade-node[data-notation-kind="decision"][data-kind]::before {
+	display: none;
+}
+.ade-shell .ade-node.is-boundary[aria-pressed="true"] {
+	border-color: var(--vscode-focusBorder);
+}

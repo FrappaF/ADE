@@ -21,7 +21,7 @@ flowchart LR
     K -->|Sì| M[Controllo revisioni e pubblicazione atomica]
 ```
 
-Il workflow `planned-v1` distingue analisi/proposta e costruzione delle viste. I quattro tipi già supportati in M3 sono struttura, attività, sequenza e stati. L’IA valuta quali sono utili sul progetto; non deve inventare comportamenti per proporli tutti. Nuove notazioni rimangono nella milestone M9.
+Il workflow `planned-v1` distingue analisi/proposta e costruzione delle viste. I quattro tipi già supportati in M3 sono struttura, attività, sequenza e stati. L’IA valuta quali sono utili sul progetto; non deve inventare comportamenti per proporli tutti. L’incremento richiesto dall’utente anticipa le dodici notazioni aggiuntive di M9: il [catalogo](diagram-catalog.md) le descrive insieme ai limiti.
 
 ## Contesto
 
@@ -55,13 +55,15 @@ I riferimenti abbreviati vengono risolti soltanto quando corrispondono a una sin
 
 L’overview include gli oggetti dichiarati e tutti gli estremi delle relazioni scelte dall’IA, comprese eventuali capacità coinvolte. Non serve ripetere un secondo elenco completo degli oggetti. Le viste includono automaticamente gli estremi delle relazioni scelte, conservandone l’ordine. Un riferimento a una relazione nel focus del piano viene convertito nei suoi estremi dichiarati; non viene usato per inventare un oggetto. Gli strumenti non inventano ruoli o interazioni.
 
+Il [catalogo dei diagrammi](diagram-catalog.md) comprende ora anche le dodici notazioni architetturali/dati aggiuntive. L’analisi restituisce `notation.elements` (riferimento e dettagli di membri/tecnologia/ambiente) e `notation.relations` (chiave e molteplicità/colonne/protocollo), vuoti quando non necessari. Non ripete questi campi per ogni simbolo. La prima analisi riceve anche le istruzioni iniziali dell’utente, oltre alle eventuali istruzioni aggiunte in Resume.
+
 ## Piano e singole viste
 
 La conferma iniziale autorizza soltanto l’analisi, in una richiesta per i progetti piccoli o in gruppi con sintesi per quelli più grandi. L’IA riceve il contesto universale delle evidenze e la grammatica reale di ADE. Deve proporre poche viste motivate e dichiarare una sola volta il grafo semantico e la copertura. Il prompt chiarisce che configurazione e routing sono solitamente evidenze di controller/interfacce, che un contratto non origina invocazioni e che il contenimento non equivale a un messaggio.
 
 Il piano validato viene salvato nello stato `plan`, con un identificativo di revisione. `diagramStep` rifiuta altre inferenze finché `diagramApprovePlan` non approva proprio quel piano sulle stesse revisioni di modello e sorgenti. Annullare la review non consuma richieste di generazione.
 
-Ogni vista successiva riceve soltanto il proprio intento/focus, il catalogo semantico condiviso e fino a dodici unità di evidenza pertinenti, con omissioni esplicite. Non riceve di nuovo l’intera classificazione sorgente, le risposte precedenti o la tabella di copertura. Lo schema consente soltanto riferimenti già dichiarati e restituisce tre campi: `questions`, `nodes`, `relations`. Nome, tipo, chiave e feature provengono dal piano approvato.
+Ogni vista successiva riceve soltanto il proprio intento/focus, il catalogo semantico condiviso e fino a dodici unità di evidenza pertinenti, con omissioni esplicite. Non riceve di nuovo l’intera classificazione sorgente, le risposte precedenti o la tabella di copertura. Lo schema consente soltanto riferimenti a oggetti già dichiarati e restituisce `questions`, `nodes`, `relations`. Per le nuove notazioni comprende anche `connections`, al massimo sei nuove relazioni scelte dall’IA fra oggetti esistenti: devono avere tipo compatibile, nome ed evidenze fra le dodici unità effettivamente fornite. Gli strumenti assegnano chiavi stabili basate sulle identità semantiche risolte, validano ruoli/riferimenti e aggiornano la panoramica locale. Non sono chiamate di riparazione aggiuntive: fanno parte dello step approvato. Nome, tipo, chiave e feature provengono dal piano approvato.
 
 | Tipo | Decisione dell’IA | Assistenza deterministica |
 | --- | --- | --- |
@@ -69,6 +71,8 @@ Ogni vista successiva riceve soltanto il proprio intento/focus, il catalogo sema
 | Attività | Selezione di un flusso coerente e delle sue interazioni | Identità, chiusura degli estremi, connessione e layout |
 | Sequenza | Scenario, ordine dei partecipanti e ordine dei messaggi | Schema limitato a invocazioni/letture/scritture; partecipanti che possono prendere parte ai messaggi; verifica di connessione; ordine locale conservato |
 | Stato | Stati della risorsa e transizioni evidenziate dal sorgente | Proprietario comune, transizioni compatibili e separazione da azioni/interfacce |
+
+C4, dati, classi, moduli e infrastruttura usano ciascuno un insieme di ruoli e relazioni compatibili, passato anche allo step come `notationRule`. Un supporto deterministico conservativo estrae indizi `NOT NULL`/PK da dichiarazioni SQL `CREATE TABLE` complete e non quotate: non esegue SQL e non certifica altri dialetti o sintassi. Gli indizi mancanti sono `null` (sconosciuti), non “nullable”. Il contesto ne include al massimo 96 con conteggio delle omissioni. Una colonna modellata come facoltativa in contraddizione con un `NOT NULL` univoco viene rifiutata prima della review. Attributi e chiavi rimangono condivisi; lo step non li rigenera. Un archivio può fare da contesto allo schema fisico. Il focus può citare contesto di altre prospettive, mentre i nodi effettivi rispettano il tipo. I dettagli completi dei tipi aggiunti sono nel [catalogo](diagram-catalog.md).
 
 Il completamento controlla l’esistenza e il tipo di ogni diagramma approvato. Tutti devono essere validi prima di sostituire lo snapshot attivo. Non vengono pubblicati insieme parziali, né dichiarati riusciti diagrammi saltati. Le viste condividono identità, elementi e relazioni; non sono modelli duplicati. Sequenze e stati descrivono comportamento inferito dal sorgente, senza tracce runtime inventate.
 
@@ -106,3 +110,5 @@ ADE_GENERATED_MODEL=/percorso/allo/snapshot/model.ade.json \
 ```
 
 La prova apre tutte le viste dello snapshot reale nell’app, ne verifica nodi e relazioni visibili e salva `.build/ade-smoke/live-generated-N.png`. `--semantic-import` collauda proposta, annullamento, review e rendering dei quattro tipi riusando risposte reali registrate, senza nuove inferenze. `--diagram-workflow` continua a verificare modifica, aggiornamento codice, chat e ripresa con CLI simulata; non certifica l’inferenza di un provider su quei passaggi.
+
+L’incremento delle notazioni e delle connessioni per step è verificato nel [verbale dell’8 novembre](validation/diagram-catalog-2026-11-08.json). La riconciliazione ora invia anche il modello di una dichiarazione il cui corpo è cambiato senza modificare il nome/firma; `bodyChanged` e `indexed` distinguono questo caso da una responsabilità concettuale senza identità nell’indice. Il test Java aggiorna un attributo nelle due direzioni mantenendo la vista classi, con provider strutturato simulato.

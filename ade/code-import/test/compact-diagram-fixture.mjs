@@ -19,13 +19,13 @@ export function compactDiagramReply(context, value) {
 	const refs = [...result.elements.map(item => item.symbol), ...result.concepts.map(item => 'c:' + item.key)];
 	const focus = refs.length ? refs : context.responsibilities.map(item => item.ref);
 	const first = { ...result.overview, kind: 'structure', feature: null, focus: (focus.length ? focus : [context.required[0]?.ref ?? 'u0']).slice(0, 24) };
-	return { ...result, diagrams: [], plan: [first, ...result.diagrams.filter(item => item.nodes.length > 1 || item.relations.length).map(({ nodes, relations, ...item }) => ({ ...item, focus: nodes.slice(0, 24) }))] };
+	return { notation: { elements: [], relations: [] }, ...result, diagrams: [], plan: [first, ...result.diagrams.filter(item => item.nodes.length > 1 || item.relations.length).map(({ nodes, relations, ...item }) => ({ ...item, focus: nodes.slice(0, 24) }))] };
 }
 
 /** Simulated view construction is deliberately separate from real-model replay. */
 export function plannedDiagramReply(context) {
 	const connected = new Set(context.graph.relations.flatMap(item => [item.from, item.to]));
-	return { questions: [], nodes: context.graph.elements.filter(item => !connected.size || connected.has(item.ref)).map(item => item.ref).slice(0, 24), relations: context.graph.relations.map(item => item.key) };
+	return { ...(context.notationRule ? { connections: [] } : {}), questions: [], nodes: context.graph.elements.filter(item => !connected.size || connected.has(item.ref)).map(item => item.ref).slice(0, 24), relations: context.graph.relations.map(item => item.key) };
 }
 
 function compactReply(context, value) {

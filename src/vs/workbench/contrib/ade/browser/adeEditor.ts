@@ -13,7 +13,7 @@ import { ITelemetryService } from '../../../../platform/telemetry/common/telemet
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
-import { isCompatibleRelation, isSourceEvidenceModel, ModelView, RelationKind, SemanticModel } from '../common/semanticModel.js';
+import { acceptsNotationRelation, notationRelationLabel, notationRules, isCompatibleRelation, isSourceEvidenceModel, ModelView, RelationKind, SemanticModel } from '../common/semanticModel.js';
 import { IAdeCodeService } from './adeCodeService.js';
 import { IAdeAiService } from './adeAiService.js';
 import { AdeInput } from './adeInput.js';
@@ -33,7 +33,7 @@ import { renderAdeSequence } from './adeSequence.js';
 import { renderAdeState, stateTransitionLabel } from './adeState.js';
 import { DiagramCamera, DiagramBounds, fitDiagramCamera, zoomDiagram } from '../common/diagramCamera.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
-import { diagramNodeHeight, diagramNodeWidth } from '../common/diagramLayout.js';
+import { notationBoundaries, notationGroupMembers, notationLines, notationNodeSize } from '../common/diagramLayout.js';
 import { IAction, Separator, toAction } from '../../../../base/common/actions.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -57,7 +57,7 @@ export class AdeEditor extends EditorPane {
 	private floatingMenu: HTMLElement | undefined;
 	private floatingInspector: HTMLElement | undefined;
 	private zoomReadout: HTMLElement | undefined;
-	private showRelationshipLabels = false;
+	private showRelationshipLabels: boolean | undefined;
 	private suppressCanvasClick = false;
 	private get zoom(): number { return this.camera.zoom; }
 	private set zoom(value: number) { this.camera = zoomDiagram(this.camera, value, { x: (this.canvasViewport?.clientWidth ?? 800) / 2, y: (this.canvasViewport?.clientHeight ?? 600) / 2 }); }
@@ -315,8 +315,8 @@ export class AdeEditor extends EditorPane {
 		this.renderNavigation(actions, true);
 		if (this.code.context) { this.renderPrimaryActions(menu); }
 		this.renderEditingToolbar(actions);
-		const labels = this.button(actions, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !this.showRelationshipLabels; this.render(); });
-		labels.setAttribute('aria-pressed', String(this.showRelationshipLabels));
+		const labels = this.button(actions, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !(this.showRelationshipLabels ?? !!notationRules[view.kind]); this.render(); });
+		labels.setAttribute('aria-pressed', String(this.showRelationshipLabels ?? !!notationRules[view.kind]));
 		this.renderTools(dom.append(actions, dom.$('nav.ade-tools')));
 		const zoom = dom.append(parent, dom.$('nav.ade-floating-zoom'));
 		zoom.setAttribute('aria-label', localize('ade.canvasZoom', "Canvas Zoom"));
@@ -494,7 +494,6 @@ export class AdeEditor extends EditorPane {
 			}
 			return;
 		}
-		const height = diagramNodeHeight;
 
 		const frame = dom.append(parent, dom.$('.ade-canvas'));
 		const canvas = dom.append(frame, dom.$('.ade-canvas-content'));
@@ -504,14 +503,30 @@ export class AdeEditor extends EditorPane {
 		svg.setAttribute('role', 'group');
 		svg.setAttribute('aria-label', localize('ade.connections', "Diagram Relationships"));
 		canvas.appendChild(svg);
+		const boundaries = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
+		boundaries.setAttribute('aria-hidden', 'true');
+		svg.appendChild(boundaries);
+		const boundaryBoxes = notationBoundaries(model, view);
+		for (const box of boundaryBoxes) {
+			const rect = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
+			rect.setAttribute('class', 'ade-notation-boundary');
+			for (const key of ['x', 'y', 'width', 'height'] as const) { rect.setAttribute(key, String(box[key])); }
+			const label = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'text');
+			label.setAttribute('class', 'ade-notation-boundary-label'); label.setAttribute('x', String(box.x + 12)); label.setAttribute('y', String(box.y + 24)); label.textContent = box.name;
+			boundaries.append(rect);
+			if (!view.nodes.some(node => node.elementId === box.elementId)) { boundaries.append(label); }
+		}
 		const paths = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
 		const labels = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
 		svg.append(paths, labels);
-		const boxes = view.nodes.map(node => ({ id: node.elementId, x: node.x, y: node.y, width: diagramNodeWidth(model.semantics.elements.find(element => element.id === node.elementId)!.name), height }));
+		const boxes = view.nodes.map(node => {
+			const boundary = boundaryBoxes.find(box => box.elementId === node.elementId);
+			return { id: node.elementId, ...notationNodeSize(model.semantics.elements.find(element => element.id === node.elementId)!), ...(boundary ? { x: boundary.x + 12, y: boundary.y + 6, height: 32 } : { x: node.x, y: node.y }) };
+		});
 		const relationships = model.semantics.relations.filter(relation => view.relationIds.includes(relation.id));
 		const routes = routeDiagramConnections(boxes, relationships);
 		const connections = relationships.map(relation => ({ relation, route: routes.get(relation.id) }));
-		const points = connections.flatMap(connection => connection.route ?? []);
+		const points = [...connections.flatMap(connection => connection.route ?? []), ...boundaryBoxes.flatMap(box => [{ x: box.x, y: box.y }, { x: box.x + box.width, y: box.y + box.height }])];
 
 		const occupied: DiagramBox[] = [...boxes];
 		for (const { relation, route } of connections) {
@@ -523,7 +538,7 @@ export class AdeEditor extends EditorPane {
 			path.setAttribute('data-relation-id', relation.id);
 			path.setAttribute('d', `${route.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ')} M ${end.x - 10 * Math.cos(angle - 0.5)} ${end.y - 10 * Math.sin(angle - 0.5)} L ${end.x} ${end.y} L ${end.x - 10 * Math.cos(angle + 0.5)} ${end.y - 10 * Math.sin(angle + 0.5)}`);
 			const related = this.relationSelection === relation.id || this.inspectorOpen && (relation.from === this.project.selectedId || relation.to === this.project.selectedId);
-			const visibleCaption = this.showRelationshipLabels || related;
+			const visibleCaption = (this.showRelationshipLabels ?? !!notationRules[view.kind]) || related;
 			const group = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
 			group.setAttribute('class', `ade-connection${this.relationSelection === relation.id ? ' selected' : ''}${related ? ' is-related' : ''}`);
 			group.setAttribute('tabindex', '0'); group.setAttribute('role', 'button');
@@ -533,8 +548,16 @@ export class AdeEditor extends EditorPane {
 			group.setAttribute('aria-label', localize('ade.relation.accessible', "{0} · {1} → {2} · {3}", relationLabels[relation.kind], fromName, toName, relation.name));
 			group.setAttribute('aria-description', [relation.condition, relation.errorCode].filter(Boolean).join(' · '));
 			this.controls.trackFocus(`edge:${relation.id}`, group);
-			if (relation.kind === 'dependency' || relation.kind === 'realization') { path.setAttribute('stroke-dasharray', '6 4'); }
-			if (relation.kind === 'realization') { path.setAttribute('d', path.getAttribute('d')! + ' Z'); }
+			if (['dependency', 'realization', 'implementation', 'include', 'extend'].includes(relation.kind)) { path.setAttribute('stroke-dasharray', '6 4'); }
+			if (['realization', 'inheritance', 'implementation'].includes(relation.kind)) { path.setAttribute('d', path.getAttribute('d')! + ' Z'); }
+			if (['association', 'composition', 'aggregation'].includes(relation.kind)) {
+				path.setAttribute('d', route.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' '));
+				if (relation.kind !== 'association') {
+					const start = route[0], next = route[1], dx = Math.sign(next.x - start.x), dy = Math.sign(next.y - start.y);
+					path.setAttribute('d', path.getAttribute('d')! + ` M ${start.x} ${start.y} l ${dx * 9 - dy * 5} ${dy * 9 + dx * 5} l ${dx * 9 + dy * 5} ${dy * 9 - dx * 5} l ${-dx * 9 + dy * 5} ${-dy * 9 - dx * 5} Z`);
+					if (relation.kind === 'composition') { path.classList.add('ade-composition'); }
+				}
+			}
 			group.appendChild(path); paths.appendChild(group);
 			const hit = path.cloneNode() as SVGPathElement;
 			hit.setAttribute('class', 'ade-connection-hit'); hit.removeAttribute('data-relation-id'); hit.removeAttribute('stroke-dasharray');
@@ -572,7 +595,7 @@ export class AdeEditor extends EditorPane {
 			}
 			const label = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'text');
 			label.setAttribute('class', 'ade-connection-label');
-			label.textContent = view.kind === 'state' && relation.kind === 'transition' ? stateTransitionLabel(relation) : [relationLabels[relation.kind], relation.name, relation.condition ? `[${relation.condition}]` : '', relation.errorCode].filter(Boolean).join(' · ');
+			label.textContent = view.kind === 'state' && relation.kind === 'transition' ? stateTransitionLabel(relation) : [relationLabels[relation.kind], notationRelationLabel(relation), relation.condition ? `[${relation.condition}]` : '', relation.errorCode].filter(Boolean).join(' · ');
 			label.setAttribute('data-relation-id', relation.id);
 			this.interactions.add(dom.addDisposableListener(label, 'click', (event: MouseEvent) => { void select(event); }));
 			this.installContextMenu(label, context);
@@ -616,6 +639,7 @@ export class AdeEditor extends EditorPane {
 			const position = positions.get(element.id)!;
 			const button = this.button(canvas, element.name, () => { if (this.pendingConnection) { void this.finishConnection(element.id); } else { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(element.id); this.render(); } }, `node:${element.id}`);
 			button.classList.add('ade-node');
+			button.classList.toggle('is-boundary', boundaryBoxes.some(box => box.elementId === element.id));
 			button.dataset.kind = elementLabels[element.kind];
 			button.setAttribute('aria-label', element.name);
 			const selectedRelation = model.semantics.relations.find(relation => relation.id === this.relationSelection);
@@ -623,9 +647,11 @@ export class AdeEditor extends EditorPane {
 			button.style.left = `${position.x}px`;
 			button.style.top = `${position.y}px`;
 			button.style.width = `${position.width}px`;
-			button.style.height = `${height}px`;
+			button.style.height = `${position.height}px`;
+			button.dataset.notationKind = element.kind;
+			for (const line of boundaryBoxes.some(box => box.elementId === element.id) ? [] : notationLines(element)) { dom.append(button, dom.$('span.ade-node-member')).textContent = line; }
 			button.setAttribute('aria-pressed', String(!this.relationSelection && element.id === this.project.selectedId));
-			button.setAttribute('aria-description', elementLabels[element.kind]);
+			button.setAttribute('aria-description', [elementLabels[element.kind], ...notationLines(element)].join(' · '));
 			this.installContextMenu(button, (x, y) => this.elementMenu(element.id, x, y));
 			if (this.project.editable) { this.installNodeEditing(button, view, element.id); }
 		}
@@ -685,6 +711,10 @@ export class AdeEditor extends EditorPane {
 				this.button(detail, label, () => { void this.commandService.executeCommand(command); }).disabled = command === 'ade.connect' && view?.kind === 'state' && element.kind !== 'state';
 			}
 		}
+		for (const line of notationLines(element)) { this.paragraph(detail, line); }
+		if (this.project.editable) { this.button(detail, localize('ade.notation.edit', "Edit Attributes and Technology"), () => { void this.commandService.executeCommand('ade.notation', element.id); }); }
+		if (this.project.editable) { this.button(detail, localize('ade.notation.parent', "Change Boundary or Parent"), () => { void this.commandService.executeCommand('ade.parent', element.id); }); }
+		if (element.parentId) { this.paragraph(detail, localize('ade.notation.parentName', "Boundary / Parent: {0}", model.semantics.elements.find(parent => parent.id === element.parentId)?.name ?? element.parentId)); }
 		if (element.description && !floating) { this.paragraph(detail, element.description); }
 		if (element.behavior) {
 			dom.append(detail, dom.$('h3')).textContent = localize('ade.behavior.heading', "Behavioral Contract");
@@ -857,7 +887,9 @@ export class AdeEditor extends EditorPane {
 	}
 
 	private installNodeEditing(button: HTMLButtonElement, view: ModelView, id: string): void {
-		const node = view.nodes.find(node => node.elementId === id)!;
+		const isBoundary = notationBoundaries(this.project.model, view).some(box => box.elementId === id);
+		const members = isBoundary ? notationGroupMembers(this.project.model, view, id) : new Set([id]);
+		const move = (dx: number, dy: number) => this.project.editBatch(view.nodes.filter(node => members.has(node.elementId)).map(node => ({ kind: 'position', viewId: view.id, id: node.elementId, x: Math.round(node.x + dx), y: Math.round(node.y + dy) })));
 		let drag: { x: number; y: number; left: number; top: number } | undefined;
 		this.interactions.add(dom.addDisposableListener(button, 'pointerdown', (event: PointerEvent) => {
 			if (event.button !== 0 || event.altKey) { return; }
@@ -875,7 +907,7 @@ export class AdeEditor extends EditorPane {
 			const dy = (event.clientY - drag.y) / this.zoom;
 			drag = undefined;
 			if (Math.abs(dx) + Math.abs(dy) > 3) {
-				this.project.edit({ kind: 'position', viewId: view.id, id, x: Math.round(node.x + dx), y: Math.round(node.y + dy) });
+				move(dx, dy);
 				this.project.selectElement(id);
 			}
 		}));
@@ -888,7 +920,7 @@ export class AdeEditor extends EditorPane {
 			if (offset) {
 				event.preventDefault();
 				event.stopPropagation();
-				this.project.edit({ kind: 'position', viewId: view.id, id, x: node.x + offset[0], y: node.y + offset[1] });
+				move(offset[0], offset[1]);
 			}
 		}));
 	}
@@ -969,7 +1001,7 @@ export class AdeEditor extends EditorPane {
 		const source = this.project.model.semantics.elements.find(element => element.id === id);
 		if (!view || !source) { this.notifications.info(localize('ade.context.selectSource', "Select a Source Element Before Creating a Relationship.")); return; }
 		const version = this.project.documentVersion;
-		const kind = await this.quick.pick((Object.keys(relationLabels) as RelationKind[]).filter(kind => (view.kind !== 'state' || kind === 'transition') && (view.kind !== 'sequence' || ['invocation', 'read', 'write'].includes(kind))
+		const kind = await this.quick.pick((Object.keys(relationLabels) as RelationKind[]).filter(kind => acceptsNotationRelation(view.kind, { kind }) && (view.kind !== 'state' || kind === 'transition') && (view.kind !== 'sequence' || ['invocation', 'read', 'write'].includes(kind))
 			&& view.nodes.some(node => { const target = this.project.model.semantics.elements.find(element => element.id === node.elementId)!; return isCompatibleRelation(kind, source.kind, target.kind) && (kind !== 'transition' || source.parentId === target.parentId); })).map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") });
 		if (!kind || version !== this.project.documentVersion) { return; }
 		this.pendingConnection = { from: id, kind: kind.kind, viewId: view.id, version }; this.render();
@@ -996,6 +1028,8 @@ export class AdeEditor extends EditorPane {
 		dom.append(parent, dom.$('h2')).textContent = localize('ade.relationshipProperties', "Relationship Properties");
 		this.paragraph(parent, relation.name || relationLabels[relation.kind]);
 		this.paragraph(parent, relationLabels[relation.kind]);
+		if (relation.details) { this.paragraph(parent, notationRelationLabel(relation)); }
+		if (this.project.editable) { this.button(parent, localize('ade.notation.editRelation', "Edit Cardinalities and Protocol"), () => { void this.commandService.executeCommand('ade.relationNotation', id); }); }
 		for (const target of [relation.from, relation.to]) {
 			this.button(parent, this.project.model.semantics.elements.find(element => element.id === target)!.name, () => this.revealElement(target));
 		}

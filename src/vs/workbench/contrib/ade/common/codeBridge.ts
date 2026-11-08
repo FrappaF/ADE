@@ -6,7 +6,7 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 3;
+export const adeCodeProtocolVersion = 4;
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
 export interface CliRuntimeEnvironment { path?: string; pathExt?: string; codexHome?: string }
@@ -39,7 +39,7 @@ export interface CodeContext {
 	providers: string[]; diagnostics: string[];
 	diagramState?: 'index' | 'diagrams';
 }
-export interface CodeDiagramProgress { id: string; sourceRoot: string; reviewId: string; status: 'ready' | 'running' | 'plan' | 'questions' | 'failed' | 'complete'; completed: number; total: number; calls: number; symbols: number; files: number; model: string; questions: string[]; excluded: number; inputBudgetBytes?: number; responseHeadroomBytes?: number; remainingRequests?: number; error?: string; phase?: 'analysis' | 'plan' | 'diagrams'; plan?: { key: string; name: string; kind: 'structure' | 'activity' | 'sequence' | 'state'; feature: string | null; intent: string; focus: string[]; status: 'pending' | 'running' | 'complete' }[]; context?: CodeContext }
+export interface CodeDiagramProgress { id: string; sourceRoot: string; reviewId: string; status: 'ready' | 'running' | 'plan' | 'questions' | 'failed' | 'complete'; completed: number; total: number; calls: number; symbols: number; files: number; model: string; questions: string[]; excluded: number; inputBudgetBytes?: number; responseHeadroomBytes?: number; remainingRequests?: number; error?: string; phase?: 'analysis' | 'plan' | 'diagrams'; plan?: { key: string; name: string; kind: import('./semanticModel.js').ModelView['kind']; feature: string | null; intent: string; focus: string[]; status: 'pending' | 'running' | 'complete' }[]; context?: CodeContext }
 export interface CodePreview {
 	token: string; context: CodeContext;
 	files: { added: string[]; changed: string[]; removed: string[]; unchanged: string[] };

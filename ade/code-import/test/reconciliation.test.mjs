@@ -33,7 +33,7 @@ test('reconciliation transport uses strict structured output objects and nullabl
 	};
 	inspect(reconciliationSchema);
 	const validate = new Ajv2020().compile(reconciliationSchema);
-	const value = { ...empty(), modelEdits: [{ collection: 'elements', id: 'i0', value: { id: 'i0', kind: 'action', name: 'Pay', description: null, parentId: null, behavior: null, legacyKind: null } }, { collection: 'relations', id: 'i1', value: null }] };
+	const value = { ...empty(), modelEdits: [{ collection: 'elements', id: 'i0', value: { id: 'i0', kind: 'action', name: 'Pay', description: null, parentId: null, behavior: null, legacyKind: null, details: null } }, { collection: 'relations', id: 'i1', value: null }] };
 	assert.equal(validate(value), true, JSON.stringify(validate.errors));
 	delete value.modelEdits[0].value.description;
 	assert.equal(validate(value), false);
@@ -64,7 +64,7 @@ test('strict nullable output publishes a model edit without persisting transport
 	f.setReply(context => {
 		const changed = context.changes.elements.find(item => item.model?.description === 'Reviewed note');
 		assert.ok(changed);
-		return { ...empty(), modelEdits: [{ collection: 'elements', id: changed.id, value: { description: null, parentId: null, behavior: null, legacyKind: null, ...changed.model } }] };
+		return { ...empty(), modelEdits: [{ collection: 'elements', id: changed.id, value: { description: null, parentId: null, behavior: null, legacyKind: null, details: null, ...changed.model } }] };
 	});
 	const preview = await f.call({ operation: 'preview', snapshot: f.initial.snapshot });
 	const { prepared, result } = await f.propose(preview);
@@ -310,4 +310,45 @@ test('AI chooses semantic roles and human diagram labels independently of syntax
 	const snapshot = await readSnapshot(applied.snapshot);
 	assert.deepEqual({ name: snapshot.model.semantics.elements.find(item => item.id === action.id).name, kind: snapshot.model.semantics.elements.find(item => item.id === action.id).kind, symbol: snapshot.model.codeMappings.find(item => item.elementId === action.id).symbol }, { name: 'Conferma acquisto', kind: 'controller', symbol: 'function_definition:confirm_purchase' });
 	assert.equal((await f.call({ operation: 'preview', snapshot: applied.snapshot })).reconciliation.status, 'aligned');
+});
+
+test('class-diagram member edits reconcile in both directions while preserving the view', async t => {
+	const file = 'Task.java', source = 'public class Task { public int priority; }\n';
+	const f = await fixture(t, file, source);
+	const snapshot = await readSnapshot(f.initial.snapshot);
+	const declaration = snapshot.state.files[0].declarations.find(item => item.name === 'Task');
+	const element = snapshot.model.semantics.elements.find(item => item.id === declaration.id);
+	element.kind = 'class';
+	snapshot.model.version = 3;
+	snapshot.model.views.push({ id: 'task-design', name: 'Task Class', kind: 'class', nodes: [{ elementId: element.id, x: 120, y: 80 }], relationIds: [] });
+	element.details = { technology: 'Java', environment: '', members: [{ name: 'priority', type: 'long', kind: 'attribute', key: 'none', required: true }] };
+	await writeFile(f.initial.model, JSON.stringify(snapshot.model));
+	f.setReply(context => {
+		const delta = context.changes.elements.find(item => item.model?.details?.members.some(member => member.name === 'priority'));
+		assert.equal(delta.model.details.members[0].type, 'long');
+		return { ...empty(), sourceEdits: [{ file, revision: context.sources[0].revision, search: 'int priority', replacement: 'long priority' }], bindings: [{ elementId: delta.id, file, name: 'Task', syntaxKind: declaration.syntaxKind }] };
+	});
+	const preview = await f.call({ operation: 'preview', snapshot: f.initial.snapshot });
+	assert.equal(preview.reconciliation.origin, 'model');
+	const { result } = await f.propose(preview);
+	assert.deepEqual(result.reconciliation.diagnostics, []);
+	const applied = await f.call({ operation: 'apply', token: result.token });
+	const current = await readSnapshot(applied.snapshot);
+	assert.equal(await readFile(join(f.root, file), 'utf8'), source.replace('int priority', 'long priority'));
+	assert.deepEqual(current.model.semantics.elements.find(item => item.id === element.id).details, element.details);
+	assert.equal((await f.call({ operation: 'preview', snapshot: applied.snapshot })).reconciliation.status, 'aligned');
+	await writeFile(join(f.root, file), source.replace('int priority', 'double priority'));
+	f.setReply(context => {
+		const delta = context.changes.elements.find(item => item.model?.details?.members.some(member => member.name === 'priority'));
+		return { ...empty(), modelEdits: [{ collection: 'elements', id: delta.id, value: { ...delta.model, details: { ...delta.model.details, members: [{ ...delta.model.details.members[0], type: 'double' }] } } }], bindings: [{ elementId: delta.id, file, name: 'Task', syntaxKind: declaration.syntaxKind }] };
+	});
+	const codePreview = await f.call({ operation: 'preview', snapshot: applied.snapshot });
+	assert.equal(codePreview.reconciliation.origin, 'code');
+	const codeProposal = (await f.propose(codePreview)).result;
+	assert.deepEqual(codeProposal.reconciliation.diagnostics, []);
+	const updated = await f.call({ operation: 'apply', token: codeProposal.token });
+	const design = (await readSnapshot(updated.snapshot)).model;
+	assert.equal(design.semantics.elements.find(item => item.id === element.id).details.members[0].type, 'double');
+	assert.deepEqual(design.views.find(view => view.id === 'task-design'), snapshot.model.views.find(view => view.id === 'task-design'));
+	assert.equal(await readFile(join(f.root, file), 'utf8'), source.replace('int priority', 'double priority'));
 });

@@ -187,9 +187,10 @@ export function createCodeEngine(provider?: StructuredProvider): CodeEngine { re
 					let next = await importCode(previous.state.sourceRoot, previous.state.projectId, { previous: previous.state, signal });
 					next = await analyze(next, [], previous.state, false, signal);
 					if (request.operation === 'diagramPrepare') { return diagramProgress(await prepareDiagramImport(previous, next, JSON.parse(request.config), request.resume, request.clarification, signal)); }
-					const job = await readDiagramJob(previous.state.sourceRoot, request.id);
+					let job = await readDiagramJob(previous.state.sourceRoot, request.id);
 					if (request.operation === 'diagramApprovePlan') { await approveDiagramPlan(job, previous, next, request.reviewId, signal); return diagramProgress(job); }
 					const advanced = await advanceDiagramImport(job, previous, next, request.reviewId, signal, provider);
+					job = advanced.job;
 					if (!advanced.model) {
 						if ((await readSnapshot(previous.directory)).inputHash !== previous.inputHash || (await importCode(next.sourceRoot, next.projectId, { previous: next, signal })).revision !== next.revision) { throw new Error('Project changed during diagram generation'); }
 						return diagramProgress(advanced.job);

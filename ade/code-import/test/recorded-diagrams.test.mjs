@@ -57,7 +57,7 @@ for (const record of plannedRecords) {
 			const context = JSON.parse(prompt.slice(prompt.indexOf('\n') + 1));
 			const expected = record.calls[calls++];
 			assert.deepEqual({ step: context.step, diagramKey: context.diagram?.key ?? null }, { step: expected.step, diagramKey: expected.diagramKey });
-			return { value: structuredClone(expected.response), usage: { inputTokens: null, outputTokens: null }, cost: null };
+			return { value: { ...(context.step !== 'diagram' ? { notation: { elements: [], relations: [] } } : {}), ...structuredClone(expected.response) }, usage: { inputTokens: null, outputTokens: null }, cost: null };
 		} });
 		const call = async request => JSON.parse(await engine.execute(JSON.stringify(request)));
 		const initial = await call({ operation: 'import', root });

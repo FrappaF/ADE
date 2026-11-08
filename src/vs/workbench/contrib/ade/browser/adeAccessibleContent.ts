@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { isSourceEvidenceModel, ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
+import { isSourceEvidenceModel, notationRelationLabel, ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
+import { notationLines } from '../common/diagramLayout.js';
 import { getDiagramGroups } from '../common/visualNavigation.js';
 import { getSystemMap } from '../common/systemMap.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
@@ -49,7 +50,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 		return lines.join('\n');
 	}
 	const describeRelation = (relation: SemanticRelation): void => {
-		lines.push(localize('ade.reading.relation', "{0} to {1}: {2}. {3}", elements.get(relation.from)!.name, elements.get(relation.to)!.name, relationLabels[relation.kind], relation.name));
+		lines.push(localize('ade.reading.relation', "{0} to {1}: {2}. {3}", elements.get(relation.from)!.name, elements.get(relation.to)!.name, relationLabels[relation.kind], notationRelationLabel(relation)));
 		if (relation.condition) { lines.push(localize('ade.reading.condition', "Condition: {0}", relation.condition)); }
 		if (relation.errorCode) { lines.push(localize('ade.reading.error', "Error: {0}", relation.errorCode)); }
 		if (relation.kind === 'transition') { lines.push(localize('ade.reading.stateEvent', "Transition Event: {0}", relation.name || localize('ade.reading.noEvent', "Not Declared"))); }
@@ -101,6 +102,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 			const element = elements.get(node.elementId)!;
 			lines.push(localize('ade.reading.element', "{0}. {1} ({2})", index + 1, element.name, elementLabels[element.kind]));
 			if (element.description) { lines.push(element.description); }
+		lines.push(...notationLines(element));
 		}
 		if (!view.nodes.length) { lines.push(localize('ade.reading.empty', "This diagram has no elements.")); }
 	} else {
@@ -108,6 +110,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 		if (!element) { return lines.join('\n'); }
 		lines.push(localize('ade.reading.details', "Element Details: {0}", element.name), elementLabels[element.kind]);
 		if (element.description) { lines.push(element.description); }
+		lines.push(...notationLines(element));
 		const children = model.semantics.elements.filter(child => child.parentId === element.id);
 		if (children.length) { lines.push(localize('ade.reading.children', "Contained Elements: {0}", children.map(child => child.name).join(', '))); }
 		if (element.kind === 'feature') {

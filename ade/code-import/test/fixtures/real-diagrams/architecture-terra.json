@@ -1,0 +1,2892 @@
+[
+	{
+		"case": "architecture-fresh-with-constraints-and-connections",
+		"model": "gpt-5.6-terra",
+		"provenance": "Fresh authenticated real CLI run on the public Java/Python/SQL/Compose fixture. One analysis plus seven generated views; local overview. SQL mandatory columns, table keys, capabilities, all approved types and unchanged sources checked independently. Values are revalidated here, not exact prompt replay.",
+		"calls": [
+			{
+				"step": "project",
+				"diagramKey": null,
+				"response": {
+					"summary": "Source-grounded plan for task completion across application, schema, and declared local Compose infrastructure.",
+					"questions": [],
+					"features": [
+						{
+							"key": "f-task-completion",
+							"name": "Task completion",
+							"description": "Marks an existing task complete through the route, service, domain object, and store interface."
+						}
+					],
+					"elements": [
+						{
+							"symbol": "u0",
+							"kind": "class",
+							"name": "Task",
+							"description": "Domain task class with identifier, title, completion flag, and completion method.",
+							"feature": "f-task-completion",
+							"parent": "c:task-system"
+						},
+						{
+							"symbol": "u1",
+							"kind": "action",
+							"name": "Complete task",
+							"description": "Sets a task's completed flag to true.",
+							"feature": "f-task-completion",
+							"parent": "u0"
+						},
+						{
+							"symbol": "u3",
+							"kind": "class",
+							"name": "TaskService",
+							"description": "Application service that completes a task using the task store.",
+							"feature": "f-task-completion",
+							"parent": "c:api-container"
+						},
+						{
+							"symbol": "u4",
+							"kind": "action",
+							"name": "Complete task service operation",
+							"description": "Finds a task, completes it, and saves it.",
+							"feature": "f-task-completion",
+							"parent": "u3"
+						},
+						{
+							"symbol": "u6",
+							"kind": "interface",
+							"name": "TaskStore",
+							"description": "Task lookup and save abstraction.",
+							"feature": "f-task-completion",
+							"parent": "c:api-container"
+						},
+						{
+							"symbol": "u10",
+							"kind": "controller",
+							"name": "Complete task route",
+							"description": "Request handler that delegates completion using the supplied task identifier.",
+							"feature": "f-task-completion",
+							"parent": "c:api-container"
+						}
+					],
+					"concepts": [
+						{
+							"key": "c-task-system",
+							"kind": "system",
+							"name": "Task system",
+							"description": "Task application represented by the declared API image and application code.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u9"
+						},
+						{
+							"key": "c-api-container",
+							"kind": "container",
+							"name": "Task API",
+							"description": "Application API container represented by the task-api image.",
+							"feature": "f-task-completion",
+							"parent": "c:task-system",
+							"source": "u9"
+						},
+						{
+							"key": "c-client",
+							"kind": "actor",
+							"name": "API client",
+							"description": "Caller supplying a completion request to the route.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u10"
+						},
+						{
+							"key": "c-task-resource",
+							"kind": "resource",
+							"name": "Task",
+							"description": "Task domain resource whose completion status is changed.",
+							"feature": "f-task-completion",
+							"parent": "c:task-system",
+							"source": "u0"
+						},
+						{
+							"key": "c-incomplete-task",
+							"kind": "state",
+							"name": "Incomplete",
+							"description": "Task state before completion; the schema defaults completed to false.",
+							"feature": "f-task-completion",
+							"parent": "c-task-resource",
+							"source": "u8"
+						},
+						{
+							"key": "c-completed-task",
+							"kind": "state",
+							"name": "Completed",
+							"description": "Task state after the completion method sets completed to true.",
+							"feature": "f-task-completion",
+							"parent": "c-task-resource",
+							"source": "u1"
+						},
+						{
+							"key": "c-users-table",
+							"kind": "table",
+							"name": "users",
+							"description": "Declared physical users table.",
+							"feature": "f-task-completion",
+							"parent": "c-database",
+							"source": "u8"
+						},
+						{
+							"key": "c-tasks-table",
+							"kind": "table",
+							"name": "tasks",
+							"description": "Declared physical tasks table, including owner reference and completion flag.",
+							"feature": "f-task-completion",
+							"parent": "c-database",
+							"source": "u8"
+						},
+						{
+							"key": "c-database",
+							"kind": "dataStore",
+							"name": "PostgreSQL database",
+							"description": "Database service declared with the postgres:17 image.",
+							"feature": "f-task-completion",
+							"parent": "c:task-system",
+							"source": "u9"
+						},
+						{
+							"key": "c-task-completion-process",
+							"kind": "process",
+							"name": "Complete task processing",
+							"description": "Processing that completes the requested task resource.",
+							"feature": "f-task-completion",
+							"parent": "c:api-container",
+							"source": "u4"
+						},
+						{
+							"key": "c-api-service-node",
+							"kind": "deploymentNode",
+							"name": "api Compose service",
+							"description": "Declared local Compose API service.",
+							"feature": "f-task-completion",
+							"parent": "c-backend-network",
+							"source": "u9"
+						},
+						{
+							"key": "c-database-service-node",
+							"kind": "deploymentNode",
+							"name": "database Compose service",
+							"description": "Declared local Compose database service.",
+							"feature": "f-task-completion",
+							"parent": "c-backend-network",
+							"source": "u9"
+						},
+						{
+							"key": "c-api-image",
+							"kind": "artifact",
+							"name": "task-api:1 image",
+							"description": "API image declared for the Compose api service.",
+							"feature": "f-task-completion",
+							"parent": "c-api-service-node",
+							"source": "u9"
+						},
+						{
+							"key": "c-postgres-image",
+							"kind": "artifact",
+							"name": "postgres:17 image",
+							"description": "PostgreSQL image declared for the Compose database service.",
+							"feature": "f-task-completion",
+							"parent": "c-database-service-node",
+							"source": "u9"
+						},
+						{
+							"key": "c-backend-network",
+							"kind": "networkNode",
+							"name": "backend bridge network",
+							"description": "Declared Compose bridge network shared by API and database services.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u9"
+						}
+					],
+					"relations": [
+						{
+							"key": "r-route-invokes-service",
+							"kind": "invocation",
+							"from": "u10",
+							"to": "u4",
+							"name": "delegates completion",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-invokes-task",
+							"kind": "invocation",
+							"from": "u4",
+							"to": "u1",
+							"name": "completes found task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-invokes-store",
+							"kind": "invocation",
+							"from": "u4",
+							"to": "u6",
+							"name": "finds and saves task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-reads-task",
+							"kind": "read",
+							"from": "u4",
+							"to": "c-task-resource",
+							"name": "find task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-writes-task",
+							"kind": "write",
+							"from": "u4",
+							"to": "c-task-resource",
+							"name": "save completed task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-completion-writes-task",
+							"kind": "write",
+							"from": "u1",
+							"to": "c-task-resource",
+							"name": "sets completed true",
+							"condition": null,
+							"evidence": [
+								"u1"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-task-lifecycle",
+							"kind": "transition",
+							"from": "c-incomplete-task",
+							"to": "c-completed-task",
+							"name": "complete",
+							"condition": "completion operation is performed",
+							"evidence": [
+								"u1",
+								"u8"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-depends-task",
+							"kind": "dependency",
+							"from": "u3",
+							"to": "u0",
+							"name": "uses",
+							"condition": null,
+							"evidence": [
+								"u3"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-depends-store",
+							"kind": "dependency",
+							"from": "u3",
+							"to": "u6",
+							"name": "uses",
+							"condition": null,
+							"evidence": [
+								"u3"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-store-depends-task",
+							"kind": "dependency",
+							"from": "u6",
+							"to": "u0",
+							"name": "stores",
+							"condition": null,
+							"evidence": [
+								"u6"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-task-owner",
+							"kind": "association",
+							"from": "c-tasks-table",
+							"to": "c-users-table",
+							"name": "owner reference",
+							"condition": null,
+							"evidence": [
+								"u8"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-api-depends-database-service",
+							"kind": "dependency",
+							"from": "c-api-service-node",
+							"to": "c-database-service-node",
+							"name": "depends_on",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-backend-hosts-api",
+							"kind": "hosting",
+							"from": "c-backend-network",
+							"to": "c-api-service-node",
+							"name": "connects service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-backend-hosts-database",
+							"kind": "hosting",
+							"from": "c-backend-network",
+							"to": "c-database-service-node",
+							"name": "connects service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-api-node-hosts-image",
+							"kind": "hosting",
+							"from": "c-api-service-node",
+							"to": "c-api-image",
+							"name": "runs image",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-database-node-hosts-image",
+							"kind": "hosting",
+							"from": "c-database-service-node",
+							"to": "c-postgres-image",
+							"name": "runs image",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-api-node-hosts-container",
+							"kind": "hosting",
+							"from": "c-api-service-node",
+							"to": "c-api-container",
+							"name": "hosts API container",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-database-node-hosts-datastore",
+							"kind": "hosting",
+							"from": "c-database-service-node",
+							"to": "c-database",
+							"name": "hosts database",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-client-sends-completion",
+							"kind": "dataFlow",
+							"from": "c-client",
+							"to": "c-task-completion-process",
+							"name": "task completion request",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-process-updates-task",
+							"kind": "dataFlow",
+							"from": "c-task-completion-process",
+							"to": "c-task-resource",
+							"name": "completed task state",
+							"condition": null,
+							"evidence": [
+								"u4",
+								"u1"
+							],
+							"classification": "inferred"
+						}
+					],
+					"diagrams": [],
+					"notation": {
+						"elements": [
+							{
+								"ref": "u0",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "long",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "title",
+											"type": "String",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "completed",
+											"type": "boolean",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "complete",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "u3",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "store",
+											"type": "TaskStore",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "complete",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "u6",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "find",
+											"type": "Task",
+											"kind": "method",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "save",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-users-table",
+								"details": {
+									"technology": "PostgreSQL",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "primary",
+											"required": true
+										},
+										{
+											"name": "name",
+											"type": "VARCHAR(100)",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-tasks-table",
+								"details": {
+									"technology": "PostgreSQL",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "primary",
+											"required": true
+										},
+										{
+											"name": "owner_id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "foreign",
+											"required": true
+										},
+										{
+											"name": "title",
+											"type": "VARCHAR(200)",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "completed",
+											"type": "BOOLEAN",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-database",
+								"details": {
+									"technology": "PostgreSQL 17",
+									"environment": "local Compose",
+									"members": []
+								}
+							},
+							{
+								"ref": "c-backend-network",
+								"details": {
+									"technology": "bridge",
+									"environment": "local Compose",
+									"members": []
+								}
+							}
+						],
+						"relations": [
+							{
+								"key": "r-task-owner",
+								"details": {
+									"sourceMultiplicity": "",
+									"targetMultiplicity": "1",
+									"sourceMember": "owner_id",
+									"targetMember": "id",
+									"protocol": ""
+								}
+							}
+						]
+					},
+					"plan": [
+						{
+							"key": "d-container-overview",
+							"name": "Task system containers",
+							"kind": "c4Container",
+							"feature": "f-task-completion",
+							"intent": "Show the task API and PostgreSQL database within the system boundary without asserting an unsupported application-to-schema implementation mapping.",
+							"focus": [
+								"c:task-system",
+								"c:client",
+								"c:api-container",
+								"c-database"
+							]
+						},
+						{
+							"key": "d-database-schema",
+							"name": "Task database schema",
+							"kind": "databaseSchema",
+							"feature": "f-task-completion",
+							"intent": "Document the declared users and tasks tables, verified columns, keys, and ownership reference.",
+							"focus": [
+								"c-database",
+								"c-users-table",
+								"c-tasks-table",
+								"r-task-owner"
+							]
+						},
+						{
+							"key": "d-class-model",
+							"name": "Task completion classes",
+							"kind": "class",
+							"feature": "f-task-completion",
+							"intent": "Show the domain class, service class, and store interface involved in completion.",
+							"focus": [
+								"u0",
+								"u3",
+								"u6",
+								"r-service-depends-task",
+								"r-service-depends-store",
+								"r-store-depends-task"
+							]
+						},
+						{
+							"key": "d-local-deployment",
+							"name": "Local Compose deployment",
+							"kind": "deployment",
+							"feature": "f-task-completion",
+							"intent": "Show only the declared local Compose API, PostgreSQL, images, and backend bridge network.",
+							"focus": [
+								"c:task-system",
+								"c-backend-network",
+								"c-api-service-node",
+								"c-database-service-node",
+								"c-api-image",
+								"c-postgres-image",
+								"c:api-container",
+								"c-database"
+							]
+						},
+						{
+							"key": "d-completion-data-flow",
+							"name": "Task completion data flow",
+							"kind": "dataFlow",
+							"feature": "f-task-completion",
+							"intent": "Show the completion request becoming an updated task resource.",
+							"focus": [
+								"c:client",
+								"c-task-completion-process",
+								"c-task-resource",
+								"r-client-sends-completion",
+								"r-process-updates-task"
+							]
+						},
+						{
+							"key": "d-completion-sequence",
+							"name": "Complete task interaction",
+							"kind": "sequence",
+							"feature": "f-task-completion",
+							"intent": "Show the evidenced route-to-service interaction, task lookup/update, and store save abstraction.",
+							"focus": [
+								"u10",
+								"u4",
+								"u1",
+								"u6",
+								"c-task-resource",
+								"r-route-invokes-service",
+								"r-service-invokes-task",
+								"r-service-invokes-store",
+								"r-service-reads-task",
+								"r-service-writes-task"
+							]
+						},
+						{
+							"key": "d-task-lifecycle",
+							"name": "Task completion lifecycle",
+							"kind": "state",
+							"feature": "f-task-completion",
+							"intent": "Show the evidenced incomplete-to-completed state transition.",
+							"focus": [
+								"c-task-resource",
+								"c-incomplete-task",
+								"c-completed-task",
+								"r-task-lifecycle"
+							]
+						}
+					],
+					"overview": {
+						"key": "d-container-overview",
+						"name": "Task system containers",
+						"intent": "Structural overview of the declared task API and PostgreSQL database containers."
+					},
+					"coverage": {
+						"targets": {
+							"u0": "u0",
+							"u1": "u1",
+							"u2": "u0",
+							"u3": "u3",
+							"u4": "u4",
+							"u5": "u3",
+							"u6": "u6",
+							"u7": "u6",
+							"u8": "c-tasks-table",
+							"u9": "c-api-service-node",
+							"u10": "u10"
+						}
+					}
+				},
+				"graphRelations": []
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-container-overview",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-client",
+						"c:c-task-system",
+						"c:c-api-container",
+						"c:c-database"
+					],
+					"relations": [],
+					"connections": [
+						{
+							"kind": "communication",
+							"from": "c:c-client",
+							"to": "c:c-api-container",
+							"name": "completion request",
+							"evidence": [
+								"u10"
+							],
+							"details": null
+						},
+						{
+							"kind": "dependency",
+							"from": "c:c-api-container",
+							"to": "c:c-database",
+							"name": "depends on database",
+							"evidence": [
+								"u9"
+							],
+							"details": null
+						}
+					]
+				},
+				"graphRelations": []
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-database-schema",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-users-table",
+						"c:c-tasks-table",
+						"c:c-database"
+					],
+					"relations": [
+						"r-task-owner"
+					],
+					"connections": []
+				},
+				"graphRelations": [
+					{
+						"key": "r-task-owner",
+						"kind": "association",
+						"from": "c:c-tasks-table",
+						"to": "c:c-users-table",
+						"name": "owner reference",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-class-model",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"u0",
+						"u3",
+						"u6"
+					],
+					"relations": [
+						"r-service-depends-task",
+						"r-service-depends-store",
+						"r-store-depends-task"
+					],
+					"connections": []
+				},
+				"graphRelations": [
+					{
+						"key": "r-service-depends-task",
+						"kind": "dependency",
+						"from": "u3",
+						"to": "u0",
+						"name": "uses",
+						"condition": null
+					},
+					{
+						"key": "r-service-depends-store",
+						"kind": "dependency",
+						"from": "u3",
+						"to": "u6",
+						"name": "uses",
+						"condition": null
+					},
+					{
+						"key": "r-store-depends-task",
+						"kind": "dependency",
+						"from": "u6",
+						"to": "u0",
+						"name": "stores",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-local-deployment",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-task-system",
+						"c:c-backend-network",
+						"c:c-api-service-node",
+						"c:c-database-service-node",
+						"c:c-api-image",
+						"c:c-postgres-image",
+						"c:c-api-container",
+						"c:c-database"
+					],
+					"relations": [
+						"r-api-depends-database-service",
+						"r-backend-hosts-api",
+						"r-backend-hosts-database",
+						"r-api-node-hosts-image",
+						"r-database-node-hosts-image",
+						"r-api-node-hosts-container",
+						"r-database-node-hosts-datastore",
+						"view-dd6d41ffa14870ca8a7babd43352bb048a43bbb8"
+					],
+					"connections": []
+				},
+				"graphRelations": [
+					{
+						"key": "r-api-depends-database-service",
+						"kind": "dependency",
+						"from": "c:c-api-service-node",
+						"to": "c:c-database-service-node",
+						"name": "depends_on",
+						"condition": null
+					},
+					{
+						"key": "r-backend-hosts-api",
+						"kind": "hosting",
+						"from": "c:c-backend-network",
+						"to": "c:c-api-service-node",
+						"name": "connects service",
+						"condition": null
+					},
+					{
+						"key": "r-backend-hosts-database",
+						"kind": "hosting",
+						"from": "c:c-backend-network",
+						"to": "c:c-database-service-node",
+						"name": "connects service",
+						"condition": null
+					},
+					{
+						"key": "r-api-node-hosts-image",
+						"kind": "hosting",
+						"from": "c:c-api-service-node",
+						"to": "c:c-api-image",
+						"name": "runs image",
+						"condition": null
+					},
+					{
+						"key": "r-database-node-hosts-image",
+						"kind": "hosting",
+						"from": "c:c-database-service-node",
+						"to": "c:c-postgres-image",
+						"name": "runs image",
+						"condition": null
+					},
+					{
+						"key": "r-api-node-hosts-container",
+						"kind": "hosting",
+						"from": "c:c-api-service-node",
+						"to": "c:c-api-container",
+						"name": "hosts API container",
+						"condition": null
+					},
+					{
+						"key": "r-database-node-hosts-datastore",
+						"kind": "hosting",
+						"from": "c:c-database-service-node",
+						"to": "c:c-database",
+						"name": "hosts database",
+						"condition": null
+					},
+					{
+						"key": "view-dd6d41ffa14870ca8a7babd43352bb048a43bbb8",
+						"kind": "dependency",
+						"from": "c:c-api-container",
+						"to": "c:c-database",
+						"name": "depends on database",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-completion-data-flow",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-client",
+						"c:c-task-completion-process",
+						"c:c-task-resource"
+					],
+					"relations": [
+						"r-client-sends-completion",
+						"r-process-updates-task"
+					],
+					"connections": []
+				},
+				"graphRelations": [
+					{
+						"key": "r-client-sends-completion",
+						"kind": "dataFlow",
+						"from": "c:c-client",
+						"to": "c:c-task-completion-process",
+						"name": "task completion request",
+						"condition": null
+					},
+					{
+						"key": "r-process-updates-task",
+						"kind": "dataFlow",
+						"from": "c:c-task-completion-process",
+						"to": "c:c-task-resource",
+						"name": "completed task state",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-completion-sequence",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"u10",
+						"u4",
+						"u6",
+						"u1",
+						"c:c-task-resource"
+					],
+					"relations": [
+						"r-route-invokes-service",
+						"r-service-reads-task",
+						"r-service-invokes-store",
+						"r-service-invokes-task",
+						"r-completion-writes-task",
+						"r-service-writes-task"
+					]
+				},
+				"graphRelations": [
+					{
+						"key": "r-route-invokes-service",
+						"kind": "invocation",
+						"from": "u10",
+						"to": "u4",
+						"name": "delegates completion",
+						"condition": null
+					},
+					{
+						"key": "r-service-invokes-task",
+						"kind": "invocation",
+						"from": "u4",
+						"to": "u1",
+						"name": "completes found task",
+						"condition": null
+					},
+					{
+						"key": "r-service-invokes-store",
+						"kind": "invocation",
+						"from": "u4",
+						"to": "u6",
+						"name": "finds and saves task",
+						"condition": null
+					},
+					{
+						"key": "r-service-reads-task",
+						"kind": "read",
+						"from": "u4",
+						"to": "c:c-task-resource",
+						"name": "find task",
+						"condition": null
+					},
+					{
+						"key": "r-service-writes-task",
+						"kind": "write",
+						"from": "u4",
+						"to": "c:c-task-resource",
+						"name": "save completed task",
+						"condition": null
+					},
+					{
+						"key": "r-completion-writes-task",
+						"kind": "write",
+						"from": "u1",
+						"to": "c:c-task-resource",
+						"name": "sets completed true",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-task-lifecycle",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-task-resource",
+						"c:c-incomplete-task",
+						"c:c-completed-task"
+					],
+					"relations": [
+						"r-task-lifecycle"
+					]
+				},
+				"graphRelations": [
+					{
+						"key": "r-task-lifecycle",
+						"kind": "transition",
+						"from": "c:c-incomplete-task",
+						"to": "c:c-completed-task",
+						"name": "complete",
+						"condition": "completion operation is performed"
+					}
+				]
+			}
+		]
+	},
+	{
+		"case": "architecture-with-source-constraints-and-resume",
+		"model": "gpt-5.6-terra",
+		"provenance": "Actual real CLI analysis with deterministic SQL evidence, followed by six actual real typed-view calls after a saved C4 step failure. Missing C4 communication is declared by AI during its view step. This fixture revalidates values, not exact prompts.",
+		"calls": [
+			{
+				"step": "project",
+				"diagramKey": null,
+				"response": {
+					"summary": "Source-grounded model for a task-completion API with Java domain/service abstractions, SQL persistence schema, a Python route, and a declared local Compose deployment. The proposed views cover the requested container, schema, class, deployment, and data-flow perspectives, plus the evidenced task lifecycle.",
+					"questions": [],
+					"features": [
+						{
+							"key": "f-task-completion",
+							"name": "Task completion",
+							"description": "Completes an existing task and records its completed status."
+						}
+					],
+					"elements": [
+						{
+							"symbol": "u0",
+							"kind": "class",
+							"name": "Task",
+							"description": "Domain task with identifier, title, completion flag, and completion operation.",
+							"feature": "f-task-completion",
+							"parent": null
+						},
+						{
+							"symbol": "u1",
+							"kind": "action",
+							"name": "complete",
+							"description": "Marks a Task as completed.",
+							"feature": "f-task-completion",
+							"parent": "u0"
+						},
+						{
+							"symbol": "u3",
+							"kind": "class",
+							"name": "TaskService",
+							"description": "Application service that completes a task through the task store.",
+							"feature": "f-task-completion",
+							"parent": null
+						},
+						{
+							"symbol": "u4",
+							"kind": "action",
+							"name": "complete",
+							"description": "Finds a task, completes it, and saves it.",
+							"feature": "f-task-completion",
+							"parent": "u3"
+						},
+						{
+							"symbol": "u6",
+							"kind": "interface",
+							"name": "TaskStore",
+							"description": "Abstraction for finding and saving tasks.",
+							"feature": "f-task-completion",
+							"parent": null
+						},
+						{
+							"symbol": "u10",
+							"kind": "controller",
+							"name": "complete_task",
+							"description": "Request handler that delegates completion using the supplied task identifier.",
+							"feature": "f-task-completion",
+							"parent": "c-api-container"
+						}
+					],
+					"concepts": [
+						{
+							"key": "c-task-resource",
+							"kind": "resource",
+							"name": "Task",
+							"description": "Task domain resource whose completion status can change.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u0"
+						},
+						{
+							"key": "c-task-pending",
+							"kind": "state",
+							"name": "Pending",
+							"description": "Task state before its completed flag is set.",
+							"feature": "f-task-completion",
+							"parent": "c-task-resource",
+							"source": "u0"
+						},
+						{
+							"key": "c-task-completed",
+							"kind": "state",
+							"name": "Completed",
+							"description": "Task state after its completed flag is set.",
+							"feature": "f-task-completion",
+							"parent": "c-task-resource",
+							"source": "u1"
+						},
+						{
+							"key": "c-api-client",
+							"kind": "actor",
+							"name": "API client",
+							"description": "Caller that submits task-completion requests.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u10"
+						},
+						{
+							"key": "c-task-api-system",
+							"kind": "system",
+							"name": "Task API",
+							"description": "Software system providing task completion capability.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u10"
+						},
+						{
+							"key": "c-api-container",
+							"kind": "container",
+							"name": "Task API application",
+							"description": "Application container exposing the task-completion request handler.",
+							"feature": "f-task-completion",
+							"parent": "c-task-api-system",
+							"source": "u10"
+						},
+						{
+							"key": "c-postgres-store",
+							"kind": "dataStore",
+							"name": "PostgreSQL database",
+							"description": "Declared PostgreSQL database service for task data.",
+							"feature": "f-task-completion",
+							"parent": "c-task-api-system",
+							"source": "u9"
+						},
+						{
+							"key": "c-users-table",
+							"kind": "table",
+							"name": "users",
+							"description": "Physical users table declared in the SQL schema.",
+							"feature": "f-task-completion",
+							"parent": "c-postgres-store",
+							"source": "u8"
+						},
+						{
+							"key": "c-tasks-table",
+							"kind": "table",
+							"name": "tasks",
+							"description": "Physical tasks table declared in the SQL schema.",
+							"feature": "f-task-completion",
+							"parent": "c-postgres-store",
+							"source": "u8"
+						},
+						{
+							"key": "c-complete-task-process",
+							"kind": "process",
+							"name": "Complete task",
+							"description": "Process that accepts a task identifier, completes the task, and returns confirmation.",
+							"feature": "f-task-completion",
+							"parent": "c-task-api-system",
+							"source": "u10"
+						},
+						{
+							"key": "c-compose-environment",
+							"kind": "deploymentNode",
+							"name": "Local Compose environment",
+							"description": "Declared Compose deployment environment containing API and database services.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u9"
+						},
+						{
+							"key": "c-backend-network",
+							"kind": "networkNode",
+							"name": "backend network",
+							"description": "Declared bridge network shared by the API and database services.",
+							"feature": "f-task-completion",
+							"parent": "c-compose-environment",
+							"source": "u9"
+						},
+						{
+							"key": "c-api-service",
+							"kind": "deploymentNode",
+							"name": "api service",
+							"description": "Compose service running the task-api image and exposing port 8080.",
+							"feature": "f-task-completion",
+							"parent": "c-compose-environment",
+							"source": "u9"
+						},
+						{
+							"key": "c-database-service",
+							"kind": "deploymentNode",
+							"name": "database service",
+							"description": "Compose service running the PostgreSQL image.",
+							"feature": "f-task-completion",
+							"parent": "c-compose-environment",
+							"source": "u9"
+						},
+						{
+							"key": "c-task-api-image",
+							"kind": "artifact",
+							"name": "task-api:1",
+							"description": "Declared API container image.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u9"
+						},
+						{
+							"key": "c-postgres-image",
+							"kind": "artifact",
+							"name": "postgres:17",
+							"description": "Declared database container image.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u9"
+						}
+					],
+					"relations": [
+						{
+							"key": "r-route-invokes-service",
+							"kind": "invocation",
+							"from": "u10",
+							"to": "u4",
+							"name": "delegates completion",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-depends-on-store",
+							"kind": "dependency",
+							"from": "u3",
+							"to": "u6",
+							"name": "uses task store",
+							"condition": null,
+							"evidence": [
+								"u3"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-depends-on-task",
+							"kind": "dependency",
+							"from": "u3",
+							"to": "u0",
+							"name": "uses task",
+							"condition": null,
+							"evidence": [
+								"u3"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-store-depends-on-task",
+							"kind": "dependency",
+							"from": "u6",
+							"to": "u0",
+							"name": "stores tasks",
+							"condition": null,
+							"evidence": [
+								"u6"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-completes-task",
+							"kind": "invocation",
+							"from": "u4",
+							"to": "u1",
+							"name": "marks task complete",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-reads-task",
+							"kind": "read",
+							"from": "u4",
+							"to": "c-task-resource",
+							"name": "finds task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-writes-task",
+							"kind": "write",
+							"from": "u4",
+							"to": "c-task-resource",
+							"name": "saves completed task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-task-completion-transition",
+							"kind": "transition",
+							"from": "c-task-pending",
+							"to": "c-task-completed",
+							"name": "complete",
+							"condition": null,
+							"evidence": [
+								"u1"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-tasks-owner",
+							"kind": "association",
+							"from": "c-tasks-table",
+							"to": "c-users-table",
+							"name": "owner_id references users",
+							"condition": null,
+							"evidence": [
+								"u8"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-api-depends-on-database",
+							"kind": "dependency",
+							"from": "c-api-container",
+							"to": "c-postgres-store",
+							"name": "depends on database service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-client-submits-request",
+							"kind": "dataFlow",
+							"from": "c-api-client",
+							"to": "c-complete-task-process",
+							"name": "task identifier",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-process-updates-task",
+							"kind": "dataFlow",
+							"from": "c-complete-task-process",
+							"to": "c-task-resource",
+							"name": "completed task update",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-process-returns-confirmation",
+							"kind": "dataFlow",
+							"from": "c-complete-task-process",
+							"to": "c-api-client",
+							"name": "ok confirmation",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-compose-hosts-api",
+							"kind": "hosting",
+							"from": "c-compose-environment",
+							"to": "c-api-service",
+							"name": "defines service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-compose-hosts-database",
+							"kind": "hosting",
+							"from": "c-compose-environment",
+							"to": "c-database-service",
+							"name": "defines service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-api-service-hosts-image",
+							"kind": "hosting",
+							"from": "c-api-service",
+							"to": "c-task-api-image",
+							"name": "runs image",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-database-service-hosts-image",
+							"kind": "hosting",
+							"from": "c-database-service",
+							"to": "c-postgres-image",
+							"name": "runs image",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-backend-hosts-api",
+							"kind": "hosting",
+							"from": "c-backend-network",
+							"to": "c-api-service",
+							"name": "connects service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-backend-hosts-database",
+							"kind": "hosting",
+							"from": "c-backend-network",
+							"to": "c-database-service",
+							"name": "connects service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-api-service-depends-on-database-service",
+							"kind": "dependency",
+							"from": "c-api-service",
+							"to": "c-database-service",
+							"name": "depends_on",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						}
+					],
+					"diagrams": [],
+					"notation": {
+						"elements": [
+							{
+								"ref": "u0",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "long",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "title",
+											"type": "String",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "completed",
+											"type": "boolean",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "complete",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "u3",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "complete",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "u6",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "find",
+											"type": "Task",
+											"kind": "method",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "save",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-users-table",
+								"details": {
+									"technology": "PostgreSQL",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "primary",
+											"required": true
+										},
+										{
+											"name": "name",
+											"type": "VARCHAR(100)",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-tasks-table",
+								"details": {
+									"technology": "PostgreSQL",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "primary",
+											"required": true
+										},
+										{
+											"name": "owner_id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "foreign",
+											"required": true
+										},
+										{
+											"name": "title",
+											"type": "VARCHAR(200)",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										},
+										{
+											"name": "completed",
+											"type": "BOOLEAN",
+											"kind": "attribute",
+											"key": "none",
+											"required": true
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-postgres-store",
+								"details": {
+									"technology": "PostgreSQL 17",
+									"environment": "Local Compose",
+									"members": []
+								}
+							},
+							{
+								"ref": "c-api-service",
+								"details": {
+									"technology": "task-api:1",
+									"environment": "Local Compose",
+									"members": []
+								}
+							},
+							{
+								"ref": "c-database-service",
+								"details": {
+									"technology": "postgres:17",
+									"environment": "Local Compose",
+									"members": []
+								}
+							},
+							{
+								"ref": "c-backend-network",
+								"details": {
+									"technology": "bridge",
+									"environment": "Local Compose",
+									"members": []
+								}
+							}
+						],
+						"relations": [
+							{
+								"key": "r-tasks-owner",
+								"details": {
+									"sourceMultiplicity": "0..*",
+									"targetMultiplicity": "1",
+									"sourceMember": "owner_id",
+									"targetMember": "id",
+									"protocol": ""
+								}
+							},
+							{
+								"key": "r-api-service-depends-on-database-service",
+								"details": {
+									"sourceMultiplicity": "",
+									"targetMultiplicity": "",
+									"sourceMember": "",
+									"targetMember": "",
+									"protocol": ""
+								}
+							}
+						]
+					},
+					"plan": [
+						{
+							"key": "d-containers",
+							"name": "Task API containers",
+							"kind": "c4Container",
+							"feature": "f-task-completion",
+							"intent": "Show the Task API system boundary, its application container, API caller, and declared PostgreSQL store.",
+							"focus": [
+								"c-api-client",
+								"c-task-api-system",
+								"c-api-container",
+								"c-postgres-store",
+								"r-api-depends-on-database"
+							]
+						},
+						{
+							"key": "d-database-schema",
+							"name": "Task database schema",
+							"kind": "databaseSchema",
+							"feature": "f-task-completion",
+							"intent": "Document the physical users and tasks tables, verified columns, keys, and ownership reference.",
+							"focus": [
+								"c-postgres-store",
+								"c-users-table",
+								"c-tasks-table",
+								"r-tasks-owner"
+							]
+						},
+						{
+							"key": "d-domain-classes",
+							"name": "Task completion classes",
+							"kind": "class",
+							"feature": "f-task-completion",
+							"intent": "Explain the Task, TaskService, and TaskStore abstractions used to complete and persist a task.",
+							"focus": [
+								"u0",
+								"u3",
+								"u6",
+								"r-service-depends-on-store",
+								"r-service-depends-on-task",
+								"r-store-depends-on-task"
+							]
+						},
+						{
+							"key": "d-local-deployment",
+							"name": "Local Compose deployment",
+							"kind": "deployment",
+							"feature": "f-task-completion",
+							"intent": "Show the explicitly declared local Compose environment, API and database services, images, and backend bridge network.",
+							"focus": [
+								"c-compose-environment",
+								"c-backend-network",
+								"c-api-service",
+								"c-database-service",
+								"c-task-api-image",
+								"c-postgres-image",
+								"r-api-service-depends-on-database-service"
+							]
+						},
+						{
+							"key": "d-completion-dataflow",
+							"name": "Task completion data flow",
+							"kind": "dataFlow",
+							"feature": "f-task-completion",
+							"intent": "Trace the completion request, task update, and confirmation across the caller and completion process.",
+							"focus": [
+								"c-api-client",
+								"c-complete-task-process",
+								"c-task-resource",
+								"r-client-submits-request",
+								"r-process-updates-task",
+								"r-process-returns-confirmation"
+							]
+						},
+						{
+							"key": "d-task-lifecycle",
+							"name": "Task lifecycle",
+							"kind": "state",
+							"feature": "f-task-completion",
+							"intent": "Show the evidenced pending-to-completed transition caused by the completion operation.",
+							"focus": [
+								"c-task-resource",
+								"c-task-pending",
+								"c-task-completed",
+								"r-task-completion-transition"
+							]
+						}
+					],
+					"overview": {
+						"key": "d-containers",
+						"name": "Task API containers",
+						"intent": "Structural overview of the Task API, caller, application container, and declared database store."
+					},
+					"coverage": {
+						"targets": {
+							"u0": "u0",
+							"u1": "u1",
+							"u2": "u0",
+							"u3": "u3",
+							"u4": "u4",
+							"u5": "u3",
+							"u6": "u6",
+							"u7": "u6",
+							"u8": "c-tasks-table",
+							"u9": "c-compose-environment",
+							"u10": "u10"
+						}
+					}
+				},
+				"graphRelations": []
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-containers",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-api-client",
+						"c:c-task-api-system",
+						"c:c-api-container",
+						"c:c-postgres-store"
+					],
+					"relations": [
+						"r-api-depends-on-database"
+					],
+					"connections": [
+						{
+							"kind": "communication",
+							"from": "c:c-api-client",
+							"to": "c:c-api-container",
+							"name": "submits task-completion request",
+							"evidence": [
+								"u10"
+							],
+							"details": null
+						}
+					]
+				},
+				"graphRelations": [
+					{
+						"key": "r-api-depends-on-database",
+						"kind": "dependency",
+						"from": "c:c-api-container",
+						"to": "c:c-postgres-store",
+						"name": "depends on database service",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-database-schema",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-users-table",
+						"c:c-tasks-table"
+					],
+					"relations": [
+						"r-tasks-owner"
+					],
+					"connections": []
+				},
+				"graphRelations": [
+					{
+						"key": "r-tasks-owner",
+						"kind": "association",
+						"from": "c:c-tasks-table",
+						"to": "c:c-users-table",
+						"name": "owner_id references users",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-domain-classes",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"u0",
+						"u3",
+						"u6"
+					],
+					"relations": [
+						"r-service-depends-on-store",
+						"r-service-depends-on-task",
+						"r-store-depends-on-task"
+					],
+					"connections": []
+				},
+				"graphRelations": [
+					{
+						"key": "r-service-depends-on-store",
+						"kind": "dependency",
+						"from": "u3",
+						"to": "u6",
+						"name": "uses task store",
+						"condition": null
+					},
+					{
+						"key": "r-service-depends-on-task",
+						"kind": "dependency",
+						"from": "u3",
+						"to": "u0",
+						"name": "uses task",
+						"condition": null
+					},
+					{
+						"key": "r-store-depends-on-task",
+						"kind": "dependency",
+						"from": "u6",
+						"to": "u0",
+						"name": "stores tasks",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-local-deployment",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-compose-environment",
+						"c:c-backend-network",
+						"c:c-api-service",
+						"c:c-database-service",
+						"c:c-task-api-image",
+						"c:c-postgres-image"
+					],
+					"relations": [
+						"r-compose-hosts-api",
+						"r-compose-hosts-database",
+						"r-api-service-hosts-image",
+						"r-database-service-hosts-image",
+						"r-backend-hosts-api",
+						"r-backend-hosts-database",
+						"r-api-service-depends-on-database-service"
+					],
+					"connections": []
+				},
+				"graphRelations": [
+					{
+						"key": "r-api-depends-on-database",
+						"kind": "dependency",
+						"from": "c:c-api-container",
+						"to": "c:c-postgres-store",
+						"name": "depends on database service",
+						"condition": null
+					},
+					{
+						"key": "r-compose-hosts-api",
+						"kind": "hosting",
+						"from": "c:c-compose-environment",
+						"to": "c:c-api-service",
+						"name": "defines service",
+						"condition": null
+					},
+					{
+						"key": "r-compose-hosts-database",
+						"kind": "hosting",
+						"from": "c:c-compose-environment",
+						"to": "c:c-database-service",
+						"name": "defines service",
+						"condition": null
+					},
+					{
+						"key": "r-api-service-hosts-image",
+						"kind": "hosting",
+						"from": "c:c-api-service",
+						"to": "c:c-task-api-image",
+						"name": "runs image",
+						"condition": null
+					},
+					{
+						"key": "r-database-service-hosts-image",
+						"kind": "hosting",
+						"from": "c:c-database-service",
+						"to": "c:c-postgres-image",
+						"name": "runs image",
+						"condition": null
+					},
+					{
+						"key": "r-backend-hosts-api",
+						"kind": "hosting",
+						"from": "c:c-backend-network",
+						"to": "c:c-api-service",
+						"name": "connects service",
+						"condition": null
+					},
+					{
+						"key": "r-backend-hosts-database",
+						"kind": "hosting",
+						"from": "c:c-backend-network",
+						"to": "c:c-database-service",
+						"name": "connects service",
+						"condition": null
+					},
+					{
+						"key": "r-api-service-depends-on-database-service",
+						"kind": "dependency",
+						"from": "c:c-api-service",
+						"to": "c:c-database-service",
+						"name": "depends_on",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-completion-dataflow",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-api-client",
+						"c:c-complete-task-process",
+						"c:c-task-resource"
+					],
+					"relations": [
+						"r-client-submits-request",
+						"r-process-updates-task",
+						"r-process-returns-confirmation"
+					],
+					"connections": []
+				},
+				"graphRelations": [
+					{
+						"key": "r-client-submits-request",
+						"kind": "dataFlow",
+						"from": "c:c-api-client",
+						"to": "c:c-complete-task-process",
+						"name": "task identifier",
+						"condition": null
+					},
+					{
+						"key": "r-process-updates-task",
+						"kind": "dataFlow",
+						"from": "c:c-complete-task-process",
+						"to": "c:c-task-resource",
+						"name": "completed task update",
+						"condition": null
+					},
+					{
+						"key": "r-process-returns-confirmation",
+						"kind": "dataFlow",
+						"from": "c:c-complete-task-process",
+						"to": "c:c-api-client",
+						"name": "ok confirmation",
+						"condition": null
+					}
+				]
+			},
+			{
+				"step": "diagram",
+				"diagramKey": "d-task-lifecycle",
+				"response": {
+					"questions": [],
+					"nodes": [
+						"c:c-task-resource",
+						"c:c-task-pending",
+						"c:c-task-completed"
+					],
+					"relations": [
+						"r-task-completion-transition"
+					]
+				},
+				"graphRelations": [
+					{
+						"key": "r-task-completion-transition",
+						"kind": "transition",
+						"from": "c:c-task-pending",
+						"to": "c:c-task-completed",
+						"name": "complete",
+						"condition": null
+					}
+				]
+			}
+		]
+	},
+	{
+		"case": "reject-incorrect-sql-nullability",
+		"model": "gpt-5.6-terra",
+		"expectedRejection": "NOT NULL",
+		"provenance": "Actual earlier real model output had false required flags for explicit NOT NULL columns; retained as a negative regression.",
+		"calls": [
+			{
+				"step": "project",
+				"diagramKey": null,
+				"response": {
+					"summary": "Task-completion service with a declared SQL schema and local Docker Compose deployment. Proposed seven connected, evidence-grounded views: requested container, schema, class, deployment and data-flow perspectives, plus completion sequence and lifecycle views.",
+					"questions": [],
+					"features": [
+						{
+							"key": "f-task-completion",
+							"name": "Complete task",
+							"description": "Marks a stored task complete through the route, service and task domain behavior."
+						}
+					],
+					"elements": [
+						{
+							"symbol": "u0",
+							"kind": "class",
+							"name": "Task",
+							"description": "Java task domain class with identifier, title and completion flag.",
+							"feature": "f-task-completion",
+							"parent": null
+						},
+						{
+							"symbol": "u1",
+							"kind": "action",
+							"name": "Mark task complete",
+							"description": "Sets the task completion flag to true.",
+							"feature": "f-task-completion",
+							"parent": "u0"
+						},
+						{
+							"symbol": "u3",
+							"kind": "class",
+							"name": "TaskService",
+							"description": "Service coordinating task lookup, completion and persistence.",
+							"feature": "f-task-completion",
+							"parent": null
+						},
+						{
+							"symbol": "u4",
+							"kind": "action",
+							"name": "Complete task service operation",
+							"description": "Finds a task, marks it complete, then saves it.",
+							"feature": "f-task-completion",
+							"parent": "u3"
+						},
+						{
+							"symbol": "u6",
+							"kind": "interface",
+							"name": "TaskStore",
+							"description": "Storage abstraction for finding and saving tasks.",
+							"feature": "f-task-completion",
+							"parent": null
+						},
+						{
+							"symbol": "u10",
+							"kind": "controller",
+							"name": "Complete task endpoint",
+							"description": "Request handler that delegates task completion and returns an acknowledgement.",
+							"feature": "f-task-completion",
+							"parent": "c-task-api"
+						}
+					],
+					"concepts": [
+						{
+							"key": "c-task-system",
+							"kind": "system",
+							"name": "Task system",
+							"description": "System providing task-completion behavior.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u10"
+						},
+						{
+							"key": "c-external-client",
+							"kind": "actor",
+							"name": "API client",
+							"description": "External caller of the task-completion endpoint.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u10"
+						},
+						{
+							"key": "c-task-api",
+							"kind": "container",
+							"name": "Task API",
+							"description": "Application API container exposing the completion endpoint.",
+							"feature": "f-task-completion",
+							"parent": "c-task-system",
+							"source": "u10"
+						},
+						{
+							"key": "c-task-resource",
+							"kind": "resource",
+							"name": "Task",
+							"description": "Task domain resource whose completion status can change.",
+							"feature": "f-task-completion",
+							"parent": "c-task-system",
+							"source": "u0"
+						},
+						{
+							"key": "c-incomplete",
+							"kind": "state",
+							"name": "Incomplete",
+							"description": "Task state before its completion flag is set.",
+							"feature": "f-task-completion",
+							"parent": "c-task-resource",
+							"source": "u0"
+						},
+						{
+							"key": "c-completed",
+							"kind": "state",
+							"name": "Completed",
+							"description": "Task state after its completion flag is set.",
+							"feature": "f-task-completion",
+							"parent": "c-task-resource",
+							"source": "u1"
+						},
+						{
+							"key": "c-complete-task-process",
+							"kind": "process",
+							"name": "Complete task",
+							"description": "Process handling a completion request and updating the task resource.",
+							"feature": "f-task-completion",
+							"parent": "c-task-api",
+							"source": "u10"
+						},
+						{
+							"key": "c-task-database",
+							"kind": "dataStore",
+							"name": "Task database",
+							"description": "Declared database service holding the supplied task schema.",
+							"feature": "f-task-completion",
+							"parent": "c-task-system",
+							"source": "u8"
+						},
+						{
+							"key": "c-users-table",
+							"kind": "table",
+							"name": "users",
+							"description": "Physical users table declared in the SQL schema.",
+							"feature": "f-task-completion",
+							"parent": "c-task-database",
+							"source": "u8"
+						},
+						{
+							"key": "c-tasks-table",
+							"kind": "table",
+							"name": "tasks",
+							"description": "Physical tasks table declared in the SQL schema.",
+							"feature": "f-task-completion",
+							"parent": "c-task-database",
+							"source": "u8"
+						},
+						{
+							"key": "c-compose-environment",
+							"kind": "deploymentNode",
+							"name": "Local Docker Compose environment",
+							"description": "Declared local Compose deployment environment.",
+							"feature": "f-task-completion",
+							"parent": null,
+							"source": "u9"
+						},
+						{
+							"key": "c-backend-network",
+							"kind": "networkNode",
+							"name": "backend network",
+							"description": "Declared bridge network shared by API and database services.",
+							"feature": "f-task-completion",
+							"parent": "c-compose-environment",
+							"source": "u9"
+						},
+						{
+							"key": "c-api-image",
+							"kind": "artifact",
+							"name": "task-api:1 image",
+							"description": "Declared API container image.",
+							"feature": "f-task-completion",
+							"parent": "c-compose-environment",
+							"source": "u9"
+						},
+						{
+							"key": "c-postgres-image",
+							"kind": "artifact",
+							"name": "postgres:17 image",
+							"description": "Declared database container image.",
+							"feature": "f-task-completion",
+							"parent": "c-compose-environment",
+							"source": "u9"
+						}
+					],
+					"relations": [
+						{
+							"key": "r-endpoint-invokes-service",
+							"kind": "invocation",
+							"from": "u10",
+							"to": "u4",
+							"name": "delegates completion",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-loads-task",
+							"kind": "read",
+							"from": "u4",
+							"to": "c-task-resource",
+							"name": "find task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-invokes-task-completion",
+							"kind": "invocation",
+							"from": "u4",
+							"to": "u1",
+							"name": "marks complete",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-saves-task",
+							"kind": "write",
+							"from": "u4",
+							"to": "c-task-resource",
+							"name": "save task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-depends-task",
+							"kind": "dependency",
+							"from": "u3",
+							"to": "u0",
+							"name": "uses Task",
+							"condition": null,
+							"evidence": [
+								"u3"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-service-depends-store",
+							"kind": "dependency",
+							"from": "u3",
+							"to": "u6",
+							"name": "uses TaskStore",
+							"condition": null,
+							"evidence": [
+								"u3"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-store-depends-task",
+							"kind": "dependency",
+							"from": "u6",
+							"to": "u0",
+							"name": "stores Task",
+							"condition": null,
+							"evidence": [
+								"u6"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-task-completes",
+							"kind": "transition",
+							"from": "c-incomplete",
+							"to": "c-completed",
+							"name": "complete",
+							"condition": "completion operation is invoked",
+							"evidence": [
+								"u1"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-task-owner",
+							"kind": "association",
+							"from": "c-tasks-table",
+							"to": "c-users-table",
+							"name": "owner_id references users.id",
+							"condition": null,
+							"evidence": [
+								"u8"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-client-calls-api",
+							"kind": "communication",
+							"from": "c-external-client",
+							"to": "c-task-api",
+							"name": "completion request",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-api-depends-database",
+							"kind": "dependency",
+							"from": "c-task-api",
+							"to": "c-task-database",
+							"name": "depends_on database",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-api-database-network",
+							"kind": "communication",
+							"from": "c-task-api",
+							"to": "c-task-database",
+							"name": "shared backend network",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-compose-hosts-api",
+							"kind": "hosting",
+							"from": "c-compose-environment",
+							"to": "c-task-api",
+							"name": "runs api service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-compose-hosts-database",
+							"kind": "hosting",
+							"from": "c-compose-environment",
+							"to": "c-task-database",
+							"name": "runs database service",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-compose-hosts-api-image",
+							"kind": "hosting",
+							"from": "c-compose-environment",
+							"to": "c-api-image",
+							"name": "uses image",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-compose-hosts-postgres-image",
+							"kind": "hosting",
+							"from": "c-compose-environment",
+							"to": "c-postgres-image",
+							"name": "uses image",
+							"condition": null,
+							"evidence": [
+								"u9"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-client-sends-completion",
+							"kind": "dataFlow",
+							"from": "c-external-client",
+							"to": "c-complete-task-process",
+							"name": "task identifier",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-process-updates-task",
+							"kind": "dataFlow",
+							"from": "c-complete-task-process",
+							"to": "c-task-resource",
+							"name": "completed task",
+							"condition": null,
+							"evidence": [
+								"u4"
+							],
+							"classification": "inferred"
+						},
+						{
+							"key": "r-process-returns-ack",
+							"kind": "dataFlow",
+							"from": "c-complete-task-process",
+							"to": "c-external-client",
+							"name": "ok acknowledgement",
+							"condition": null,
+							"evidence": [
+								"u10"
+							],
+							"classification": "inferred"
+						}
+					],
+					"diagrams": [],
+					"notation": {
+						"elements": [
+							{
+								"ref": "u0",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "long",
+											"kind": "attribute",
+											"key": "none",
+											"required": false
+										},
+										{
+											"name": "title",
+											"type": "String",
+											"kind": "attribute",
+											"key": "none",
+											"required": false
+										},
+										{
+											"name": "completed",
+											"type": "boolean",
+											"kind": "attribute",
+											"key": "none",
+											"required": false
+										},
+										{
+											"name": "complete",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": false
+										}
+									]
+								}
+							},
+							{
+								"ref": "u3",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "store",
+											"type": "TaskStore",
+											"kind": "attribute",
+											"key": "none",
+											"required": false
+										},
+										{
+											"name": "complete",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": false
+										}
+									]
+								}
+							},
+							{
+								"ref": "u6",
+								"details": {
+									"technology": "Java",
+									"environment": "",
+									"members": [
+										{
+											"name": "find",
+											"type": "Task",
+											"kind": "method",
+											"key": "none",
+											"required": false
+										},
+										{
+											"name": "save",
+											"type": "void",
+											"kind": "method",
+											"key": "none",
+											"required": false
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-users-table",
+								"details": {
+									"technology": "SQL",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "primary",
+											"required": false
+										},
+										{
+											"name": "name",
+											"type": "VARCHAR(100)",
+											"kind": "attribute",
+											"key": "none",
+											"required": false
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-tasks-table",
+								"details": {
+									"technology": "SQL",
+									"environment": "",
+									"members": [
+										{
+											"name": "id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "primary",
+											"required": false
+										},
+										{
+											"name": "owner_id",
+											"type": "BIGINT",
+											"kind": "attribute",
+											"key": "foreign",
+											"required": false
+										},
+										{
+											"name": "title",
+											"type": "VARCHAR(200)",
+											"kind": "attribute",
+											"key": "none",
+											"required": false
+										},
+										{
+											"name": "completed",
+											"type": "BOOLEAN",
+											"kind": "attribute",
+											"key": "none",
+											"required": false
+										}
+									]
+								}
+							},
+							{
+								"ref": "c-task-database",
+								"details": {
+									"technology": "PostgreSQL 17",
+									"environment": "local Compose",
+									"members": []
+								}
+							},
+							{
+								"ref": "c-compose-environment",
+								"details": {
+									"technology": "Docker Compose",
+									"environment": "local",
+									"members": []
+								}
+							},
+							{
+								"ref": "c-backend-network",
+								"details": {
+									"technology": "bridge",
+									"environment": "local Compose",
+									"members": []
+								}
+							},
+							{
+								"ref": "c-api-image",
+								"details": {
+									"technology": "task-api:1",
+									"environment": "local Compose",
+									"members": []
+								}
+							},
+							{
+								"ref": "c-postgres-image",
+								"details": {
+									"technology": "postgres:17",
+									"environment": "local Compose",
+									"members": []
+								}
+							}
+						],
+						"relations": [
+							{
+								"key": "r-task-owner",
+								"details": {
+									"sourceMultiplicity": "0..*",
+									"targetMultiplicity": "1",
+									"sourceMember": "owner_id",
+									"targetMember": "id",
+									"protocol": ""
+								}
+							},
+							{
+								"key": "r-api-database-network",
+								"details": {
+									"sourceMultiplicity": "",
+									"targetMultiplicity": "",
+									"sourceMember": "",
+									"targetMember": "",
+									"protocol": ""
+								}
+							}
+						]
+					},
+					"plan": [
+						{
+							"key": "d-container-overview",
+							"name": "Task system containers",
+							"kind": "c4Container",
+							"feature": null,
+							"intent": "Show the system boundary, external API caller, API container and declared database dependency.",
+							"focus": [
+								"c-task-system",
+								"c-external-client",
+								"c-task-api",
+								"c-task-database",
+								"r-client-calls-api",
+								"r-api-depends-database"
+							]
+						},
+						{
+							"key": "d-database-schema",
+							"name": "Task database schema",
+							"kind": "databaseSchema",
+							"feature": "f-task-completion",
+							"intent": "Show the supplied physical users and tasks tables, real columns, keys and ownership foreign key.",
+							"focus": [
+								"c-task-database",
+								"c-users-table",
+								"c-tasks-table",
+								"r-task-owner"
+							]
+						},
+						{
+							"key": "d-class-model",
+							"name": "Task completion classes",
+							"kind": "class",
+							"feature": "f-task-completion",
+							"intent": "Show the domain class, service and persistence interface with their evidenced dependencies and members.",
+							"focus": [
+								"u0",
+								"u3",
+								"u6",
+								"r-service-depends-task",
+								"r-service-depends-store",
+								"r-store-depends-task"
+							]
+						},
+						{
+							"key": "d-local-deployment",
+							"name": "Local Compose deployment",
+							"kind": "deployment",
+							"feature": null,
+							"intent": "Show the declared local Compose node, images, API and PostgreSQL database on the backend network without inferring production infrastructure.",
+							"focus": [
+								"c-compose-environment",
+								"c-backend-network",
+								"c-task-api",
+								"c-task-database",
+								"c-api-image",
+								"c-postgres-image",
+								"r-compose-hosts-api",
+								"r-compose-hosts-database"
+							]
+						},
+						{
+							"key": "d-completion-data-flow",
+							"name": "Task completion data flow",
+							"kind": "dataFlow",
+							"feature": "f-task-completion",
+							"intent": "Show the completion request, task update and acknowledgement payloads.",
+							"focus": [
+								"c-external-client",
+								"c-complete-task-process",
+								"c-task-resource",
+								"r-client-sends-completion",
+								"r-process-updates-task",
+								"r-process-returns-ack"
+							]
+						},
+						{
+							"key": "d-completion-sequence",
+							"name": "Task completion interaction",
+							"kind": "sequence",
+							"feature": "f-task-completion",
+							"intent": "Show the evidenced request delegation followed by task read, completion action and save.",
+							"focus": [
+								"c-external-client",
+								"u10",
+								"u4",
+								"u1",
+								"c-task-resource",
+								"r-endpoint-invokes-service",
+								"r-service-loads-task",
+								"r-service-invokes-task-completion",
+								"r-service-saves-task"
+							]
+						},
+						{
+							"key": "d-task-lifecycle",
+							"name": "Task lifecycle",
+							"kind": "state",
+							"feature": "f-task-completion",
+							"intent": "Show the boolean-backed transition from incomplete to completed.",
+							"focus": [
+								"c-task-resource",
+								"c-incomplete",
+								"c-completed",
+								"r-task-completes"
+							]
+						}
+					],
+					"overview": {
+						"key": "d-container-overview",
+						"name": "Task system containers",
+						"intent": "Structural overview of the API, its caller and its declared database dependency."
+					},
+					"coverage": {
+						"targets": {
+							"u0": "u0",
+							"u1": "u1",
+							"u2": "x:syntax",
+							"u3": "u3",
+							"u4": "u4",
+							"u5": "x:syntax",
+							"u6": "u6",
+							"u7": "x:syntax",
+							"u8": "c-task-database",
+							"u9": "c-compose-environment",
+							"u10": "u10"
+						}
+					}
+				},
+				"graphRelations": []
+			}
+		]
+	}
+]
