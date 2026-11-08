@@ -11,7 +11,8 @@ import { readSemanticModel, semanticModelV3Schema, type SemanticModel } from '..
 import { importCode, validateProjection, type CodeImport } from './importCode.ts';
 import type { SyncReport } from './syncCode.ts';
 import { array, object, text, identifier, digest, evidence, semanticGraphSchema } from './schemas.ts';
-import { isSourcePath, outputOutsideSource } from './paths.ts';
+import { isSourcePath, outputOutsideSource, isDisclosableSource } from './paths.ts';
+import { sourceFile } from './sourceChanges.ts';
 import { readSourceScope } from './sourceScope.ts';
 
 const hash = (text: string): string => createHash('sha256').update(text).digest('hex');
@@ -32,7 +33,8 @@ const validateState = ajv.compile<CodeImport>(object({
 		diagnostics: array(object({ code: { enum: ['syntaxError', 'unresolvedConstruct', 'unnamedDeclaration', 'duplicateName', 'unsupportedLanguage', 'fileTooLarge', 'symlink'] }, file: text, syntaxKind: text, count: { type: 'integer', minimum: 1 }, evidence }, ['syntaxKind', 'evidence']))
 	}, ['moduleId', 'language', 'revision']))
 }, ['semantic', 'scope']));
-const validateMarker = ajv.compile<{ version: 1; state: string; index: string }>(object({ version: { const: 1 }, state: digest, index: digest }));
+const validateMarker = ajv.compile<{ version: 1; state: string; index: string; common?: string; sources?: string }>(object({ version: { const: 1 }, state: digest, index: digest, common: digest, sources: digest }, ['common', 'sources']));
+const validateSources = ajv.compile<Record<string, { revision: string; content: string }>>({ type: 'object', additionalProperties: object({ revision: digest, content: { type: 'string' } }) });
 const filenames = ['snapshot.json', 'import-state.json', 'code-index.json', 'model.ade.json'] as const;
 const maxArtifactBytes = 64 * 1024 * 1024;
 
@@ -42,6 +44,10 @@ export interface ImportSnapshot {
 	model: SemanticModel;
 	inputHash: string;
 	directory: string;
+	/** Last successfully reconciled model, distinct from the editable document and generated facts. */
+	commonModel: SemanticModel;
+	/** Bounded, sealed code preimages. Missing files are explicitly unknown, never reconstructed by AI. */
+	commonSources: Record<string, { revision: string; content: string }>;
 }
 
 /** Rejects malformed or mixed state before it is used as a cache. */
@@ -89,10 +95,29 @@ export async function readSnapshot(directory: string): Promise<ImportSnapshot> {
 	if (!validateMarker(marker) || marker.state !== hash(stateText) || marker.index !== hash(indexText)) { throw new Error('Incomplete or inconsistent import snapshot'); }
 	const state = readImportState(JSON.parse(stateText));
 	const model = readSemanticModel(JSON.parse(modelText));
+	let commonText: string | undefined;
+	if (marker.common) {
+		const path = join(directory, 'common-model.json');
+		if ((await stat(path)).size > maxArtifactBytes) { throw new Error('Common model exceeds 64 MiB'); }
+		commonText = await readFile(path, 'utf8');
+		if (hash(commonText) !== marker.common) { throw new Error('Common model differs from its completion marker'); }
+	}
+	const commonModel = commonText ? readSemanticModel(JSON.parse(commonText)) : structuredClone(state.model);
+	if (commonModel.id !== state.projectId) { throw new Error('Common model belongs to a different project'); }
+	let sourcesText: string | undefined;
+	let commonSources: ImportSnapshot['commonSources'] = {};
+	if (marker.sources) {
+		const path = join(directory, 'common-code.json');
+		if ((await stat(path)).size > maxArtifactBytes) { throw new Error('Common code exceeds 64 MiB'); }
+		sourcesText = await readFile(path, 'utf8');
+		const sources: unknown = JSON.parse(sourcesText);
+		if (hash(sourcesText) !== marker.sources || !validateSources(sources) || Object.entries(sources).some(([file, source]) => !isDisclosableSource(file) || hash(source.content) !== source.revision)) { throw new Error('Common code differs from its sealed baseline'); }
+		commonSources = sources;
+	}
 	if (model.id !== state.projectId) { throw new Error('Snapshot model belongs to a different project'); }
 	const { model: generated, ...index } = state;
 	if (JSON.stringify(JSON.parse(indexText)) !== JSON.stringify(index)) { throw new Error('Snapshot index differs from its baseline'); }
-	return { state, model, inputHash: hash(JSON.stringify(artifacts)), directory };
+	return { state, model, commonModel, commonSources, inputHash: hash(JSON.stringify([...artifacts, ...(commonText ? [commonText] : []), ...(sourcesText ? [sourcesText] : [])])), directory };
 }
 
 /** Writes a new recoverable version and marks it complete only after freshness checks pass. */
@@ -106,8 +131,25 @@ export async function writeSnapshot(destination: string, state: CodeImport, mode
 	const serialize = (value: object): string => JSON.stringify(value, null, '\t') + '\n';
 	const stateText = serialize(state);
 	const indexText = serialize(index);
+	const commonSources: ImportSnapshot['commonSources'] = {};
+	let remainingSourceBytes = 8 * 1024 * 1024;
+	for (const file of state.files.filter(file => !['excluded', 'configuration'].includes(file.status) && isDisclosableSource(file.file))) {
+		signal?.throwIfAborted();
+		const info = await stat(join(state.sourceRoot, file.file));
+		if (!info.isFile() || info.size > 262144 || info.size > remainingSourceBytes) { continue; }
+		let source: Awaited<ReturnType<typeof sourceFile>>;
+		try { source = await sourceFile(state.sourceRoot, file.file); }
+		catch (error) { if (file.status !== 'parsed' && error instanceof TypeError && 'code' in error && error.code === 'ERR_ENCODING_INVALID_ENCODED_DATA') { continue; } throw error; }
+		if (source.content.includes('\0')) { continue; }
+		const revision = hash(source.content);
+		if (file.revision && file.revision !== revision) { throw new Error('Source changed before common revision capture'); }
+		commonSources[file.file] = { revision, content: source.content }; remainingSourceBytes -= Buffer.byteLength(source.content);
+	}
+	const sourcesText = serialize(commonSources);
 	const payloads = new Map<string, string>([
 		['model.ade.json', serialize(model)], ['code-index.json', indexText], ['import-state.json', stateText],
+		['common-model.json', serialize(model)],
+		['common-code.json', sourcesText],
 	]);
 	if (report) { payloads.set('sync-report.json', serialize(report)); }
 	if ([...payloads.values()].some(value => Buffer.byteLength(value) > maxArtifactBytes)) { throw new Error('Snapshot artifact exceeds 64 MiB'); }
@@ -117,9 +159,10 @@ export async function writeSnapshot(destination: string, state: CodeImport, mode
 		for (const [name, content] of payloads) { signal?.throwIfAborted(); await writeFile(join(output, name), content, { flag: 'wx' }); }
 		const observed = await importCode(state.sourceRoot, state.projectId, { previous: state, signal });
 		if (observed.revision !== state.revision) { throw new Error('Source changed before snapshot publication'); }
+		for (const [file, source] of Object.entries(commonSources)) { if (hash((await sourceFile(state.sourceRoot, file)).content) !== source.revision) { throw new Error('Common source changed before snapshot publication'); } }
 		if (previous && (await readSnapshot(previous.directory)).inputHash !== previous.inputHash) { throw new Error('Previous snapshot changed during Sync'); }
 		signal?.throwIfAborted();
-		await writeFile(join(output, 'snapshot.json'), serialize({ version: 1, state: hash(stateText), index: hash(indexText) }), { flag: 'wx' });
+		await writeFile(join(output, 'snapshot.json'), serialize({ version: 1, state: hash(stateText), index: hash(indexText), common: hash(serialize(model)), sources: hash(sourcesText) }), { flag: 'wx' });
 		return output;
 	} catch (error) {
 		await rm(output, { recursive: true, force: true });

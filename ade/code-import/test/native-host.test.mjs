@@ -7,18 +7,65 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { engine } from '../nativeHost.ts';
+import { engine as productionEngine, createCodeEngine, codeBridgeProtocol } from '../nativeHost.ts';
+import { adeCodeProtocolVersion } from '../../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 import { importCode } from '../importCode.ts';
 import { createTypeScriptBundle } from '../typescriptSemantic.ts';
 import { applyScipBundles } from '../scip.ts';
 import { defaultScope } from '../sourceScope.ts';
-const call = async request => JSON.parse(await engine.execute(JSON.stringify(request)));
+// Existing code-evidence scenarios now include an explicit structured AI proposal.
+// The provider is simulated; tests still traverse the production validation/publication boundary.
+const engine = createCodeEngine({ async complete(_config, prompt) {
+	const context = JSON.parse(prompt.slice(prompt.indexOf('\n') + 1));
+	return { value: { summary: 'Reconcile observed code changes', questions: [], sourceEdits: [], bindings: [], modelEdits: [
+		...context.changes.elements.map(item => ({ collection: 'elements', id: item.id, value: item.code ? { ...item.model, ...item.code } : null })),
+		...context.changes.relations.map(item => ({ collection: 'relations', id: item.id, value: item.code ? { ...item.model, ...item.code } : null }))
+	] }, usage: { inputTokens: 100, outputTokens: 50 }, cost: null };
+} });
+const config = { version: 1, provider: 'codex', connection: 'cli', model: 'test-model', executable: 'codex', maxCalls: 1, timeoutMs: 10000, maxContextBytes: 262144 };
+const call = async request => {
+	const result = JSON.parse(await engine.execute(JSON.stringify(request)));
+	if (request.operation !== 'preview') { return result; }
+	const prepared = JSON.parse(await engine.execute(JSON.stringify({ operation: 'reconciliationPrepare', token: result.token, config: JSON.stringify(config), sourceFiles: [] })));
+	return JSON.parse(await engine.execute(JSON.stringify({ operation: 'reconciliationPropose', token: result.token, reviewId: prepared.reviewId })));
+};
 async function workspace(t, files) {
 	const root = await mkdtemp(join(tmpdir(), 'ade-native-code-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	for (const [file, text] of Object.entries(files)) { await mkdir(join(root, file, '..'), { recursive: true }); await writeFile(join(root, file), text); }
 	return root;
 }
+test('native boundary advertises the semantic diagram protocol', () => {
+	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'restore', 'source'] });
+});
+test('native boundary identifies malformed AI requests without disclosing configuration values', async () => {
+	for (const [request, expected] of [
+		[{ operation: 'diagramPrepare', config: 'private-config' }, /\(diagramPrepare\).*required property 'snapshot'/],
+		[{ operation: 'diagramStep', snapshot: '/unused', id: 'job' }, /\(diagramStep\).*required property 'reviewId'/],
+		[{ operation: 'diagramStep', snapshot: '/unused', id: '', reviewId: 'review' }, /\(diagramStep\).*request\/id.*fewer than 1 characters/],
+		[{ operation: 'reconciliationPrepare', token: 'token', config: 'private-config', sourceFiles: [], extra: 'private-extra' }, /\(reconciliationPrepare\).*additional properties/],
+		[{ operation: 'unknown-private-operation', config: 'private-config' }, /missing or unsupported operation/]
+	]) {
+		await assert.rejects(productionEngine.execute(JSON.stringify(request)), error => {
+			assert.match(error.message, expected);
+			assert.doesNotMatch(error.message, /private-/);
+			return true;
+		});
+	}
+});
+test('reconciliation accepts more than 20 source files while enforcing the context budget', async t => {
+	const files = Object.fromEntries(Array.from({ length: 26 }, (_, index) => [`task${index}.py`, `def task${index}():\n    return ${index}\n`]));
+	const root = await workspace(t, files);
+	const initial = await call({ operation: 'import', root, syntaxOnly: true });
+	await writeFile(join(root, 'task0.py'), 'def task0():\n    return 99\n');
+	const preview = JSON.parse(await productionEngine.execute(JSON.stringify({ operation: 'preview', snapshot: initial.snapshot })));
+	const request = { operation: 'reconciliationPrepare', token: preview.token, config: JSON.stringify(config), sourceFiles: Object.keys(files) };
+	const prepared = JSON.parse(await productionEngine.execute(JSON.stringify(request)));
+	const context = JSON.parse(JSON.parse(prepared.contents).prompt.split('\n').slice(1).join('\n'));
+	assert.deepEqual(context.sources.map(source => source.file).sort(), Object.keys(files).sort());
+	await assert.rejects(productionEngine.execute(JSON.stringify({ ...request, config: JSON.stringify({ ...config, maxContextBytes: 1024 }) })), /exceeds the saved byte budget/);
+	await assert.rejects(productionEngine.execute(JSON.stringify({ ...request, sourceFiles: [...request.sourceFiles, request.sourceFiles[0]] })), /duplicate/);
+});
 test('native boundary imports, previews contract/rename/delete, preserves annotation, publishes and recovers', async t => {
 	const root = await workspace(t, { 'gateway.ts': 'export function charge(amount: number): boolean { return amount > 0; }', 'checkout.ts': 'import {charge as pay} from "./gateway"; export function checkout(value: number): boolean { return pay(value); }', 'unused.ts': 'export function unused() {}', 'steady.py': 'def steady():\n    return 1\n' });
 	const initial = await call({ operation: 'import', root });
@@ -92,7 +139,7 @@ test('native publication rejects stale source, bad requests and redirected owned
 	await writeFile(join(root, 'a.py'), 'def a(x): pass\n');
 	await assert.rejects(call({ operation: 'apply', token: preview.token }), /Source changed/);
 	await assert.rejects(call({ operation: 'source', snapshot: initial.snapshot, file: '../secret', revision: 'x', start: 0, end: 1 }), /Invalid/);
-	await assert.rejects(engine.execute('{"operation":"shell","command":"echo"}'), /Invalid/);
+	await assert.rejects(productionEngine.execute('{"operation":"shell","command":"echo"}'), /Invalid/);
 	const second = await workspace(t, { 'a.py': 'def a(): pass\n' });
 	await symlink(join(root, '.ade'), join(second, '.ade'));
 	await assert.rejects(call({ operation: 'import', root: second }), /symlink/);

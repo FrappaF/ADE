@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModel, ModelView } from './semanticModel.js';
+import type { SemanticModel, ModelView, SemanticElement } from './semanticModel.js';
 
 export type DiagramDensity = 'compact' | 'balanced' | 'spacious';
 
@@ -12,7 +12,7 @@ export function diagramNodeWidth(name: string): number { return Math.max(208, Ma
 export const diagramNodeHeight = 96;
 
 /** Layer the directed graph, grouping cycles into a single layer and separating disconnected components. */
-export function arrangeDiagram(model: SemanticModel, view: ModelView, density: DiagramDensity = 'balanced'): ModelView['nodes'] {
+export function arrangeDiagram(model: SemanticModel, view: ModelView, density: DiagramDensity = 'spacious'): ModelView['nodes'] {
 	const ids = view.nodes.map(node => node.elementId);
 	const members = new Set(ids);
 	const edges = model.semantics.relations.filter(edge => view.relationIds.includes(edge.id) && members.has(edge.from) && members.has(edge.to));
@@ -42,17 +42,88 @@ export function arrangeDiagram(model: SemanticModel, view: ModelView, density: D
 			for (const target of outgoing.get(id)!) { const other = owner.get(target)!; if (other !== index) { levels[other] = Math.max(levels[other], levels[index] + 1); } }
 		}
 	}
-	const gap = density === 'compact' ? 88 : density === 'spacious' ? 224 : 152;
-	const rowGap = density === 'compact' ? 72 : density === 'spacious' ? 168 : 112;
+	const gap = density === 'compact' ? 88 : density === 'spacious' ? 320 : 152;
+	const rowGap = density === 'compact' ? 72 : density === 'spacious' ? 208 : 112;
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
-	const columns = new Map<number, string[]>();
-	for (const id of ids) { const level = levels[owner.get(id)!]; const column = columns.get(level) ?? []; column.push(id); columns.set(level, column); }
+	const order = new Map(ids.map((id, index) => [id, index]));
+	const layers = new Map<number, number[]>();
+	groups.forEach((_, index) => { const level = levels[index]; const layer = layers.get(level) ?? []; layer.push(index); layers.set(level, layer); });
 	const positions = new Map<string, { x: number; y: number }>();
-	let x = 0;
-	for (const [, column] of [...columns].sort(([a], [b]) => a - b)) {
-		column.sort();
-		column.forEach((id, index) => positions.set(id, { x, y: index * (diagramNodeHeight + rowGap) }));
-		x += Math.max(...column.map(id => diagramNodeWidth(elements.get(id)!.name))) + gap;
+	const bands: { ids: string[]; x: number; width: number; height: number }[] = [];
+	let layerX = 0;
+	for (const [, layer] of [...layers].sort(([a], [b]) => a - b)) {
+		layer.sort((a, b) => Math.min(...groups[a].map(id => order.get(id)!)) - Math.min(...groups[b].map(id => order.get(id)!)));
+		const count = layer.reduce((sum, group) => sum + groups[group].length, 0);
+		const targetHeight = Math.ceil(Math.sqrt(count)) * (diagramNodeHeight + rowGap);
+		let columnX = layerX, columnWidth = 0, y = 0, layerRight = layerX;
+		for (const index of layer) {
+			const group = groups[index].sort((a, b) => order.get(a)! - order.get(b)!);
+			const columns = group.length > 3 ? Math.ceil(Math.sqrt(group.length)) : 1;
+			const width = Math.max(...group.map(id => notationNodeSize(elements.get(id)!).width));
+			const groupHeight = Math.max(...group.map(id => notationNodeSize(elements.get(id)!).height));
+			const rows = Math.ceil(group.length / columns), groupWidth = columns * (width + gap) - gap;
+			if (y && y + rows * (groupHeight + rowGap) > targetHeight) { columnX += columnWidth + gap; columnWidth = 0; y = 0; }
+			group.forEach((id, position) => positions.set(id, { x: columnX + position % columns * (width + gap), y: y + Math.floor(position / columns) * (groupHeight + rowGap) }));
+			columnWidth = Math.max(columnWidth, groupWidth); layerRight = Math.max(layerRight, columnX + groupWidth);
+			y += rows * (groupHeight + rowGap);
+		}
+		const bandIds = layer.flatMap(index => groups[index]);
+		bands.push({ ids: bandIds, x: layerX, width: layerRight - layerX, height: Math.max(...bandIds.map(id => positions.get(id)!.y + notationNodeSize(elements.get(id)!).height)) });
+		layerX = layerRight + gap;
+	}
+	// Long causal chains should occupy the canvas in bands, not shrink to an
+	// unreadable horizontal strip when fitted. Edges retain their direction.
+	if (bands.length > 3) {
+		let rowY = 0;
+		for (let start = 0; start < bands.length; start += 3) {
+			const row = bands.slice(start, start + 3), width = row.reduce((sum, band) => sum + band.width, 0) + (row.length - 1) * gap;
+			let x = 0;
+			for (const band of row) {
+				const left = start / 3 % 2 ? width - x - band.width : x;
+				for (const id of band.ids) { const point = positions.get(id)!; positions.set(id, { x: point.x - band.x + left, y: point.y + rowY }); }
+				x += band.width + gap;
+			}
+			rowY += Math.max(...row.map(band => band.height)) + rowGap;
+		}
 	}
 	return view.nodes.map(node => ({ ...node, ...positions.get(node.elementId)! }));
+}
+
+/** Text compartments are used consistently by geometry, native rendering and accessible reading. */
+export function notationLines(element: SemanticElement): string[] {
+	return [...[element.details?.technology, element.details?.environment].filter((value): value is string => !!value), ...(element.details?.members ?? []).map(member => `${member.key === 'none' ? '' : member.key.toUpperCase() + ' '}${member.name}${member.kind === 'method' ? '()' : ''}${member.type ? ': ' + member.type : ''}${['table', 'entity', 'resource'].includes(element.kind) && member.kind === 'attribute' && !member.required ? ' ?' : ''}`)];
+}
+export function notationNodeSize(element: SemanticElement): { width: number; height: number } {
+	if (element.kind === 'start' || element.kind === 'end') { return { width: 80, height: 80 }; }
+	const lines = notationLines(element);
+	const width = Math.max(208, Math.min(440, Math.max(element.name.length, ...lines.map(line => line.length)) * 8 + 40));
+	const columns = Math.max(1, Math.floor((width - 32) / 8));
+	return { width, height: Math.max(96, 60 + Math.ceil(element.name.length / columns) * 20 + lines.reduce((rows, line) => rows + Math.ceil(line.length / columns), 0) * 22) };
+}
+
+/** Boundaries use declared containment/hosting and never invent grouping from file paths. */
+export function notationBoundaries(model: SemanticModel, view: ModelView): { elementId: string; name: string; x: number; y: number; width: number; height: number }[] {
+	if (!['c4Container', 'c4Component', 'component', 'package', 'deployment', 'network', 'useCase', 'databaseSchema'].includes(view.kind)) { return []; }
+	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
+	return view.nodes.flatMap(node => {
+		const element = elements.get(node.elementId)!;
+		if (!['system', 'container', 'package', 'deploymentNode', 'networkNode', 'dataStore', 'resource'].includes(element.kind)) { return []; }
+		const children = notationGroupMembers(model, view, element.id);
+		children.delete(element.id);
+		const nodes = view.nodes.filter(child => children.has(child.elementId));
+		if (!nodes.length) { return []; }
+		const boxes = nodes.map(child => ({ ...child, ...notationNodeSize(elements.get(child.elementId)!) }));
+		const x = Math.min(...boxes.map(box => box.x)) - 24, y = Math.min(...boxes.map(box => box.y)) - 44;
+		return [{ elementId: element.id, name: element.name, x, y, width: Math.max(...boxes.map(box => box.x + box.width)) - x + 24, height: Math.max(...boxes.map(box => box.y + box.height)) - y + 24 }];
+	});
+}
+
+/** A visible boundary moves its declared descendants and hosted elements as one local layout edit. */
+export function notationGroupMembers(model: SemanticModel, view: ModelView, root: string): Set<string> {
+	const members = new Set([root]);
+	for (let count = 0; count < model.semantics.elements.length; count++) {
+		for (const child of model.semantics.elements) { if (child.parentId && members.has(child.parentId)) { members.add(child.id); } }
+		for (const relation of model.semantics.relations) { if (view.relationIds.includes(relation.id) && relation.kind === 'hosting' && members.has(relation.from)) { members.add(relation.to); } }
+	}
+	return members;
 }

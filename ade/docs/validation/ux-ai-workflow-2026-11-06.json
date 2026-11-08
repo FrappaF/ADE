@@ -1,0 +1,78 @@
+{
+  "recordedAt": "2026-11-06",
+  "timezone": "Europe/Rome",
+  "branch": "feat/m6-reconciliation",
+  "baseCommit": "e3aac2a8693f437dcea83d7f67fc23b5dd7d4e81",
+  "checks": {
+    "nativeServiceTests": 43,
+    "workbenchTypecheck": "passed",
+    "targetedLint": "passed",
+    "clientBuild": "passed",
+    "desktopDiagramWorkflow": "passed",
+    "desktopKeyboardAndThemes": "passed"
+  },
+  "provider": {
+    "kind": "simulated-original-cli",
+    "liveInference": false,
+    "nativeChat": "injected services",
+    "terminalChat": "Electron integrated terminal with simulated CLI"
+  },
+  "workflow": {
+    "importSteps": 2,
+    "diagrams": 2,
+    "primaryActions": [
+      "Diagrams",
+      "Update Code",
+      "Chat with Codex",
+      "Update Diagrams"
+    ],
+    "inspectorInitiallyHidden": true,
+    "directFirstSetup": true,
+    "codexTerminalReused": true,
+    "returnToDiagrams": true,
+    "activeDiagramPreserved": true,
+    "cancelledBeforeInference": true,
+    "failedGenerationResumed": true,
+    "modelToCode": true,
+    "codeToModel": true,
+    "codeToModelVisibleChange": true,
+    "provider": "simulated-original-cli"
+  },
+  "reviewedScreenshots": [
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/ux-first-setup.png",
+      "sha256": "96efd87b39ec08a8482d3f7da35ad8c2881ba7e7dfecdb214dba78162d279b1e"
+    },
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/ux-diagram-review.png",
+      "sha256": "cdb8490fa7234a3adc0123944dc13cd7d2dec065f92077b4871c17107761e3d4"
+    },
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/ux-codex-chat.png",
+      "sha256": "061a431f3e9647e83d12220aa008e293c258b0c414ae0bf394473232badd2dc2"
+    },
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/ux-code-changes.png",
+      "sha256": "45f1e0c8e2a49083162e5e28d6b3fed0464c7bcaaf12b01b6d76be731f38e91e"
+    },
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/ux-diagrams-paused.png",
+      "sha256": "99b36307a81dfee20b1ccf20a36437719be9a0c09a942b5bb124f642054e18ab"
+    },
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/diagram-workflow.png",
+      "sha256": "f080cbf5115b39b94062ca5a2e28c9ac81b793ab785f490658cbbe88002c3b50"
+    }
+  ],
+  "themeContrast": {
+    "Light Modern": 17.14,
+    "Dark Modern": 11.99,
+    "Dark High Contrast": 21.0,
+    "Light High Contrast": 12.33
+  },
+  "limits": [
+    "Live account login, model catalog availability and semantic quality still require a real-provider check.",
+    "macOS and remote CI were not run in this environment.",
+    "Conversation reuse is scoped to the current app session; code changes require explicit diagram refresh approval."
+  ]
+}

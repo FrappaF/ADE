@@ -9,7 +9,8 @@ import { constants } from 'node:fs';
 import { join } from 'node:path';
 import { importCode } from '../code-import/importCode.ts';
 import { readSnapshot } from '../code-import/snapshot.ts';
-import { isSourcePath } from '../code-import/paths.ts';
+import { isDisclosableSource } from '../code-import/paths.ts';
+export { isDisclosableSource } from '../code-import/paths.ts';
 import { getModelImpact } from '../../src/vs/workbench/contrib/ade/common/modelImpact.ts';
 import { planSchema, readImplementationRequest, readProviderConfig, type FeatureContext, type ImplementationRequest, type ProviderConfig } from './contracts.ts';
 import { planningInstruction, providerEndpoints } from './protocol.ts';
@@ -26,12 +27,6 @@ export interface PreparedImplementation {
 }
 
 export const hash = (value: string): string => createHash('sha256').update(value).digest('hex');
-
-/** Defense in depth, not a secret scanner. The complete payload must still be reviewed. */
-export function isDisclosableSource(file: string): boolean {
-	return isSourcePath(file) && !file.split('/').some(part => part.startsWith('.') || /^(?:node_modules|vendor|credentials|secrets)$/i.test(part)) &&
-		!/(?:^|\/)(?:id_rsa|id_ed25519|credentials)(?:\.|$)/i.test(file) && !/\.(?:pem|key|p12|pfx|env)$/i.test(file);
-}
 
 /** Reads bounded UTF-8 text through a canonical path, rejecting redirected and binary inputs. */
 async function readSource(root: string, file: string, signal?: AbortSignal): Promise<string> {

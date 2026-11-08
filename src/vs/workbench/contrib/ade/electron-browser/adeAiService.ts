@@ -12,7 +12,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isDiffEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, INotificationHandle, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -28,15 +28,19 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { ITerminalService, ITerminalGroupService } from '../../terminal/browser/terminal.js';
-import { IChatWidgetService } from '../../chat/browser/chat.js';
+import { ITerminalService, ITerminalGroupService, ITerminalInstance } from '../../terminal/browser/terminal.js';
+import { IChatWidgetService, ChatViewPaneTarget } from '../../chat/browser/chat.js';
 import { getNewChatSessionResource } from '../../chat/common/model/chatUri.js';
 import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { IAdeAiService } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
+import { AdeInput } from '../browser/adeInput.js';
+import { viewLabels } from '../browser/adeLabels.js';
 import { openAdeTerminal } from '../browser/adeTerminal.js';
 import { getModelImpact } from '../common/modelImpact.js';
+import { isSourceEvidenceModel } from '../common/semanticModel.js';
+import { CodePreview, CodeReconciliationContext, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
 
 interface CliConfig {
 	version: 1; provider: 'codex' | 'claude'; connection: 'cli'; model: string; executable: string;
@@ -54,7 +58,7 @@ interface CollaborationSession {
 interface ModelRates { input: number; output: number; unit: string; source: string; asOf: string }
 interface ModelBenchmark {
 	kind: string; recordedAt: string; defaultModel: string | null;
-	models: { candidate: { config: CliConfig; rates?: ModelRates }; eligible: boolean; estimatedConsumption: number | null; cases: { repository: string; passed: boolean; durationMs: number; inputTokens: number | null; outputTokens: number | null }[] }[];
+	models: { candidate: { config: CliConfig; rates?: ModelRates }; eligible: boolean; estimatedConsumption: number | null; cases: { repository?: string; language?: string; direction?: string; passed: boolean; durationMs: number; inputTokens: number | null; outputTokens: number | null }[] }[];
 }
 
 /** Native shell: original provider login/CLI, explicit disclosure, staged diffs and recoverable application. */
@@ -68,8 +72,16 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	private _connectionStatus: string | undefined;
 	private activityStatus: string | undefined;
 	private accountGeneration = 0;
+	private chatOpening = false;
+	private diagramRunning = false;
+	private diagramError: INotificationHandle | undefined;
+	get generatingDiagrams(): boolean { return this.diagramRunning; }
+	private conversation: { root: string; resource?: URI; terminal?: ITerminalInstance; attachedModel?: string } | undefined;
+	get workflowStatus(): string | undefined { return this.activityStatus; }
+	get chatLocation(): 'chat' | 'terminal' | undefined { return this.conversation?.terminal ? 'terminal' : this.conversation?.resource ? 'chat' : undefined; }
 	get connectionStatus(): string { return this._connectionStatus ?? localize('ade.ai.unchecked', "CLI Account Not Checked Yet"); }
 	private config: CliConfig | undefined;
+	diagramProgress: CodeDiagramProgress | undefined;
 	private session: CollaborationSession | undefined;
 	get status(): string {
 		if (this.activityStatus) { return this.activityStatus; }
@@ -77,14 +89,14 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			const labels = { staged: localize('ade.ai.staged', "Changes Ready for Review"), passed: localize('ade.ai.passed', "Tests Passed · Ready to Apply"), failed: localize('ade.ai.failed', "Verification Failed · Changes Not Applied"), applied: localize('ade.ai.applied', "Applied · Undo Available"), undone: localize('ade.ai.undone', "Changes Undone") };
 			return labels[this.session.status];
 		}
-		return this._connectionStatus ?? (this.config ? localize('ade.ai.selected', "{0} · {1}", this.config!.provider === 'codex' ? 'Codex' : 'Claude Code', this.config!.model) : localize('ade.ai.setup', "Connect Claude Code or Codex to Implement a Feature"));
+		return this._connectionStatus ?? (this.config ? localize('ade.ai.selected', "{0} · {1}", this.config!.provider === 'codex' ? 'Codex' : 'Claude Code', this.config!.model) : localize('ade.ai.setup', "Choose an AI Model in AI Settings"));
 	}
 	get canVerify(): boolean { return !!this.session && ['staged', 'failed', 'passed'].includes(this.session.status); }
 	get canApply(): boolean { return this.session?.status === 'passed'; }
 	get canUndo(): boolean { return this.session?.status === 'applied'; }
 
 	constructor(
-		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'projectRoot'>,
+		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'projectRoot' | 'modelUri' | 'activeView' | 'onDidChange'>,
 		@IAdeCodeService private readonly code: IAdeCodeService,
 		@IQuickInputService private readonly quick: IQuickInputService,
 		@INotificationService private readonly notifications: INotificationService,
@@ -104,10 +116,19 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		@IAdeOperationService private readonly operations: AdeOperationService
 	) {
 		super();
+		let projectId = project.model.id;
+		this._register(project.onDidChange(() => {
+			if (projectId !== project.model.id) { this.conversation = undefined; projectId = project.model.id; }
+			if (!this.busy) { this.activityStatus = undefined; this.changes.fire(); }
+		}));
 		const saved = storage.get('ade.ai.cliConfig', StorageScope.PROFILE);
 		if (saved) { try { this.config = JSON.parse(saved); } catch { /* choose a connection again */ } }
+		const diagramJob = storage.get('ade.ai.diagramJob', StorageScope.WORKSPACE);
+		if (diagramJob) { try { this.diagramProgress = JSON.parse(diagramJob); } catch { /* invalid saved progress */ } }
 		this._register(code.onDidChange(() => {
+			if (this.conversation && code.context && this.conversation.root !== code.context.sourceRoot) { this.conversation = undefined; this.activityStatus = undefined; this.changes.fire(); }
 			if (this.session && code.context && this.session.root !== code.context.sourceRoot) { this.session = undefined; this.changes.fire(); }
+			if (this.diagramProgress && code.context && this.diagramProgress.sourceRoot !== code.context.sourceRoot) { this.diagramProgress = undefined; this.changes.fire(); }
 		}));
 	}
 
@@ -127,22 +148,24 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		this.report(localize('ade.ai.phase.done', "{0} · Completed", label));
 		return result;
 	}
-	private async run(task: (token: CancellationToken) => Promise<void>): Promise<void> {
+	private async run(task: (token: CancellationToken) => Promise<void>, diagramJob = false): Promise<void> {
 		if (this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { this.info(localize('ade.ai.disabled', "AI Features Are Disabled in Settings.")); return; }
 		const operation = this.operations.acquire('ai');
 		if (this.busy || !operation) { operation?.dispose(); this.notifications.info(localize('ade.ai.busy', "An A.D.E operation is already running. Wait for it to finish or cancel it before starting another.")); return; }
+		if (diagramJob) { this.diagramError?.close(); this.diagramError = undefined; }
 		this.busy = true; this.report(localize('ade.ai.starting', "Preparing AI Operation"));
+		const cancelled = () => diagramJob ? localize('ade.ai.diagramCancelled', "Diagram Generation Paused · Completed Steps Can Be Resumed") : localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.");
 		const cancellation = new CancellationTokenSource();
 		try {
 			if (!await this.trust.requestWorkspaceTrust({ message: localize('ade.ai.trust', "A.D.E runs the original AI CLI and reviewed project tests on this computer.") })) { this.info(localize('ade.ai.untrusted', "AI Operation Cancelled · Workspace Trust Was Not Granted.")); return; }
-			await this.progress.withProgress({ location: ProgressLocation.Notification, title: localize('ade.ai.progress', "A.D.E Feature Implementation"), cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
-			if (cancellation.token.isCancellationRequested) { this.info(localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.")); }
+			await this.progress.withProgress({ location: ProgressLocation.Notification, title: localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
+			if (cancellation.token.isCancellationRequested) { this.info(cancelled()); }
 		}
 		catch (error) {
-			const message = cancellation.token.isCancellationRequested ? localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.") : localize('ade.ai.error', "A.D.E implementation: {0}", error instanceof Error ? error.message : String(error));
-			this.report(message); if (cancellation.token.isCancellationRequested) { this.notifications.info(message); } else { this.notifications.error(message); }
+			const message = cancellation.token.isCancellationRequested ? cancelled() : localize('ade.ai.error', "A.D.E AI: {0}", error instanceof Error ? error.message : String(error));
+			this.report(message); if (cancellation.token.isCancellationRequested) { if (!diagramJob) { this.notifications.info(message); } } else if (diagramJob) { this.diagramError = this.notifications.notify({ severity: Severity.Error, message }); } else { this.notifications.error(message); }
 		}
-		finally { cancellation.dispose(); operation.dispose(); this.busy = false; this.changes.fire(); }
+		finally { cancellation.dispose(); operation.dispose(); this.busy = false; this.diagramRunning = false; this.changes.fire(); }
 	}
 	private async ensureConfigured(): Promise<boolean> {
 		if (!this.config) { this.info(localize('ade.ai.configurationNeeded', "Choose an AI Model, CLI and Budget to Continue. An Existing CLI Login Does Not Need to Be Repeated.")); await this.connect(); }
@@ -198,9 +221,36 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		this.activityStatus = undefined;
 		this.changes.fire();
 	}
+	private async chooseCliExecutable(provider: CliConfig['provider'], value: string, model?: string): Promise<string | undefined> {
+		const hint = localize('ade.ai.executableHint', "Enter the CLI program name ({0}) or its absolute path, not a model ID. The selected model ({1}) is configured separately.", provider, model ?? localize('ade.ai.modelNext', "chosen separately"));
+		const validate = async (input: string): Promise<string | undefined> => {
+			try { if (input.trim() && await this.code.resolveCli(input.trim())) { return undefined; } } catch { /* Show a field error without persisting an unusable command. */ }
+			return localize('ade.ai.invalidExecutable', "Executable not found. Enter {0} or the full path to the installed CLI. A model ID belongs in the Model field.", provider);
+		};
+		const executable = await this.quick.input({ title: localize('ade.ai.executable', "Original CLI Executable"), value, prompt: hint, validateInput: validate, ignoreFocusLost: true });
+		if (!executable) { return undefined; }
+		const error = await validate(executable);
+		if (error) { this.setConnectionStatus(error); this.notifications.error(error); return undefined; }
+		return executable.trim();
+	}
 	private async resolveCli(provider: CliConfig['provider']): Promise<string | undefined> {
 		const executable = this.config?.provider === provider ? this.config.executable : provider;
 		const resolved = await this.code.resolveCli(executable);
+		if (!resolved && executable !== provider && this.config?.provider === provider) {
+			const installed = await this.code.resolveCli(provider);
+			if (installed) {
+				const choice = await this.quick.pick([
+					{ label: localize('ade.ai.useInstalledCli', "Use Installed {0} CLI", provider === 'codex' ? 'Codex' : 'Claude Code'), description: installed, id: 'installed' },
+					{ label: localize('ade.ai.chooseExecutable', "Choose Executable Path"), id: 'choose' }
+				], { title: localize('ade.ai.repairExecutable', "Repair CLI Executable"), placeHolder: localize('ade.ai.executableMismatch', "Cannot find program {0}. The executable and model ({1}) are separate settings.", executable, this.config.model) });
+				const replacement = choice?.id === 'installed' ? provider : choice?.id === 'choose' ? await this.chooseCliExecutable(provider, executable, this.config.model) : undefined;
+				if (!replacement) { this.setConnectionStatus(localize('ade.ai.executableUnchanged', "CLI Configuration Unchanged. Choose an Installed Executable to Continue.")); return undefined; }
+				this.config = { ...this.config, executable: replacement };
+				this.storage.store('ade.ai.cliConfig', JSON.stringify(this.config), StorageScope.PROFILE, StorageTarget.MACHINE);
+				this.setConnectionStatus(localize('ade.ai.executableRepaired', "CLI Executable Updated · Model Kept: {0}", this.config.model));
+				return this.code.resolveCli(replacement);
+			}
+		}
 		if (!resolved) {
 			const installation = provider === 'codex'
 				? localize('ade.ai.installCodex', "Install the official CLI in a terminal with: npm install -g @openai/codex.")
@@ -291,27 +341,29 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		const choices = this.nativeModels(provider);
 		let preferred: string | null = null;
 		try {
-			const measured: ModelBenchmark = JSON.parse(this.storage.get('ade.ai.benchmark', StorageScope.PROFILE) ?? '{}');
-			const result = measured.models?.find(model => model.candidate.config.provider === provider && model.candidate.config.model === measured.defaultModel);
-			const current = choices.find(model => model.id === measured.defaultModel);
-			if (measured.kind === 'live-provider-benchmark' && result?.eligible && current?.rates && result.candidate.rates?.input === current.rates.input && result.candidate.rates.output === current.rates.output && Date.now() - Date.parse(measured.recordedAt) < 30 * 86400000) { preferred = measured.defaultModel; }
+			for (const [key, kind] of [['ade.ai.benchmark', 'live-provider-benchmark']]) {
+				const measured: ModelBenchmark = JSON.parse(this.storage.get(key, StorageScope.PROFILE) ?? '{}');
+				const result = measured.models?.find(model => model.candidate.config.provider === provider && model.candidate.config.model === measured.defaultModel);
+				const current = choices.find(model => model.id === measured.defaultModel);
+				if (measured.kind === kind && result?.eligible && current?.rates && result.candidate.rates?.input === current.rates.input && result.candidate.rates.output === current.rates.output && result.candidate.rates.unit === current.rates.unit && Date.now() - Date.parse(measured.recordedAt) < 30 * 86400000) { preferred = measured.defaultModel; break; }
+			}
 		} catch { /* no measured account default */ }
 		choices.sort((left, right) => Number(right.id === preferred) - Number(left.id === preferred));
 		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.model', "Choose a Model Available to Your Account") }))?.id
 			: await this.quick.input({ title: localize('ade.ai.modelManual', "Model ID from Your CLI"), value: this.config?.provider === provider ? this.config.model : undefined, prompt: localize('ade.ai.noCatalog', "No account catalog is available yet. Sign in and refresh, or enter an exact model ID. Access is checked by the provider."), ignoreFocusLost: true });
 		if (!model) { this.info(localize('ade.ai.noModel', "No Model Selected. Choose Model and CLI Before Implementing a Feature.")); return; }
-		const executable = await this.quick.input({ title: localize('ade.ai.executable', "Original CLI Executable"), value: this.config?.provider === provider ? this.config.executable : provider, prompt: localize('ade.ai.executableHint', "Use the installed CLI name or its absolute executable path. Credentials remain with the provider."), ignoreFocusLost: true });
+		const executable = await this.chooseCliExecutable(provider, this.config?.provider === provider ? this.config.executable : provider, model);
 		if (!executable) { return; }
 		const budget = await this.quick.pick([
 			{ label: localize('ade.ai.budgetTwo', "Plan and Implementation · At Most Two Agent Runs"), maxCalls: 2 },
-			{ label: localize('ade.ai.budgetOne', "Plan Only · At Most One Agent Run"), maxCalls: 1 },
+			{ label: localize('ade.ai.budgetOne', "Plan or Reconciliation Proposal · At Most One Agent Run"), maxCalls: 1 },
 			{ label: localize('ade.ai.budgetZero', "Prepare Context Only · No AI Requests"), maxCalls: 0 }
 		], { title: localize('ade.ai.budget', "Agent Run Budget · Provider Usage Is Managed by Its CLI") });
 		if (!budget) { this.info(localize('ade.ai.noBudget', "No Budget Selected. AI Configuration Was Not Saved.")); return; }
 		this.config = { version: 1, provider, connection: 'cli', model, executable, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: budget.maxCalls };
 		this.loginWatch.clear(); this.accountGeneration++;
 		this._connectionStatus = undefined;
-		this.info(localize('ade.ai.configured', "AI Model and Budget Saved. Continue with the Feature Implementation."));
+		this.info(localize('ade.ai.configured', "AI Settings Saved. Build Diagrams or Update Code to Continue."));
 		this.storage.store('ade.ai.cliConfig', JSON.stringify(this.config), StorageScope.PROFILE, StorageTarget.MACHINE);
 		this.changes.fire();
 	}
@@ -331,11 +383,178 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		}
 	}
 
+	/** One visible entry point to the user's Codex account, with the active diagram attached. */
+	async chat(): Promise<void> {
+		if (this.busy || this.operations.busy || this.chatOpening || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
+		const opening = this.operations.acquire('ai');
+		if (!opening) { return; }
+		this.chatOpening = true; this.busy = true;
+		this.report(localize('ade.ai.chatOpening', "Opening Codex…"));
+		try {
+			if (!await this.trust.requestWorkspaceTrust() || this.project.modelUri && !await this.project.save()) { this.report(localize('ade.ai.chatNotOpened', "Codex Was Not Opened")); return; }
+			const root = this.code.context?.sourceRoot ?? this.project.projectRoot?.toString() ?? this.project.model.id;
+			if (this.conversation?.root !== root) { this.conversation = undefined; }
+			const terminal = this.conversation?.terminal;
+			if (terminal && !terminal.isDisposed) { this.terminals.setActiveInstance(terminal); await this.terminalGroups.showPanel(true); await terminal.focusWhenReady(); this.report(localize('ade.ai.chatTerminalReady', "Codex Is Open in the Terminal · Back to Diagrams to Continue")); return; }
+			if (terminal) { this.conversation = undefined; }
+			const native = this.codexAccount.account.status === 'signedIn' && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready') && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this.config || this.config.provider !== 'codex' || this.config.executable === 'codex');
+			if (native) {
+				await this.configuration.updateValue(AgentHostCodexAgentEnabledSettingId, true, ConfigurationTarget.USER);
+				const resource = this.conversation?.resource ?? getNewChatSessionResource('agent-host-codex');
+				const widget = await this.chatWidgets.openSession(resource, ChatViewPaneTarget);
+				if (!widget) { throw new Error(localize('ade.ai.chatUnavailable', "Codex Chat Could Not Be Opened. Use AI Settings to Check the Connection.")); }
+				if (this.project.modelUri) {
+					const previous = this.conversation?.attachedModel;
+					if (previous && previous !== this.project.modelUri.toString()) { widget.attachmentModel.delete(previous); }
+					if (!widget.attachmentModel.fileAttachments.some(uri => uri.toString() === this.project.modelUri!.toString())) { await widget.attachmentModel.addFile(this.project.modelUri); }
+				}
+				widget.attachmentModel.updateContext(['ade:diagram-context'], [{ kind: 'generic', id: 'ade:diagram-context', name: localize('ade.ai.currentDiagramContext', "Current Diagram"), value: JSON.stringify({ model: this.project.modelUri?.fsPath, diagram: this.project.activeView ? { id: this.project.activeView.id, name: this.project.activeView.name } : null }) }]);
+				this.conversation = { root, resource, attachedModel: this.project.modelUri?.toString() };
+				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
+			} else {
+				const executable = await this.resolveCli('codex');
+				if (!executable) { return; }
+				const account = await this.code.checkCliAccount('codex', executable);
+				if (account.status !== 'signedIn') { if (account.status === 'signedOut') { await this.signIn('codex', true); } else { await this.checkAccount('codex', executable); } return; }
+				const model = this.config?.provider === 'codex' ? this.config.model : undefined;
+				const prompt = localize('ade.ai.chatContext', "Help me work on this project's A.D.E diagrams and implementation. The model is {0}, active diagram: {1}. Preserve semantic IDs and valid model v3 references. Resolve the current model from .ade/code-project.json before editing because snapshot paths can change. Model edits appear in the visual editor; after code changes I will use Update Diagrams to reconcile them. I will describe the requested change next; do not edit files until I do.", this.project.modelUri?.fsPath ?? localize('ade.ai.noModelContext', "not created yet"), this.project.activeView?.name ?? this.project.model.name);
+				const terminal = await openAdeTerminal(this.terminals, this.terminalGroups, { name: localize('ade.ai.codexChat', "Codex Chat · Your Account"), executable, args: [...(model ? ['--model', model] : []), prompt], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
+				this.conversation = { root, terminal };
+				this._register(terminal.onExit(() => { if (this.conversation?.terminal === terminal) { this.conversation = undefined; this.changes.fire(); } }));
+			}
+			this.report(this.chatLocation === 'terminal' ? localize('ade.ai.chatTerminalReady', "Codex Is Open in the Terminal · Back to Diagrams to Continue") : localize('ade.ai.chatPaneReady', "Codex Chat Is Open · Your Diagram Is Attached"));
+		} catch (error) { this.conversation = undefined; const message = localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error)); this.report(message); this.notifications.error(message); }
+		finally { this.chatOpening = false; this.busy = false; opening.dispose(); this.changes.fire(); }
+	}
+
+	async returnToDiagrams(): Promise<void> {
+		this.terminalGroups.hidePanel();
+		await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		if (this.code.changed) { this.report(localize('ade.ai.reviewAfterChat', "Code Changed · Update Diagrams to Review the Result")); }
+	}
+
+	/** First use asks only for the diagram model; advanced coding settings stay separate. */
+	private async readyDiagramConfig(): Promise<CliConfig | undefined> {
+		if (!this.config) {
+			let executable = 'codex';
+			if (!await this.code.resolveCli(executable)) {
+				const selected = await this.chooseCliExecutable('codex', executable);
+				if (!selected) { this.report(localize('ade.ai.setupDeferred', "Setup Cancelled · Choose Build Diagrams to Continue")); return; }
+				executable = selected;
+			}
+			const draft: CliConfig = { version: 1, provider: 'codex', connection: 'cli', model: '', executable, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 1 };
+			const model = await this.selectDiagramModel(draft);
+			if (!model) { this.report(localize('ade.ai.modelDeferred', "No Model Selected · Choose Build Diagrams to Continue")); return; }
+			this.config = { ...draft, model };
+			this.storage.store('ade.ai.cliConfig', JSON.stringify(this.config), StorageScope.PROFILE, StorageTarget.MACHINE);
+		}
+		if (!this.config.maxCalls) { return { ...this.config }; }
+		const executable = await this.resolveCli(this.config.provider);
+		if (!executable) { return undefined; }
+		const state = await this.code.checkCliAccount(this.config.provider, executable);
+		if (state.status === 'signedOut') {
+			await this.signIn(this.config.provider, true);
+			this.report(localize('ade.ai.finishDiagramSignIn', "Finish Signing In in the Terminal, Then Choose Build Diagrams Again")); return undefined;
+		}
+		if (state.status !== 'signedIn') { throw new Error(localize('ade.ai.diagramAccountCheck', "Could Not Verify the CLI Account. Check Its Connection and Retry Build Diagrams.")); }
+		return { ...this.config, executable };
+	}
+
+	async buildDiagrams(): Promise<void> { await this.generateDiagrams(false); }
+	async resumeDiagrams(): Promise<void> { await this.generateDiagrams(true); }
+	private async generateDiagrams(resume: boolean): Promise<void> {
+		if (this.busy || this.operations.busy || !this.code.context) { return; }
+		await this.run(async token => {
+			const context = this.code.context;
+			const configured = await this.readyDiagramConfig();
+			if (!configured || !context || !await this.project.save()) { return; }
+			const diagramModel = this.storage.get(`ade.ai.diagramModel.${configured.provider}`, StorageScope.PROFILE) ?? await this.selectDiagramModel(configured);
+			if (!diagramModel) { return; }
+			const config = { ...configured, model: diagramModel };
+			let clarification: string | undefined;
+			if (resume && this.diagramProgress?.questions.length) { clarification = await this.quick.input({ title: localize('ade.ai.diagramClarify', "Clarify Diagram Interpretation"), prompt: this.diagramProgress.questions.join(' '), ignoreFocusLost: true }); if (!clarification) { return; } }
+			let job: CodeDiagramProgress = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramPrepare', snapshot: context.snapshot, config: JSON.stringify(config), ...(resume && this.diagramProgress ? { resume: this.diagramProgress.id } : {}), clarification }, token));
+			this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.changes.fire();
+			if (!config.maxCalls) { this.info(localize('ade.ai.diagramsNoBudget', "Diagram Scope Prepared. Enable AI Requests in AI Settings to Generate It.")); return; }
+			const accepted = job.status === 'plan' ? { confirmed: true } : await this.dialogs.confirm({ message: localize('ade.ai.buildConfirm', "Propose a Diagram Plan with {0}?", config.model), detail: [localize('ade.ai.buildScopeShort', "{0} files · {1} indexed symbols.\nUp to {2} additional requests to {3}.", job.files, job.symbols, job.remainingRequests ?? job.total - job.completed, config.provider === 'codex' ? 'Codex' : 'Claude Code'), localize('ade.ai.buildDisclosure', "Source evidence is sent through your signed-in CLI account to analyze responsibilities and propose necessary diagrams. You will review the proposal before generating its views."), job.inputBudgetBytes ? localize('ade.ai.diagramContextBudget', "Input and schema: up to {0} bytes per request. {1} bytes left as estimated response headroom.", job.inputBudgetBytes, job.responseHeadroomBytes ?? 0) : '', job.calls ? localize('ade.ai.buildAttempted', "{0} requests already attempted. Completed steps will be reused.", job.calls) : '', job.excluded ? localize('ade.ai.buildExcluded', "{0} documentation, binary or oversized files excluded.", job.excluded) : ''].filter(Boolean).join('\n\n'), primaryButton: localize('ade.ai.buildButton', "Propose Diagrams") });
+			if (!accepted.confirmed) { return; }
+			this.diagramRunning = true;
+			while (job.status === 'ready' || job.status === 'running' || job.status === 'plan') {
+				if (job.status === 'plan') {
+					this.diagramRunning = false; this.report(localize('ade.ai.diagramPlanReady', "Diagram Plan Ready · Review Before Generating Views"));
+					const plan = job.plan ?? [];
+					const approved = await this.dialogs.confirm({ message: localize('ade.ai.reviewDiagramPlan', "Review the Proposed Diagrams"), detail: [plan.map((item, index) => localize('ade.ai.diagramPlanRow', "{0}. {1} · {2}\n{3}", index + 1, item.name, viewLabels[item.kind], item.intent)).join('\n\n'), localize('ade.ai.diagramPlanBudget', "{0} diagrams · Up to {1} additional requests to {2}. Each diagram is a saved step. All approved diagrams must pass validation before the new snapshot is published.", plan.length, job.remainingRequests ?? plan.length, job.model)].join('\n\n'), primaryButton: localize('ade.ai.generatePlan', "Generate {0} Diagrams", plan.length) });
+					if (!approved.confirmed) { this.report(localize('ade.ai.diagramPlanSaved', "Diagram Plan Saved · Review Diagram Plan to Continue")); return; }
+					if (this.code.context?.snapshot !== context.snapshot) { throw new Error(localize('ade.ai.diagramProjectChanged', "The Active Project Changed. Open Its Diagrams to Continue.")); }
+					job = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramApprovePlan', snapshot: context.snapshot, id: job.id, reviewId: job.reviewId }, token));
+					this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.diagramRunning = true; this.changes.fire();
+					continue;
+				}
+				const nextDiagram = job.plan?.find(item => item.status !== 'complete');
+				this.report(nextDiagram ? localize('ade.ai.generatingView', "Generating {0} · {1} · {2}", nextDiagram.name, viewLabels[nextDiagram.kind], job.model) : localize('ade.ai.planningDiagramStep', "Analyzing Responsibilities and Planning Diagrams · {0} of {1} Steps · {2}", job.completed, job.total, job.model));
+				try { job = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramStep', snapshot: context.snapshot, id: job.id, reviewId: job.reviewId }, token)); }
+				catch (error) {
+					this.diagramProgress = { ...job, status: 'failed', error: token.isCancellationRequested ? localize('ade.ai.diagramPaused', "Generation Paused · Resume to Keep Completed Steps") : error instanceof Error ? error.message : String(error) };
+					this.storage.store('ade.ai.diagramJob', JSON.stringify(this.diagramProgress), StorageScope.WORKSPACE, StorageTarget.MACHINE); throw error;
+				}
+				if (this.code.context?.snapshot !== context.snapshot) { throw new Error(localize('ade.ai.diagramProjectChanged', "The Active Project Changed. Open Its Diagrams to Continue.")); }
+				this.diagramProgress = job; this.storage.store('ade.ai.diagramJob', JSON.stringify(job), StorageScope.WORKSPACE, StorageTarget.MACHINE); this.changes.fire();
+				if (job.context) { await this.code.openContext(job.context); this.report(localize('ade.ai.diagramsReady', "Diagrams Ready · {0} Responsibilities in {1} Views", this.project.model.semantics.elements.filter(item => item.kind !== 'feature').length, this.project.model.views.length)); return; }
+				if (job.questions.length) { this.info(job.questions.join('\n')); return; }
+			}
+		}, true);
+	}
+
+	async chooseDiagramModel(): Promise<void> {
+		if (this.busy || this.operations.busy || !await this.ensureConfigured()) { return; }
+		await this.selectDiagramModel(this.config!);
+	}
+	private async selectDiagramModel(configured: CliConfig): Promise<string | undefined> {
+		const choices = (configured.provider === 'codex' && configured.executable !== 'codex' && this.config?.executable !== 'codex' ? [] : this.nativeModels(configured.provider)).sort((a, b) => (a.rates ? a.rates.input + a.rates.output : Infinity) - (b.rates ? b.rates.input + b.rates.output : Infinity));
+		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.diagramModel', "Model for Diagrams"), placeHolder: localize('ade.ai.diagramModelHint', "Choose a Lower-Cost Model for Interpretation. Your Coding Model Is Kept Separately.") }))?.id : await this.quick.input({ title: localize('ade.ai.diagramModel', "Model for Diagrams"), value: this.storage.get(`ade.ai.diagramModel.${configured.provider}`, StorageScope.PROFILE) ?? configured.model, prompt: localize('ade.ai.diagramModelManual', "Use an exact model ID shown by /model in Codex or by your provider CLI. This model is saved separately for diagrams."), ignoreFocusLost: true });
+		if (model) { this.storage.store(`ade.ai.diagramModel.${configured.provider}`, model, StorageScope.PROFILE, StorageTarget.MACHINE); }
+		return model;
+	}
+
 	async implement(): Promise<void> {
 		await this.collaborate('plan');
 	}
 	async interpret(): Promise<void> {
 		await this.collaborate('interpret');
+	}
+	async reconcile(preview: CodePreview, resolutions: CodeResolution[] = [], direction?: 'model' | 'code'): Promise<CodePreview | undefined> {
+		if (this.busy || this.operations.busy || !this.code.context) { return undefined; }
+		if (this.code.context.diagramState === 'index' || isSourceEvidenceModel(this.project.model) || !this.project.model.views.some(view => view.nodes.length > 0)) {
+			await this.buildDiagrams();
+			return undefined;
+		}
+		if (!await this.ensureConfigured()) { return undefined; }
+		let result: CodePreview | undefined;
+		await this.run(async token => {
+			const config = await this.readyConfig();
+			const context = this.code.context;
+			if (!config || !context || context.snapshot !== preview.context.snapshot || !await this.project.save()) { return; }
+			const needsSourceReview = !!preview.ai?.questions.length;
+			let clarification: string | undefined;
+			if (preview.ai?.questions.length) {
+				clarification = await this.quick.input({ title: localize('ade.ai.reconcileClarify', "Clarify the Reconciliation"), prompt: preview.ai.questions.join(' '), ignoreFocusLost: true });
+				if (!clarification) { return; }
+			}
+			if (preview.ai || preview.reconciliation?.status === 'verificationFailed') { preview = JSON.parse(await this.code.executeReconciliation({ operation: 'preview', snapshot: context.snapshot, scope: context.scope }, token)); }
+			const changed = new Set([...preview.files.added, ...preview.files.changed]);
+			for (const file of preview.context.files.filter(file => preview.context.declarations.some(item => item.evidence.file === file.path && preview.impact.elementIds.includes(item.id)))) { changed.add(file.path); }
+			const suggested = preview.context.files.filter(file => changed.has(file.path) && file.status !== 'excluded' && file.status !== 'configuration');
+			const selected = direction && suggested.length > 0 && !needsSourceReview ? suggested.map(file => ({ label: file.path })) : await this.quick.pick(preview.context.files.filter(file => file.status !== 'excluded' && file.status !== 'configuration').map(file => ({ label: file.path, picked: changed.has(file.path) })), { title: localize('ade.ai.reconcileSources', "Review Source Files for Bidirectional Sync"), placeHolder: localize('ade.ai.reconcileSourcesHint', "Select the affected implementation and callers in any language. Only bounded windows of selected files are sent."), canPickMany: true });
+			if (!selected) { return; }
+			const prepared: CodeReconciliationContext = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPrepare', token: preview.token, config: JSON.stringify(config), sourceFiles: selected.map(item => item.label), resolutions, clarification: [direction === 'model' ? 'Update the implementation to satisfy the edited diagrams and preserve unrelated code. Ask about concurrent changes.' : '', clarification].filter(Boolean).join('\n') }, token));
+			if (!direction) { await this.editors.openEditor({ contents: prepared.contents, languageId: 'json', options: { pinned: true } }); }
+			if (!config.maxCalls) { this.info(localize('ade.ai.reconcileContextOnly', "Reconciliation Context Prepared · The Saved Budget Allows No AI Calls.")); return; }
+			const consent = await this.dialogs.confirm({ message: localize('ade.ai.reconcileDisclose', "Prepare Code Changes with {0}?", config.model), detail: localize('ade.ai.reconcileBytes', "{0} input bytes including schema; {1} source bytes disclosed from {2} available. One CLI invocation, with the saved model and budget. Token estimate: {3}; actual usage is reported separately. No source or model is changed until Apply Sync.", prepared.metrics.inputBytes + prepared.metrics.schemaBytes, prepared.metrics.disclosedBytes, prepared.metrics.sourceBytes, prepared.metrics.estimatedTokens), primaryButton: localize('ade.ai.reconcileSend', "Propose Reconciliation") });
+			if (!consent.confirmed) { return; }
+			result = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPropose', token: preview.token, reviewId: prepared.reviewId }, token));
+			if (!direction) { await this.editors.openEditor({ contents: JSON.stringify(result?.ai ?? result?.reconciliation, null, '\t'), languageId: 'json', options: { pinned: true } }); }
+		});
+		return result;
 	}
 	private async collaborate(operation: 'plan' | 'interpret'): Promise<void> {
 		if (this.busy || this.operations.busy) { this.notifications.info(localize('ade.ai.busy', "An A.D.E operation is already running. Wait for it to finish or cancel it before starting another.")); return; }
@@ -458,8 +677,14 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		});
 	}
 	async benchmark(): Promise<void> {
+		await this.compareModels(false);
+	}
+	async benchmarkReconciliation(): Promise<void> {
+		await this.compareModels(true);
+	}
+	private async compareModels(reconciliation: boolean): Promise<void> {
 		if (!await this.ensureConfigured()) { return; }
-		if (this.config!.maxCalls < 2) { this.info(localize('ade.ai.benchmarkBudget', "The complete benchmark requires the saved two-request budget for each sample. Configure that budget first.")); return; }
+		if (this.config!.maxCalls < (reconciliation ? 1 : 2)) { this.info(localize('ade.ai.benchmarkBudget', "The benchmark needs a saved AI request budget. Configure one run per reconciliation case or two per implementation case.")); return; }
 		await this.run(async token => {
 			const config = await this.readyConfig();
 			if (!config) { return; }
@@ -468,26 +693,36 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			const alternative = alternatives.length ? (await this.quick.pick(alternatives, { title: localize('ade.ai.compareModel', "Choose the Model to Compare") }))?.id
 				: await this.quick.input({ title: localize('ade.ai.compareModel', "Choose the Model to Compare"), prompt: localize('ade.ai.compareExact', "Enter an exact model ID available to the same CLI account."), ignoreFocusLost: true });
 			if (!alternative || alternative === config.model) { this.info(localize('ade.ai.compareCancelled', "Choose a Different Model to Run a Comparison. No Benchmark Was Started.")); return; }
-			const consent = await this.dialogs.confirm({ message: localize('ade.ai.benchmarkConfirm', "Compare These Models on Three Sample Projects?"), detail: localize('ade.ai.benchmarkDetail', "Compares checkout, inventory and authorization in separate Git worktrees. Starts up to twelve agent runs and executes generated Node.js tests with independent acceptance checks on this computer. Only sample code is sent. Provider requests and retries within each run are managed by the original CLI; actual monetary charges may be unavailable."), primaryButton: localize('ade.ai.benchmarkRun', "Run Model Benchmark") });
+			const consent = await this.dialogs.confirm({ message: localize('ade.ai.benchmarkConfirm', "Compare These Models on Three Sample Projects?"), detail: reconciliation ? localize('ade.ai.reconcileBenchmarkDetail', "Compares Python, Java and Go in both directions and with concurrent conflicts. Starts eighteen CLI invocations for two models, using only generated sample projects. Records prompt/output size, reported tokens, latency, identity continuity and preservation of custom code. This benchmark checks structural reconciliation; it does not certify arbitrary behavior or all languages.") : localize('ade.ai.benchmarkDetail', "Compares checkout, inventory and authorization in separate Git worktrees. Starts up to twelve agent runs and executes generated Node.js tests with independent acceptance checks on this computer. Only sample code is sent. Provider requests and retries within each run are managed by the original CLI; actual monetary charges may be unavailable."), primaryButton: localize('ade.ai.benchmarkRun', "Run Model Benchmark") });
 			if (!consent.confirmed) { this.info(localize('ade.ai.reviewCancelled', "Operation Cancelled During Review.")); return; }
 			const candidates = [config.model, alternative].map(model => ({ config: { ...config, model }, rates: models.find(candidate => candidate.id === model)?.rates }));
-			const report = await this.request<ModelBenchmark>({ operation: 'benchmark', candidates }, token);
-			this.storage.store('ade.ai.benchmark', JSON.stringify(report), StorageScope.PROFILE, StorageTarget.MACHINE);
-			const summary = report.models.map(model => `${model.candidate.config.model}\n${model.cases.map(result => `${result.repository}: ${result.passed ? localize('ade.ai.benchmarkPass', "Passed") : localize('ade.ai.benchmarkFail', "Failed")} · ${result.durationMs} ms`).join('\n')}`).join('\n\n');
+			const report = await this.request<ModelBenchmark>({ operation: reconciliation ? 'reconciliationBenchmark' : 'benchmark', candidates }, token);
+			this.storage.store(reconciliation ? 'ade.ai.reconciliationBenchmark' : 'ade.ai.benchmark', JSON.stringify(report), StorageScope.PROFILE, StorageTarget.MACHINE);
+			const summary = report.models.map(model => `${model.candidate.config.model}\n${model.cases.map(result => `${result.repository ?? `${result.language} · ${result.direction}`}: ${result.passed ? localize('ade.ai.benchmarkPass', "Passed") : localize('ade.ai.benchmarkFail', "Failed")} · ${result.durationMs} ms`).join('\n')}`).join('\n\n');
 			await this.editors.openEditor({ contents: summary + '\n\n' + (report.defaultModel ? localize('ade.ai.benchmarkDefault', "Measured economical default: {0}. It is offered first in model selection while available with the same quoted rates.", report.defaultModel) : localize('ade.ai.benchmarkNoDefault', "No economical default was selected. Quality, account availability and comparable quoted consumption must all be known. Your explicit model selection is preserved.")), languageId: 'plaintext', options: { pinned: true } });
 		});
 	}
 	async exportBenchmark(): Promise<void> {
-		const report = this.storage.get('ade.ai.benchmark', StorageScope.PROFILE);
+		const report = this.storage.get('ade.ai.reconciliationBenchmark', StorageScope.PROFILE) ?? this.storage.get('ade.ai.benchmark', StorageScope.PROFILE);
 		if (!report) { this.info(localize('ade.ai.noBenchmark', "Run a model benchmark before exporting its measured results.")); return; }
 		await this.editors.openEditor({ contents: JSON.stringify(JSON.parse(report), null, '\t'), languageId: 'json', options: { pinned: true } });
 	}
 }
 registerSingleton(IAdeAiService, AdeAiService, InstantiationType.Delayed);
 
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.ai.reconcile', title: localize2('ade.ai.reconcileCommand', "A.D.E: Propose Bidirectional Reconciliation"), f1: false }); }
+	override run(accessor: ServicesAccessor, preview: CodePreview, resolutions?: CodeResolution[], direction?: 'model' | 'code'): Promise<CodePreview | undefined> { return accessor.get(IAdeAiService).reconcile(preview, resolutions, direction); }
+});
+
 for (const [id, title, method] of [
 	['ade.ai.connect', localize2('ade.ai.connectCommand', "A.D.E: Connect Claude Code or Codex"), 'connect'],
 	['ade.ai.cli', localize2('ade.ai.cliCommand', "A.D.E: Open AI CLI"), 'openCli'],
+	['ade.ai.chooseDiagramModel', localize2('ade.ai.diagramModelCommand', "Choose Diagram Model"), 'chooseDiagramModel'],
+	['ade.ai.returnToDiagrams', localize2('ade.ai.returnToDiagramsCommand', "A.D.E: Back to Diagrams"), 'returnToDiagrams'],
+	['ade.ai.chat', localize2('ade.ai.chatCommand', "A.D.E: Chat with Codex"), 'chat'],
+	['ade.ai.buildDiagrams', localize2('ade.ai.buildDiagramsCommand', "A.D.E: Build Semantic Diagrams"), 'buildDiagrams'],
+	['ade.ai.resumeDiagrams', localize2('ade.ai.resumeDiagramsCommand', "A.D.E: Resume Diagram Generation"), 'resumeDiagrams'],
 	['ade.ai.implement', localize2('ade.ai.implementCommand', "A.D.E: Implement Feature"), 'implement'],
 	['ade.ai.interpret', localize2('ade.ai.interpretCommand', "A.D.E: Interpret Unresolved Evidence"), 'interpret'],
 	['ade.ai.review', localize2('ade.ai.reviewCommand', "A.D.E: Review Implementation"), 'review'],
@@ -497,6 +732,7 @@ for (const [id, title, method] of [
 	['ade.ai.resume', localize2('ade.ai.resumeCommand', "A.D.E: Resume Implementation"), 'resume'],
 	['ade.ai.recover', localize2('ade.ai.recoverCommand', "A.D.E: Recover Interrupted Implementation"), 'recover'],
 	['ade.ai.benchmark', localize2('ade.ai.benchmarkCommand', "A.D.E: Compare AI Models"), 'benchmark'],
+	['ade.ai.benchmarkReconciliation', localize2('ade.ai.benchmarkReconciliationCommand', "A.D.E: Compare Reconciliation Models"), 'benchmarkReconciliation'],
 	['ade.ai.exportBenchmark', localize2('ade.ai.exportBenchmarkCommand', "A.D.E: Export Model Benchmark Results"), 'exportBenchmark']
 ] as const) {
 	registerAction2(class extends Action2 {

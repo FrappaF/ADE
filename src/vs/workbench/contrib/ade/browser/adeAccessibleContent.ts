@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
+import { isSourceEvidenceModel, notationRelationLabel, ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
+import { notationLines } from '../common/diagramLayout.js';
 import { getDiagramGroups } from '../common/visualNavigation.js';
 import { getSystemMap } from '../common/systemMap.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
@@ -29,9 +30,10 @@ export interface AdeReadingState {
 /** Describe visible semantic identities rather than SVG geometry or inferred runtime behavior. */
 export function describeAdeDiagram(state: AdeReadingState): string {
 	const title = localize('ade.reading.title', "A.D.E Visual Workbench");
+	if (!state.loading && !state.error && isSourceEvidenceModel(state.model)) { return [title, localize('ade.reading.sourceEvidence', "Source Evidence Ready. Choose Build Diagrams with AI to create capability and flow diagrams. Files and symbols have not yet been interpreted into a semantic model.")].join('\n'); }
 	if (state.section === 'home') {
 		return [title, localize('ade.reading.home', "Home. Create a project, open a project or model, or explore the read-only purchase example."),
-			localize('ade.reading.planned', "Code import, Sync and AI collaboration are planned and are not available yet.")].join('\n');
+			localize('ade.reading.planned', "Import Codebase prepares source evidence, then Build Diagrams with AI creates the diagrams. Update Code proposes implementation changes; Chat with Codex opens your account conversation.")].join('\n');
 	}
 	if (state.loading) { return [title, localize('ade.reading.loading', "Loading model. No current diagram is available.")].join('\n'); }
 	if (state.error) { return [title, state.error, localize('ade.reading.recovery', "Use Retry or Open Model to recover.")].join('\n'); }
@@ -48,7 +50,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 		return lines.join('\n');
 	}
 	const describeRelation = (relation: SemanticRelation): void => {
-		lines.push(localize('ade.reading.relation', "{0} to {1}: {2}. {3}", elements.get(relation.from)!.name, elements.get(relation.to)!.name, relationLabels[relation.kind], relation.name));
+		lines.push(localize('ade.reading.relation', "{0} to {1}: {2}. {3}", elements.get(relation.from)!.name, elements.get(relation.to)!.name, relationLabels[relation.kind], notationRelationLabel(relation)));
 		if (relation.condition) { lines.push(localize('ade.reading.condition', "Condition: {0}", relation.condition)); }
 		if (relation.errorCode) { lines.push(localize('ade.reading.error', "Error: {0}", relation.errorCode)); }
 		if (relation.kind === 'transition') { lines.push(localize('ade.reading.stateEvent', "Transition Event: {0}", relation.name || localize('ade.reading.noEvent', "Not Declared"))); }
@@ -100,6 +102,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 			const element = elements.get(node.elementId)!;
 			lines.push(localize('ade.reading.element', "{0}. {1} ({2})", index + 1, element.name, elementLabels[element.kind]));
 			if (element.description) { lines.push(element.description); }
+		lines.push(...notationLines(element));
 		}
 		if (!view.nodes.length) { lines.push(localize('ade.reading.empty', "This diagram has no elements.")); }
 	} else {
@@ -107,6 +110,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 		if (!element) { return lines.join('\n'); }
 		lines.push(localize('ade.reading.details', "Element Details: {0}", element.name), elementLabels[element.kind]);
 		if (element.description) { lines.push(element.description); }
+		lines.push(...notationLines(element));
 		const children = model.semantics.elements.filter(child => child.parentId === element.id);
 		if (children.length) { lines.push(localize('ade.reading.children', "Contained Elements: {0}", children.map(child => child.name).join(', '))); }
 		if (element.kind === 'feature') {
@@ -162,7 +166,7 @@ export function describeAdeHelp(state: AdeReadingState): string {
 		localize('ade.help.groups', "System and feature groups in the sidebar expand or collapse with Enter or Space on their summary. Their state is saved separately for each project document. Related Diagrams links to diagrams containing a feature's descendants without changing the diagram's owner. Choosing an element keeps the sidebar controls in place."),
 		localize('ade.help.map', "System Map shows every element once, grouped by semantic containment, including elements not placed in diagrams. Open an element for details or a feature diagram to explore it. Connections Between Groups expands to show the original directed relationships, conditions and source and target buttons. The system breadcrumb opens this map. Read System Map opens its text equivalent; Back and Forward include the map."),
 		localize('ade.help.semanticNavigation', "Search System filters elements and diagrams by type and searches names, ancestry and diagram names. Unplaced elements open Element Details. The Semantic Path opens ancestor details; Back and Forward restore navigation within the current project. Diagrams Containing This Element changes perspective while preserving the selected identity."),
-		localize('ade.help.navigation', "Tab and Shift+Tab move between navigation, diagram controls, elements, properties and technical tools. Enter or Space activates a button or opens an options section."),
+		localize('ade.help.navigation', "The diagram fills the editor. Open Project and Diagrams are in the floating menu; Actions opens secondary controls. Tab and Shift+Tab move between controls, elements, relationships and floating properties. Enter or Space activates a button or opens an options section. Escape closes properties. Focus the background and use arrow keys to pan, or Home to fit; Control or Command plus scroll zooms at the pointer."),
 		localize('ade.help.behavior', "Edit Behavioral Contract in Properties edits inputs, outputs, preconditions, postconditions and errors through native choices. Escape cancels the current entry. Each completed change can be undone. Edit Relationship Error assigns or clears a declared source error; clear references before removing or renaming an error."),
 		localize('ade.help.sequence', "Sequence diagrams show participants and ordered declared messages. Add Existing Message reuses an invocation, read or write and includes its endpoints. Properties moves participants left or right and Sequence Message Options moves messages earlier or later. Removing a participant or message from this diagram preserves the system and other views. Participant positions are derived from their order; use the background to pan and Fit Diagram to zoom."),
 		localize('ade.help.states', "State diagrams group declared states by their resource. Add State creates a state for a resource in the diagram; Add Existing State and Add Existing Transition reuse identities. Include Resource Lifecycle adds the resource's declared states and transitions without moving existing nodes. Transition Table lists sources, targets, events, conditions and errors. Properties edits shared events and contracts; removing a state or relationship from the diagram preserves the system and other views. Initial/final states, nested states and execution are not inferred."),
@@ -179,9 +183,9 @@ export function describeAdeHelp(state: AdeReadingState): string {
 			: state.editable
 			? localize('ade.help.editing', "Arrow keys move the focused element. Shift increases the step. Focus the diagram background to pan with arrow keys. Add Element creates an element; Connect Selection creates a compatible relationship.")
 			: localize('ade.help.readonly', "Editing is unavailable in the read-only example or a read-only file. Open a writable project to edit. Focus the diagram background to pan with arrow keys."),
-		localize('ade.help.options', "Project Options contains Reload Project and Save Project Copy. Diagram Options contains diagram management and arrangement. Feature Options in the sidebar manages a feature. Fit Diagram adapts the diagram to the available area."),
+		localize('ade.help.options', "Actions contains editing and Diagram Options. Actions, More Tools contains Reload Project, Save Project Copy and Diagram Navigation, which reopens the sidebar. Spread Out arranges the diagram with more space; Fit Diagram adapts it to the available area. Select an element and open Details and Actions for its shared contract and secondary operations."),
 		localize('ade.help.commands', "Open the Command Palette with <keybinding:workbench.action.showCommands> for all A.D.E commands. Save with <keybinding:workbench.action.files.save>, undo with <keybinding:undo>, and redo with <keybinding:redo>."),
 		localize('ade.help.recovery', "Save Project Copy preserves the original file and visual context. Reload Project asks before discarding unsaved changes. Save errors remain visible; an invalid model hides the previous diagram until it is repaired."),
 		localize('ade.help.tools', "Files, Terminal, Debug and Git open technical tools. Return to Model (<keybinding:ade.showDiagram>) returns to the same diagram, map or element details and selection."),
-		localize('ade.help.limits', "The model describes design intent. Conditions do not execute code. Code import, Sync and AI collaboration are planned and are not available yet.")].join('\n\n');
+		localize('ade.help.limits', "The model describes design intent. Conditions do not execute code. Import Codebase first analyzes source evidence; Build Diagrams with AI interprets it using the chosen model. Update Code proposes code changes for review. Chat with Codex opens the connected account conversation; Update Diagrams refreshes the model after source changes. AI output requires review.")].join('\n\n');
 }

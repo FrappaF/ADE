@@ -128,9 +128,7 @@ registerAction2(class extends Action2 {
 	constructor() { super({ id: 'ade.showHome', title: localize2('ade.showHome', "A.D.E: Open Home"), f1: true }); }
 	async run(accessor: ServicesAccessor): Promise<void> {
 		accessor.get(IAdeProjectService).showHome();
-		const viewsService = accessor.get(IViewsService);
 		const editorService = accessor.get(IEditorService);
-		await viewsService.openViewContainer(ADE_VIEW_CONTAINER_ID, false);
 		await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 	}
 });
@@ -142,13 +140,15 @@ registerAction2(class extends Action2 {
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const project = accessor.get(IAdeProjectService);
-		const viewsService = accessor.get(IViewsService);
 		const editorService = accessor.get(IEditorService);
 		await project.restore();
 		if (project.activeView) { project.showDiagram(project.activeView.id); }
-		await viewsService.openViewContainer(ADE_VIEW_CONTAINER_ID, false);
 		await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 	}
+});
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.showNavigation', title: localize2('ade.showNavigation', "A.D.E: Show Diagram Navigation"), f1: true }); }
+	async run(accessor: ServicesAccessor): Promise<void> { await accessor.get(IViewsService).openViewContainer(ADE_VIEW_CONTAINER_ID, true); }
 });
 CommandsRegistry.registerCommandAlias('ade.returnToDiagram', 'ade.showDiagram');
 

@@ -20,7 +20,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { getDiagramGroups, getFeatureViews } from '../common/visualNavigation.js';
-import { ModelView } from '../common/semanticModel.js';
+import { isSourceEvidenceModel, ModelView } from '../common/semanticModel.js';
 import { AdeControls } from './adeControls.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { adeFocusedSurface, getAdeAccessibilityHint } from './adeAccessibilityContext.js';
@@ -144,19 +144,26 @@ export class AdeView extends ViewPane {
 		this.controls.render(body, () => {
 			dom.clearNode(body);
 			this.controls.button(body, localize('ade.home', "Home"), () => { void this.commandService.executeCommand('ade.showHome'); });
-			this.controls.button(body, localize('ade.systemMap', "System Map"), () => { void this.commandService.executeCommand('ade.showSystemMap'); }).disabled = this.project.loading || !!this.project.error;
-			this.controls.button(body, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search'); }).disabled = this.project.loading || !!this.project.error;
-			if (this.project.editable) {
-				this.controls.button(body, localize('ade.addFeature', "Add Feature"), () => { void this.commandService.executeCommand('ade.addFeature'); });
+			const more = this.controls.details(body, localize('ade.navigationOptions', "Navigation Options"), 'navigation-options');
+			this.controls.button(more, localize('ade.systemMap', "System Map"), () => { void this.commandService.executeCommand('ade.showSystemMap'); }).disabled = this.project.loading || !!this.project.error;
+			this.controls.button(more, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search'); }).disabled = this.project.loading || !!this.project.error;
+			if (this.project.editable && !isSourceEvidenceModel(model)) {
+				this.controls.button(more, localize('ade.addFeature', "Add Feature"), () => { void this.commandService.executeCommand('ade.addFeature'); });
 			}
 			if (this.project.loading || this.project.error) {
 				const status = dom.append(body, dom.$('p.ade-status'));
 				status.setAttribute('role', this.project.error ? 'alert' : 'status');
 				status.textContent = this.project.error ?? localize('ade.loading', "Loading model…");
-				this.controls.button(body, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
+				this.controls.button(more, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
+				return;
+			}
+			if (isSourceEvidenceModel(model)) {
+				dom.append(body, dom.$('p')).textContent = localize('ade.import.pendingSidebar', "Source Evidence Ready. Create diagrams with AI to see your system's capabilities and flows here.");
+				this.controls.button(body, localize('ade.buildDiagrams', "Build Diagrams with AI"), () => { void this.commandService.executeCommand('ade.ai.buildDiagrams'); });
 				return;
 			}
 			for (const group of getDiagramGroups(model)) {
+				if (!group.featureId && !group.views.length && model.views.length) { continue; }
 				const section = dom.append(body, dom.$('section.ade-diagram-group'));
 				section.setAttribute('aria-label', group.name);
 				const context = this.group(section, group.featureId ? `feature:${group.featureId}` : 'system', group.name);
@@ -183,7 +190,7 @@ export class AdeView extends ViewPane {
 					for (const view of related) { this.diagramButton(context, view, `related:${JSON.stringify([group.featureId, view.id])}`); }
 				}
 			}
-			this.controls.button(body, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
+			this.controls.button(more, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
 		});
 	}
 }

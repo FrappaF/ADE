@@ -10,7 +10,7 @@ import { AdeControls } from './adeControls.js';
 import { elementLabels, relationLabels } from './adeLabels.js';
 
 /** Measured message rows keep labels apart; geometry never changes semantic or manual-layout data. */
-export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, view: ModelView, controls: AdeControls, selectedId: string, select: (id: string) => void, context?: { element(target: HTMLElement, id: string): void; relation(target: HTMLElement | SVGElement, id: string): void }): { width: number; height: number } {
+export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, view: ModelView, controls: AdeControls, selectedId: string, select: (id: string) => void, context?: { selectRelation?(id: string): void; selectedRelation?: string; element(target: HTMLElement, id: string): void; relation(target: HTMLElement | SVGElement, id: string): void }): { width: number; height: number } {
 	const sequence = getSequenceDiagram(model, view);
 	canvas.classList.add('ade-sequence');
 	const svg = canvas.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -40,9 +40,10 @@ export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, vie
 		const parts = [localize('ade.sequence.message', "{0}. {1} → {2}: {3} ({4})", index + 1, source.name, target.name, relation.name, relationLabels[relation.kind])];
 		if (relation.condition) { parts.push(localize('ade.sequence.condition', "Condition: {0}", relation.condition)); }
 		if (relation.errorCode) { parts.push(localize('ade.sequence.error', "Error: {0}", relation.errorCode)); }
-		const label = controls.button(canvas, parts.join('\n'), () => select(source.id), `message:${relation.id}`);
+		const label = controls.button(canvas, parts.join('\n'), () => context?.selectRelation ? context.selectRelation(relation.id) : select(source.id), `message:${relation.id}`);
 		label.classList.add('ade-sequence-message');
 		label.dataset.relationId = relation.id;
+		label.setAttribute('aria-pressed', String(context?.selectedRelation === relation.id));
 		context?.relation(label, relation.id);
 		const labelWidth = Math.max(192, Math.abs(to - from) - 24);
 		label.style.width = `${labelWidth}px`;

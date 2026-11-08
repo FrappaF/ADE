@@ -1,0 +1,870 @@
+{
+	"version": 3,
+	"id": "task-architecture",
+	"name": "Task Architecture · All Notations",
+	"semantics": {
+		"elements": [
+			{
+				"id": "tasks",
+				"name": "Task Management",
+				"kind": "feature"
+			},
+			{
+				"id": "c:person",
+				"name": "Task Owner",
+				"kind": "actor",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:system",
+				"name": "Task System",
+				"kind": "system",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:api",
+				"name": "Task API",
+				"kind": "container",
+				"parentId": "c:system"
+			},
+			{
+				"id": "c:db",
+				"name": "Task Data",
+				"kind": "resource",
+				"parentId": "c:system"
+			},
+			{
+				"id": "c:service",
+				"name": "Task Service",
+				"kind": "component",
+				"parentId": "c:api"
+			},
+			{
+				"id": "c:port",
+				"name": "Task Store Port",
+				"kind": "interface",
+				"parentId": "c:api"
+			},
+			{
+				"id": "c:entity",
+				"name": "Task",
+				"kind": "entity",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:owner",
+				"name": "Owner",
+				"kind": "entity",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:tasks",
+				"name": "tasks",
+				"kind": "table",
+				"parentId": "tasks",
+				"details": {
+					"technology": "PostgreSQL",
+					"environment": "",
+					"members": [
+						{
+							"name": "id",
+							"type": "BIGINT",
+							"kind": "attribute",
+							"key": "primary",
+							"required": true
+						},
+						{
+							"name": "owner_id",
+							"type": "BIGINT",
+							"kind": "attribute",
+							"key": "foreign",
+							"required": true
+						},
+						{
+							"name": "title",
+							"type": "VARCHAR(200)",
+							"kind": "attribute",
+							"key": "none",
+							"required": true
+						}
+					]
+				}
+			},
+			{
+				"id": "c:users",
+				"name": "users",
+				"kind": "table",
+				"parentId": "tasks",
+				"details": {
+					"technology": "PostgreSQL",
+					"environment": "",
+					"members": [
+						{
+							"name": "id",
+							"type": "BIGINT",
+							"kind": "attribute",
+							"key": "primary",
+							"required": true
+						},
+						{
+							"name": "name",
+							"type": "VARCHAR(100)",
+							"kind": "attribute",
+							"key": "none",
+							"required": true
+						}
+					]
+				}
+			},
+			{
+				"id": "c:task-class",
+				"name": "Task",
+				"kind": "class",
+				"parentId": "tasks",
+				"details": {
+					"technology": "Java",
+					"environment": "",
+					"members": [
+						{
+							"name": "id",
+							"type": "long",
+							"kind": "attribute",
+							"key": "none",
+							"required": true
+						},
+						{
+							"name": "complete",
+							"type": "void",
+							"kind": "method",
+							"key": "none",
+							"required": true
+						}
+					]
+				}
+			},
+			{
+				"id": "c:service-class",
+				"name": "TaskService",
+				"kind": "class",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:domain",
+				"name": "Domain",
+				"kind": "package",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:store",
+				"name": "Persistence",
+				"kind": "package",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:host",
+				"name": "Compose Host",
+				"kind": "deploymentNode",
+				"parentId": "tasks",
+				"details": {
+					"technology": "Compose",
+					"environment": "Local",
+					"members": []
+				}
+			},
+			{
+				"id": "c:artifact",
+				"name": "Task API Image",
+				"kind": "artifact",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:network",
+				"name": "Backend Bridge",
+				"kind": "networkNode",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:usecase",
+				"name": "Complete Task",
+				"kind": "useCase",
+				"parentId": "c:system"
+			},
+			{
+				"id": "c:process",
+				"name": "Process Task Change",
+				"kind": "process",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:data",
+				"name": "Task Records",
+				"kind": "dataStore",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:complete",
+				"name": "Complete Task",
+				"kind": "action",
+				"parentId": "tasks"
+			},
+			{
+				"id": "c:open",
+				"name": "Incomplete",
+				"kind": "state",
+				"parentId": "c:db"
+			},
+			{
+				"id": "c:done",
+				"name": "Complete",
+				"kind": "state",
+				"parentId": "c:db"
+			}
+		],
+		"relations": [
+			{
+				"id": "context",
+				"from": "c:person",
+				"to": "c:system",
+				"name": "context",
+				"kind": "communication"
+			},
+			{
+				"id": "http",
+				"from": "c:person",
+				"to": "c:api",
+				"name": "http",
+				"kind": "communication",
+				"details": {
+					"sourceMultiplicity": "",
+					"targetMultiplicity": "",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": "HTTP"
+				}
+			},
+			{
+				"id": "sql",
+				"from": "c:api",
+				"to": "c:db",
+				"name": "sql",
+				"kind": "communication"
+			},
+			{
+				"id": "port",
+				"from": "c:service",
+				"to": "c:port",
+				"name": "port",
+				"kind": "implementation"
+			},
+			{
+				"id": "owns",
+				"from": "c:owner",
+				"to": "c:entity",
+				"name": "owns",
+				"kind": "association"
+			},
+			{
+				"id": "fk",
+				"from": "c:tasks",
+				"to": "c:users",
+				"name": "fk",
+				"kind": "association",
+				"details": {
+					"sourceMultiplicity": "0..*",
+					"targetMultiplicity": "1",
+					"sourceMember": "owner_id",
+					"targetMember": "id",
+					"protocol": ""
+				}
+			},
+			{
+				"id": "uses-class",
+				"from": "c:service-class",
+				"to": "c:task-class",
+				"name": "uses-class",
+				"kind": "dependency"
+			},
+			{
+				"id": "layer",
+				"from": "c:store",
+				"to": "c:domain",
+				"name": "layer",
+				"kind": "dependency"
+			},
+			{
+				"id": "deploy",
+				"from": "c:host",
+				"to": "c:artifact",
+				"name": "deploy",
+				"kind": "hosting"
+			},
+			{
+				"id": "serves",
+				"from": "c:host",
+				"to": "c:api",
+				"name": "serves",
+				"kind": "hosting"
+			},
+			{
+				"id": "network",
+				"from": "c:network",
+				"to": "c:api",
+				"name": "network",
+				"kind": "communication"
+			},
+			{
+				"id": "capability",
+				"from": "c:person",
+				"to": "c:usecase",
+				"name": "capability",
+				"kind": "association"
+			},
+			{
+				"id": "input",
+				"from": "c:person",
+				"to": "c:process",
+				"name": "input",
+				"kind": "dataFlow"
+			},
+			{
+				"id": "output",
+				"from": "c:process",
+				"to": "c:data",
+				"name": "output",
+				"kind": "dataFlow"
+			},
+			{
+				"id": "invoke",
+				"from": "c:person",
+				"to": "c:complete",
+				"name": "invoke",
+				"kind": "invocation"
+			},
+			{
+				"id": "save",
+				"from": "c:complete",
+				"to": "c:db",
+				"name": "save",
+				"kind": "write"
+			},
+			{
+				"id": "finish",
+				"from": "c:open",
+				"to": "c:done",
+				"name": "finish",
+				"kind": "transition"
+			}
+		]
+	},
+	"views": [
+		{
+			"id": "overview",
+			"kind": "structure",
+			"name": "Task System Overview",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:person",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:system",
+					"x": 2136,
+					"y": 0
+				},
+				{
+					"elementId": "c:api",
+					"x": 2136,
+					"y": 304
+				},
+				{
+					"elementId": "c:db",
+					"x": 4248,
+					"y": 0
+				},
+				{
+					"elementId": "c:service",
+					"x": 0,
+					"y": 304
+				},
+				{
+					"elementId": "c:port",
+					"x": 2136,
+					"y": 608
+				},
+				{
+					"elementId": "c:entity",
+					"x": 2136,
+					"y": 912
+				},
+				{
+					"elementId": "c:owner",
+					"x": 0,
+					"y": 608
+				},
+				{
+					"elementId": "c:tasks",
+					"x": 528,
+					"y": 0
+				},
+				{
+					"elementId": "c:users",
+					"x": 2664,
+					"y": 0
+				},
+				{
+					"elementId": "c:task-class",
+					"x": 2664,
+					"y": 354
+				},
+				{
+					"elementId": "c:service-class",
+					"x": 528,
+					"y": 376
+				},
+				{
+					"elementId": "c:domain",
+					"x": 2664,
+					"y": 708
+				},
+				{
+					"elementId": "c:store",
+					"x": 1080,
+					"y": 0
+				},
+				{
+					"elementId": "c:host",
+					"x": 1080,
+					"y": 304
+				},
+				{
+					"elementId": "c:artifact",
+					"x": 3192,
+					"y": 0
+				},
+				{
+					"elementId": "c:network",
+					"x": 1608,
+					"y": 0
+				},
+				{
+					"elementId": "c:usecase",
+					"x": 3192,
+					"y": 304
+				},
+				{
+					"elementId": "c:process",
+					"x": 3192,
+					"y": 608
+				},
+				{
+					"elementId": "c:data",
+					"x": 4248,
+					"y": 304
+				},
+				{
+					"elementId": "c:complete",
+					"x": 3192,
+					"y": 912
+				},
+				{
+					"elementId": "c:open",
+					"x": 1608,
+					"y": 304
+				},
+				{
+					"elementId": "c:done",
+					"x": 3720,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"context",
+				"http",
+				"sql",
+				"port",
+				"owns",
+				"fk",
+				"uses-class",
+				"layer",
+				"deploy",
+				"serves",
+				"network",
+				"capability",
+				"input",
+				"output",
+				"invoke",
+				"save",
+				"finish"
+			]
+		},
+		{
+			"id": "c4context",
+			"kind": "c4Context",
+			"name": "System Context",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:person",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:system",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"context"
+			]
+		},
+		{
+			"id": "c4container",
+			"kind": "c4Container",
+			"name": "Application Containers",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:person",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:system",
+					"x": 0,
+					"y": 304
+				},
+				{
+					"elementId": "c:api",
+					"x": 528,
+					"y": 0
+				},
+				{
+					"elementId": "c:db",
+					"x": 1056,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"http",
+				"sql"
+			]
+		},
+		{
+			"id": "c4component",
+			"kind": "c4Component",
+			"name": "Internal Components",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:api",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:service",
+					"x": 0,
+					"y": 304
+				},
+				{
+					"elementId": "c:port",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"port"
+			]
+		},
+		{
+			"id": "erd",
+			"kind": "erd",
+			"name": "Domain Entities",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:owner",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:entity",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"owns"
+			]
+		},
+		{
+			"id": "databaseschema",
+			"kind": "databaseSchema",
+			"name": "Database Schema",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:tasks",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:users",
+					"x": 552,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"fk"
+			]
+		},
+		{
+			"id": "deployment",
+			"kind": "deployment",
+			"name": "Local Deployment",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:host",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:artifact",
+					"x": 528,
+					"y": 0
+				},
+				{
+					"elementId": "c:api",
+					"x": 528,
+					"y": 304
+				}
+			],
+			"relationIds": [
+				"deploy",
+				"serves"
+			]
+		},
+		{
+			"id": "class",
+			"kind": "class",
+			"name": "Domain Classes",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:service-class",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:task-class",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"uses-class"
+			]
+		},
+		{
+			"id": "usecase",
+			"kind": "useCase",
+			"name": "Task Capabilities",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:person",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:system",
+					"x": 0,
+					"y": 304
+				},
+				{
+					"elementId": "c:usecase",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"capability"
+			]
+		},
+		{
+			"id": "component",
+			"kind": "component",
+			"name": "Components and Interfaces",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:service",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:port",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"port"
+			]
+		},
+		{
+			"id": "package",
+			"kind": "package",
+			"name": "Architectural Packages",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:store",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:domain",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"layer"
+			]
+		},
+		{
+			"id": "dataflow",
+			"kind": "dataFlow",
+			"name": "Task Data Flow",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:person",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:process",
+					"x": 528,
+					"y": 0
+				},
+				{
+					"elementId": "c:data",
+					"x": 1056,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"input",
+				"output"
+			]
+		},
+		{
+			"id": "network",
+			"kind": "network",
+			"name": "Backend Network",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:network",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:api",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"network"
+			]
+		},
+		{
+			"id": "activity",
+			"kind": "activity",
+			"name": "Complete a Task",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:person",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:complete",
+					"x": 528,
+					"y": 0
+				},
+				{
+					"elementId": "c:db",
+					"x": 1056,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"invoke",
+				"save"
+			]
+		},
+		{
+			"id": "sequence",
+			"kind": "sequence",
+			"name": "Task Completion Messages",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:person",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:complete",
+					"x": 528,
+					"y": 0
+				},
+				{
+					"elementId": "c:db",
+					"x": 1056,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"invoke",
+				"save"
+			]
+		},
+		{
+			"id": "state",
+			"kind": "state",
+			"name": "Task Lifecycle",
+			"featureId": "tasks",
+			"nodes": [
+				{
+					"elementId": "c:db",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "c:open",
+					"x": 0,
+					"y": 304
+				},
+				{
+					"elementId": "c:done",
+					"x": 528,
+					"y": 0
+				}
+			],
+			"relationIds": [
+				"finish"
+			]
+		}
+	],
+	"codeMappings": [],
+	"verifications": []
+}

@@ -36,3 +36,22 @@ test('density increases spacing without changing semantic identities or node mem
 	assert.ok(extents[0] < extents[1] && extents[1] < extents[2]);
 	assert.deepEqual(layouts.map(nodes => nodes.map(node => node.elementId)), Array(3).fill(model.views[0].nodes.map(node => node.elementId)));
 });
+
+test('a large dependency cycle spreads over multiple rows and columns', () => {
+	const model = fixture(17), view = model.views[0];
+	model.semantics.relations = model.semantics.elements.map((element, i, elements) => ({ id: `cycle-${i}`, kind: 'dependency', from: element.id, to: elements[(i + 1) % elements.length].id, name: '' }));
+	view.relationIds = model.semantics.relations.map(relation => relation.id);
+	const nodes = arrangeDiagram(model, view);
+	assert.ok(new Set(nodes.map(node => node.x)).size >= 4);
+	assert.ok(new Set(nodes.map(node => node.y)).size >= 4);
+});
+
+test('a linear behavior flow wraps into readable bands instead of one long horizontal strip', () => {
+	const model = fixture(7), view = model.views[0];
+	model.semantics.relations = model.semantics.elements.slice(1).map((element, i) => ({ id: `flow-${i}`, kind: 'dependency', from: model.semantics.elements[i].id, to: element.id, name: '' }));
+	view.relationIds = model.semantics.relations.map(item => item.id);
+	const nodes = arrangeDiagram(model, view, 'balanced');
+	assert.ok(Math.max(...nodes.map(node => node.x)) < 1500);
+	assert.ok(Math.max(...nodes.map(node => node.y)) > 0);
+	assert.deepEqual(model.semantics.elements.map(item => item.id), nodes.map(node => node.elementId));
+});

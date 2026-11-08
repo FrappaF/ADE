@@ -7,6 +7,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { EditorInputCapabilities, IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
+import { isSourceEvidenceModel } from '../common/semanticModel.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 
 export class AdeInput extends EditorInput {
@@ -31,6 +32,7 @@ export class AdeInput extends EditorInput {
 	override async revert(): Promise<void> { await this.project.revert(); }
 	readonly resource = AdeInput.RESOURCE;
 	override getName(): string {
+		if (!this.project.loading && !this.project.error && isSourceEvidenceModel(this.project.model)) { return localize('ade.import.title', "Create Diagrams: {0}", this.project.model.name); }
 		if (this.project.section === 'map' && !this.project.error && !this.project.loading) { return localize('ade.map.name', "System Map: {0}", this.project.model.name); }
 		if (this.project.section === 'impact' && !this.project.error && !this.project.loading) {
 			return localize('ade.impact.name', "Change Impact: {0}", this.project.model.semantics.elements.find(element => element.id === this.project.selectedId)?.name ?? this.project.model.name);

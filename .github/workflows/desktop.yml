@@ -143,6 +143,12 @@ jobs:
       - name: Independent projects smoke on macOS
         if: runner.os == 'macOS'
         run: node ade/scripts/smoke-desktop.mjs --projects-only
+      - name: Semantic diagram workflow on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --diagram-workflow
+      - name: Semantic diagram workflow on macOS
+        if: runner.os == 'macOS'
+        run: node ade/scripts/smoke-desktop.mjs --diagram-workflow
       - name: Native code bridge smoke on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --code-only

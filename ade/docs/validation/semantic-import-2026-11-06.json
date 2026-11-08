@@ -1,0 +1,51 @@
+{
+  "recordedAt": "2026-11-06",
+  "timezone": "Etc/UTC",
+  "branch": "feat/m6-reconciliation",
+  "baseCommit": "7ea1641d909e98866c55af11f3b0b0e969f448a5",
+  "checks": {
+    "codeImportSuite": 124,
+    "aiSuite": 29,
+    "nativeAiAndWorkspaceServices": 43,
+    "browserProjectAndAccessibility": 46,
+    "cameraAndLayout": 8,
+    "semanticImportRegressions": 30,
+    "workbenchTypecheck": "passed",
+    "aiTypecheck": "passed",
+    "targetedLint": "passed",
+    "clientBuild": "passed",
+    "desktopTodoImport": "passed",
+    "desktopBidirectionalWorkflowAndRestart": "passed"
+  },
+  "todo": {
+    "provider": "simulated-original-cli",
+    "language": "Ruby with HTML templates and YAML configuration",
+    "modelCalls": 1,
+    "elements": 8,
+    "domainObjects": 7,
+    "relations": 8,
+    "diagrams": 2,
+    "indexHidden": true,
+    "sourceFilesAreNotFeatures": true,
+    "connectedViews": true
+  },
+  "provider": {
+    "kind": "simulated-original-cli",
+    "liveInference": false,
+    "realModelSemanticQuality": "not measured"
+  },
+  "reviewedScreenshots": [
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/semantic-import-ready.png",
+      "sha256": "83781cb05ab19f87be6f5dc7bb6799295831d1b2015006f4e0baf391f8780bfa"
+    },
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/semantic-todo-overview.png",
+      "sha256": "6098edd5e7cb5fd4344a66a0c24bc17d21a181448190ed10332a2120f9d69368"
+    },
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/semantic-todo-flow.png",
+      "sha256": "1a543283367d8c2edef06946e753d5ebed93ac06f7fda2faced109dfdca11ee2"
+    }
+  ]
+}

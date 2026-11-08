@@ -9,10 +9,11 @@ import { prepareImplementation, type PreparedImplementation } from './context.ts
 import { proposeImplementation } from './collaboration.ts';
 import { interpretResiduals } from './interpretation.ts';
 import { benchmarkModels, type BenchmarkCandidate } from './benchmark.ts';
+import { benchmarkReconciliation } from './reconciliationBenchmark.ts';
 import { applyImplementation, planReviewId, readSession, recoverImplementation, stageImplementation, verifyImplementation } from './implementation.ts';
 
 interface CollaborationRequest {
-	operation: 'prepare' | 'plan' | 'interpret' | 'stage' | 'session' | 'verify' | 'apply' | 'undo' | 'recover' | 'benchmark';
+	operation: 'prepare' | 'plan' | 'interpret' | 'stage' | 'session' | 'verify' | 'apply' | 'undo' | 'recover' | 'benchmark' | 'reconciliationBenchmark';
 	candidates?: BenchmarkCandidate[];
 	request?: object; config?: object; prepared?: PreparedImplementation; plan?: object;
 	reviewId?: string; root?: string; id?: string;
@@ -21,7 +22,7 @@ const valid = new Ajv2020().compile<CollaborationRequest>({ oneOf: [
 	object({ operation: { const: 'prepare' }, request: { type: 'object' }, config: { type: 'object' } }),
 	object({ operation: { enum: ['plan', 'interpret'] }, prepared: { type: 'object' }, reviewId: text }),
 	object({ operation: { const: 'stage' }, prepared: { type: 'object' }, plan: { type: 'object' }, reviewId: text }),
-	object({ operation: { const: 'benchmark' }, candidates: { type: 'array', minItems: 2, maxItems: 3, items: { type: 'object', additionalProperties: false, required: ['config'], properties: { config: { type: 'object' }, rates: { type: 'object' } } } } }),
+	object({ operation: { enum: ['benchmark', 'reconciliationBenchmark'] }, candidates: { type: 'array', minItems: 2, maxItems: 3, items: { type: 'object', additionalProperties: false, required: ['config'], properties: { config: { type: 'object' }, rates: { type: 'object' } } } } }),
 	object({ operation: { enum: ['session', 'verify', 'apply', 'undo', 'recover'] }, root: text, id: text, reviewId: text }, ['reviewId'])
 ] });
 
@@ -35,6 +36,7 @@ export async function executeCollaboration(input: string, signal?: AbortSignal):
 	switch (request.operation) {
 		case 'prepare': result = await prepareImplementation(request.request, request.config, signal); break;
 		case 'benchmark': result = await benchmarkModels(request.candidates!, signal); break;
+		case 'reconciliationBenchmark': result = await benchmarkReconciliation(request.candidates!, signal); break;
 		case 'interpret': result = await interpretResiduals(request.prepared!, request.reviewId!, signal); break;
 		case 'plan': {
 			const proposal = await proposeImplementation(request.prepared!, request.reviewId!, signal);

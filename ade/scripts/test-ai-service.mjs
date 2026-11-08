@@ -20,7 +20,7 @@ registerHooks({
 	load(url, context, next) {
 		const token = tokens.get(url);
 		if (token) {
-			return { format: 'module', source: `import { createDecorator } from ${JSON.stringify(decorator)}; ${Array.from({ length: token.length / 2 }, (_, i) => `export const ${token[i * 2]} = createDecorator(${JSON.stringify(token[i * 2 + 1])});`).join(' ')}`, shortCircuit: true };
+			return { format: 'module', source: `import { createDecorator } from ${JSON.stringify(decorator)}; ${Array.from({ length: token.length / 2 }, (_, i) => `export const ${token[i * 2]} = createDecorator(${JSON.stringify(token[i * 2 + 1])});`).join(' ')} ${url.endsWith('/chat.js') ? "export const ChatViewPaneTarget = Symbol('ChatViewPaneTarget');" : ''}`, shortCircuit: true };
 		}
 		if (url.endsWith('.css')) { return { format: 'module', source: 'export {};', shortCircuit: true }; }
 		return next(url, context);

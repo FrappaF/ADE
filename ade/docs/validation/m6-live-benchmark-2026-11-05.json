@@ -1,0 +1,265 @@
+{
+	"version": 1,
+	"kind": "live-reconciliation-benchmark",
+	"recordedAt": "2026-11-05T19:56:45.207Z",
+	"thresholds": {
+		"cases": 9,
+		"requiredPassRate": 1,
+		"scope": "Python/Java/Go: model-to-code rename, code-to-model rename, explicit concurrent-contract conflict; structural identity and exact custom-code preservation. No claim of runtime behavior or universal language certification."
+	},
+	"models": [
+		{
+			"candidate": {
+				"config": {
+					"version": 1,
+					"provider": "codex",
+					"connection": "cli",
+					"model": "gpt-6-luna",
+					"executable": "codex",
+					"timeoutMs": 60000,
+					"maxContextBytes": 65536,
+					"maxCalls": 1
+				}
+			},
+			"cases": [
+				{
+					"language": "python",
+					"direction": "model",
+					"passed": false,
+					"inputBytes": 8121,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1463,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "python",
+					"direction": "code",
+					"passed": false,
+					"inputBytes": 8214,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1247,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "python",
+					"direction": "concurrent",
+					"passed": false,
+					"inputBytes": 8258,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1387,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "java",
+					"direction": "model",
+					"passed": false,
+					"inputBytes": 8607,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1464,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "java",
+					"direction": "code",
+					"passed": false,
+					"inputBytes": 8635,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1580,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "java",
+					"direction": "concurrent",
+					"passed": false,
+					"inputBytes": 8680,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 4651,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "go",
+					"direction": "model",
+					"passed": false,
+					"inputBytes": 8112,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1259,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "go",
+					"direction": "code",
+					"passed": false,
+					"inputBytes": 8204,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1216,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "go",
+					"direction": "concurrent",
+					"passed": false,
+					"inputBytes": 8249,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1456,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				}
+			],
+			"eligible": false,
+			"estimatedConsumption": null
+		},
+		{
+			"candidate": {
+				"config": {
+					"version": 1,
+					"provider": "codex",
+					"connection": "cli",
+					"model": "gpt-6.1-sol",
+					"executable": "codex",
+					"timeoutMs": 60000,
+					"maxContextBytes": 65536,
+					"maxCalls": 1
+				}
+			},
+			"cases": [
+				{
+					"language": "python",
+					"direction": "model",
+					"passed": false,
+					"inputBytes": 8121,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1316,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "python",
+					"direction": "code",
+					"passed": false,
+					"inputBytes": 8214,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1118,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "python",
+					"direction": "concurrent",
+					"passed": false,
+					"inputBytes": 8258,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1262,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "java",
+					"direction": "model",
+					"passed": false,
+					"inputBytes": 8607,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 974,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "java",
+					"direction": "code",
+					"passed": false,
+					"inputBytes": 8635,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1123,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "java",
+					"direction": "concurrent",
+					"passed": false,
+					"inputBytes": 8680,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1050,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "go",
+					"direction": "model",
+					"passed": false,
+					"inputBytes": 8112,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1057,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "go",
+					"direction": "code",
+					"passed": false,
+					"inputBytes": 8204,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1532,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				},
+				{
+					"language": "go",
+					"direction": "concurrent",
+					"passed": false,
+					"inputBytes": 8249,
+					"outputBytes": 0,
+					"inputTokens": null,
+					"outputTokens": null,
+					"durationMs": 1200,
+					"error": "Provider authentication failed. Refresh the CLI account, or sign in with the same executable and CODEX_HOME used by A.D.E.",
+					"attempted": true
+				}
+			],
+			"eligible": false,
+			"estimatedConsumption": null
+		}
+	],
+	"defaultModel": null
+}

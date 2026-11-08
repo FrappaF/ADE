@@ -1,0 +1,77 @@
+{
+  "recordedAt": "2026-11-05",
+  "branch": "feat/m6-reconciliation",
+  "baseCommit": "8f2d977f7b3521669b54e7a140816fbc2d559923",
+  "environment": {
+    "os": "Linux",
+    "display": "Xorg dummy 1280x900",
+    "keyboard": "fallback layout"
+  },
+  "provider": {
+    "kind": "simulated-original-cli",
+    "liveInference": false,
+    "economicalDefaultSelected": false
+  },
+  "checks": {
+    "codeImportTests": {
+      "passed": 120
+    },
+    "diagramImportFocusedTests": {
+      "passed": 26
+    },
+    "aiCollaborationTests": {
+      "passed": 29
+    },
+    "nativeServiceTests": {
+      "passed": 36
+    },
+    "typescript": [
+      "ade workbench",
+      "ade/ai",
+      "ade/code-import"
+    ],
+    "targetedLint": "passed",
+    "clientBuild": "passed",
+    "codeEngineBundle": "passed",
+    "desktopDiagramWorkflow": "passed",
+    "desktopAdvancedSync": "passed",
+    "desktopLegacyAiWorkflow": "passed",
+    "desktopContextualEditingAndProjects": "passed",
+    "desktopKeyboardNarrowWindowAndThemes": "passed"
+  },
+  "workflow": {
+    "importSteps": 2,
+    "diagrams": 2,
+    "primaryActions": [
+      "Diagrams",
+      "Update Code",
+      "Chat with Codex",
+      "Update Diagrams"
+    ],
+    "inspectorInitiallyHidden": true,
+    "modelToCode": true,
+    "codeToModel": true,
+    "provider": "simulated-original-cli"
+  },
+  "screenshots": [
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/diagram-workflow.png",
+      "sha256": "ba69709c43ecdc214c7d526ef57b980ac28bc1248c0d2e28236cdf43d0f830d0"
+    },
+    {
+      "workspacePath": "/workspace/ADE/.build/ade-smoke/m6-model-to-code.png",
+      "sha256": "837ba051bbf37872eb24e385585300323eca4dac2dbd9d929f13a019d0a4775a"
+    }
+  ],
+  "limits": [
+    "Semantic quality and economical model choice require a working live provider benchmark.",
+    "Native account/chat routes use injected services in unit tests; no live conversation was sent.",
+    "macOS and remote CI were not run in this environment."
+  ],
+  "themeContrast": {
+    "Light Modern": 17.14,
+    "Dark Modern": 11.99,
+    "Dark High Contrast": 21.0,
+    "Light High Contrast": 12.33
+  }
+}

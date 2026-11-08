@@ -82,3 +82,7 @@ npm --prefix ade/prototype test
 ```
 
 Questi controlli non richiedono installazione delle dipendenze desktop. Dopo l'installazione delle dipendenze root, `npm run ade:check` controlla i tipi del dominio e della shell, comprese le dipendenze TypeScript importate. Per chiudere il collaudo desktop seguire il [verbale M0](m0-verification.md).
+
+## Dati, classi e architettura
+
+Il [catalogo delle notazioni](diagram-catalog.md) documenta l’estensione additiva di v2/v3 a 16 tipi di vista. `SemanticElement.details` conserva tecnologia, ambiente e membri (nome, tipo/firma, attributo/metodo, chiave e obbligatorietà); `SemanticRelation.details` conserva molteplicità, colonne agli estremi e protocollo. Le firme consentono overload distinti. Contenimento, ruoli e riferimenti vengono validati; le viste nuove ammettono soltanto elementi e relazioni compatibili. La generazione richiede anche un soggetto del tipo corretto: un archivio senza tabelle non completa uno schema fisico. I vecchi documenti restano leggibili senza migrazione dei dati.
