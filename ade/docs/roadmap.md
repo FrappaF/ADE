@@ -1,5 +1,7 @@
 # Roadmap A.D.E
 
+Il [piano di attuazione Diagram-Driven AI](diagram-driven-ai-implementation-plan.md) definisce i requisiti R01–R16 e gli step S00–S15. La nuova fase **M6.DAI**, collocata fra M6 e M7, li organizza in dodici sprint con dipendenze, consegne e criteri di completamento. Tutti gli sprint sono da sviluppare; la pianificazione non certifica capacità già disponibili.
+
 La [revisione UX del 6 novembre](ux-ai-workflow.md) semplifica il primo avvio, riusa la chat Codex e rende esplicito il ritorno ai diagrammi, distinguendo revisione, esecuzione e ripresa.
 
 Il seguito M6 introduce [importazione semantica in due passi, chat Codex e UI centrata sui diagrammi](diagram-workflow.md): classificazione IA di tutti i simboli, contesto compatto multilinguaggio, generazione riprendibile, scelta separata del modello per i diagrammi e azioni dirette per aggiornare codice e viste.
@@ -51,8 +53,9 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Completato funzionalmente sul perimetro dichiarato: 16 profili, import/Sync nativi, rinomine, evidenze e recupero; verifica Linux e benchmark nel verbale M4 |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Criterio funzionale Node/Linux verificato con Codex e account reali: UI, test, riavvio e undo; benchmark su tre campioni (Sol 3/3, Luna 2/3). CI Linux/macOS richiesta per il merge; esiti nella PR #7 |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Motore IA indipendente dal linguaggio, Sync nativo, revisioni comuni, conflitti, undo/recupero e benchmark disponibili; test su 16 profili e SQL. Smoke Electron Linux passato; benchmark live bloccato da autenticazione, macOS e CI aperti |
-| M7 · Ambiente dinamico | Esecuzione e diagnostica nel modello | M3, M5, M6 | Da sviluppare |
-| M8 · Beta utilizzabile | Progetto completo sul perimetro supportato | M2–M7 | Da sviluppare |
+| M6.DAI · Diagram-Driven AI | Specifica eseguibile, contesto IA sufficiente, forward/reverse e percorso visuale su due archetipi | M1–M6 | Pianificato in dodici sprint; requisiti R01–R16 e step S00–S15 da completare |
+| M7 · Ambiente dinamico | Esecuzione e diagnostica nel modello | M3, M5, M6, M6.DAI | Da sviluppare |
+| M8 · Beta utilizzabile | Progetto completo sul perimetro supportato | M2–M7, inclusa M6.DAI | Da sviluppare |
 | M9 · Espansione | Altri adattatori, piattaforme e collaborazione | M8 | Da valutare |
 
 Il primo traguardo end-to-end è completare una feature di acquisto: attore → interfaccia → controller → pagamento → ordine, inclusi errori e verifiche. Questo scenario accompagnerà tutte le milestone.
@@ -330,6 +333,222 @@ La priorità è M2.1, prima di ampliare canvas e funzioni IA. L'infrastruttura C
 
 Il motore e il protocollo IA devono essere indipendenti dal linguaggio. La disponibilità e la copertura di parser, compilatori, indicizzatori e test restano dichiarate e verificate per ogni adattatore: l'assenza di uno strumento non deve essere presentata come verifica riuscita o trasformazione certa.
 
+## M6.DAI — Attuazione completa Diagram-Driven AI
+
+**Fonte e obiettivo:** attuare integralmente il [piano Diagram-Driven AI](diagram-driven-ai-implementation-plan.md), compresi architettura informativa, requisiti R01–R16, step S00–S15, criteri di maturità, decisioni e contratto di handoff. Il risultato è un modello progettuale tipizzato dal quale derivano viste, contesto IA e trasformazioni verificabili, con un percorso completo nuovo progetto → codice → modifica esterna → riconciliazione.
+
+**Base e stato:** riusare modello, notazioni, importazione, worktree, protocolli compatti e journal di M1–M6. La baseline del piano è `9e0efde8`; il documento è stato integrato in `main` con `15c78215`. All'avvio dello sviluppo la baseline va verificata nuovamente. Tutti gli sprint sotto sono pianificati e nessuno step futuro è dichiarato implementato. Le verifiche M2/M3/M5/M6 ancora aperte restano tracciate nei rispettivi verbali.
+
+**Vincoli architetturali trasversali:** mantenere dominio e validazione in `common/`, senza dipendenze Node/Electron/browser; servizi del workbench per editing/rendering e adattatori/worker per sorgenti, provider e applicazione. Separare logicamente identità/ownership, contratti, comportamenti, decisioni, piattaforma, viste, evidenze/mapping e operazioni/verifiche, partendo da JSON e snapshot esistenti. Introdurre shard o indici ricostruibili solo dopo misure. Il modello governa l'intento accettato; il codice è evidenza dell'implementazione e le divergenze richiedono riconciliazione.
+
+**Significato di completamento al 100%:** chiudere ogni requisito R01–R16 e ogni criterio di S00–S15 sul perimetro dichiarato, inclusi secondo archetipo, modalità continua, prove negative, recupero e accessibilità. Non basta il renderer o un test simulato. Un criterio obbligatorio non misurato, bloccato o privo di evidenza resta aperto. Il perimetro comprende il profilo UML eseguibile e le macchine piatte definiti dal piano; non richiede conformità UML universale, generatori per tutti i 16 profili di parsing, stati gerarchici, provisioning o deploy automatici.
+
+### Sequenza degli sprint e dipendenze
+
+Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza mantiene gli incrementi I0–I5 del piano: prima una generazione strutturale utilizzabile, poi comportamenti completi e round-trip, infine maturità misurata. Ogni sprint integra subito dominio, workbench e verifiche pertinenti; S11, S14 e S15 proseguono trasversalmente. Una suddivisione ulteriore deve conservare ID, dipendenze e criteri di uscita.
+
+| Sprint | Incremento del piano | Step del piano | Dipende da | Consegna verificabile |
+| --- | --- | --- | --- | --- |
+| DAI-01 | I0 · Baseline | S00, avvio S15 | Base M1–M6 | Glossario, copertura, decisioni iniziali, corpus e budget versionati |
+| DAI-02 | I0 · Fondazione semantica | S01, S02, prima S11/S14/S15 | DAI-01 | Schema migrabile, readiness per target e primo pacchetto IA riproducibile |
+| DAI-03 | I1 · Blueprint strutturale | S03, S04, S09, estensioni S11/S14/S15 | DAI-02 | C4 L1–L4, contratti condivisi e ADR applicabili dal workbench |
+| DAI-04 | I2 · Profilo e contesto | Prima S05, S10, S11 | DAI-03 | Primo archetipo e compilatore di contesto sul sottoinsieme strutturale |
+| DAI-05 | I2 · Primo progetto | S12, S13 strutturale, S14/S15 pertinenti | DAI-04 | Nuovo progetto, forward/reverse espliciti, test indipendenti e undo |
+| DAI-06 | I3 · Interazioni | Completamento S05/S06; estensioni S10–S15 | DAI-05 | Sequenze con tutti i frame e semantica generata/verificata |
+| DAI-07 | I3 · Stati | S07; estensioni S10–S15 | DAI-06 | Macchine piatte con simulazione, azioni e generazione |
+| DAI-08 | I3 · Asincronia | S08; estensioni S09–S15 | DAI-07 | Queue/topic, contratti e politiche provati col broker scelto |
+| DAI-09 | I4 · Round-trip completo | Completamento S13 sul primo profilo | DAI-08 | Nuovi costrutti e operazioni fisiche riconciliati con recovery |
+| DAI-10 | I4 · Percorso e continuità | Completamento S14, modalità continua S12 | DAI-09 | Percorso visuale/accessibile completo e automazione con budget |
+| DAI-11 | I5 · Secondo archetipo | Completamento S10; equivalenza S11–S14 | DAI-10 | Stesso PIM e criteri di business su due stack |
+| DAI-12 | I5 · Maturità | Chiusura S15 e matrice R01–R16/S00–S15 | DAI-11 | Benchmark, collaudi desktop e rapporto finale con prove per criterio |
+
+### DAI-01 — Baseline, lessico e contratto di accettazione
+
+**Step di lavoro:**
+
+1. **DAI-01.1 / S00:** ricontrollare la revisione di partenza e inventariare capacità presenti, parziali e mancanti, collegando ciascuna a schema, servizio, UI e prova. Risolvere le discrepanze fra README, codice e verbali senza riscrivere M1–M6.
+2. **DAI-01.2 / S00:** fissare il glossario di sistema governato, esterno, container C4, componente, modulo/libreria, feature, vista, intento, implementazione ed evidenza. Separare esplicitamente unità distribuibile e immagine Docker, ownership e raggruppamento visuale.
+3. **DAI-01.3 / S15:** preparare corpus e oracoli indipendenti: checkout riuscito/rifiutato, scorte, permessi, timeout, concorrenza, stati, queue/topic, migrazioni e modifiche concorrenti. Registrare input e risultati attesi prima della generazione.
+4. **DAI-01.4 / S00/S15:** fissare e versionare dimensioni dei grafi, hardware, budget di latenza/memoria, contesto, chiamate e consumo per la release. Misurare la baseline attuale su fixture uguali; byte, token misurati/stimati e prezzi sconosciuti restano distinti.
+5. **DAI-01.5:** aprire il registro delle decisioni del piano §9 e le schede di handoff del §10. Registrare la scelta di evoluzione dello schema prima di DAI-02; stabilire responsabile, stato ed evidenza attesa per ciascun criterio.
+
+**Consegna e uscita:** inventario, glossario, matrice R01–R16/S00–S15, corpus e budget revisionati. Ogni requisito ha un percorso di implementazione e verifica; nessuna capacità presente è dichiarata tale senza riferimento. Le soglie di accettazione sono fissate prima dei benchmark finali.
+
+### DAI-02 — Metamodello, migrazioni e generabilità
+
+**Step di lavoro:**
+
+1. **DAI-02.1 / S01:** introdurre la nuova versione di schema con ID stabili per campi, operazioni, occorrenze e frame; distinguere relazioni strutturali, comportamenti, ownership, appartenenza alle feature e layout. Conservare mapping e annotazioni esistenti.
+2. **DAI-02.2 / S01:** rappresentare provenienza `authored/extracted/inferred/observed`, produttore e revisione; separare accettazione e verifica. Distinguere dato ignoto, omesso, vuoto, nullo e `false`, convertendo esplicitamente le convenzioni di trasporto dei provider.
+3. **DAI-02.3 / S01:** implementare lettura e migrazione conservativa v2/v3, serializzazione canonica e hash semantico indipendente dal layout. Conservare `legacy-unclassified`; non inventare stack, frame o risposte durante la migrazione. Verificare corrispondenza fra schema generato e versionato.
+4. **DAI-02.4 / S02:** separare validazione sintattica, referenziale, di dominio e di generabilità. Esprimere `draft`, `structurallyValid` e `generationReady` per target/archetipo, separati dagli stati delle operazioni. Le diagnostiche hanno codice, severità, oggetto/campo e azione risolutiva; la grammatica IA deriva dalle medesime regole.
+5. **DAI-02.5 / S11/S14/S15:** esporre le API a workbench, CLI e motore IA; preparare il primo pacchetto sigillato con identità risolte e byte riproducibili. Mostrare i campi mancanti e consentire salvataggio, undo e riapertura delle bozze.
+
+**Consegna e uscita:** migrazione senza perdita e idempotente; lettore incompatibile che rifiuta senza riscrivere; rinomina con identità conservata; solo layout con hash semantico invariato. Riferimenti inventati, esterni assenti, tecnologia obbligatoria ignota, tipi non supportati e conflitti ADR bloccano il target pertinente. Una feature indipendente in bozza non blocca il resto del progetto.
+
+### DAI-03 — C4 L1–L4, contratti e ADR dei progetti
+
+**Step di lavoro:**
+
+1. **DAI-03.1 / S03:** aggiungere soggetto e scope alle viste C4. L1 dichiara sistema governato, persone, esterni e integrazioni; L2 responsabilità, applicazioni/store, tecnologie PSM, trasporto e payload; L3 owner, componenti e interfacce fornite/richieste. Package e librerie non distribuibili restano moduli con binding espliciti.
+2. **DAI-03.2 / S03/S14:** integrare drill-down L1 → L2 → L3 → contratto, breadcrumb e selezione a identità costante, distinguendoli dallo zoom. Esporre le dipendenze esterne come contesto, senza attribuire loro implementazioni interne; filtri e viste dense conservano accesso ai metadati obbligatori.
+3. **DAI-03.3 / S04:** introdurre registro dei tipi con primitive, record, enum, collezioni, riferimenti e vincoli; operazioni con parametri, risultato, errori, permessi, effetti, pre/postcondizioni e criteri di accettazione. L4 espone solo membri contrattuali, invarianti e relazioni necessarie. Validare compatibilità delle interfacce e overload con ID distinti; i contratti di trasporto referenziano schema/versione, formato e protocollo. Separare opzionalità e nullabilità, campo di dominio, colonna e membro di classe mediante mapping espliciti.
+4. **DAI-03.4 / S09:** registrare la politica degli ADR normativi; implementare ADR utente con ID, numero, titolo, contesto, decisione, conseguenze, scope, stato e storia. Gestire `Proposed`, `Accepted`, `Deprecated`, `Superseded` e sostituzioni; mantenere separati gli ADR sullo sviluppo di ADE.
+5. **DAI-03.5 / S09/S11/S14:** affiancare alla prosa vincoli tipizzati su tecnologie, librerie, protocolli, dipendenze, persistenza e concorrenza. Risolvere applicabilità e conflitti senza precedenza implicita; fornire pannelli e comandi di creazione/modifica, invalidazione del contesto e diagnostiche sui consumer impattati.
+
+**Consegna e uscita:** checkout navigabile da persona a contratto con gli stessi ID; libreria condivisa senza duplicazioni; componente fuori owner respinto o mostrato come contesto. Provare fornitore non dichiarato, parametro incompatibile, errore non dichiarato, interfaccia richiesta non soddisfatta e firma modificata. Una proposta contraria a un ADR verificabile è respinta; ADR contraddittori bloccano il target. Gli ADR non applicabili restano fuori dal payload.
+
+### DAI-04 — Espressioni iniziali, primo archetipo e compilatore del contesto
+
+**Step di lavoro:**
+
+1. **DAI-04.1 / S05:** registrare il profilo eseguibile e implementare i predicati tipizzati necessari alla prima feature: riferimenti, letterali, confronti e logica booleana. Fissare presenza/null, precisione numerica, tempo/fuso ove usati, scope e azioni con effetti separati dalle guardie pure. Il testo libero resta descrittivo finché non formalizzato.
+2. **DAI-04.2 / S10:** registrare con ADR stack iniziale, versioni e capacità; definire contratto degli archetipi e separazione PIM/PSM. Includere mapping dei tipi, sorgenti, dipendenze ammesse, errori, persistenza, concorrenza e runner fidati. Il framework e il broker richiedono scelte esplicite prima dei rispettivi target.
+3. **DAI-04.3 / S11:** unificare selezione e serializzazione di M5, importazione e M6, riusando `compact-v4`, handle e finestre sigillate. Congelare revisioni, profilo e ADR e calcolare un task hash indipendente da layout e timestamp irrilevanti; partire da target/delta e chiudere i riferimenti necessari a tipi, azioni, scenari e consumer impattati, gestendo cicli senza duplicazione. Separare oggetti modificabili, definizioni complete e vicini consultivi; includere prima i contratti, poi i corpi solo dove necessari.
+4. **DAI-04.4 / S11:** implementare l'intero contratto del pacchetto del piano §6/S11: versioni, baseline, dizionario, focus/delta, definizioni, confini, vincoli, evidenze, lacune, scope di scrittura, schema di output e budget. Deduplicare frammenti/definizioni, canonizzare insiemi e preservare gli ordini semantici. Se manca una dipendenza obbligatoria o supera il budget, bloccare o suddividere per confini contrattuali.
+5. **DAI-04.5 / S11:** misurare byte dell'intero payload e token quando affidabili, con riserve per output/overhead e lacune di misura dichiarate. Implementare `proposal`, `needsClarification`, `needContext`, `unsupported`, retrieval entro scope, nuova disclosure e sigillatura per ogni ampliamento; chiarimenti salvati nell'intento versionato. Cache per contenuto pertinente, profilo, ADR, prompt/schema e provider/modello.
+6. **DAI-04.6 / S02/S11/S15:** validare output, identità temporanee risolte dagli strumenti, ownership, tipi, ancore, scope e freschezza. Trattare sorgenti, commenti ed etichette come dati; il riferimento a un'evidenza non prova da solo il supporto semantico. Integrare anteprima del contesto, lacune e costo disponibile.
+
+**Consegna e uscita:** stesso input sigillato → stessi byte; una feature usa soltanto i contratti necessari di una libreria ampia. Provare dipendenza oltre budget, ID inventato, retrieval fuori scope e istruzione ostile nel sorgente. Un cambiamento indipendente non invalida la cache quando l'indipendenza è dimostrata; un ADR applicabile sì. Nessun timeout, retry, dipendenza o compensazione viene inventato per completare il task.
+
+### DAI-05 — Primo progetto e generazione esplicita governata
+
+**Step di lavoro:**
+
+1. **DAI-05.1 / S12:** creare il percorso progetto vuoto → PIM → profilo → feature pronta, senza importazione preventiva. Preparare bootstrap del repository, manifest, binding e scheletri deterministici; il piano elenca creazioni, modifiche e cancellazioni previste.
+2. **DAI-05.2 / S12:** coordinare M5/M6 con contratti comuni: comando semantico, impatto, contesto sigillato, proposta strutturata, review, worktree, verifiche, pubblicazione recuperabile della coppia modello/codice e baseline. Ogni modifica semantica valida aggiorna subito il modello e marca i target; in questo sprint il job parte esplicitamente.
+3. **DAI-05.3 / S12:** registrare politiche di esecuzione e dati; usare comandi del profilo o configurazione utente revisionata per compilazione, type check, contratti, business e integrazioni dichiarate. Affiancare test generati a oracoli indipendenti. Dichiarare capacità dell'ambiente, senza equiparare un worktree a una sandbox del sistema operativo.
+4. **DAI-05.4 / S12:** controllare dipendenze, servizi, API e protocolli dichiarati con copertura esplicita. Gestire migrazioni DB come artefatti con precondizioni, dati e strategia di recupero; distinguere generazione, esecuzione di migrazioni e deploy. Provare un caso di migrazione senza eseguire automaticamente operazioni distruttive.
+5. **DAI-05.5 / S13 strutturale:** estendere confronto a tre versioni, mapping e journal al sottoinsieme iniziale e ai file creati; verificare forward e reverse della feature semplice, conflitti, freschezza, cancellazione, ripresa e undo. Esporre il percorso dal workbench con i risultati reali dei runner.
+
+**Consegna e uscita I2:** generare e modificare una feature dal progetto vuoto, verificarla con criteri indipendenti e ripristinarla. Test fallito, domanda essenziale o revisione cambiata dopo la review bloccano la pubblicazione. Arresto parziale lascia la versione precedente utilizzabile. Target allineato e solo layout producono zero chiamate IA. Le capacità dinamiche non ancora realizzate risultano non supportate, senza generazioni approssimate.
+
+### DAI-06 — Espressioni complete e sequenze eseguibili
+
+**Step di lavoro:**
+
+1. **DAI-06.1 / S05:** completare AST versionato con aritmetica compatibile, controlli di presenza e predicati su collezioni; type checker, scope/definizione prima dell'uso, interprete deterministico e editor visuale. La resa naturale deriva dall'AST; niente `eval`, shell o variabili esterne al contesto.
+2. **DAI-06.2 / S06:** distinguere operazione, relazione, interazione e occorrenza di messaggio con ID propri, mittente/destinatario, argomenti, modalità sincrona/asincrona, risultato, errore e correlazione. Modellare risposte e timeout esplicitamente; chiamate ripetute condividono l'operazione, non l'occorrenza o il risultato.
+3. **DAI-06.3 / S06:** realizzare frame annidati `alt/opt/loop/par/critical/ref`. Dichiarare scelta/else, terminazione, join, errori, cancellazione, ordine dei risultati, effetti condivisi, risorsa e perimetro di esclusione, parametri/versione delle sotto-interazioni. Confermare `critical` canonico e l'eventuale alias `region`; limitare profondità/dimensione senza troncare la semantica.
+4. **DAI-06.4 / S10–S14:** integrare editor gerarchico, renderer, lettura accessibile, migrazione, contesto sufficiente e mapping del primo archetipo. `ref` porta sempre il contratto; il corpo entra soltanto se necessario. Concorrenza e sezioni critiche usano le capacità dichiarate dal profilo.
+5. **DAI-06.5 / S15:** trasformare l'esempio del piano §7 in fixture completa con tipi, operazioni e parametri risolti; aggiungere chiamata ripetuta, `alt` dentro `loop`, `opt`, `ref`, fallimento parallelo, `critical` e timeout. Verificare che `else` copra gli altri esiti dichiarati senza identificarli automaticamente con il rifiuto del pagamento.
+
+**Consegna e uscita:** interprete e codice generato concordano sui casi limite; ordine/numero delle chiamate rispettano gli oracoli quando richiesti. Rifiutare quantità confrontata con denaro, variabile fuori ramo, guardie ambigue, loop senza terminazione, race irrisolte e contratto `ref` incompatibile. Due layout equivalenti producono lo stesso input semantico; cambiare l'enum degli esiti rivaluta tutti i consumer interessati.
+
+### DAI-07 — Macchine a stati complete nel profilo piatto
+
+**Step di lavoro:**
+
+1. **DAI-07.1 / S07:** registrare il profilo piatto con un evento alla volta per istanza; definire owner, iniziale univoco, finali, eventi tipizzati, transizioni, trigger, guardie ed effetti. Distinguere transizioni interne e auto-transizioni, priorità/esclusività, eventi inattesi e persistenza.
+2. **DAI-07.2 / S07:** modellare `entry/exit/do` con riferimenti ad azioni; definire completamento/cancellazione della `do`, ordine guardia → gestione `do` → `exit` → effetto → ingresso/`entry`/avvio `do`, errori e atomicità dello stato.
+3. **DAI-07.3 / S10–S14:** implementare editing, simulazione spiegabile e generazione; l'archetipo sceglie tabella delle transizioni o State Pattern con semantica equivalente. Collegare eventi/azioni ai messaggi e agli scenari, estendendo contesto, readiness e riconciliazione.
+4. **DAI-07.4 / S15:** verificare iniziale assente, stati irraggiungibili, transizioni ambigue, evento inatteso/ripetuto, ordine delle azioni, side effect falliti e riapertura con persistenza. Stati gerarchici o regioni ortogonali importati restano conservati ma non generabili senza supporto.
+
+**Consegna e uscita:** l'ordine del checkout si simula e si genera con esiti verificati; un'azione fallita non avanza silenziosamente lo stato. Guardie, eventi e azioni mantengono ID e riferimenti fra diagrammi. Uno stato inferito dal codice non diventa automaticamente un'intenzione di business accettata.
+
+### DAI-08 — Messaggi, queue/topic e politiche di consegna
+
+**Step di lavoro:**
+
+1. **DAI-08.1 / S08/S09/S10:** registrare broker e capacità scelti, distinguere broker distribuibile, canale logico queue/topic e subscription con owner. Consentire aggregazione L2 mantenendo accesso ai dettagli e direzione publish/subscribe esplicita.
+2. **DAI-08.2 / S08:** definire schema/versione del messaggio, producer/consumer, binding, routing/correlation key e compatibilità. Esplicitare consegna, acknowledgement, retry/backoff, tentativi massimi, dead-letter/esito equivalente, ordering e idempotenza; anche assenza di retry o DLQ è una scelta registrata.
+3. **DAI-08.3 / S08–S14:** integrare contratti di messaggio con sequenze, stati, ADR, profilo, contesto, forward/reverse ed editor. Eventuale outbox richiede decisione e prove; exactly-once richiede capacità dichiarate e non è una garanzia universale. Configurazioni generate restano negli artefatti del profilo; credenziali sono riferimenti.
+4. **DAI-08.4 / S15:** completare il secondo caso asincrono con queue competitiva, fan-out su due subscription, duplicati, retry esauriti, messaggi incompatibili e producer assente. Separare simulazione e test di integrazione eseguiti sul broker reale scelto.
+
+**Consegna e uscita I3:** checkout con alternative/loop/ref, caso concorrente, macchina a stati e topologia asincrona generati e verificati. Policy mancanti bloccano il target; nessun retry, ordinamento, compensazione o infrastruttura è inferito da un generico nome «Message Bus».
+
+### DAI-09 — Reverse e operazioni fisiche su tutto il primo profilo
+
+**Step di lavoro:**
+
+1. **DAI-09.1 / S13:** estendere baseline/modello/codice a contratti, espressioni, frame, stati, messaggi, decisioni e binding PSM. Pubblicare la matrice per costrutto: forward, reverse completo/parziale o conservazione; distinguere fatti del parser e interpretazioni IA, includendo modifiche del corpo a firma invariata.
+2. **DAI-09.2 / S13:** completare creazione, rename, move e delete con pre/postimmagini o assenza attesa, permessi, hash e scope. Conservare ID dopo rinomina/spostamento e ricostruire gli indici invalidati tramite strumenti reali.
+3. **DAI-09.3 / S13:** gestire conflitti sulla stessa guardia, contratto, decisione o piattaforma; preservare layout, annotazioni, codice personalizzato e dettagli senza proiezione. L'ambiguità del reverse produce mapping parziale o domanda; non ricostruisce intenzioni arbitrarie e non riscrive un ADR violato.
+4. **DAI-09.4 / S13:** estendere journal, recovery e undo alla coppia modello/codice e agli indici richiesti. Aggiornare la baseline solo dopo verifiche coerenti; invalidare prove comportamentali quando cambiano gli input. Riconoscere origine/hash per evitare eco fra generazione e importazione.
+5. **DAI-09.5 / S15:** iniettare arresti prima/durante/dopo la pubblicazione, perdita dell'indice, revisioni superate e modifica manuale prima dell'undo. Provare tutte le operazioni fisiche e entrambe le direzioni sui nuovi costrutti, senza rigenerazione globale del progetto.
+
+**Consegna e uscita:** ogni scenario termina in coppia coerente o conflitto esplicito e recuperabile; nessuna perdita nei casi previsti. Il journal garantisce recuperabilità delle scritture su più file. Sync immediato senza cambiamenti produce zero proposte, zero riscritture e zero chiamate IA; allineamento strutturale e conformità comportamentale hanno esiti separati.
+
+### DAI-10 — Percorso visuale/accessibile e modalità continua
+
+**Step di lavoro:**
+
+1. **DAI-10.1 / S14:** chiudere la matrice vedere/creare/modificare del piano per L1, L2, L3, L4, sequenze, stati, messaggi, ADR e operazioni. Proprietà guidate dal livello/schema espongono owner, maturità, ignoti, vincoli, provenienza e impatto; le diagnostiche aprono il campo pertinente.
+2. **DAI-10.2 / S14:** completare chiarimenti versionati, review, conflitti, verifiche reali e ritorno alla selezione del diagramma. Conservare salvataggio, undo/redo, navigazione e recupero; frame ed espressioni sono modificabili anche da tastiera. I dettagli di protocollo restano nell'anteprima tecnica.
+3. **DAI-10.3 / S14/S15:** collaudare lettura accessibile di ordine, annidamenti, guardie, azioni e vincoli, focus, temi e finestra stretta. Distinguere simulazione, applicazione reale e traccia osservata con segnali oltre al colore; provare checkout e caso asincrono senza editing di sorgenti o JSON.
+4. **DAI-10.4 / S12:** dopo la stabilità del flusso esplicito registrare e implementare la scelta di modalità continua, abilitata dall'utente con budget preventivo e politica di review. Coalescere modifiche semantiche ravvicinate, congelare revisioni, cancellare job superati e scartare risultati obsoleti.
+5. **DAI-10.5 / S12/S15:** verificare limiti di consumo, stop/ripresa, fallimenti e annullamento; selezione, zoom, layout, formattazione, modifiche incomplete e target allineati non avviano inferenze. Una review invalidata non permette applicazione automatica.
+
+**Consegna e uscita I4:** percorso completo gestibile dal modello e da tastiera con riapertura coerente; nessuna lacuna nella matrice visuale. La modalità continua rispetta scope, budget, coalescing e freschezza con contatori osservati; ogni pubblicazione mantiene verifiche, review e recuperabilità previste dalla politica del progetto.
+
+### DAI-11 — Secondo stack con PIM invariato
+
+**Step di lavoro:**
+
+1. **DAI-11.1 / S10:** scegliere e versionare il secondo archetipo con ADR e matrice di capacità per creazione, analisi, forward, reverse, test, stati, frame, asincronia e migrazioni. Implementare binding e runner mancanti; i profili di parsing M4 non certificano queste capacità.
+2. **DAI-11.2 / S10/S12:** produrre un piano di cambio stack che copra implementazione, dipendenze, storage/dati, test e deployment dichiarato. Conservare PIM, ID, regole di business e scenari; cambiare il profilo PSM e mostrare tecnologie risolte in L2.
+3. **DAI-11.3 / S10–S14:** eseguire bootstrap, generazione, modifica visuale, reverse, conflitti, operazioni fisiche, undo/recovery e modalità continua sul secondo stack. Risolvere differenze di null, precisione, concorrenza, transazioni e politiche di messaggistica. Escape hatch specifici restano delimitati e con limiti di portabilità espliciti.
+4. **DAI-11.4 / S15:** rieseguire gli stessi oracoli di business e i test di compatibilità su entrambi gli archetipi, inclusi frame, stati e caso asincrono. Provare invalidazione dei task dopo aggiornamento del profilo e migrazione dello storage con trattamento dei dati esistenti.
+
+**Consegna e uscita:** due stack superano i criteri obbligatori sullo stesso PIM senza ridisegnare attori, scenari o regole. Una capacità obbligatoria assente nel secondo profilo mantiene aperto lo sprint; differenze semantiche non vengono nascoste da firme o output apparentemente equivalenti.
+
+### DAI-12 — Benchmark, collaudo finale e chiusura della copertura
+
+**Step di lavoro:**
+
+1. **DAI-12.1 / S15:** eseguire il corpus completo su entrambi gli archetipi con oracoli indipendenti e negativi su schema, identità, ownership, scope, ADR, protocolli, dipendenze, generabilità e retrieval. Registrare separatamente simulazioni, risposte registrate, inferenze live, integrazioni e desktop.
+2. **DAI-12.2 / S11/S15:** confrontare compilatore nuovo e baseline sulle stesse fixture: sufficienza/recall delle dipendenze obbligatorie, byte, token misurati/stimati, duplicazioni, chiamate, retrieval, tempi e consumi disponibili. Includere no-op, solo layout, cache, cicli e contratti oltre budget; nessuna omissione essenziale silenziosa.
+3. **DAI-12.3 / S15:** ripetere prove con modelli reali, registrando revisione di prompt/schema, provider/modello, capacità e tasso di successo osservato. Preferire un modello più economico solo a parità di scenari e vincoli superati, con tariffe confrontabili; costi ignoti restano tali. Budget e retry/escalation restano espliciti.
+4. **DAI-12.4 / S14/S15:** collaudare desktop nativo, accessibilità, scala e prestazioni sull'hardware/corpus di DAI-01, con CI e prove Linux/macOS pertinenti. Collegare i risultati agli ID e alle revisioni effettivamente provate, distinguendo gli eventuali collaudi storici ancora aperti.
+5. **DAI-12.5 / S15:** revisionare gli effetti di slop: componenti privi di responsabilità, livelli ridondanti, pattern/dipendenze non richiesti, copie di contratti, TODO sostitutivi e modifiche estranee. Ogni cambiamento deve risalire a requisito, criterio o regola dell'archetipo.
+6. **DAI-12.6:** pubblicare nel repository rapporto, esempi, procedure di riproduzione, matrice capacità/prove e chiusura di ogni Rxx/Sxx. Aggiornare documentazione corrente, limiti e istruzioni di handoff; registrare maturità Defined, Modelled e Optimising per capacità/stack con evidenze, senza introdurre una dashboard obbligatoria.
+
+**Consegna e uscita I5:** tutti gli scenari obbligatori superati su entrambi gli archetipi, tutti i negativi respinti, miglioramento misurato dell'economia del contesto senza perdere correttezza o vincoli, nessuna perdita nei test di recupero e budget UX/prestazioni rispettati. Evidenze assenti o «non misurato» mantengono aperto il relativo criterio; nessuna promessa di determinismo dell'IA o correttezza universale.
+
+### Matrice di copertura dei requisiti del piano
+
+La tabella assegna gli sprint che realizzano il requisito; DAI-12 ne verifica la chiusura. La matrice operativa di DAI-01 deve aggiungere per ogni criterio file/servizio, test, revisione ed esito, mantenendo tutti i criteri di accettazione di S00–S15 come checklist vincolante.
+
+| Requisito | Copertura da completare | Sprint di attuazione |
+| --- | --- | --- |
+| R01 | Modello primario, PIM/PSM e generazione | DAI-02, DAI-04, DAI-05, DAI-11 |
+| R02 | Sistema governato, esterni e scope | DAI-02, DAI-03, DAI-05 |
+| R03 | Container, responsabilità, tecnologia, protocolli/payload | DAI-03, DAI-04, DAI-08, DAI-11 |
+| R04 | Componenti, interfacce, dipendenze e librerie condivise | DAI-03 |
+| R05 | L4 selettivo e contratti necessari al contesto | DAI-03, DAI-04 |
+| R06 | Espressioni e tutti i frame delle sequenze | DAI-04, DAI-06, DAI-11 |
+| R07 | Stati, trigger, guardie, azioni e generazione | DAI-04, DAI-07, DAI-11 |
+| R08 | Queue/topic, messaggi e politiche per profilo | DAI-08, DAI-11 |
+| R09 | Metamodello centrale, proiezioni e aggiornamento immediato | DAI-02, DAI-05, DAI-09, DAI-10 |
+| R10 | Forward incrementale, contesto sufficiente e continuità | DAI-04, DAI-05, DAI-10, DAI-11 |
+| R11 | Reverse, conflitti e codice personalizzato | DAI-05, DAI-09, DAI-11 |
+| R12 | ADR collegati e vincoli applicati | DAI-03, DAI-04, DAI-05, DAI-08 |
+| R13 | Vedere/creare/modificare tutti gli ambiti dal workbench | DAI-02–DAI-10, verifica equivalente DAI-11 |
+| R14 | Maturità e criteri di uscita verificabili | DAI-01, DAI-12; prove a ogni sprint |
+| R15 | Contesto minimo sufficiente, controllo delle invenzioni/slop | DAI-02, DAI-04, DAI-06, DAI-09–DAI-12 |
+| R16 | Misure, test indipendenti, limiti e recuperabilità | DAI-01, DAI-05, DAI-09, DAI-11, DAI-12 |
+
+### Decisioni e regole di consegna
+
+Le decisioni del [piano, §9](diagram-driven-ai-implementation-plan.md#9-decisioni-di-prodotto-da-registrare-prima-dellimplementazione-pertinente) vanno risolte prima del lavoro che ne dipende; non richiedono di fermare gli sprint indipendenti.
+
+| Decisione da registrare | Termine nella roadmap |
+| --- | --- |
+| Versione dello schema e migrazione conservativa | DAI-01, prima di DAI-02 |
+| Budget di grafi, editing, contesto e costi | DAI-01, prima delle misure di accettazione |
+| Vincoli ADR normativi e conflitti | Prima dell'implementazione S09 in DAI-03 |
+| Profilo eseguibile UML, scelta `alt`, `critical`/`region` | Prima di S05 in DAI-04; dettaglio frame prima di DAI-06 |
+| Stack, framework e capacità iniziali | DAI-04, prima della generazione in DAI-05 |
+| Runner fidati, ambiente, dati e migrazioni | Prima delle relative operazioni in DAI-05 |
+| Profilo piatto, ordine azioni ed errori degli stati | Prima di DAI-07 |
+| Broker, consegna e capacità asincrone | Prima di DAI-08 sul relativo target |
+| Modalità continua, budget e politica di applicazione | DAI-10, dopo la stabilità del flusso esplicito |
+| Secondo archetipo e piano di cambio piattaforma | DAI-11, prima delle relative trasformazioni |
+
+Ogni task usa la scheda circoscritta del piano §10: requisiti e comportamento prima/dopo, revisione e capacità da riusare, tipi/invarianti/decisioni, scope e codice da preservare, contesto/provenienza/omissioni/budget, criteri indipendenti e negativi, proposta/blocchi/review/recupero. L'indice completo si consulta tramite riferimenti; non viene reinviato integralmente a ogni chiamata IA. Ogni consegna riporta cambiamenti concreti, esiti osservati, capacità non supportate e link alle prove.
+
+**Criterio finale M6.DAI e passaggio a M7:** chiudere tutti e dodici gli sprint e la checklist dei sedici step con evidenze riferite alle revisioni correnti. Una deroga o un limite non può trasformare un criterio obbligatorio in «completo». M7 riceve modello, identificatori, profili, runner e risultati verificabili per aggiungere esecuzione e diagnostica visuale; firma, distribuzione e collaudo della beta restano consegne M8.
+
 ## M7 — Esecuzione, test e diagnostica visuale
 
 **Obiettivo:** comprendere il comportamento effettivo del software attraverso il modello.
@@ -396,7 +615,7 @@ Ogni milestone deve aggiornare documentazione ed esempi e includere verifiche pr
 
 ## Decisioni da prendere e prossimo incremento
 
-La matrice M4 registra gli stack sintattici e i produttori semantici verificati; ulteriori backend richiedono collaudi propri. Provider IA e politiche di esecuzione e invio dei dati appartengono a M5. Prima della beta vanno definiti licenza, distribuzione e obiettivi misurabili di prestazione. Le decisioni architetturali saranno registrate con motivazione e conseguenze.
+La matrice M4 registra gli stack sintattici e i produttori semantici verificati; ulteriori backend richiedono collaudi propri. Provider IA e politiche di esecuzione e invio dei dati appartengono a M5. Il prossimo incremento del [piano Diagram-Driven AI](diagram-driven-ai-implementation-plan.md) è DAI-01: ricontrollare la baseline, fissare corpus/budget e registrare la decisione sullo schema prima di DAI-02. Prima della beta vanno definiti licenza e distribuzione; M6.DAI fissa e misura gli obiettivi di prestazione del proprio perimetro. Le decisioni architetturali saranno registrate con motivazione e conseguenze.
 
 ## Ordine operativo dei prossimi incrementi
 
@@ -418,5 +637,11 @@ La matrice M4 registra gli stack sintattici e i produttori semantici verificati;
 16. **M4.3:** ponte SCIP e primi riferimenti semantici TypeScript/Python verificati via Node; proseguire con percorso nativo, altri backend, perimetro configurabile e continuità delle rinomine.
 
 17. **M4:** chiusura funzionale sul perimetro dichiarato con importazione e Sync nativi, evidenze, perimetro, rinomine, recupero e benchmark. Proseguire con M5 mantenendo gli strumenti deterministici come fonte dei fatti.
+18. **M5:** riusare collaborazione IA, worktree, verifiche e recupero sul perimetro già documentato; mantenere tracciate le verifiche ancora aperte.
+19. **M6:** riusare riconciliazione a tre versioni, review, conflitti e journal, conservando i limiti del percorso corrente.
+20. **M6.DAI:** eseguire DAI-01–DAI-12 nell'ordine e con i criteri sopra, completando R01–R16 e S00–S15 del [piano Diagram-Driven AI](diagram-driven-ai-implementation-plan.md) prima di M7.
+21. **M7:** collegare esecuzione, log, test e tracce al modello e verificare la diagnosi visuale del guasto.
+22. **M8:** completare integrazione, collaudi e distribuzione della beta installabile.
+23. **M9:** ampliare stack, piattaforme e collaborazione mantenendo gli stessi criteri di coerenza e recupero.
 
-Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. M4 aggiunge importazione e fatti deterministici dal codice; M5 introduce implementazione assistita e M6 estende Sync alle proposte IA bidirezionali con conflitti, revisioni comuni e recupero. I verbali delle singole milestone precisano verifiche di piattaforma, provider reali e CI ancora aperti.
+Il percorso dimostrativo supportato su Linux parte da un progetto vuoto, consente di disegnare struttura e flusso, salvarli, riprenderli ed esplorarne le identità semantiche. M4 aggiunge importazione e fatti deterministici dal codice; M5 introduce implementazione assistita e M6 estende Sync alle proposte IA bidirezionali con conflitti, revisioni comuni e recupero. M6.DAI pianifica il completamento della specifica eseguibile e dei percorsi forward/reverse su due archetipi, prima della diagnostica M7. I verbali delle singole milestone precisano verifiche di piattaforma, provider reali e CI ancora aperti.
