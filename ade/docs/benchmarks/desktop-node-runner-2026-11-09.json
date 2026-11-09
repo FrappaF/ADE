@@ -1,0 +1,55 @@
+{
+	"version": 1,
+	"recordedAt": "2026-11-09T19:36:00.649689+00:00",
+	"cause": "Electron utility worker used process.versions.node/process.execPath instead of standalone Node 24.22.1.",
+	"sourceHashes": {
+		"ade/ai/trustedNode.ts": "baee510d763b8fc2a35e27d8805048be76162ce9ab326a4acc1fef927f423111",
+		"ade/ai/process.ts": "30ec2bc4e1e549416ecb98e4f04bf2b288d346e53bb9b3a7926a59101db1df9b",
+		"ade/code-import/nativeHost.ts": "a408b255f3c3acf911054655201afa52e69a429aa003d35454e2dcbbda247a1a",
+		"ade/scripts/dev.sh": "142111e6475f5f88e200c10bfea8bfd99aa92db7382d582c0288dd5dcec1da15",
+		"ade/ai/test/trusted-node.test.mjs": "4155c4d2cae4ddb2d41f423f5f7a7ee78cd7caaaf04d98ec26d5a41dd02f1801",
+		"ade/test/dev-launcher.test.mjs": "ae90363764da9284b0e731d15d74738e9622edfeccb9c368a3983f2832db35bc"
+	},
+	"verification": {
+		"distinctTests": 47,
+		"structuralProviderRunnerSuite": "✔ Codex uses the original CLI, stdin, read-only workspace and structured final output (29.941085ms)\n✔ Claude uses its login, disables project tools, and does not misrepresent API-equivalent usage as an actual charge (7.682714ms)\n✔ failed, truncated, refused and malformed CLI responses never become successful output or leak stderr (10.135134ms)\n✔ subprocesses preserve literal arguments, bound output, and terminate on deadlines or cancellation (306.027161ms)\n✔ provider errors distinguish quota, authentication and model access without leaking stderr (35.677855ms)\n✔ P01/P02 empty project creates reviewed worktree, actual independent boundary tests, pair and undo (1262.570797ms)\n✔ P03 semantic edit is immediate, derived tests pass but independent oracle blocks incorrect ge (1459.94652ms)\n✔ P03 layout and aligned no-op produce zero calls and no proposal (1158.162769ms)\n✔ P05 review freshness rejects changed model (770.063344ms)\n✔ P05 review freshness rejects changed criteria (833.906673ms)\n✔ P05 review freshness rejects changed source (710.455569ms)\n✔ P05 review freshness rejects changed permission (893.887901ms)\n✔ P05 review freshness rejects changed worktree (923.766923ms)\n✔ P05 review freshness rejects changed manifest (669.509247ms)\n✔ P06 reverse actual code comparison preserves IDs and custom text, then verifies revised independent criteria (2257.683179ms)\n✔ P06 same-rule concurrency and arbitrary code produce explicit conflict/partial mapping (808.011173ms)\n✔ P07 explicit physical move keeps semantic identity, delete and undo preserve exact sources (2009.995506ms)\n✔ P07 reverse file move and deletion keep mappings; unsupported ambiguity never guesses (1667.533938ms)\n✔ P08 restart recovery at before (462.565145ms)\n✔ P08 restart recovery at partial (581.991941ms)\n✔ P08 restart recovery at after (666.880745ms)\n✔ P08 restart recovery at manual (479.156987ms)\n✔ P07 undo refuses manual source edits and metadata tampering (695.001326ms)\n✔ P09 custom project code is preserved but never executed by the trusted runner (1115.259154ms)\n✔ P10 unsupported persistence/effects and missing independent oracle block generation (52.948832ms)\n✔ P05 symlink and out-of-scope physical destinations fail closed (18.562731ms)\n✔ P06 literal reverse uses executable evidence and rejects a forged descriptor (955.493413ms)\n✔ P07 external source deletion becomes a reviewed predicate deletion with exact undo (1614.830835ms)\n✔ P08 interrupted undo partial recovers the correct baseline and created files (1107.486557ms)\n✔ P08 interrupted undo committed recovers the correct baseline and created files (821.30636ms)\n✔ P10 dependency changes and manual generated-test edits block the next plan (707.735823ms)\n✔ P12 actual CLI creates, reviews, verifies, publishes and undoes without imported code or provider (15171.40634ms)\n✔ Electron dispatches only structural verification to external Node; ordinary Node retains its existing path (0.298733ms)\n✔ external Node verifies a real staged project with the shared engine and independent criteria (5003.90084ms)\n✔ external runner rejects relative configuration and cancellation before execution (3.065107ms)\n✔ external runner refuses a mismatched executable before importing the engine (112.420977ms)\n✔ cancelling external verification also kills the nested trusted test process (591.017233ms)\nℹ tests 37\nℹ suites 0\nℹ pass 37\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 47788.192259\n",
+		"finalAffectedSuite": "✔ Codex uses the original CLI, stdin, read-only workspace and structured final output (28.238313ms)\n✔ Claude uses its login, disables project tools, and does not misrepresent API-equivalent usage as an actual charge (3.157672ms)\n✔ failed, truncated, refused and malformed CLI responses never become successful output or leak stderr (10.66912ms)\n✔ subprocesses preserve literal arguments, bound output, and terminate on deadlines or cancellation (266.67866ms)\n✔ provider errors distinguish quota, authentication and model access without leaking stderr (19.764786ms)\n✔ Electron dispatches only structural verification to external Node; ordinary Node retains its existing path (0.350279ms)\n✔ external Node verifies a real staged project with the shared engine and independent criteria (2846.69035ms)\n✔ external runner rejects relative configuration and cancellation before execution (1.541748ms)\n✔ external runner refuses a mismatched executable before importing the engine (63.355416ms)\n✔ cancelling external verification also kills the nested trusted test process (414.938821ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 4858.231252\n",
+		"nativeBoundary": "✔ native boundary advertises the semantic diagram protocol (3.939821ms)\n✔ native boundary identifies malformed AI requests without disclosing configuration values (8.21526ms)\n✔ reconciliation accepts more than 20 source files while enforcing the context budget (775.860721ms)\n✔ native boundary imports, previews contract/rename/delete, preserves annotation, publishes and recovers (2399.509157ms)\n✔ built-in compiler resolves aliases and reuses unaffected references, including shifted target positions (1284.311223ms)\n✔ scope uses nested Git ignore rules, explicit globs, dialect overrides and ignores managed metadata (45.204231ms)\n✔ native publication rejects stale source, bad requests and redirected owned directories (68.309202ms)\n✔ native compiler can import statements without definitions and Sync a complete deletion (961.102411ms)\n✔ syntax-only mode persists and concurrent imports cannot publish over each other (185.033298ms)\nℹ tests 9\nℹ suites 0\nℹ pass 9\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 8251.787413\n",
+		"launcher": "✔ desktop launcher captures the selected standalone Node path before starting Electron (142.890526ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 270.050456\n",
+		"counting": "37 structural/provider/runner tests, 9 native boundary tests, 1 launcher test. The final affected 10-test rerun is included, not added. Bundle observations are separate.",
+		"packageTypechecks": [
+			"ade/ai: passed",
+			"ade/code-import: passed"
+		]
+	},
+	"bundleIntegration": [
+		{
+			"profileId": "node.esm",
+			"electronHostSimulated": "43.8.3",
+			"hostNode": "24.22.1",
+			"status": "passed",
+			"generated": 8,
+			"independent": 8,
+			"policy": "node.esm@5/24.22.1; node-permission-v3; structured-emitter/scripted-data; flat states and caller-persisted checkpoints; local timers and cooperative cancellation; messaging configuration and simulation only, no live broker; no arbitrary project tests, dependencies, secrets or commands; no OS/network sandbox claim"
+		},
+		{
+			"profileId": "bun.esm",
+			"electronHostSimulated": "43.8.3",
+			"hostNode": "24.22.1",
+			"status": "passed",
+			"generated": 8,
+			"independent": 8,
+			"policy": "bun.esm@1/1.3.2; bun-trusted-emitter-v1; no Node permission flags; structured-emitter/scripted-data; flat states and caller-persisted checkpoints; local timers and cooperative cancellation; messaging configuration and simulation only, no live broker; no arbitrary project tests, dependencies, secrets or commands; no OS/network sandbox claim"
+		}
+	],
+	"reproduction": {
+		"tests": "node --test --test-isolation=none ade/ai/test/trusted-node.test.mjs ade/ai/test/providers.test.mjs ade/ai/test/structural-project.test.mjs ade/code-import/test/native-host.test.mjs ade/test/dev-launcher.test.mjs",
+		"bundle": "Bundle nativeHost.ts as ESM target node24 with esbuild 0.25.12 and production build-code-import.mjs banner/resources; invoke createCodeEngine(undefined,{electron:\"43.8.3\"}) to prepare and verify the pure project on both profiles, with Node 24.22.1 and Bun 1.3.2."
+	},
+	"limits": [
+		"POSIX child-group cancellation tested on Linux; macOS desktop requires user rerun.",
+		"Electron host selection simulated on actual production engine bundle; full GUI not run.",
+		"Frozen budgets/corpus and profile revisions unchanged.",
+		"Graceful SIGTERM propagates cancellation and releases shared locks; SIGKILL process-group fallback after 2 s."
+	]
+}

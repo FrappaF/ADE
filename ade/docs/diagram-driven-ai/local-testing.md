@@ -49,6 +49,8 @@ npm run ade:setup
 
 Per provare Bun nell'IDE, esportare `ADE_BUN_EXECUTABLE` **prima** di avviare A.D.E. Il modello non può scegliere un eseguibile dal disco. Creare i progetti in una cartella separata dal clone dell'IDE.
 
+La verifica desktop usa Node standalone 24.22.1: il Node incorporato in Electron ha una versione indipendente da nvm. `dev.sh` conserva automaticamente il percorso del Node selezionato prima di avviare Electron. Per impostarlo esplicitamente, selezionare Node con `nvm use` ed esportare `ADE_NODE_EXECUTABLE="$(node -p 'process.execPath')"` prima dell'avvio. Dopo un aggiornamento dei sorgenti, ricompilare con `npm run build-fast -- --client-only` e chiudere completamente l'istanza precedente. La [correzione del runner desktop](desktop-node-runner.md) descrive verifica e limiti.
+
 1. Creare/aprire un progetto visuale, poi usare **A.D.E: Add Pure Quantity Feature**. Esaminare proprietà, criterio indipendente e predicato; salvare e verificare undo/redo e riapertura.
 2. Usare **Implement Feature**, leggere la review nel diagramma, eseguire **Run Real Verification**, quindi **Publish Verified Model and Code**. La pubblicazione richiede verifiche riuscite; spostare soltanto un nodo deve conservare il pacchetto e non invocare IA.
 3. Da **Choose Runtime and Review Stack Plan**, scegliere Bun, leggere il piano e verificare nuovamente nel runtime target. ID, PIM e criteri devono restare uguali. Un ADR Node-only deve bloccare il cambio finché non viene rivisto esplicitamente.

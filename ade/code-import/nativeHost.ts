@@ -21,6 +21,7 @@ import { createTypeScriptBundle } from './typescriptSemantic.ts';
 import { applyScipBundles, readScipBundle } from './scip.ts';
 import { isSourcePath } from './paths.ts';
 import { executeCollaboration } from '../ai/engine.ts';
+import { needsExternalStructuralNode, verifyWithExternalNode } from '../ai/trustedNode.ts';
 import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
 import type { StructuredProvider } from '../ai/contracts.ts';
 import { prepareDiagramImport, advanceDiagramImport, readDiagramJob, approveDiagramPlan, diagramProgress, finishDiagramImport } from '../ai/diagramImport.ts';
@@ -105,11 +106,12 @@ async function analyze(state: CodeImport, paths: string[], previous: CodeImport 
 
 
 /** Used both by the shipped utility process and by integration tests of the exact same boundary. */
-export function createCodeEngine(provider?: StructuredProvider): CodeEngine { return {
+export function createCodeEngine(provider?: StructuredProvider, runtime: { electron?: string } = { electron: process.versions.electron }): CodeEngine { return {
 	async execute(input, signal): Promise<string> {
 		if (Buffer.byteLength(input) > 1024 * 1024) { throw new Error('Request exceeds 1 MiB'); }
 		const request: unknown = JSON.parse(input);
 		if (request && typeof request === 'object' && 'operation' in request && request.operation === 'collaboration' && 'request' in request && typeof request.request === 'string' && Object.keys(request).length === 2) {
+			if (needsExternalStructuralNode(request.request, runtime.electron)) { return verifyWithExternalNode(request.request, import.meta.url, signal); }
 			return executeCollaboration(request.request, signal);
 		}
 		if (!valid(request)) { throw invalidRequest(request); }
