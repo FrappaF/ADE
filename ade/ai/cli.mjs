@@ -5,7 +5,8 @@
 
 import { open, unlink, realpath } from 'node:fs/promises';
 import { resolve, dirname, basename, join } from 'node:path';
-import { executeCollaboration } from './engine.ts';
+import '../scripts/source-loader.mjs';
+const { executeCollaboration } = await import('./engine.ts');
 import { outputOutsideSource } from '../code-import/paths.ts';
 import { readSnapshot } from '../code-import/snapshot.ts';
 

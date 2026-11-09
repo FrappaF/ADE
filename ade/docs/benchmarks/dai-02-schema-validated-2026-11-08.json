@@ -1,0 +1,230 @@
+{
+	"version": 1,
+	"kind": "local-deterministic-baseline",
+	"modelVersion": 4,
+	"recordedAt": "2026-11-08T23:01:43.984Z",
+	"timezone": "Europe/Rome",
+	"revision": "05c3a0f05c6e0c369a0e47001359f58542c2eea8",
+	"workingTreeDirty": true,
+	"policy": {
+		"id": "dai-release-v1",
+		"sha256": "127caa0684c0a7ed41e898d2a05553f4080cb210193e5fcef22e98e98797a8fa"
+	},
+	"corpusSha256": "ee1e4395135d29e28b0167f5e58be59a3c57c081d235649263fb9c71aca7ecdb",
+	"sourceHashes": {
+		"ade/scripts/benchmark-dai.mjs": "b07989c3894e1f10dbfe7f3a2d7374055298f23ae9e952cdf1e83434b33848f2",
+		"ade/scripts/source-loader.mjs": "3f5776a21ac6ce594a14fd8f2b92ff63c8fe509aaa2eb638cb5298f36047bf6f",
+		"ade/benchmarks/dai-fixtures.mjs": "49d0a2eabd9d27eddbf141748af026432b9f6093732e6431461ffc9ae8b3a3ba",
+		"ade/test/source-loader.mjs": "01edfda935fda716275d60e9787eccba86f2ddad7c25fd0db7719a7cbf692f79",
+		"src/vs/workbench/contrib/ade/common/semanticModel.ts": "c68104e33d53fc14714fb61ed5b1d6c151f3b3fab6c8c87cd9e86c60fc8247b0",
+		"src/vs/workbench/contrib/ade/common/visualEditing.ts": "11edf891c83bab8ed9ec67289f8c607ffcb872925c797ccfb3633ac13e0a60cc",
+		"src/vs/workbench/contrib/ade/common/modelMigration.ts": "26e286d397e4c5fa2a02faf643fb2edbd6bc7ba51024cba5505e73f36055d90d",
+		"src/vs/workbench/contrib/ade/common/modelReadiness.ts": "59754b63bbfad48d348368d98924cae75fcf3180753ef17634658d0fdcb1592e",
+		"src/vs/workbench/contrib/ade/common/modelContext.ts": "9ae830d1a77d377d58e10b80776e976a654c1f6acb77e91475a9555ce72b5fe5",
+		"src/vs/workbench/contrib/ade/common/modelSerialization.ts": "fdb088a3bce4a4e35b957c692efd9434a4491504bc450c19432fc630b426a07d",
+		"src/vs/workbench/contrib/ade/common/modelKnowledge.ts": "b1777a0a9639ee12bd7a3d6763e56f4a56dcaee41b578dc5ac5cd596aa3e2722",
+		"src/vs/workbench/contrib/ade/common/visualNavigation.ts": "70ef7598cf1eceebe4d6810bf7210b94d75f5d38ec09b25e948976e30cc9efa5",
+		"src/vs/workbench/contrib/ade/common/modelImpact.ts": "a72b062e719d41e01e8bf28ab5d90fd94f3ce3e13b87e1e97f4a1fb27073edd8",
+		"ade/ai/diagramEvidence.ts": "ac3d3d38f645ff31873fb8ce7b9a48fc80f707ffdb68b7df72e80f87afc1fbca"
+	},
+	"hardware": {
+		"platform": "linux",
+		"arch": "x64",
+		"kernel": "6.18.57",
+		"node": "v24.22.1",
+		"cpu": "AMD EPYC 9V74 80-Core Processor",
+		"availableParallelism": 2,
+		"hostMemoryMiB": 9968.2421875,
+		"cgroupCpuMax": "200000 100000",
+		"cgroupMemoryMax": "8589934592"
+	},
+	"measurement": {
+		"warmups": 3,
+		"samples": 20,
+		"percentile": 95,
+		"clock": "performance.now",
+		"memory": "process.resourceUsage.maxRSS; process peak, not per-operation allocation"
+	},
+	"fixtures": [
+		{
+			"id": "small",
+			"sourceGraphSha256": "ca33e13fa4cbb394a7c830b235e985e8a8d2999fbd8abb8b49c4837d6be3cd73",
+			"graphSha256": "750bf2b9f3eae569e9264e86fa851e0bf87e887bbc46a178cacb425323599180",
+			"evidenceSha256": "646fbaf59947896565c4a3589bdce3f31d82b1af7e48ae19301d73912c6477a0",
+			"elements": 64,
+			"relations": 62,
+			"views": 1,
+			"visibleNodes": 63,
+			"validation": {
+				"firstCallMs": 0.7178619999999967,
+				"medianMs": 0.7179419999999936,
+				"p95Ms": 0.9857990000000143,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 2.8424320000000023,
+				"medianMs": 1.5239569999999958,
+				"p95Ms": 1.7829000000000121,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 0.5501259999999775,
+				"medianMs": 0.1351449999999943,
+				"p95Ms": 0.32651599999999803,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 0.1521709999999814,
+				"medianMs": 0.11815999999998894,
+				"p95Ms": 0.16425900000001548,
+				"limitMs": 25,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 30277,
+				"packedBytes": 17087,
+				"reduction": 0.43564421838359146,
+				"maxInputBytes": 196608,
+				"withinInputBudget": true,
+				"estimatedTokens": 4272,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		},
+		{
+			"id": "medium",
+			"sourceGraphSha256": "bb0afc865cbf2e779b561eb917783791981648b63a37775ece510b4d39970c69",
+			"graphSha256": "21d9633a35cdf4f0364e28ddf47d8263bf0a6d120835fbdb205ba89d9338204e",
+			"evidenceSha256": "b5ef484547bd147cad9945c53991c8dda82b975132ef6482a68a76c3ace4c39f",
+			"elements": 256,
+			"relations": 254,
+			"views": 1,
+			"visibleNodes": 255,
+			"validation": {
+				"firstCallMs": 2.2366700000000037,
+				"medianMs": 1.969254000000035,
+				"p95Ms": 3.4257390000000214,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 5.569338000000016,
+				"medianMs": 5.998711000000014,
+				"p95Ms": 6.967434000000026,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 0.6167979999999602,
+				"medianMs": 0.5944640000000163,
+				"p95Ms": 0.7532550000000242,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 0.25308499999999867,
+				"medianMs": 0.11440399999997908,
+				"p95Ms": 0.3849050000000034,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 124216,
+				"packedBytes": 70396,
+				"reduction": 0.4332775165840149,
+				"maxInputBytes": 196608,
+				"withinInputBudget": true,
+				"estimatedTokens": 17599,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		},
+		{
+			"id": "large",
+			"sourceGraphSha256": "d87bf9758a73604732670e94ef92348321b870a2607d484b066f948be1f7f049",
+			"graphSha256": "edbe24912a59ec2a687b1ee57fcbbb3cc38cd15908c5845814a40d597a2603e8",
+			"evidenceSha256": "781776e32d3cf59177c2f0e2af92128bb50566709022be43ad0706b6a862ff29",
+			"elements": 1024,
+			"relations": 1022,
+			"views": 1,
+			"visibleNodes": 1023,
+			"validation": {
+				"firstCallMs": 11.783877000000075,
+				"medianMs": 8.027435000000082,
+				"p95Ms": 9.582656000000043,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 24.400481000000013,
+				"medianMs": 23.78390300000001,
+				"p95Ms": 27.458699000000024,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 7.789013000000068,
+				"medianMs": 7.352147999999943,
+				"p95Ms": 13.106547999999975,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 0.6248900000000503,
+				"medianMs": 0.8427510000001348,
+				"p95Ms": 0.9832450000001245,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 501557,
+				"packedBytes": 284875,
+				"reduction": 0.43201869378754554,
+				"maxInputBytes": 196608,
+				"withinInputBudget": false,
+				"estimatedTokens": 71219,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		}
+	],
+	"memory": {
+		"peakRssMiB": 145.140625,
+		"limitMiB": 1024,
+		"withinBudget": true
+	},
+	"provider": {
+		"calls": 0,
+		"model": null,
+		"measuredTokens": null,
+		"price": null
+	},
+	"notMeasured": [
+		"desktop input-to-paint",
+		"full context preparation",
+		"semantic dependency recall",
+		"business execution",
+		"live inference",
+		"continuous mode",
+		"archetype equivalence"
+	],
+	"claim": "Measures current domain operations and compact evidence packing on fixed synthetic graphs. No DAI release capability is certified by this report."
+}

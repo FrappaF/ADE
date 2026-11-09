@@ -5,11 +5,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import './source-loader.mjs';
 import { readSemanticModel, validateSemanticModel, viewKinds, notationRules, InvalidSemanticModelError } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
-import { applyVisualEdit } from '../../src/vs/workbench/contrib/ade/common/visualEditing.ts';
 import { notationNodeSize, notationBoundaries, notationGroupMembers, arrangeDiagram } from '../../src/vs/workbench/contrib/ade/common/diagramLayout.ts';
 import { notationAnalysis } from '../code-import/test/notation-fixture.mjs';
 
+const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');
 const analysis = notationAnalysis({ units: [['u0']] });
 function model() {
 	return readSemanticModel({ version: 3, id: 'notations', name: 'Task Architecture', semantics: {

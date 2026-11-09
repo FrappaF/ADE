@@ -31,6 +31,8 @@ export function describeRecordedEvidence(model: SemanticModel, id: string): stri
 /** Explain a concrete reverse-reference step, keeping ownership context separate from dependents. */
 export function impactReason(model: SemanticModel, entry: ReturnType<typeof getModelImpact>['dependents'][number]): string {
 	const target = model.semantics.elements.find(element => element.id === entry.via.targetId)!;
+	if (entry.via.kind === 'contract') { return localize('ade.impact.contractReason', "Shared contract reference to {0} · Reference Distance: {1}", target.name, entry.distance); }
+	if (entry.via.kind === 'module') { return localize('ade.impact.moduleReason', "Shared module reference to {0} · Reference Distance: {1}", target.name, entry.distance); }
 	return entry.via.kind === 'relationship'
 		? localize('ade.impact.relationReason', "{0} to {1}: {2} · Reference Distance: {3}", relationLabels[entry.via.relation.kind], target.name, entry.via.relation.name, entry.distance)
 		: localize('ade.impact.authorizationReason', "Authorization reference to {0}: {1} · Reference Distance: {2}", target.name, entry.via.capability, entry.distance);

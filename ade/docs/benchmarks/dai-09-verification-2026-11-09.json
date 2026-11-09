@@ -1,0 +1,191 @@
+{
+	"version": 1,
+	"sprint": "DAI-09",
+	"status": "passed-with-declared-scope",
+	"recordedAt": "2026-11-09T14:25:05.193356+00:00",
+	"timezone": "Europe/Rome",
+	"branch": "work",
+	"head": "05c3a0f05c6e0c369a0e47001359f58542c2eea8",
+	"runtime": "v24.22.1",
+	"uniquePassingTests": 528,
+	"counting": "257 domain + 102 unique AI/project + 169 code-import. Full AI run: 101; final affected run: 20, of which 19 overlap and 1 is new. Native bundle internal cases and repeated checks are not additional tests.",
+	"suites": {
+		"domain": {
+			"command": "node --test --test-reporter=tap ade/test/*.test.mjs",
+			"summary": {
+				"tests": 257,
+				"pass": 257,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 34277.986375
+			},
+			"outputSha256": "6c30e27cbd466a102b26f2dbbb63d21f3e22c16f88037b2e43710dee99390a46"
+		},
+		"aiFull": {
+			"command": "npm --prefix ade/ai test",
+			"summary": {
+				"tests": 101,
+				"pass": 101,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 209825.578551
+			},
+			"outputSha256": "157c9b12e71a1c424ab17e1eaff902cef9e13aa0109d5071f36efd8ff1ef863f"
+		},
+		"aiFinalAffected": {
+			"command": "node --test --test-isolation=none ade/ai/test/roundtrip-project.test.mjs ade/ai/test/structural-index.test.mjs",
+			"summary": {
+				"tests": 20,
+				"pass": 20,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 69110.163294
+			},
+			"outputSha256": "be83c510c18b80dfd67e0a1b13934ced73176fc683a1286fe0e961029732c835"
+		},
+		"codeImport": {
+			"command": "npm --prefix ade/code-import test",
+			"summary": {
+				"tests": 169,
+				"pass": 169,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 119672.509009
+			},
+			"outputSha256": "501cdf8a3ee61c76637d7867e02a3879816de96d981712cb0d562e39952fba02"
+		}
+	},
+	"newCasesOutput": "✔ DAI09 F01 predicate: create, nested move, external rename, delete, exact undo, index loss and zero echo (6171.807399ms)\n✔ DAI09 F01 interaction: create, nested move, external rename, delete, exact undo, index loss and zero echo (15218.842173ms)\n✔ DAI09 F01 state: create, nested move, external rename, delete, exact undo, index loss and zero echo (15014.113105ms)\n✔ DAI09 F01 messaging: create, nested move, external rename, delete, exact undo, index loss and zero echo (4897.855458ms)\n✔ DAI09 F02 test-destination collision, duplicate identity, and post-review new source are blocked (2211.928161ms)\n✔ DAI09 C01 concurrent contract and same-signature policy body produce an explicit conflict (797.314152ms)\n✔ DAI09 C01 concurrent decision and same-signature policy body produce an explicit conflict (901.349447ms)\n✔ DAI09 C01 concurrent platform and same-signature policy body produce an explicit conflict (922.872784ms)\n✔ DAI09 C01 concurrent policy and same-signature policy body produce an explicit conflict (860.887167ms)\n✔ DAI09 R01 interaction: same-signature plan reverse preserves layout; absent resource stays partial (4124.114558ms)\n✔ DAI09 R01 state: same-signature plan reverse preserves layout; absent resource stays partial (5298.605289ms)\n✔ DAI09 R01 messaging: same-signature plan reverse preserves layout; absent resource stays partial (1987.227779ms)\n✔ DAI09 J01 nested move recovery and missing cache: before (2218.291144ms)\n✔ DAI09 J01 nested move recovery and missing cache: partial (1769.527701ms)\n✔ DAI09 J01 nested move recovery and missing cache: committed (1544.326778ms)\n✔ DAI09 J02 undo refuses a manual permission change; parser facts do not certify custom intent (847.976625ms)\n✔ DAI09 J03 loss of authoritative baseline blocks bootstrap; source cache cannot recreate intent (817.499019ms)\n✔ DAI09 R02 resource or executable-runtime edits remain partial and do not rewrite a normative ADR (924.3815ms)\n✔ DAI09 F03 nested symlink and path traversal fail before any project mutation (884.167623ms)\n✔ DAI09 I01 oversized derived parser index leaves the previous cache and every source intact (430.243866ms)\nℹ tests 20\nℹ suites 0\nℹ pass 20\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 69110.163294\n",
+	"typechecks": {
+		"ade/ai": "passed after final index budget guard",
+		"ade/code-import": "passed after shared compiler module",
+		"ade/messaging": "passed"
+	},
+	"generatedRuntimeChecks": {
+		"interaction": "passed",
+		"state": "passed",
+		"messaging": "passed"
+	},
+	"productionBundle": {
+		"report": "ade/docs/benchmarks/dai-09-project-2026-11-09.json",
+		"compilerCopies": 1,
+		"derivedCases": 17,
+		"independentCases": 17,
+		"reversePacketBytes": 51577,
+		"packetSealVerified": true,
+		"contextP95Ms": 19.775488999999652,
+		"contextWithinBudget": true,
+		"harness": "import assert from 'node:assert/strict';\nimport { readFile, writeFile, mkdir, mkdtemp, rm, copyFile, rename, chmod } from 'node:fs/promises';\nimport { join } from 'node:path';\nimport { createHash } from 'node:crypto';\nimport { build } from '/tmp/ade-dai09-tools/node_modules/esbuild/lib/main.js';\nimport '/workspace/ADE/ade/scripts/source-loader.mjs';\nimport { checkoutMessaging, messagingCriteria } from '/workspace/ADE/ade/test/fixtures/dai-messaging.mjs';\nconst sourceRoot='/workspace/ADE', buildRoot=await mkdtemp('/tmp/ade-dai09-bundle-'), root=await mkdtemp('/tmp/ade-dai09-protocol-');\nconst hash=b=>createHash('sha256').update(b).digest('hex');\ntry {\n const result=await build({entryPoints:[join(sourceRoot,'ade/code-import/nativeHost.ts')],outfile:join(buildRoot,'engine.mjs'),bundle:true,platform:'node',format:'esm',target:'node24',metafile:true,banner:{js:\"import { createRequire as adeCreateRequire } from 'node:module'; import { fileURLToPath as adeFileURLToPath } from 'node:url'; import { dirname as adeDirname } from 'node:path'; const require = adeCreateRequire(import.meta.url); const __filename = adeFileURLToPath(import.meta.url); const __dirname = adeDirname(__filename);\"}});\n const compilers=Object.keys(result.metafile.inputs).filter(x=>x.endsWith('typescript/lib/typescript.js')); assert.equal(compilers.length,1);\n await copyFile(join(sourceRoot,'ade/code-import/node_modules/legacy-tree-sitter/tree-sitter.js'),join(buildRoot,'legacy-runtime.cjs'));\n const {engine}=await import(join(buildRoot,'engine.mjs'));\n const call=async request=>JSON.parse(await engine.execute(JSON.stringify({operation:'collaboration',request:JSON.stringify(request)})));\n await mkdir(join(root,'.ade')); await writeFile(join(root,'.ade/model.json'),JSON.stringify(checkoutMessaging,null,'\\t')+'\\n'); await writeFile(join(root,'.ade/criteria.json'),JSON.stringify(messagingCriteria));\n const start=performance.now(), prepared=await call({operation:'structuralPrepare',root,direction:'forward'}), preparationMs=performance.now()-start;\n async function publish(s){ const c=await call({operation:'structuralVerify',root,id:s.id,reviewId:s.reviewId}); assert.equal(c.status,'passed',c.verification.output); assert.equal((await call({operation:'structuralApply',root,id:s.id,reviewId:s.reviewId})).status,'applied'); return c; }\n const verified=await publish(prepared.session), a=verified.next.artifacts.find(x=>x.messagingId);\n const source=await readFile(join(root,a.file),'utf8'); await writeFile(join(root,a.file),'// custom\\n'+source); await chmod(join(root,a.file),0o640);\n const move=await call({operation:'structuralPrepare',root,direction:'forward',paths:{[a.predicateId]:'src/orders/handler.mjs'}}); await publish(move.session);\n await mkdir(join(root,'src/renamed')); await rename(join(root,'src/orders/handler.mjs'),join(root,'src/renamed/handler.mjs')); await rm(join(root,'.ade/structural/source-index.json'));\n const reversed=await call({operation:'structuralPrepare',root,direction:'reverse'}), checked=await publish(reversed.session), p=checked.packets.find(x=>x.request.target.kind==='messaging');\n assert.ok(p.request.sources.some(s=>s.file==='src/renamed/handler.mjs')); assert.equal(p.packet.seal,hash(p.packet.bytes)); assert.equal(p.packet.byteLength,Buffer.byteLength(p.packet.bytes));\n const aligned=await call({operation:'structuralPrepare',root,direction:'reverse'}); assert.deepEqual(aligned,{status:'aligned',calls:0});\n const {prepareStructuralSourceContext}=await import('/workspace/ADE/ade/ai/structuralContext.ts');\n for(let i=0;i<3;i++) await prepareStructuralSourceContext(root,checked.next.model,p.request);\n const samples=[]; for(let i=0;i<30;i++){const start=performance.now(); await prepareStructuralSourceContext(root,checked.next.model,p.request); samples.push(performance.now()-start);} const sorted=[...samples].sort((a,b)=>a-b), p95Ms=sorted[Math.ceil(samples.length*.95)-1];\n const undo=await call({operation:'structuralUndo',root,id:checked.id,reviewId:checked.reviewId}); assert.equal(undo.status,'undone');\n const report={version:1,kind:'DAI-09-real-native-bundle',recordedAt:new Date().toISOString(),timezone:'Europe/Rome',runtime:process.version,productionCompilerCopies:compilers,preparationMs,preparationMeaning:'Git, filesystem, index, derived checks and staging; separate from context compiler budget',verification:verified.verification,moveVerification:move.session.id,reverseVerification:checked.verification,aligned,undo:undo.status,packet:p,contextCompiler:{warmups:3,samples,p95Ms,limitMs:500,withinBudget:p95Ms<=500},provider:{calls:0,usage:null,price:null},scope:'Production-config nativeHost bundle and actual outer collaboration protocol; real Git/worktree/Node. No desktop or live broker test.',sourceHashes:Object.fromEntries(await Promise.all(['ade/ai/structuralProject.ts','ade/ai/structuralSourceIndex.ts','ade/code-import/typescriptRuntime.ts','ade/code-import/typescriptSemantic.ts','ade/code-import/nativeHost.ts','src/vs/workbench/contrib/ade/common/modelProject.ts'].map(async file=>[file,hash(await readFile(join(sourceRoot,file)))])))};\n await writeFile(join(sourceRoot,'ade/docs/benchmarks/dai-09-project-2026-11-09.json'),JSON.stringify(report,null,'\\t')+'\\n',{flag:'wx'}); console.log(JSON.stringify({status:'passed',generated:verified.verification.generated,independent:verified.verification.independent,packetBytes:p.packet.byteLength,p95Ms,compilerCopies:compilers.length}));\n} finally { await rm(buildRoot,{recursive:true,force:true}); await rm(root,{recursive:true,force:true}); }\n",
+		"harnessSha256": "493a8e4007820e6d3bec8b31ca3e681b7e2fbc912769d2fd385c62903ae248b0",
+		"tools": {
+			"esbuild": "0.25.12",
+			"typescript": "6.0.2"
+		},
+		"scope": "Same nativeHost entry and production esbuild configuration; real outer collaboration protocol, Git/worktrees and restricted Node runner. No desktop, provider or broker execution."
+	},
+	"baseline": {
+		"report": "ade/docs/benchmarks/dai-09-2026-11-09.json",
+		"peakRssMiB": 145.6171875,
+		"largeEvidenceOnlyPackedBytes": 284875,
+		"largeEvidenceOnlyWithinBudget": false,
+		"notSufficiencyProof": true
+	},
+	"integrity": {
+		"markdownFiles": 49,
+		"uniqueLocalTargets": 141,
+		"missing": [],
+		"legacySchemasUnchanged": {
+			"v2": true,
+			"v3": true
+		},
+		"frozenHashes": {
+			"ade/docs/diagram-driven-ai/budgets.v1.json": "127caa0684c0a7ed41e898d2a05553f4080cb210193e5fcef22e98e98797a8fa",
+			"ade/docs/diagram-driven-ai/corpus.v1.json": "ee1e4395135d29e28b0167f5e58be59a3c57c081d235649263fb9c71aca7ecdb"
+		}
+	},
+	"sourceHashes": {
+		"ade/ai/structuralProject.ts": "a9ecd0773a199e90d9edd3c94e77f2db8e6845f4592576c10b4fdff667938a80",
+		"ade/ai/structuralSourceIndex.ts": "ddd9311cc596f7761dcbc1a274a871a4619ad7e73094bb6dedf48b41fda6f737",
+		"ade/ai/structuralContext.ts": "329786fd4533c2de1f3f503ad530eebd3e7e49b523e655bb4261a0e7ecf2ac4a",
+		"ade/ai/engine.ts": "cd8dbb5fc9e74fe63e1101023b16d7e94e20e1732bc3a486be68f37d68f20818",
+		"ade/ai/test/roundtrip-project.test.mjs": "21e4ed38729ee1be578c90f72dafed8183f0187398e02dd52e4652a09514b4d4",
+		"ade/ai/test/structural-index.test.mjs": "a63a4da9d8b1ef07b7a9200fb2e106d992c89e22892272770cd522ca40b450b8",
+		"ade/code-import/typescriptRuntime.ts": "e1706d893d7ea6561934d02105ea67df660506fc336878d654a69d9d1828d54b",
+		"ade/code-import/typescriptSemantic.ts": "d17e13631ddc1a4b3b71e3b79003b97a3e600590b45c3d3687cafee6389ae647",
+		"ade/code-import/sourceChanges.ts": "cea3ef8684d3bd88dcd282015d8957d7120e258c43eabdc204580c41ce648e61",
+		"ade/code-import/projectStore.ts": "333931403216dd827c4af695fbb6601e66cb1bc0d3dce3195883300f6ae7c5d7",
+		"ade/code-import/reconciliationJournal.ts": "45ffa7e0e0f69cc63eafc01949935c6776ec666a08fe26c32d64df53b23cd595",
+		"ade/code-import/nativeHost.ts": "87da00dc7029b7665beced7657d634570361ab7413defe010eb128d279c3efda",
+		"ade/test/dai-baseline.test.mjs": "a3a39a363c9ab94bc8548a6664147eceb0116488d59eb13ef9d3bd59281e34a8",
+		"ade/test/fixtures/dai-messaging.mjs": "3d16216052cf48dc127046b55dd8fc98425b1cc7ff1a41f77a3a36900551ebb9",
+		"ade/test/fixtures/dai-states.mjs": "d01f9e0d93ff09e2fee718bb6d6577ddfcaf229aa76b3f7ae767896ef6c8c411",
+		"ade/docs/diagram-driven-ai/coverage.json": "fe1722e64218cf0f6ef73f82da52d42818890bb7a6543cb1d0e054b52497ba0b",
+		"ade/docs/diagram-driven-ai/roundtrip-v1.md": "134f7790828e5b9539839281d420c3110aab7e93a86e2f1749332302e20a1ee0",
+		"ade/docs/diagram-driven-ai/dai-09-acceptance.md": "f28c70f1c2760ac18884da7db3b9408e1100f907927188a805054640fdab7772",
+		"ade/docs/diagram-driven-ai/dai-09.md": "3e63e0082c4e973556a7c46cfa7223057d09417207c25ef183a2d0a628f5300b",
+		"ade/docs/diagram-driven-ai/handoff-dai-10.md": "d7777fd2734c4a3d6a301861242114048d0b9b0c27ba1d26dcd9ef05ee1b1339",
+		"ade/docs/decisions/0012-structural-roundtrip-and-source-index.md": "419e97ac8607ecff1af0486fa25a3fd0973968125f5ff18f56ad2be2349e8e75",
+		"ade/docs/roadmap.md": "60ef862379b302bba3acee38a7cf1a9104746c4b56dc543c76e867b3b16082d2",
+		"README.md": "dd5172183932697d84418e858e85327c53926d9b7ab5c893f136ca7c82e8674b",
+		"src/vs/workbench/contrib/ade/common/modelProject.ts": "fba1c570da6b665f204bdece1703e12df39abb6576aa18a4726a1e71a4b2a7d9",
+		"src/vs/workbench/contrib/ade/common/modelProfiles.ts": "df09e32501c36855723f77ae6972730754a4b083de205642a1d74f56ed95cb0b",
+		"src/vs/workbench/contrib/ade/common/modelExpressions.ts": "b8c436f92484f3ba7df2ffc2f409f155ed9f9a6a2ee97a8a61f3cd1043559942",
+		"src/vs/workbench/contrib/ade/common/modelInteractions.ts": "1269826ad0888116f7335b2f00d0eecb55ce8e193df92da9bfb7462e92401d8c",
+		"src/vs/workbench/contrib/ade/common/modelStates.ts": "39702f846db281400330f34fdab6a459dda0faf8d21e55d5a8439468ecb506d9",
+		"src/vs/workbench/contrib/ade/common/modelMessaging.ts": "80f37740a17761fbd8876065d8f1a8ae1de7f9c4df142535c5e1f28ea1415523",
+		"src/vs/workbench/contrib/ade/common/modelTaskContext.ts": "ac13d527702ffb88bb11c9a4c5dc18cddf19699b7a4a67e5b727e519fe90f505",
+		"src/vs/workbench/contrib/ade/common/semanticModel.ts": "13a14e8dd280bd4cd0203b3447fd5499ba48c701ac24825bb6e8addde123adb7"
+	},
+	"provider": {
+		"calls": 0,
+		"usage": null,
+		"price": null
+	},
+	"limits": [
+		"Reverse is partial per construct; arbitrary code and missing interaction/state/messaging resources remain explicit partial mapping.",
+		"Contracts, normative ADRs and PSM bindings are preserved rather than inferred from source. Foundation conflict checks are conservative.",
+		"Process-crash state injections and reopen/recovery are not power-loss or instantaneous multi-file atomicity certification.",
+		"No full client build, desktop, native/browser UI or live broker rerun; these surfaces and the broker runtime were not changed.",
+		"All R01-R16 acceptance remains open."
+	],
+	"temporaryArtifacts": "Only task-specific /tmp tools, cache, harnesses and logs were created; removed after report finalization. No new persistent package dependencies.",
+	"finalReruns": {
+		"indexBudget": {
+			"command": "node --test --test-isolation=none ade/ai/test/structural-index.test.mjs",
+			"summary": {
+				"tests": 1,
+				"pass": 1,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 1029.938022
+			},
+			"outputSha256": "80504fe4df2ff46400de7e899ed7e6e8c5ecdb324529b9d6b548b826bbb0bb04"
+		},
+		"baseline": {
+			"command": "node --test ade/test/dai-baseline.test.mjs",
+			"summary": {
+				"tests": 5,
+				"pass": 5,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 323.56323
+			},
+			"outputSha256": "70213a4661581922846bfa1a1e0080f2beb6410571d4d08a9c574a57266c4c9c"
+		},
+		"reason": "Final byte budget includes the JSON newline; one affected budget test and production bundle were repeated. No additional unique tests."
+	},
+	"gitDiffCheck": "passed",
+	"commitPushPrDeploy": false
+}

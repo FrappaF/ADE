@@ -17,6 +17,15 @@ import { AdeInput } from './adeInput.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 import { editAdeElementNotation, editAdeRelationNotation } from './adeNotationEditing.js';
+import { editAdeMessaging } from './adeMessagingEditing.js';
+import { readAdeMessagingScenario } from './adeMessagingCriteria.js';
+import { compileModelMessaging, simulateMessaging } from '../common/modelMessaging.js';
+import { editAdeStateMachine } from './adeStateEditing.js';
+import { editAdeInteraction } from './adeInteractionEditing.js';
+import { editAdePredicate } from './adePredicateEditing.js';
+import { editAdeStack } from './adeStackEditing.js';
+import { editAdeTask } from './adeTaskEditing.js';
+import { editAdeBlueprint, type BlueprintEditMode } from './adeBlueprintEditing.js';
 import { editAdeBehavior } from './adeBehaviorEditing.js';
 import { isSequenceMessage } from '../common/sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from '../common/stateDiagram.js';
@@ -51,7 +60,7 @@ class EditingUI {
 		return picked?.feature;
 	}
 
-	async run(command: string, id?: string): Promise<void> {
+	async run(command: string, id?: string, mode?: BlueprintEditMode): Promise<void> {
 		if (command === 'createProject' || command === 'openProject') {
 			const name = command === 'createProject' ? await this.name() : undefined;
 			if (command === 'createProject' && !name) { return; }
@@ -73,6 +82,32 @@ class EditingUI {
 		const model = this.project.model;
 		const context = (element: SemanticElement): string => [model.name, ...getElementPath(model, element.id).slice(0, -1).map(parent => parent.name)].join(' / ');
 		const selected = model.semantics.elements.find(element => element.id === this.project.selectedId);
+		if (command === 'taskIntent') { if (model.version === 4) { const edits = await editAdeTask(this.quickInput, model); if (edits) { this.edit(edits); } } return; }
+		if (command === 'createPureFeature') { await this.project.createPureFeature(); return; }
+		if (command === 'selectStructuralProfile') { if (model.version === 4) { const edits = await editAdeStack(this.quickInput, model); if (edits?.length) { this.edit(edits); } } return; }
+		if (command === 'messaging') { if (model.version !== 4) { return; } const edits = await editAdeMessaging(this.quickInput, model); if (edits?.length) { const entry = edits.find(edit => edit.kind === 'messaging'); if (view && entry?.kind === 'messaging') { edits.push({ kind: 'viewMessaging', viewId: view.id, messagingId: entry.entry.id }); } this.edit(edits); } return; }
+		if (command === 'simulateMessaging') { if (model.version !== 4) { return; } const selected = await this.quickInput.pick((model.foundation.messaging ?? []).map(topology => ({ label: topology.id, topology })), { title: localize('ade.messaging.simulate', "Simulate Messaging · No Broker") }); if (!selected) { return; } const scenario = await readAdeMessagingScenario(this.quickInput, model, selected.topology); if (!scenario) { return; } const result = simulateMessaging(compileModelMessaging(model, selected.topology.id), scenario); await this.quickInput.pick((['published', 'deliveries', 'deadLetters', 'errors'] as const).flatMap(kind => result[kind].map(value => ({ label: value, description: kind }))), { title: localize('ade.messaging.simResult', "Simulation Result · Zero AI Calls · No Network") }); return; }
+		if (command === 'stateMachine') { if (model.version !== 4) { return; } const edits = await editAdeStateMachine(this.quickInput, model); if (edits?.length) { const entry = edits.find(edit => edit.kind === 'stateMachine'); if (view?.kind === 'state' && entry?.kind === 'stateMachine') { edits.push({ kind: 'viewStateMachine', viewId: view.id, stateMachineId: entry.entry.id }); } this.edit(edits); } return; }
+		if (command === 'interaction') {
+			if (model.version !== 4) { return; }
+			const edits = await editAdeInteraction(this.quickInput, model, id ?? this.project.selectedId); if (edits?.length) { const entry = edits[0]; if (view?.kind === 'sequence' && entry.kind === 'interaction') { edits.push({ kind: 'viewInteraction', viewId: view.id, interactionId: entry.entry.interaction.id }); } this.edit(edits); } return;
+		}
+		if (command === 'predicate') {
+			if (model.version !== 4) { throw new Error(localize('ade.predicate.upgrade', "Upgrade the model to version 4 to edit predicates.")); }
+			const edits = await editAdePredicate(this.quickInput, model, id ?? this.project.selectedId); if (edits?.length) { this.edit(edits); } return;
+		}
+		if (command === 'prepareStructuralContext') {
+			if (model.version !== 4) { return; }
+			const operation = await this.quickInput.pick((model.foundation.blueprint?.operations ?? []).map(operation => ({ label: operation.name, operation })), { title: localize('ade.task.target', "Structural Task Operation") }); if (!operation) { return; }
+			const intent = model.foundation.tasks?.findLast(task => task.target.kind === 'operation' && task.target.id === operation.operation.id)?.text ?? await this.name(undefined, localize('ade.task.intent', "Task Intent")); if (!intent) { return; }
+			await this.project.prepareStructuralContext(operation.operation.id, intent); return;
+		}
+		if (command === 'blueprint' || command === 'projectDecisions') {
+			if (model.version !== 4) { throw new Error(localize('ade.blueprint.upgrade', "Upgrade the model to version 4 to edit its blueprint.")); }
+			const edits = await editAdeBlueprint(this.quickInput, model, id ?? this.project.selectedId, view, command === 'projectDecisions' ? 'decision' : mode);
+			if (edits?.length) { this.edit(edits); }
+			return;
+		}
 		if (command === 'addFeature') {
 			const name = await this.name();
 			if (!name) { return; }
@@ -120,7 +155,7 @@ class EditingUI {
 			], { title: localize('ade.notation.parent', "Choose Boundary or Parent") });
 			if (parent) { this.edit({ kind: 'parent', id: selected.id, parentId: parent.parentId }); }
 		} else if (command === 'notation' && selected) {
-			const details = await editAdeElementNotation(this.quickInput, selected);
+			const details = await editAdeElementNotation(this.quickInput, selected, model.version);
 			if (details) { this.edit({ kind: 'elementDetails', id: selected.id, details }); }
 		} else if (command === 'relationNotation' && id) {
 			const relation = model.semantics.relations.find(relation => relation.id === id);
@@ -284,6 +319,17 @@ class EditingUI {
 }
 
 for (const [command, title] of [
+	['taskIntent', localize2('ade.task.editCommand', "A.D.E: Tasks and Clarifications")],
+	['selectStructuralProfile', localize2('ade.task.profileCommand', "A.D.E: Choose Runtime and Review Stack Plan")],
+	['createPureFeature', localize2('ade.pure.create.command', "A.D.E: Add Pure Quantity Feature")],
+	['messaging', localize2('ade.messaging.command', "A.D.E: Edit Messaging Topology")],
+	['simulateMessaging', localize2('ade.messaging.simCommand', "A.D.E: Simulate Messaging")],
+	['stateMachine', localize2('ade.states.command', "A.D.E: Edit Executable State Machine")],
+	['interaction', localize2('ade.interaction.command', "A.D.E: Edit Executable Interaction")],
+	['predicate', localize2('ade.predicate.command', "A.D.E: Edit Pure Predicate")],
+	['prepareStructuralContext', localize2('ade.task.command', "A.D.E: Preview Structural AI Context")],
+	['blueprint', localize2('ade.blueprint.command', "A.D.E: Edit Structural Blueprint")],
+	['projectDecisions', localize2('ade.projectDecisions.command', "A.D.E: Project Architecture Decisions")],
 	['createProject', localize2('ade.createProject', "A.D.E: Create Project")],
 	['openProject', localize2('ade.openProject', "A.D.E: Open Project")],
 	['addFeature', localize2('ade.addFeature', "A.D.E: Add Feature")],
@@ -319,14 +365,14 @@ for (const [command, title] of [
 ] as const) {
 	registerAction2(class extends Action2 {
 		constructor() { super({ id: `ade.${command}`, title, f1: true }); }
-		async run(accessor: ServicesAccessor, id?: string): Promise<void> {
+		async run(accessor: ServicesAccessor, id?: string, mode?: BlueprintEditMode): Promise<void> {
 			const project = accessor.get(IAdeProjectService);
 			const editor = accessor.get(IEditorService);
 			const notifications = accessor.get(INotificationService);
 			const workspace = command === 'createProject' || command === 'openProject' ? accessor.get(IAdeProjectWorkspaceService) : undefined;
 			const ui = new EditingUI(project, accessor.get(IQuickInputService), accessor.get(IDialogService), accessor.get(IFileDialogService));
 			try {
-				await ui.run(command, id);
+				await ui.run(command, id, mode);
 				if (ui.projectChanged) { await workspace?.align(); }
 				await editor.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 			} catch (error) { notifications.error(localize('ade.editFailed', "Could not complete the project change: {0}", String(error.message ?? error))); }

@@ -1,0 +1,53 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import assert from 'assert';
+import * as dom from '../../../../../base/browser/dom.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { AdeControls } from '../../browser/adeControls.js';
+import { renderStructuralReview, type StructuralReviewActions } from '../../browser/adeStructuralReview.js';
+import type { StructuralProjectSession } from '../../common/modelProject.js';
+import { nodeOrdersFixture } from '../common/nodeOrdersFixture.js';
+
+suite('A.D.E visual structural review', () => {
+	const store = ensureNoDisposablesAreLeakedInTestSuite(); let root: HTMLElement;
+	setup(() => { root = dom.append(document.body, dom.$('section.ade-shell')); root.tabIndex = -1; }); teardown(() => root.remove());
+	function fixture() {
+		const called: string[] = [], controls = store.add(new AdeControls());
+		const session = { direction: 'forward', mutations: [{ file: 'src/domain/quantity.mjs', before: null, after: { content: 'value', mode: 420 } }], verification: { generated: 8, independent: 8, output: '16 tests passed' } } as StructuralProjectSession;
+		const actions: StructuralReviewActions = { busy: false, canVerify: true, canApply: false, canUndo: false, verify: () => called.push('verify'), apply: () => called.push('apply'), undo: () => called.push('undo'), technical: () => called.push('technical'), returnToDiagram: () => called.push('return') };
+		const render = () => controls.render(root, () => { root.textContent = ''; renderStructuralReview(root, nodeOrdersFixture, session, controls, actions); });
+		return { called, controls, session, actions, render };
+	}
+	test('real verification and reviewed publication are distinct, with disabled stale publication', () => {
+		const f = fixture(); f.render(); const buttons = [...root.querySelectorAll('button')]; assert.strictEqual(buttons[0].textContent, 'Run Real Verification'); assert.strictEqual(buttons[1].disabled, true); buttons[1].click(); buttons[0].click(); assert.deepStrictEqual(f.called, ['verify']);
+		f.actions.canApply = true; f.render(); root.querySelectorAll('button')[1].click(); assert.deepStrictEqual(f.called, ['verify', 'apply']); assert.ok(root.textContent?.includes('Real Verification Passed'));
+		f.actions.canApply = false; f.actions.canVerify = false; f.render(); assert.ok(root.textContent?.includes('Prepare a New Review')); assert.strictEqual(root.querySelectorAll('button')[1].disabled, true);
+	});
+	test('keyboard focus and disclosure expansion survive a review update', () => {
+		const f = fixture(); f.render(); const details = root.querySelector('details')!; details.open = true; const button = root.querySelectorAll('button')[3]; button.focus(); assert.strictEqual(document.activeElement, button);
+		f.render(); assert.strictEqual(document.activeElement, root.querySelectorAll('button')[3]); assert.strictEqual(root.querySelector('details')!.open, true); root.querySelectorAll('button')[4].click(); assert.deepStrictEqual(f.called, ['return']);
+	});
+	test('hostile names/output remain text and technical details are secondary', () => {
+		const f = fixture(); f.session.mutations[0].file = '<img src=x onerror=alert(1)>'; f.session.verification!.output = '<script>bad()</script>'; f.render();
+		assert.strictEqual(root.querySelector('img,script'), null); assert.ok(root.textContent?.includes('<script>bad()</script>')); assert.ok(root.textContent?.includes('Price Unknown')); assert.strictEqual(root.querySelector('section')?.getAttribute('aria-label'), 'Model and Code Review');
+	});
+	test('busy review disables all actions; outcomes and coverage are conveyed in text', () => {
+		const f = fixture(); f.actions.busy = true; f.render(); assert.ok([...root.querySelectorAll('button')].every(button => button.disabled));
+		for (const part of ['8 Derived Cases', '8 Independent Cases', 'Custom Code and Live Broker Execution', 'Zero AI Calls']) { assert.ok(root.textContent?.includes(part), part); }
+		assert.ok(root.querySelector('[role="status"]')); assert.strictEqual(root.querySelector('pre')?.tabIndex, 0);
+	});
+	test('failed real checks remain visible and publication stays blocked', () => {
+		const f = fixture(); f.session.status = 'failed'; f.session.verification!.output = 'Independent boundary case failed'; f.render();
+		assert.ok(root.textContent?.includes('Real Verification Failed · Publication Blocked')); assert.strictEqual(root.querySelectorAll('button')[1].disabled, true);
+	});
+
+	test('runtime change exposes implementation, dependencies, existing data, tests, deployment and recovery as readable text', () => {
+		const f = fixture(); f.session.stackPlan = { version: 1, from: 'node.esm@5', to: 'bun.esm@1', pimRevision: 'seal', implementation: 'Same model', dependencies: 'Bun 1.3.2', storage: 'Stop and back up checkpoint', tests: 'Same business criteria', deployment: 'Manual restart', recovery: 'Keep original runtime' }; f.render();
+		for (const part of ['Runtime Change', 'node.esm@5', 'bun.esm@1', 'Storage and Existing Data', 'Stop and back up checkpoint', 'Manual restart', 'Keep original runtime']) { assert.ok(root.textContent?.includes(part), part); }
+		assert.strictEqual(root.querySelectorAll('button')[1].disabled, true);
+	});
+
+});

@@ -1,0 +1,219 @@
+{
+	"version": 1,
+	"kind": "local-deterministic-baseline",
+	"recordedAt": "2026-11-08T22:13:07.344Z",
+	"timezone": "Europe/Rome",
+	"revision": "05c3a0f05c6e0c369a0e47001359f58542c2eea8",
+	"workingTreeDirty": true,
+	"policy": {
+		"id": "dai-release-v1",
+		"sha256": "127caa0684c0a7ed41e898d2a05553f4080cb210193e5fcef22e98e98797a8fa"
+	},
+	"corpusSha256": "ee1e4395135d29e28b0167f5e58be59a3c57c081d235649263fb9c71aca7ecdb",
+	"sourceHashes": {
+		"ade/scripts/benchmark-dai.mjs": "8310e1a51215f5c87a65ce27e8465aba4ce921c0c9909d1f8366baf8c8d9e1da",
+		"ade/benchmarks/dai-fixtures.mjs": "49d0a2eabd9d27eddbf141748af026432b9f6093732e6431461ffc9ae8b3a3ba",
+		"ade/test/source-loader.mjs": "3f5776a21ac6ce594a14fd8f2b92ff63c8fe509aaa2eb638cb5298f36047bf6f",
+		"src/vs/workbench/contrib/ade/common/semanticModel.ts": "08ed1139ad4299b35aa2acdf0dbc7016c98ac978263ec81f52ed2383512b3d4a",
+		"src/vs/workbench/contrib/ade/common/visualEditing.ts": "05c9536df816bc46641cf75d92931f7c4ba7e1ec7ecec2321c41cec17c7d542f",
+		"src/vs/workbench/contrib/ade/common/modelImpact.ts": "0a03c180b3726298f9955c78a97cad64b0fd169e52bb9d329f037ccd3a67e53e",
+		"ade/ai/diagramEvidence.ts": "ac3d3d38f645ff31873fb8ce7b9a48fc80f707ffdb68b7df72e80f87afc1fbca"
+	},
+	"hardware": {
+		"platform": "linux",
+		"arch": "x64",
+		"kernel": "6.18.57",
+		"node": "v24.22.1",
+		"cpu": "AMD EPYC 9V74 80-Core Processor",
+		"availableParallelism": 2,
+		"hostMemoryMiB": 9968.2421875,
+		"cgroupCpuMax": "200000 100000",
+		"cgroupMemoryMax": "8589934592"
+	},
+	"measurement": {
+		"warmups": 3,
+		"samples": 20,
+		"percentile": 95,
+		"clock": "performance.now",
+		"memory": "process.resourceUsage.maxRSS; process peak, not per-operation allocation"
+	},
+	"fixtures": [
+		{
+			"id": "small",
+			"graphSha256": "ca33e13fa4cbb394a7c830b235e985e8a8d2999fbd8abb8b49c4837d6be3cd73",
+			"evidenceSha256": "646fbaf59947896565c4a3589bdce3f31d82b1af7e48ae19301d73912c6477a0",
+			"elements": 64,
+			"relations": 62,
+			"views": 1,
+			"visibleNodes": 63,
+			"validation": {
+				"firstCallMs": 1.266350999999986,
+				"medianMs": 0.35597699999999577,
+				"p95Ms": 0.5976620000000139,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 1.5520729999999787,
+				"medianMs": 1.2912579999999991,
+				"p95Ms": 2.9802480000000173,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 0.24381800000000453,
+				"medianMs": 0.13342099999999846,
+				"p95Ms": 0.4274949999999933,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 0.15143799999998464,
+				"medianMs": 0.07531299999999419,
+				"p95Ms": 0.2119300000000237,
+				"limitMs": 25,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 30277,
+				"packedBytes": 17087,
+				"reduction": 0.43564421838359146,
+				"maxInputBytes": 196608,
+				"withinInputBudget": true,
+				"estimatedTokens": 4272,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		},
+		{
+			"id": "medium",
+			"graphSha256": "bb0afc865cbf2e779b561eb917783791981648b63a37775ece510b4d39970c69",
+			"evidenceSha256": "b5ef484547bd147cad9945c53991c8dda82b975132ef6482a68a76c3ace4c39f",
+			"elements": 256,
+			"relations": 254,
+			"views": 1,
+			"visibleNodes": 255,
+			"validation": {
+				"firstCallMs": 1.4444100000000049,
+				"medianMs": 1.0240960000000427,
+				"p95Ms": 2.051766999999984,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 5.581004000000007,
+				"medianMs": 5.11272699999995,
+				"p95Ms": 8.49578200000002,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 0.8281700000000001,
+				"medianMs": 0.6498809999999935,
+				"p95Ms": 1.1581879999999956,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 0.2899879999999939,
+				"medianMs": 0.11214000000001079,
+				"p95Ms": 0.3988220000000524,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 124216,
+				"packedBytes": 70396,
+				"reduction": 0.4332775165840149,
+				"maxInputBytes": 196608,
+				"withinInputBudget": true,
+				"estimatedTokens": 17599,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		},
+		{
+			"id": "large",
+			"graphSha256": "d87bf9758a73604732670e94ef92348321b870a2607d484b066f948be1f7f049",
+			"evidenceSha256": "781776e32d3cf59177c2f0e2af92128bb50566709022be43ad0706b6a862ff29",
+			"elements": 1024,
+			"relations": 1022,
+			"views": 1,
+			"visibleNodes": 1023,
+			"validation": {
+				"firstCallMs": 13.18511099999995,
+				"medianMs": 4.010753000000022,
+				"p95Ms": 5.083051999999952,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 17.140790000000038,
+				"medianMs": 16.60307499999999,
+				"p95Ms": 17.160826000000043,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 7.873122999999964,
+				"medianMs": 7.203315999999859,
+				"p95Ms": 12.46519000000012,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 0.809586999999965,
+				"medianMs": 0.48634199999992234,
+				"p95Ms": 1.3472170000000006,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 501557,
+				"packedBytes": 284875,
+				"reduction": 0.43201869378754554,
+				"maxInputBytes": 196608,
+				"withinInputBudget": false,
+				"estimatedTokens": 71219,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		}
+	],
+	"memory": {
+		"peakRssMiB": 106.546875,
+		"limitMiB": 1024,
+		"withinBudget": true
+	},
+	"provider": {
+		"calls": 0,
+		"model": null,
+		"measuredTokens": null,
+		"price": null
+	},
+	"notMeasured": [
+		"desktop input-to-paint",
+		"full context preparation",
+		"semantic dependency recall",
+		"business execution",
+		"live inference",
+		"continuous mode",
+		"archetype equivalence"
+	],
+	"claim": "Measures current domain operations and compact evidence packing on fixed synthetic graphs. No DAI release capability is certified by this report."
+}

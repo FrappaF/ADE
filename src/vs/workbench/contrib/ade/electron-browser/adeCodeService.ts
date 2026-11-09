@@ -174,6 +174,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		if (this.context?.sourceRoot === selected[0].fsPath) { await this.workspace.align(); }
 	}
 	async sync(direction?: 'model' | 'code'): Promise<void> {
+		if (this.project.model.version === 4) { this.notifications.info(localize('ade.code.v4Profile', "This Specification Needs a Compatible Synchronization Profile. You Can Continue Editing and Saving the Draft.")); return; }
 		await this.refreshing;
 		if (this.busy) { this.notifications.info(localize('ade.code.syncBusy', "Wait for the active A.D.E operation to finish before preparing Sync.")); return; }
 		if (!this.context) {

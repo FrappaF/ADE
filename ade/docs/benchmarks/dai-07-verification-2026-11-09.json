@@ -1,0 +1,249 @@
+{
+	"version": 1,
+	"kind": "DAI-07-local-verification",
+	"recordedAt": "2026-11-09T12:41:30.943069+00:00",
+	"timezone": "Europe/Rome",
+	"status": "passed-with-declared-scope",
+	"totalPassed": 624,
+	"aggregation": "Distinct outer tests only; repeated affected checks and 20 checks inside the real project runner are not counted twice. Full AI suite 76 passed, followed by 43 affected cases and a final 7 state-project cases after runtime-plan hardening.",
+	"suites": {
+		"domain": {
+			"tests": 230,
+			"pass": 230,
+			"fail": 0
+		},
+		"ai": {
+			"tests": 76,
+			"pass": 76,
+			"fail": 0
+		},
+		"aiAffected": {
+			"tests": 43,
+			"pass": 43,
+			"fail": 0
+		},
+		"finalStateProject": {
+			"tests": 7,
+			"pass": 7,
+			"fail": 0
+		},
+		"codeImport": {
+			"tests": 169,
+			"pass": 169,
+			"fail": 0
+		},
+		"native": {
+			"suites": 8,
+			"tests": 138,
+			"passes": 138,
+			"pending": 0,
+			"failures": 0,
+			"start": "2026-11-09T12:37:55.833Z",
+			"end": "2026-11-09T12:37:57.751Z",
+			"duration": 1918
+		},
+		"chromium": {
+			"tests": [
+				{
+					"title": "A.D.E executable state renderer native state table preserves semantic order, keyboard focus and model",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable state renderer hostile state labels are rendered as text and policy is accessible",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable sequence renderer nested frames and operands render in semantic order with measured, focusable labels",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable sequence renderer hostile labels remain text; accessible and visible rows describe the same policies",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer semantic drill-down is an explicit keyboard-focusable button and leaves geometry untouched",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer shared signatures retain optional versus nullable text and actionable contract references",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer external dependencies expose their context boundary without an internal drill-down",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer ADR reasons, structured constraints and historical reasons are inspectable",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer exact packet is a focusable native disclosure with explicit unavailable cost and zero inference",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer predicate rendering and accessible reading derive the same authored expression without mutation",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer source descriptions are text and cannot introduce markup or actions",
+					"state": "passed"
+				}
+			],
+			"errors": [],
+			"passed": 11,
+			"failed": 0
+		}
+	},
+	"commands": [
+		"node --test --test-reporter=tap ade/test/*.test.mjs",
+		"npm --prefix ade/ai test",
+		"npm --prefix ade/code-import test",
+		"node --test --test-reporter=tap ade/ai/test/state-project.test.mjs ade/ai/test/interaction-project.test.mjs ade/ai/test/structural-project.test.mjs ade/ai/test/structural-context.test.mjs",
+		"node --test --test-reporter=tap ade/ai/test/state-project.test.mjs",
+		"npm --prefix ade/ai run check",
+		"npm --prefix ade/code-import run check",
+		"node ade/scripts/build-state-runtime.mjs --check",
+		"node ade/scripts/build-interaction-runtime.mjs --check",
+		"git diff --check"
+	],
+	"typechecks": {
+		"aiPackage": "passed",
+		"codeImportPackage": "passed",
+		"workbench": {
+			"roots": 22,
+			"targetDiagnostics": [],
+			"scope": "Production src/tsconfig, typings, real sources; semantic and syntax diagnostics requested only for the selected files. Full client build not run; root development dependencies are absent."
+		}
+	},
+	"temporaryHarnesses": {
+		"nativeLoader": {
+			"sha256": "228cb7e9fc21b6f6abe46bdc0f73f880cc3bd7dce24052db6db330068be04030",
+			"source": "import { registerHooks } from 'node:module';\nimport { readFileSync, existsSync } from 'node:fs';\nimport { fileURLToPath, pathToFileURL } from 'node:url';\nimport { resolve } from 'node:path';\nimport ts from '/workspace/ADE/ade/ai/node_modules/typescript/lib/typescript.js';\nconst root='/workspace/ADE', src=pathToFileURL(root+'/src/').href, decorator=pathToFileURL(root+'/src/vs/platform/instantiation/common/instantiation.ts').href;\nconst tokens=new Map([[pathToFileURL(root+'/src/vs/workbench/contrib/chat/browser/chat.ts').href,['IChatWidgetService','chatWidgetService']],[pathToFileURL(root+'/src/vs/workbench/contrib/terminal/browser/terminal.ts').href,['ITerminalService','terminalService','ITerminalGroupService','terminalGroupService']]]);\nregisterHooks({resolve(specifier,context,next){if(specifier==='sinon'){return next('file:///tmp/ade-dai07-tools/node_modules/sinon/pkg/sinon-esm.js',context);} if(specifier.endsWith('.js')&&context.parentURL?.startsWith(src)){const candidate=new URL(specifier.slice(0,-3)+'.ts',context.parentURL);if(existsSync(fileURLToPath(candidate))){return next(candidate.href,context);}}return next(specifier,context);},load(url,context,next){if(tokens.has(url)){const t=tokens.get(url);return{format:'module',shortCircuit:true,source:`import {createDecorator} from ${JSON.stringify(decorator)};${Array.from({length:t.length/2},(_,i)=>`export const ${t[i*2]}=createDecorator(${JSON.stringify(t[i*2+1])});`).join('')} ${url.endsWith('/chat.ts')?\"export const ChatViewPaneTarget=Symbol('chat');\":''}`};}if(url.endsWith('.css')){return{format:'module',source:'export {};',shortCircuit:true};}if(url.startsWith(src)&&url.endsWith('.ts')){return{format:'module',shortCircuit:true,source:ts.transpileModule(readFileSync(fileURLToPath(url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2024,module:ts.ModuleKind.ESNext,experimentalDecorators:true,useDefineForClassFields:false}}).outputText};}return next(url,context);}});\nconst {default:Mocha}=await import('/tmp/ade-dai07-tools/node_modules/mocha/index.js');const mocha=new Mocha({ui:'tdd',reporter:'json',timeout:30000});mocha.suite.emit('pre-require',globalThis,'native',mocha);for(const file of process.argv.slice(2)){await import(pathToFileURL(resolve(root,file)).href);}mocha.run(f=>{process.exitCode=f?1:0;});\n",
+			"note": "Temporary verification harness; cleaned after use. Paths describe this executor, not a new project dependency."
+		},
+		"browser": {
+			"sha256": "669c0e1521effd93f3c608ff52d547250e9972c2c5b65450c06b38f458f8e060",
+			"source": "import { build } from '/tmp/ade-dai07-tools/node_modules/esbuild/lib/main.js';\nimport { chromium } from '/tmp/ade-dai07-tools/node_modules/playwright/index.mjs';\nimport { readFile,writeFile } from 'node:fs/promises';\nimport http from 'node:http';\nconst root='/workspace/ADE', base='/tmp/ade-dai07-tools/node_modules';\nawait writeFile('/tmp/dai07-process.js',`import process from '${base}/process/browser.js';export {process};`);\nconst files=['adeStateRenderer','adeInteractionSequence','adeBlueprintDetails','adeTaskPreview'];\nconst preview=`import {renderAdeState} from '${root}/src/vs/workbench/contrib/ade/browser/adeState.ts';import {AdeControls} from '${root}/src/vs/workbench/contrib/ade/browser/adeControls.ts';import {stateFixture} from '${root}/src/vs/workbench/contrib/ade/test/common/stateFixture.ts';globalThis.showStatePreview=()=>{const controls=new AdeControls();document.body.textContent='';renderAdeState(document.body,stateFixture,stateFixture.views[0],controls,()=>{},()=>{});return ()=>controls.dispose();};`;\nconst entry=preview+files.map(name=>`import '${root}/src/vs/workbench/contrib/ade/test/browser/${name}.test.ts';`).join('\\n');\nawait build({stdin:{contents:entry,resolveDir:root},outfile:'/tmp/dai07-browser.js',bundle:true,format:'iife',platform:'browser',target:'chrome154',alias:{assert:base+'/assert/build/assert.js',process:base+'/process/browser.js'},inject:['/tmp/dai07-process.js'],tsconfigRaw:{compilerOptions:{experimentalDecorators:true,useDefineForClassFields:false}},loader:{'.css':'empty'}});\nconst html=`<!doctype html><html><head><meta charset=\"utf-8\"><style>body{color:#ccc;background:#1f1f1f;font:14px sans-serif}.ade-state-summary p{margin:16px;padding:8px;border-bottom:1px solid #444}button{background:#333;color:inherit;padding:8px;border:1px solid #666}button:focus-visible{outline:2px solid #54aaff}</style></head><body><div id=\"mocha\"></div><script src=\"/mocha.js\"></script><script>mocha.setup({ui:'tdd',timeout:15000});</script><script src=\"/tests.js\"></script><script>window.results=[];window.finished=false;mocha.run().on('test end',t=>window.results.push({title:t.fullTitle(),state:t.state,error:t.err?.message})).on('end',()=>window.finished=true);</script></body></html>`;\nconst server=http.createServer(async(req,res)=>{try{res.end(req.url==='/mocha.js'?await readFile(base+'/mocha/mocha.js'):req.url==='/tests.js'?await readFile('/tmp/dai07-browser.js'):html);}catch{res.statusCode=500;res.end('error');}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));\nconst browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});try{const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.finished,{timeout:60000});const tests=await page.evaluate(()=>window.results);const result={tests,errors,passed:tests.filter(t=>t.state==='passed').length,failed:tests.filter(t=>t.state!=='passed').length};await writeFile('/tmp/dai07-browser-results.json',JSON.stringify(result,null,2));console.log(result);await page.evaluate(()=>{window.disposePreview=window.showStatePreview();});await page.setViewportSize({width:1000,height:1000});await page.screenshot({path:'/tmp/dai07-states-preview.png',fullPage:true});await page.evaluate(()=>window.disposePreview());if(errors.length||result.failed||tests.length!==11)process.exitCode=1;}finally{await browser.close();server.close();}\n",
+			"note": "Temporary verification harness; cleaned after use. Paths describe this executor, not a new project dependency."
+		},
+		"dependencies": {
+			"typescript": "6.0.2 from existing AI package",
+			"mocha": "11.7.5",
+			"sinon": "21.0.0",
+			"esbuild": "0.25.12",
+			"playwright": "1.56.1",
+			"assert": "2.1.0",
+			"process": "0.11.10",
+			"method": "Installed only under /tmp; source transpilation for Node TDD and real Chromium bundle, injected terminal/chat DI tokens only. No fake DOM or replaced globals."
+		}
+	},
+	"runtimeEvidence": {
+		"productionNativeBundle": {
+			"report": "ade/docs/benchmarks/dai-07-project-2026-11-09.json",
+			"generated": 10,
+			"independent": 10,
+			"publication": "applied",
+			"aligned": {
+				"status": "aligned",
+				"calls": 0
+			},
+			"wrongGuardBlocked": true,
+			"undo": "undone"
+		},
+		"persistence": "Real atomic JSON file write and emitted-module reopen; typed quiescent snapshots, program/rules SHA-256, delivery replay validation, no repeated entry/do. No live service-state publication or transaction.",
+		"rendering": "Chromium 154.0.8037.57, real DOM, keyboard focus and native controls. Preview visually inspected; screenshot temporary and cleaned.",
+		"isolation": "Trusted emitted local orchestration and scripted response data only. Node permission is not an OS/network sandbox.",
+		"context": {
+			"contractOnlyBytes": 46409,
+			"fullRequiredBodiesBytes": 53894,
+			"p95Ms": 25.408486000000266,
+			"samples": 30,
+			"limitMs": 500,
+			"measurementNote": "Compiler-only measurements, separate from Git/filesystem/staging and derived-run preparation."
+		}
+	},
+	"benchmark": {
+		"report": "ade/docs/benchmarks/dai-07-2026-11-09.json",
+		"peakRssMiB": 143.25390625,
+		"rssWithinBudget": true,
+		"largeEvidenceOnlyPackBytes": 284875,
+		"inputLimitBytes": 196608,
+		"largeEvidenceWithinBudget": false,
+		"note": "Historical negative retained. Evidence-only packing does not establish structural context sufficiency."
+	},
+	"integrity": {
+		"localLinks": 122,
+		"linksResolve": true,
+		"frozenBudgetsSha256": "127caa0684c0a7ed41e898d2a05553f4080cb210193e5fcef22e98e98797a8fa",
+		"frozenCorpusSha256": "ee1e4395135d29e28b0167f5e58be59a3c57c081d235649263fb9c71aca7ecdb",
+		"legacySchemasUnchanged": true,
+		"packetSealsVerified": [
+			"77847543017055b5474ed8d65c975ba3d90bb2feaca574a2571d03b038dbfdb0",
+			"d7325179f9b95a9ec6e089d7f5ed8c979f7f3f11cb22b889be4d566b14458547"
+		],
+		"benchmarkSourceHashesCurrent": 19,
+		"finalBaselineRerunPassed": 5
+	},
+	"limits": [
+		"Flat classes and local scripted action adapters only; no arbitrary application code, broker, DB, orthogonal/hierarchical state execution, distributed exactly-once, second stack or continuous mode.",
+		"Quiescent checkpoints are caller-authorized data, not authenticated proof of external execution.",
+		"Native service injection and Chromium do not certify full desktop acceptance. R01-R16 remain open."
+	],
+	"provider": {
+		"calls": 0,
+		"measuredTokens": null,
+		"price": null
+	},
+	"sourceHashes": {
+		"src/vs/workbench/contrib/ade/common/semanticModel.ts": "aeed4ea55353367f9f2caeb708a8327efbfc6b02a263019df2296116f7cfa2fb",
+		"src/vs/workbench/contrib/ade/common/modelStates.ts": "39702f846db281400330f34fdab6a459dda0faf8d21e55d5a8439468ecb506d9",
+		"src/vs/workbench/contrib/ade/common/stateRuntime.ts": "016244ec6725f076e252d9be5d43bf62079824e1ac9e419ae2c918f264257721",
+		"src/vs/workbench/contrib/ade/common/stateRuntime.generated.ts": "50d3461fa1c4cd17b6da5db0197a284778da2f66fe44d5f8d713298e6b310777",
+		"src/vs/workbench/contrib/ade/common/modelInteractions.ts": "1269826ad0888116f7335b2f00d0eecb55ce8e193df92da9bfb7462e92401d8c",
+		"src/vs/workbench/contrib/ade/common/interactionRuntime.ts": "077532ded77787aa7ab80327323a93304779d918ea4bcf474cb9cf4f8ecbdf1b",
+		"src/vs/workbench/contrib/ade/common/interactionRuntime.generated.ts": "eb5b3c547f0b71812e0479ddc3f8a9245aa378fb180045200e0d6965f92bab5a",
+		"src/vs/workbench/contrib/ade/common/modelValues.ts": "bec0382549cc46c158e1e36a4d9bd60ad576f073938645c05788394f37c67a1a",
+		"src/vs/workbench/contrib/ade/common/modelProject.ts": "bd0fb8f505597957f464f4bba93bb016baea04de514c517998d77fa8fe4d2025",
+		"src/vs/workbench/contrib/ade/common/modelReadiness.ts": "0563770a3bb971e85494892adcdcc0d1fcddd531b178ade82e650ea95641bf51",
+		"src/vs/workbench/contrib/ade/common/modelProfiles.ts": "74d31ad2b1bbbd5a887cb9c20774ae4d26dfbb000090d977d90a51a9cff9f870",
+		"src/vs/workbench/contrib/ade/common/modelTaskContext.ts": "50d59674784fe3419008d794c5d63eab404ab7a471a6247174d4f568d2204f50",
+		"src/vs/workbench/contrib/ade/common/modelImpact.ts": "84e8e3fa75b1931b0434c69a069f3a035f61910d96e214ed67448d7ed2fc4040",
+		"src/vs/workbench/contrib/ade/common/modelSerialization.ts": "951f7b05b3d68cd44f88f83f9da2ddf71e53e64fe6670f58823a0a55c6d426ed",
+		"src/vs/workbench/contrib/ade/common/visualEditing.ts": "52f4fdc759b5dad1699c3f59a449314c0d87a231f10b60750f020b2298cfbfaf",
+		"src/vs/workbench/contrib/ade/browser/adeStateEditing.ts": "0a203feb98bfdc3e23ea0004de07fe426e8b5d413c35eff8cabe225bbf092aef",
+		"src/vs/workbench/contrib/ade/browser/adeStateCriteria.ts": "87c8b292c2447655686ea453380b5c6bd39022ce7c954575d117e2ecb89a75b1",
+		"src/vs/workbench/contrib/ade/browser/adeStateContent.ts": "0d6398473a136b4acd8d7c791044b59c68a89e4978985caf813756f476ad7dfd",
+		"src/vs/workbench/contrib/ade/browser/adeState.ts": "82b51d142316b60c3d90e3531d34b5eb4fd192080701a78ef91026635caf20b6",
+		"src/vs/workbench/contrib/ade/browser/adeInteractionCriteria.ts": "93fa5cf68fda79a4a9e68688d22452925284174c122c41ed0c593101d8711882",
+		"src/vs/workbench/contrib/ade/browser/adeAccessibleContent.ts": "c4857a0376d3b8c9474feaafaf5e806838a854eea4c5b35e713a6df2015d3580",
+		"src/vs/workbench/contrib/ade/browser/adeEditing.ts": "041042f71eeb163bbcc6249ba7dd2211648fe3523ebdf998d4baade262379868",
+		"src/vs/workbench/contrib/ade/browser/adeEditor.ts": "90229693bdace20f3c06ccf0894cee458a9a6ec46e62b3067fc42dd4382925a2",
+		"src/vs/workbench/contrib/ade/browser/adeAiService.ts": "fd14973c7878ec39a862a7035f588531faaec8997e5ecb80e781f28882e40e5d",
+		"src/vs/workbench/contrib/ade/electron-browser/adeAiService.ts": "c860cdfc224fcb018ea807a1e4afda3d98f283522d57ac97f9c9dadcf36f3a25",
+		"src/vs/workbench/contrib/ade/test/common/stateFixture.ts": "d42fda5a86833adcc7f02231a8830b3f917a50dea09ef98f4581606e13997829",
+		"src/vs/workbench/contrib/ade/test/browser/adeStateEditing.test.ts": "5f3bc2df8132d5ab7762ddfcba1076c73ec8d60c540d2bfbd789e7f68d1f206e",
+		"src/vs/workbench/contrib/ade/test/browser/adeStateRenderer.test.ts": "2f269035304504e7d8e4087b65f1403957cb15c338d2f0eda9f778509ca2b214",
+		"src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts": "fb205c1140fa4fd5cbb2d6fc6d816e7710dce533fa21a86e6de3b72c0a7684c2",
+		"src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts": "67a0ce1a99297551e37dbfee8bdcf01c0707b40e1959fc6507accb4c69095375",
+		"ade/ai/structuralProject.ts": "92c76b761a410a5a1683b71ee67e11dadda228c7e26f2b33ee19a325b5c2759d",
+		"ade/ai/test/state-project.test.mjs": "7ab07aa97dfecf0ad18b0c72844d7d6bcebeb22335c6d88b7151a8c9362a64e1",
+		"ade/test/dai-states.test.mjs": "6db7ac07e050cccbed05a73f053c7b3a03184d620995c8ecde0a579fd8722c64",
+		"ade/test/fixtures/dai-states.mjs": "d01f9e0d93ff09e2fee718bb6d6577ddfcaf229aa76b3f7ae767896ef6c8c411",
+		"ade/test/dai-task.test.mjs": "2812b0fc48c275f5e41b64193563620d3a43e876befea3ce1221759448d6eb4d",
+		"ade/test/dai-baseline.test.mjs": "553e546ba4dc4991256bd5f837b2d983a8e2beba4684c41bdf3336ee1083db12",
+		"ade/scripts/build-state-runtime.mjs": "2daec15c312f2a053ddc4863821f0c80d29848f5d6787997b2cad87e29d589ab",
+		"ade/scripts/build-interaction-runtime.mjs": "34b765439f3fccca16bb6cc7d338dffa91e65b66111efe52b18d634bced06949",
+		"ade/schema/model-v4.schema.json": "ff9a488a2c95ae926b99fe68c76f15589da8530ef21400a640d5e3a9bf7f8494",
+		"ade/examples/dai-checkout-states.ade.json": "01534af62fa6aca33d323662a1ef6bbec40b15ae03f53a3e8314627c8164fd71",
+		"ade/examples/dai-checkout-states-criteria.json": "6ca2e25f5b6eea891d04534a096dd0051cfb23106701513011032539e479e8d7",
+		"ade/docs/decisions/0010-flat-state-machines.md": "edd0152e8c1b64f9f1c0def2f3838e641c4d8d30579a663858bf946fe0e7290f",
+		"ade/docs/diagram-driven-ai/states-v1.md": "dc80eb742b4b99b22c901642dec240e1e03177a0d6de4edbe6387f8be73738c6",
+		"ade/docs/diagram-driven-ai/dai-07-acceptance.md": "272fdee51f84ab040a0c7b71eef00796557776c50c434ee5676e52f1597a2ec6",
+		"ade/docs/diagram-driven-ai/dai-07.md": "7a0b5576718e366ce2707d73d892708e3c8887e82f0b43116213af8aac8c5799",
+		"ade/docs/diagram-driven-ai/handoff-dai-08.md": "c3b676133a52b2d596123f7d88f9bce5dc9510bba1da51edd1c0e7557c990dd4",
+		"ade/docs/diagram-driven-ai/coverage.json": "335fed2337494fdba095e00b2575d187cc99ad53138fb2636c1979bcd3e264e5",
+		"ade/docs/diagram-driven-ai/decisions.md": "77d5a417d6edf00da275e60fa25812f20f7178324d931bfd1fb39c234ec4a002",
+		"ade/docs/roadmap.md": "82a2da8901bad994ca22762e28b73539f36eae8076b43468c18d28ed2652c150",
+		"README.md": "48548bd8a32e1935ed7ec0c3f0a263000d10ffea22c84c00257250ee707be07b"
+	}
+}

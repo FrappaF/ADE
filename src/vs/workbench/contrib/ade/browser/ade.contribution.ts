@@ -162,6 +162,18 @@ registerAction2(class extends Action2 {
 	}
 });
 
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.upgradeModelV4', title: localize2('ade.upgradeModelV4', "A.D.E: Upgrade Model to Version 4"), f1: true }); }
+	run(accessor: ServicesAccessor): void { accessor.get(IAdeProjectService).upgradeToV4(); }
+});
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.openModelSource', title: localize2('ade.openModelSource', "A.D.E: Edit Model Specification"), f1: true }); }
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const resource = accessor.get(IAdeProjectService).modelUri;
+		if (resource) { await accessor.get(IEditorService).openEditor({ resource, options: { override: 'default', pinned: true } }); }
+	}
+});
+
 // Compatibility command for the semantic shell introduced in M1.
 registerAction2(class extends Action2 {
 	constructor() { super({ id: 'ade.workbench.open', title: localize2('ade.openProjectHome', "A.D.E: Open Project Home"), f1: true }); }

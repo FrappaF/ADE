@@ -1,0 +1,17 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+
+# ADR 0009 · Interazioni strutturate e runner di dati
+
+Stato: accettata per DAI-06, 9 novembre 2026. Estende [ADR 0006](0006-portable-predicates-v1.md) e [ADR 0008](0008-pure-project-runner-and-publication.md). Non modifica le decisioni normative dei progetti utente.
+
+Il profilo `node.esm` revisione 3 implementa espressioni pure e orchestrazione locale versionata con `alt/opt/loop/par/critical/ref`. Operazione, relazione, occorrenza, risultato, frame e interazione mantengono identità distinte. Le sequenze storiche e i frame `unspecified` restano bozze; nessuna geometria diventa comportamento.
+
+Gli interi sono nominali e sicuri. Addizione, sottrazione, moltiplicazione, divisione esatta e resto non convertono tipi; zero divisione e perdita di precisione falliscono. Sono supportati presenza/null, lettura di record, enum e collezioni scalari con count/any/every. L'AST piatto mantiene definizione prima dell'uso. Guardia indeterminata o due guardie vere falliscono; else copre ogni altro esito dichiarato.
+
+Ogni chiamata attende una risposta tipizzata, dichiara correlazione e deadline e propaga gli errori dichiarati. Non esistono retry o compensazioni impliciti. L'asincronia locale usa Promise; broker, trasporti di rete, persistenza ed effetti di codice applicativo restano fuori dal runner. I risultati di un ramo non sono variabili del ramo successivo. Il join all attende il drain, conserva gli esiti nell'ordine dichiarato e rende disponibili i risultati per ID del ramo. La politica di errore sceglie cancellazione cooperativa oppure raccolta di tutti gli esiti, propagando il primo errore osservato.
+
+`critical` è canonico, `region` è un alias normalizzato da un comando esplicito. La risorsa coincide con l'effetto protetto; la mutua esclusione vale per una singola esecuzione dell'interazione e le sue ref. Lock annidati seguono l'ordine crescente delle risorse anche oltre le ref; non sono lock distribuiti o fra invocazioni indipendenti. Effetti condivisi fra rami senza protezione verificabile bloccano il target. Loop e ref sono limitati senza troncamento: 16 livelli, 1000 step, 1000 iterazioni e 1000 chiamate; un loop ancora vero al limite fallisce.
+
+Prima di entrare nel runner, il prodotto valida ed emette il programma. Il runner copia soltanto codice fidato riemesso e harness di proprietà del profilo in una directory temporanea, usando Node 24.22.1, permission, env vuoto, deadline e output limitato. Gli adapter sono esclusivamente risposte JSON con ritardo, risultato oppure errore tipizzato. Il job ammette al massimo 1000 risposte e 5000 ms complessivi di ritardi dichiarati, oltre ai limiti del journal. Codice, dipendenze, comandi e test arbitrari del progetto non vengono eseguiti; non viene dichiarata una sandbox OS o firewall.
+
+Il runtime ESM è un artefatto generato dalla sorgente TypeScript canonica con `build-interaction-runtime.mjs`; il controllo `--check` ne verifica la riproducibilità. La produzione usa testo fisso, senza `eval`, `Function` o `function.toString()`. Il reverse accetta soltanto modifiche del piano dati con identità esistenti e runtime riemesso identico, preservando contratti, tipi, ADR e codice fuori regione. Un runtime arbitrario produce mapping parziale. Il journal, il lock, le pre/postimmagini, il commit logico e il recovery rimangono quelli di DAI-05/M5/M6.

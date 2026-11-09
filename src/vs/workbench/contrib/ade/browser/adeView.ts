@@ -157,6 +157,11 @@ export class AdeView extends ViewPane {
 				this.controls.button(more, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
 				return;
 			}
+			if (this.project.hasStructuralErrors) {
+				dom.append(body, dom.$('p')).textContent = localize('ade.draft.navigation', "Correct the Draft Specification to Restore Diagram Navigation. Saving and Undo Remain Available.");
+				this.controls.button(body, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); });
+				return;
+			}
 			if (isSourceEvidenceModel(model)) {
 				dom.append(body, dom.$('p')).textContent = localize('ade.import.pendingSidebar', "Source Evidence Ready. Create diagrams with AI to see your system's capabilities and flows here.");
 				this.controls.button(body, localize('ade.buildDiagrams', "Build Diagrams with AI"), () => { void this.commandService.executeCommand('ade.ai.buildDiagrams'); });

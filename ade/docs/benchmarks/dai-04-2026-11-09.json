@@ -1,0 +1,235 @@
+{
+	"version": 1,
+	"kind": "local-deterministic-baseline",
+	"modelVersion": 4,
+	"recordedAt": "2026-11-09T08:45:06.990Z",
+	"timezone": "Europe/Rome",
+	"revision": "05c3a0f05c6e0c369a0e47001359f58542c2eea8",
+	"workingTreeDirty": true,
+	"policy": {
+		"id": "dai-release-v1",
+		"sha256": "127caa0684c0a7ed41e898d2a05553f4080cb210193e5fcef22e98e98797a8fa"
+	},
+	"corpusSha256": "ee1e4395135d29e28b0167f5e58be59a3c57c081d235649263fb9c71aca7ecdb",
+	"sourceHashes": {
+		"ade/scripts/benchmark-dai.mjs": "741ed122d9033effeb927b4f1ba50aa6ffbf90f203d6b9892ac512829b42b7fd",
+		"ade/scripts/source-loader.mjs": "3f5776a21ac6ce594a14fd8f2b92ff63c8fe509aaa2eb638cb5298f36047bf6f",
+		"ade/benchmarks/dai-fixtures.mjs": "49d0a2eabd9d27eddbf141748af026432b9f6093732e6431461ffc9ae8b3a3ba",
+		"ade/test/source-loader.mjs": "01edfda935fda716275d60e9787eccba86f2ddad7c25fd0db7719a7cbf692f79",
+		"src/vs/workbench/contrib/ade/common/semanticModel.ts": "6fcc58c4455ae489ae101dd299cfb13865539bc9ad7aea8f9dfe8061d82b3043",
+		"src/vs/workbench/contrib/ade/common/visualEditing.ts": "51d782910e54a2784cbd585a6ec01c6a817142201112ac216dfbafd06367bd3a",
+		"src/vs/workbench/contrib/ade/common/modelMigration.ts": "26e286d397e4c5fa2a02faf643fb2edbd6bc7ba51024cba5505e73f36055d90d",
+		"src/vs/workbench/contrib/ade/common/modelReadiness.ts": "238d6a05fc1d2b535c12f43e920a5305b4fa753fc1b48d5f062dd3958f6654fe",
+		"src/vs/workbench/contrib/ade/common/modelContext.ts": "45f68206716538713010471b6d275a242eb6328c99b6f709712451c0f9d891bb",
+		"src/vs/workbench/contrib/ade/common/modelSerialization.ts": "951f7b05b3d68cd44f88f83f9da2ddf71e53e64fe6670f58823a0a55c6d426ed",
+		"src/vs/workbench/contrib/ade/common/modelKnowledge.ts": "b1777a0a9639ee12bd7a3d6763e56f4a56dcaee41b578dc5ac5cd596aa3e2722",
+		"src/vs/workbench/contrib/ade/common/modelBlueprint.ts": "a0c05866d8091f32bac26f9f5484940235fcabfb470738b5ec99e2e6a295a30a",
+		"src/vs/workbench/contrib/ade/common/visualNavigation.ts": "fd322dc83a2344700478fe08d92be6617541ff37a1eba256a31fc04dbefa2d8e",
+		"src/vs/workbench/contrib/ade/common/modelImpact.ts": "70e2076d4438e53cd25ec865b4a095b61644a0207a9bf0c2c556895595d072de",
+		"ade/ai/diagramEvidence.ts": "f302cd011a51b77107244b36907e422ace3035022266ca8657630949fafddf34",
+		"src/vs/workbench/contrib/ade/common/contextTransport.ts": "97d7626e92774c3bf1f3816a67652c43572904dfdb2efee85f002b4592714d14",
+		"src/vs/workbench/contrib/ade/common/modelExpressions.ts": "eb08c679b9f22bd589e8c606ee16ee2a1a2dba37c9de0f1a20cfad7590481966",
+		"src/vs/workbench/contrib/ade/common/modelProfiles.ts": "7aaffc2bdd302e88230f1327b07b363f6aa70b7525b9f2f1118d150c2901fe8c",
+		"src/vs/workbench/contrib/ade/common/modelTaskContext.ts": "702098540a5a6ed15c011ede4d6895e0a54121683c8d5edb50835634ff416c93"
+	},
+	"hardware": {
+		"platform": "linux",
+		"arch": "x64",
+		"kernel": "6.18.57",
+		"node": "v24.22.1",
+		"cpu": "AMD EPYC 9V74 80-Core Processor",
+		"availableParallelism": 2,
+		"hostMemoryMiB": 9968.2421875,
+		"cgroupCpuMax": "200000 100000",
+		"cgroupMemoryMax": "8589934592"
+	},
+	"measurement": {
+		"warmups": 3,
+		"samples": 20,
+		"percentile": 95,
+		"clock": "performance.now",
+		"memory": "process.resourceUsage.maxRSS; process peak, not per-operation allocation"
+	},
+	"fixtures": [
+		{
+			"id": "small",
+			"sourceGraphSha256": "ca33e13fa4cbb394a7c830b235e985e8a8d2999fbd8abb8b49c4837d6be3cd73",
+			"graphSha256": "750bf2b9f3eae569e9264e86fa851e0bf87e887bbc46a178cacb425323599180",
+			"evidenceSha256": "646fbaf59947896565c4a3589bdce3f31d82b1af7e48ae19301d73912c6477a0",
+			"elements": 64,
+			"relations": 62,
+			"views": 1,
+			"visibleNodes": 63,
+			"validation": {
+				"firstCallMs": 0.790773999999999,
+				"medianMs": 0.9767349999999908,
+				"p95Ms": 1.6952490000000182,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 2.7618300000000033,
+				"medianMs": 2.0466200000000185,
+				"p95Ms": 2.527234999999962,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 0.2773480000000177,
+				"medianMs": 0.17704700000001594,
+				"p95Ms": 0.2756959999999822,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 0.18798399999997173,
+				"medianMs": 0.07391100000000961,
+				"p95Ms": 0.2681749999999852,
+				"limitMs": 25,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 30277,
+				"packedBytes": 17087,
+				"reduction": 0.43564421838359146,
+				"maxInputBytes": 196608,
+				"withinInputBudget": true,
+				"estimatedTokens": 4272,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		},
+		{
+			"id": "medium",
+			"sourceGraphSha256": "bb0afc865cbf2e779b561eb917783791981648b63a37775ece510b4d39970c69",
+			"graphSha256": "21d9633a35cdf4f0364e28ddf47d8263bf0a6d120835fbdb205ba89d9338204e",
+			"evidenceSha256": "b5ef484547bd147cad9945c53991c8dda82b975132ef6482a68a76c3ace4c39f",
+			"elements": 256,
+			"relations": 254,
+			"views": 1,
+			"visibleNodes": 255,
+			"validation": {
+				"firstCallMs": 4.109714999999994,
+				"medianMs": 3.41201099999995,
+				"p95Ms": 5.184315999999967,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 12.85504800000001,
+				"medianMs": 7.110114000000067,
+				"p95Ms": 8.815079000000082,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 1.3393630000000485,
+				"medianMs": 0.7148089999999456,
+				"p95Ms": 1.1041870000000245,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 0.35457499999995434,
+				"medianMs": 0.24197500000002492,
+				"p95Ms": 0.324320000000057,
+				"limitMs": 50,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 124216,
+				"packedBytes": 70396,
+				"reduction": 0.4332775165840149,
+				"maxInputBytes": 196608,
+				"withinInputBudget": true,
+				"estimatedTokens": 17599,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		},
+		{
+			"id": "large",
+			"sourceGraphSha256": "d87bf9758a73604732670e94ef92348321b870a2607d484b066f948be1f7f049",
+			"graphSha256": "edbe24912a59ec2a687b1ee57fcbbb3cc38cd15908c5845814a40d597a2603e8",
+			"evidenceSha256": "781776e32d3cf59177c2f0e2af92128bb50566709022be43ad0706b6a862ff29",
+			"elements": 1024,
+			"relations": 1022,
+			"views": 1,
+			"visibleNodes": 1023,
+			"validation": {
+				"firstCallMs": 15.44901399999992,
+				"medianMs": 11.944113000000016,
+				"p95Ms": 14.950412000000028,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"edit": {
+				"firstCallMs": 25.833642999999938,
+				"medianMs": 31.954925000000003,
+				"p95Ms": 48.81725800000004,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"impact": {
+				"firstCallMs": 11.251798000000008,
+				"medianMs": 6.93396800000005,
+				"p95Ms": 12.001780000000053,
+				"limitMs": 250,
+				"withinBudget": true
+			},
+			"evidencePacking": {
+				"firstCallMs": 1.8199580000000424,
+				"medianMs": 0.6924260000000686,
+				"p95Ms": 0.9741410000001451,
+				"limitMs": 100,
+				"withinBudget": true
+			},
+			"context": {
+				"kind": "source-evidence-pack-only",
+				"unpackedBytes": 501557,
+				"packedBytes": 284875,
+				"reduction": 0.43201869378754554,
+				"maxInputBytes": 196608,
+				"withinInputBudget": false,
+				"estimatedTokens": 71219,
+				"measuredInputTokens": null,
+				"measuredOutputTokens": null,
+				"price": null,
+				"allSourceRangesPreserved": true,
+				"semanticDependencyRecall": null,
+				"limit": "Excludes instructions, output schema, semantic graph and provider overhead; not a sealed S11 context or a sufficiency result."
+			}
+		}
+	],
+	"memory": {
+		"peakRssMiB": 142.10546875,
+		"limitMiB": 1024,
+		"withinBudget": true
+	},
+	"provider": {
+		"calls": 0,
+		"model": null,
+		"measuredTokens": null,
+		"price": null
+	},
+	"notMeasured": [
+		"desktop input-to-paint",
+		"full context preparation",
+		"semantic dependency recall",
+		"business execution",
+		"live inference",
+		"continuous mode",
+		"archetype equivalence"
+	],
+	"claim": "Measures current domain operations and compact evidence packing on fixed synthetic graphs. No DAI release capability is certified by this report."
+}

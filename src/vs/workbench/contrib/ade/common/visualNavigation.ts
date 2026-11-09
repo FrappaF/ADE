@@ -13,6 +13,12 @@ export interface DiagramGroup {
 
 /** Feature references include descendants and explicitly owned empty diagrams, without changing ownership. */
 export function getFeatureViews(model: SemanticModel, feature: SemanticElement): ModelView[] {
+	if (model.version === 4) {
+		const ids = new Set([feature.id]);
+		for (const entry of model.foundation.memberships.filter(entry => entry.featureId === feature.id)) { ids.add(entry.elementId); }
+		for (const id of ids) { for (const entry of model.foundation.ownership.filter(entry => entry.ownerId === id)) { ids.add(entry.elementId); } }
+		return model.views.filter(view => view.featureId === feature.id || view.nodes.some(node => ids.has(node.elementId)));
+	}
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
 	return model.views.filter(view => view.featureId === feature.id || view.nodes.some(node => {
 		let element = elements.get(node.elementId);
@@ -47,7 +53,8 @@ export function getDiagramGroups(model: SemanticModel): DiagramGroup[] {
 					owners.add(element.id);
 					break;
 				}
-				element = element.parentId ? elements.get(element.parentId) : undefined;
+				const parentId = model.version === 4 ? model.foundation.ownership.find(entry => entry.elementId === element!.id)?.ownerId : element.parentId;
+		element = parentId ? elements.get(parentId) : undefined;
 			}
 		}
 		const owner = owners.size === 1 ? features.get([...owners][0]) : undefined;
@@ -85,7 +92,8 @@ export function getElementPath(model: SemanticModel, id: string): SemanticElemen
 	while (element && !visited.has(element.id)) {
 		result.unshift(element);
 		visited.add(element.id);
-		element = element.parentId ? elements.get(element.parentId) : undefined;
+		const parentId = model.version === 4 ? model.foundation.ownership.find(entry => entry.elementId === element!.id)?.ownerId : element.parentId;
+		element = parentId ? elements.get(parentId) : undefined;
 	}
 	return result;
 }

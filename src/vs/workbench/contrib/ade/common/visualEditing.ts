@@ -3,13 +3,39 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readSemanticModel, type ElementDetails, type RelationDetails, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './semanticModel.js';
+import { reviseModelTask } from './modelWorkflow.js';
+import { setModelMessaging } from './modelMessaging.js';
+import { setModelStateMachine } from './modelStates.js';
+import { setModelInteraction, type InteractionEdit } from './modelInteractions.js';
+import { modelObjects, readSemanticDraft, readSemanticModel, type ModelBlueprint, type ModelType, type ModelDecision, type ModelFoundation, type ModelAssertion, type ElementDetails, type RelationDetails, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './semanticModel.js';
+import { reviseModelDecision, setBlueprintRecord } from './modelBlueprint.js';
+import type { ModelIdFactory } from './modelMigration.js';
 import { getDiagramGroups } from './visualNavigation.js';
 import { isSequenceMessage } from './sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from './stateDiagram.js';
 import { arrangeDiagram, type DiagramDensity } from './diagramLayout.js';
 
 export type VisualEdit =
+	| { kind: 'taskIntent'; entry: import('./semanticModel.js').ModelTaskIntent; expectedRevision?: string }
+	| { kind: 'stateDefinition'; id: string; name: string; ownerId: string }
+	| { kind: 'messagingOccurrence'; id: string; bindingId: string; topologyId: string }
+	| { kind: 'messaging'; entry: import('./semanticModel.js').ModelMessaging; expectedRevision?: string }
+	| { kind: 'viewMessaging'; viewId: string; messagingId: string }
+	| { kind: 'stateMachine'; entry: import('./semanticModel.js').ModelStateMachine; expectedRevision?: string }
+	| { kind: 'viewStateMachine'; viewId: string; stateMachineId: string }
+	| { kind: 'interaction'; entry: InteractionEdit }
+	| { kind: 'viewInteraction'; viewId: string; interactionId: string }
+	| { kind: 'predicate'; entry: import('./semanticModel.js').ModelPredicate }
+	| { kind: 'blueprint'; section: keyof ModelBlueprint; entry: ModelBlueprint[keyof ModelBlueprint][number] }
+	| { kind: 'type'; entry: ModelType }
+	| { kind: 'decision'; entry: ModelDecision; expectedRevision?: string }
+	| { kind: 'c4View'; view: ModelView }
+	| { kind: 'elementScope'; id: string; scope?: 'governed' | 'external'; runtimeKind?: import('./semanticModel.js').SemanticElement['runtimeKind'] }
+	| { kind: 'integration'; entry: ModelFoundation['integrations'][number] }
+	| { kind: 'ownership'; entry: ModelFoundation['ownership'][number] }
+	| { kind: 'membership'; entry: ModelFoundation['memberships'][number]; included: boolean }
+	| { kind: 'platformBinding'; entry: ModelFoundation['platform']['bindings'][number] }
+	| { kind: 'assertion'; entry: ModelAssertion }
 	| { kind: 'feature'; id: string; name: string }
 	| { kind: 'resource'; id: string; name: string; parentId?: string }
 	| { kind: 'diagram'; id: string; name: string; featureId?: string; viewKind: Exclude<ModelView['kind'], 'state'> }
@@ -50,7 +76,7 @@ export function upgradeVisualModel(model: SemanticModel): SemanticModel {
 			}
 		}
 	}
-	return readSemanticModel(candidate);
+	return candidate.version === 4 ? readSemanticDraft(candidate) : readSemanticModel(candidate);
 }
 
 /** All identities affected by a semantic deletion, including descendants and shared-view references. */
@@ -60,7 +86,8 @@ export function getDeletionImpact(model: SemanticModel, id: string) {
 	while (changed) {
 		changed = false;
 		for (const element of model.semantics.elements) {
-			if (element.parentId && elements.has(element.parentId) && !elements.has(element.id)) {
+			const parentId = model.version === 4 ? model.foundation.ownership.find(entry => entry.elementId === element.id)?.ownerId : element.parentId;
+			if (parentId && elements.has(parentId) && !elements.has(element.id)) {
 				elements.add(element.id);
 				changed = true;
 			}
@@ -94,7 +121,7 @@ function excludeFromView(model: SemanticModel, view: ModelView, id: string, targ
 }
 
 /** Apply one atomic, validated edit to a detached snapshot; no filesystem or UI dependencies. */
-export function applyVisualEdit(model: SemanticModel, edit: VisualEdit): SemanticModel {
+export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: ModelIdFactory = () => globalThis.crypto.randomUUID()): SemanticModel {
 	const candidate = upgradeVisualModel(model);
 	const view = (id: string): ModelView => {
 		const result = candidate.views.find(view => view.id === id);
@@ -102,6 +129,54 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit): Semanti
 		return result;
 	};
 	switch (edit.kind) {
+		case 'taskIntent': { if (candidate.version !== 4) { throw new Error('Task intent requires v4'); } reviseModelTask(candidate, edit.entry, edit.expectedRevision); break; }
+		case 'stateDefinition': { if (candidate.version !== 4) { throw new Error('States require v4'); } candidate.semantics.elements.push({ id: edit.id, name: edit.name, kind: 'state', parentId: edit.ownerId }); candidate.foundation.ownership.push({ id: nextId(), elementId: edit.id, ownerId: edit.ownerId, role: 'lifecycle' }); break; }
+		case 'messagingOccurrence': { if (candidate.version !== 4) { throw new Error('Messaging requires v4'); } const topology = candidate.foundation.messaging?.find(topology => topology.id === edit.topologyId), occurrence = candidate.foundation.occurrences.find(entry => entry.id === edit.id), publisher = topology?.publishers.find(binding => binding.id === edit.bindingId), subscriber = topology?.subscriptions.find(binding => binding.id === edit.bindingId), binding = publisher ?? subscriber, broker = topology?.brokers.find(broker => broker.id === topology.channels.find(channel => channel.id === binding?.channelId)?.brokerId); if (!occurrence || !binding || !broker || occurrence.execution) { throw new Error('Messaging occurrence binding unavailable'); } occurrence.messagingBindingId = binding.id; occurrence.operationId = binding.operationId; occurrence.from = publisher ? binding.ownerId : broker.elementId; occurrence.to = publisher ? broker.elementId : binding.ownerId; break; }
+		case 'messaging': { if (candidate.version !== 4) { throw new Error('Messaging requires v4'); } return setModelMessaging(candidate, edit.entry, edit.expectedRevision); }
+		case 'viewMessaging': { if (candidate.version !== 4) { throw new Error('Messaging requires v4'); } view(edit.viewId).messagingId = edit.messagingId; break; }
+		case 'stateMachine': { if (candidate.version !== 4) { throw new Error('States require v4'); } return setModelStateMachine(candidate, edit.entry, edit.expectedRevision); }
+		case 'viewStateMachine': { if (candidate.version !== 4) { throw new Error('States require v4'); } view(edit.viewId).stateMachineId = edit.stateMachineId; break; }
+		case 'interaction': { if (candidate.version !== 4) { throw new Error('Interactions require v4'); } return setModelInteraction(candidate, edit.entry); }
+		case 'viewInteraction': { if (candidate.version !== 4) { throw new Error('Interactions require v4'); } view(edit.viewId).interactionId = edit.interactionId; break; }
+		case 'predicate': {
+			if (candidate.version !== 4) { throw new Error('Predicates require v4'); }
+			const entries = candidate.foundation.predicates ?? [];
+			candidate.foundation.predicates = entries.some(entry => entry.id === edit.entry.id) ? entries.map(entry => entry.id === edit.entry.id ? structuredClone(edit.entry) : entry) : [...entries, structuredClone(edit.entry)];
+			break;
+		}
+		case 'blueprint': {
+			if (candidate.version !== 4) { throw new Error('Blueprint requires v4'); }
+			return setBlueprintRecord(candidate, edit.section, edit.entry);
+		}
+		case 'decision': {
+			if (candidate.version !== 4) { throw new Error('Project decisions require v4'); }
+			return reviseModelDecision(candidate, edit.entry, edit.expectedRevision);
+		}
+		case 'type':
+		case 'integration': {
+			if (candidate.version !== 4) { throw new Error('Semantic records require v4'); }
+			if (edit.kind === 'type') { candidate.foundation.types = [...candidate.foundation.types.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
+			else { candidate.foundation.integrations = [...candidate.foundation.integrations.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
+			break;
+		}
+		case 'c4View': candidate.views = candidate.views.some(view => view.id === edit.view.id) ? candidate.views.map(view => view.id === edit.view.id ? structuredClone(edit.view) : view) : [...candidate.views, structuredClone(edit.view)]; break;
+		case 'elementScope': {
+			if (candidate.version !== 4) { throw new Error('C4 scope requires v4'); }
+			const element = candidate.semantics.elements.find(element => element.id === edit.id); if (!element) { throw new Error('Unknown element'); }
+			if (edit.scope) { element.scope = edit.scope; } if (edit.runtimeKind) { element.runtimeKind = edit.runtimeKind; }
+			break;
+		}
+		case 'ownership':
+		case 'membership':
+		case 'platformBinding':
+		case 'assertion': {
+			if (candidate.version !== 4) { throw new Error('Explicit semantic records require v4'); }
+			if (edit.kind === 'ownership') { candidate.foundation.ownership = [...candidate.foundation.ownership.filter(entry => entry.elementId !== edit.entry.elementId), structuredClone(edit.entry)]; }
+			else if (edit.kind === 'membership') { candidate.foundation.memberships = candidate.foundation.memberships.filter(entry => entry.elementId !== edit.entry.elementId || entry.featureId !== edit.entry.featureId); if (edit.included) { candidate.foundation.memberships.push(structuredClone(edit.entry)); } }
+			else if (edit.kind === 'platformBinding') { candidate.foundation.platform.bindings = [...candidate.foundation.platform.bindings.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
+			else { candidate.foundation.assertions = [...candidate.foundation.assertions.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
+			break;
+		}
 		case 'feature':
 			candidate.semantics.elements.push({ id: edit.id, kind: 'feature', name: edit.name });
 			break;
@@ -212,6 +287,7 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit): Semanti
 			break;
 		}
 		case 'parent': {
+			if (candidate.version === 4) { throw new Error('Edit architectural ownership and feature membership separately in v4'); }
 			const element = candidate.semantics.elements.find(element => element.id === edit.id);
 			if (!element) { throw new Error(`Unknown element: ${edit.id}`); }
 			if (edit.parentId) { element.parentId = edit.parentId; } else { delete element.parentId; }
@@ -295,5 +371,50 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit): Semanti
 			break;
 		}
 	}
-	return readSemanticModel(candidate);
+	if (candidate.version === 4) {
+		const f = candidate.foundation;
+		if (edit.kind === 'element' || edit.kind === 'resource') {
+			const element = candidate.semantics.elements.find(item => item.id === edit.id)!;
+			const parent = candidate.semantics.elements.find(item => item.id === element.parentId);
+			if (parent?.kind === 'feature') { f.memberships.push({ id: nextId(), elementId: element.id, featureId: parent.id }); delete element.parentId; }
+			else if (parent) { f.ownership.push({ id: nextId(), elementId: element.id, ownerId: parent.id, role: element.kind === 'state' ? 'lifecycle' : 'architecture' }); if (element.kind !== 'state') { delete element.parentId; } }
+		}
+		if (edit.kind === 'deleteElement' || edit.kind === 'deleteRelation' || edit.kind === 'deleteDiagram') {
+			const elementIds = new Set(candidate.semantics.elements.map(item => item.id));
+			const relationIds = new Set(candidate.semantics.relations.map(item => item.id));
+			for (const element of candidate.semantics.elements) { if (element.parentId && !elementIds.has(element.parentId)) { delete element.parentId; } }
+			f.ownership = f.ownership.filter(entry => elementIds.has(entry.elementId) && elementIds.has(entry.ownerId));
+			f.memberships = f.memberships.filter(entry => elementIds.has(entry.elementId) && elementIds.has(entry.featureId));
+			f.integrations = f.integrations.filter(entry => elementIds.has(entry.consumerId) && elementIds.has(entry.externalId));
+			f.platform.bindings = f.platform.bindings.filter(entry => elementIds.has(entry.elementId));
+			if (f.migration) { f.migration.unresolvedOwnershipIds = f.migration.unresolvedOwnershipIds.filter(id => elementIds.has(id)); }
+			const operations = new Set([...(f.blueprint?.operations.map(operation => operation.id) ?? []), ...candidate.semantics.elements.flatMap(element => [element.behavior?.id, ...(element.details?.members.filter(member => member.kind === 'method').map(member => member.id) ?? [])])]);
+			f.occurrences = f.occurrences.filter(entry => elementIds.has(entry.from) && elementIds.has(entry.to) && operations.has(entry.operationId));
+			const occurrences = new Set(f.occurrences.map(entry => entry.id));
+			for (const frame of f.frames) { frame.occurrenceIds = frame.occurrenceIds.filter(id => occurrences.has(id)); }
+			f.interactions = f.interactions.filter(entry => !entry.ownerId || elementIds.has(entry.ownerId));
+			if (f.stateMachines) { f.stateMachines = f.stateMachines.filter(machine => elementIds.has(machine.ownerId)); for (const view of candidate.views) { if (view.stateMachineId && !f.stateMachines.some(machine => machine.id === view.stateMachineId)) { delete view.stateMachineId; } } }
+			for (const interaction of f.interactions) {
+				interaction.occurrenceIds = interaction.occurrenceIds.filter(id => occurrences.has(id));
+				if (interaction.legacyRelationOrder) { interaction.legacyRelationOrder = interaction.legacyRelationOrder.filter(id => relationIds.has(id)); }
+				if (interaction.legacyViewId && !candidate.views.some(view => view.id === interaction.legacyViewId)) { delete interaction.legacyViewId; }
+			}
+			const objects = modelObjects(candidate);
+			f.assertions = f.assertions.filter(entry => objects.has(`${entry.subject.kind}:${entry.subject.id}`));
+		}
+		for (const diagram of candidate.views.filter(view => view.kind === 'sequence')) {
+			let interaction = f.interactions.find(item => item.legacyViewId === diagram.id);
+			if (!interaction) { interaction = { id: nextId(), ...(diagram.featureId ? { ownerId: diagram.featureId } : {}), occurrenceIds: [], frameIds: [], legacyViewId: diagram.id, legacyRelationOrder: [...diagram.relationIds] }; f.interactions.push(interaction); }
+			interaction.legacyRelationOrder = [...diagram.relationIds];
+		}
+
+		for (const element of candidate.semantics.elements) {
+			if (element.behavior) {
+				element.behavior.id ??= model.semantics.elements.find(item => item.id === element.id)?.behavior?.id ?? nextId();
+				for (const field of [...element.behavior.inputs, ...element.behavior.outputs]) { field.id ??= nextId(); }
+			}
+			for (const member of element.details?.members ?? []) { member.id ??= nextId(); }
+		}
+	}
+	return candidate.version === 4 ? readSemanticDraft(candidate) : readSemanticModel(candidate);
 }

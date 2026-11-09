@@ -1,5 +1,7 @@
 # Modello semantico v2/v3 (M1 e M2.2)
 
+DAI-02 aggiunge il [contratto v4](diagram-driven-ai/schema-v4.md), con migrazione esplicita, ID per membri/operazioni, readiness e pacchetto IA. Le sezioni sotto conservano il contratto storico v2; i nuovi progetti usano v4 e i vecchi file restano leggibili.
+
 Il contratto è implementato in `src/vs/workbench/contrib/ade/common/semanticModel.ts`. Non importa Electron, API del workbench, filesystem o framework. La shell nativa consuma lo stesso servizio, senza duplicare il validatore del dominio nel prototipo.
 
 ## Documento

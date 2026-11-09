@@ -1,0 +1,940 @@
+{
+	"version": 1,
+	"revision": "1",
+	"cases": [],
+	"interactions": [
+		{
+			"id": "criterion.draftEntry",
+			"interactionId": "interaction.draftEntry",
+			"criterionId": "criterion.action.draftEntry",
+			"input": {},
+			"replies": {
+				"message.draftEntry": [
+					{
+						"delayMs": 0,
+						"outputs": {}
+					}
+				]
+			},
+			"expected": {
+				"outcome": "completed",
+				"calls": [
+					"message.draftEntry"
+				],
+				"outputs": {}
+			}
+		},
+		{
+			"id": "criterion.draftExit",
+			"interactionId": "interaction.draftExit",
+			"criterionId": "criterion.action.draftExit",
+			"input": {},
+			"replies": {
+				"message.draftExit": [
+					{
+						"delayMs": 0,
+						"outputs": {}
+					}
+				]
+			},
+			"expected": {
+				"outcome": "completed",
+				"calls": [
+					"message.draftExit"
+				],
+				"outputs": {}
+			}
+		},
+		{
+			"id": "criterion.paidEntry",
+			"interactionId": "interaction.paidEntry",
+			"criterionId": "criterion.action.paidEntry",
+			"input": {},
+			"replies": {
+				"message.paidEntry": [
+					{
+						"delayMs": 0,
+						"outputs": {}
+					}
+				]
+			},
+			"expected": {
+				"outcome": "completed",
+				"calls": [
+					"message.paidEntry"
+				],
+				"outputs": {}
+			}
+		},
+		{
+			"id": "criterion.charge",
+			"interactionId": "interaction.charge",
+			"criterionId": "criterion.action.charge",
+			"input": {
+				"charge.amount": 10
+			},
+			"replies": {
+				"message.charge": [
+					{
+						"delayMs": 0,
+						"outputs": {}
+					}
+				]
+			},
+			"expected": {
+				"outcome": "completed",
+				"calls": [
+					"message.charge"
+				],
+				"outputs": {}
+			}
+		},
+		{
+			"id": "criterion.audit",
+			"interactionId": "interaction.audit",
+			"criterionId": "criterion.action.audit",
+			"input": {},
+			"replies": {
+				"message.audit": [
+					{
+						"delayMs": 0,
+						"outputs": {}
+					}
+				]
+			},
+			"expected": {
+				"outcome": "completed",
+				"calls": [
+					"message.audit"
+				],
+				"outputs": {}
+			}
+		},
+		{
+			"id": "criterion.watch",
+			"interactionId": "interaction.watch",
+			"criterionId": "criterion.action.watch",
+			"input": {},
+			"replies": {
+				"message.watch": [
+					{
+						"delayMs": 0,
+						"outputs": {}
+					}
+				]
+			},
+			"expected": {
+				"outcome": "completed",
+				"calls": [
+					"message.watch"
+				],
+				"outputs": {}
+			}
+		}
+	],
+	"states": [
+		{
+			"id": "checkout.paid",
+			"machineId": "checkout.lifecycle",
+			"criterionId": "criterion.initialize",
+			"scenario": {
+				"instanceId": "order-42",
+				"input": {
+					"order.id": "42"
+				},
+				"replies": {
+					"draftEntry": {
+						"message.draftEntry": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"draftExit": {
+						"message.draftExit": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"paidEntry": {
+						"message.paidEntry": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"charge": {
+						"message.charge": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"audit": {
+						"message.audit": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"watch": {
+						"message.watch": [
+							{
+								"delayMs": 100,
+								"outputs": {}
+							}
+						]
+					}
+				},
+				"events": [
+					{
+						"event": {
+							"id": "payment-1",
+							"eventId": "event.pay",
+							"input": {
+								"pay.amount": 10
+							}
+						},
+						"replies": {
+							"draftEntry": {
+								"message.draftEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"draftExit": {
+								"message.draftExit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"paidEntry": {
+								"message.paidEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"charge": {
+								"message.charge": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"audit": {
+								"message.audit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"watch": {
+								"message.watch": [
+									{
+										"delayMs": 100,
+										"outputs": {}
+									}
+								]
+							}
+						}
+					}
+				]
+			},
+			"expected": {
+				"stateId": "Paid",
+				"error": null,
+				"doStatus": "none",
+				"statuses": [
+					"accepted"
+				],
+				"errors": [
+					null
+				],
+				"transitions": [
+					"transition.pay"
+				],
+				"calls": [
+					"message.draftEntry",
+					"message.watch",
+					"message.draftExit",
+					"message.charge",
+					"message.paidEntry"
+				],
+				"phases": [
+					"entry:draftEntry",
+					"doStart:watch",
+					"guard:transition.pay",
+					"doCancelled:watch",
+					"exit:draftExit",
+					"effect:charge",
+					"entry:paidEntry",
+					"commit:transition.pay"
+				]
+			}
+		},
+		{
+			"id": "checkout.dedup-reopen",
+			"machineId": "checkout.lifecycle",
+			"criterionId": "criterion.initialize",
+			"scenario": {
+				"instanceId": "order-42",
+				"input": {
+					"order.id": "42"
+				},
+				"replies": {
+					"draftEntry": {
+						"message.draftEntry": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"draftExit": {
+						"message.draftExit": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"paidEntry": {
+						"message.paidEntry": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"charge": {
+						"message.charge": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"audit": {
+						"message.audit": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"watch": {
+						"message.watch": [
+							{
+								"delayMs": 100,
+								"outputs": {}
+							}
+						]
+					}
+				},
+				"events": [
+					{
+						"event": {
+							"id": "payment-1",
+							"eventId": "event.pay",
+							"input": {
+								"pay.amount": 10
+							}
+						},
+						"replies": {
+							"draftEntry": {
+								"message.draftEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"draftExit": {
+								"message.draftExit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"paidEntry": {
+								"message.paidEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"charge": {
+								"message.charge": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"audit": {
+								"message.audit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"watch": {
+								"message.watch": [
+									{
+										"delayMs": 100,
+										"outputs": {}
+									}
+								]
+							}
+						},
+						"reopen": true
+					},
+					{
+						"event": {
+							"id": "payment-1",
+							"eventId": "event.pay",
+							"input": {
+								"pay.amount": 10
+							}
+						},
+						"replies": {
+							"draftEntry": {
+								"message.draftEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"draftExit": {
+								"message.draftExit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"paidEntry": {
+								"message.paidEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"charge": {
+								"message.charge": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"audit": {
+								"message.audit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"watch": {
+								"message.watch": [
+									{
+										"delayMs": 100,
+										"outputs": {}
+									}
+								]
+							}
+						}
+					},
+					{
+						"event": {
+							"id": "payment-1",
+							"eventId": "event.pay",
+							"input": {
+								"pay.amount": 20
+							}
+						},
+						"replies": {}
+					}
+				]
+			},
+			"expected": {
+				"stateId": "Paid",
+				"error": null,
+				"doStatus": "none",
+				"statuses": [
+					"accepted",
+					"duplicate",
+					"rejected"
+				],
+				"errors": [
+					null,
+					null,
+					"deliveryConflict"
+				],
+				"transitions": [
+					"transition.pay",
+					null,
+					null
+				],
+				"calls": [
+					"message.draftEntry",
+					"message.watch",
+					"message.draftExit",
+					"message.charge",
+					"message.paidEntry"
+				],
+				"phases": [
+					"entry:draftEntry",
+					"doStart:watch",
+					"guard:transition.pay",
+					"doCancelled:watch",
+					"exit:draftExit",
+					"effect:charge",
+					"entry:paidEntry",
+					"commit:transition.pay"
+				]
+			}
+		},
+		{
+			"id": "checkout.failed-charge",
+			"machineId": "checkout.lifecycle",
+			"criterionId": "criterion.initialize",
+			"scenario": {
+				"instanceId": "order-42",
+				"input": {
+					"order.id": "42"
+				},
+				"replies": {
+					"draftEntry": {
+						"message.draftEntry": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"draftExit": {
+						"message.draftExit": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"paidEntry": {
+						"message.paidEntry": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"charge": {
+						"message.charge": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"audit": {
+						"message.audit": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"watch": {
+						"message.watch": [
+							{
+								"delayMs": 100,
+								"outputs": {}
+							}
+						]
+					}
+				},
+				"events": [
+					{
+						"event": {
+							"id": "payment-1",
+							"eventId": "event.pay",
+							"input": {
+								"pay.amount": 10
+							}
+						},
+						"replies": {
+							"draftEntry": {
+								"message.draftEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"draftExit": {
+								"message.draftExit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"paidEntry": {
+								"message.paidEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"charge": {
+								"message.charge": [
+									{
+										"delayMs": 0,
+										"error": {
+											"code": "denied",
+											"details": "Declined"
+										}
+									}
+								]
+							},
+							"audit": {
+								"message.audit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"watch": {
+								"message.watch": [
+									{
+										"delayMs": 100,
+										"outputs": {}
+									}
+								]
+							}
+						},
+						"reopen": true
+					},
+					{
+						"event": {
+							"id": "cancel-1",
+							"eventId": "event.cancel",
+							"input": {}
+						},
+						"replies": {
+							"draftEntry": {
+								"message.draftEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"draftExit": {
+								"message.draftExit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"paidEntry": {
+								"message.paidEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"charge": {
+								"message.charge": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"audit": {
+								"message.audit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"watch": {
+								"message.watch": [
+									{
+										"delayMs": 100,
+										"outputs": {}
+									}
+								]
+							}
+						}
+					}
+				]
+			},
+			"expected": {
+				"stateId": "Draft",
+				"error": "denied",
+				"doStatus": "cancelled",
+				"statuses": [
+					"failed",
+					"failed"
+				],
+				"errors": [
+					"denied",
+					"denied"
+				],
+				"transitions": [
+					"transition.pay",
+					null
+				],
+				"calls": [
+					"message.draftEntry",
+					"message.watch",
+					"message.draftExit",
+					"message.charge"
+				],
+				"phases": [
+					"entry:draftEntry",
+					"doStart:watch",
+					"guard:transition.pay",
+					"doCancelled:watch",
+					"exit:draftExit",
+					"effect:charge"
+				]
+			}
+		},
+		{
+			"id": "checkout.final",
+			"machineId": "checkout.lifecycle",
+			"criterionId": "criterion.initialize",
+			"scenario": {
+				"instanceId": "order-42",
+				"input": {
+					"order.id": "42"
+				},
+				"replies": {
+					"draftEntry": {
+						"message.draftEntry": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"draftExit": {
+						"message.draftExit": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"paidEntry": {
+						"message.paidEntry": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"charge": {
+						"message.charge": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"audit": {
+						"message.audit": [
+							{
+								"delayMs": 0,
+								"outputs": {}
+							}
+						]
+					},
+					"watch": {
+						"message.watch": [
+							{
+								"delayMs": 100,
+								"outputs": {}
+							}
+						]
+					}
+				},
+				"events": [
+					{
+						"event": {
+							"id": "cancel-1",
+							"eventId": "event.cancel",
+							"input": {}
+						},
+						"replies": {
+							"draftEntry": {
+								"message.draftEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"draftExit": {
+								"message.draftExit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"paidEntry": {
+								"message.paidEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"charge": {
+								"message.charge": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"audit": {
+								"message.audit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"watch": {
+								"message.watch": [
+									{
+										"delayMs": 100,
+										"outputs": {}
+									}
+								]
+							}
+						}
+					},
+					{
+						"event": {
+							"id": "cancel-2",
+							"eventId": "event.cancel",
+							"input": {}
+						},
+						"replies": {
+							"draftEntry": {
+								"message.draftEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"draftExit": {
+								"message.draftExit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"paidEntry": {
+								"message.paidEntry": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"charge": {
+								"message.charge": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"audit": {
+								"message.audit": [
+									{
+										"delayMs": 0,
+										"outputs": {}
+									}
+								]
+							},
+							"watch": {
+								"message.watch": [
+									{
+										"delayMs": 100,
+										"outputs": {}
+									}
+								]
+							}
+						}
+					}
+				]
+			},
+			"expected": {
+				"stateId": "Cancelled",
+				"error": null,
+				"doStatus": "none",
+				"statuses": [
+					"accepted",
+					"rejected"
+				],
+				"errors": [
+					null,
+					"unexpectedEvent"
+				],
+				"transitions": [
+					"transition.cancelDraft",
+					null
+				],
+				"calls": [
+					"message.draftEntry",
+					"message.watch",
+					"message.draftExit"
+				],
+				"phases": [
+					"entry:draftEntry",
+					"doStart:watch",
+					"guard:transition.cancelDraft",
+					"doCancelled:watch",
+					"exit:draftExit",
+					"commit:transition.cancelDraft"
+				]
+			}
+		}
+	]
+}

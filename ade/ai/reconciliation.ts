@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { measureContextPayload } from '../../src/vs/workbench/contrib/ade/common/contextTransport.ts';
 import { isDeepStrictEqual } from 'node:util';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { readSemanticModel, semanticModelV3Schema, type SemanticModel, type SemanticElement, type SemanticRelation } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
@@ -116,6 +117,7 @@ function windows(content: string, offsets: number[], limit: number): { start: nu
 
 /** No model call. Delta-first context, compact IDs and bounded source windows reduce the cheap model's workload. */
 export async function prepareAiReconciliation(previous: ImportSnapshot, next: CodeImport, configValue: unknown, sourceFiles: string[], resolutions: PreparedReconciliation['resolutions'] = [], signal?: AbortSignal, clarification = ''): Promise<PreparedReconciliation> {
+	if ([previous.commonModel, previous.model, next.model].some(model => model.version === 4)) { throw new Error('A v4 reconciliation adapter is required; legacy M6 cannot rewrite this model'); }
 	const config = readProviderConfig(configValue);
 	if (clarification.length > 8000) { throw new Error('Reconciliation clarification exceeds 8000 characters'); }
 	if (new Set(sourceFiles).size !== sourceFiles.length) { throw new Error('Select unique source files'); }
@@ -177,7 +179,7 @@ export async function prepareAiReconciliation(previous: ImportSnapshot, next: Co
 		rules: ['Omitted source ranges and files are unknown. Ask for more context if needed.', 'Deterministic syntax coverage is limited to declared adapters; AI may understand any selected text language.', 'Existing diagram positions are maintained by the renderer. Model mappings and source revisions are maintained by tools.']
 	};
 	const prompt = reconciliationInstruction + '\n' + JSON.stringify(context);
-	const inputBytes = Buffer.byteLength(prompt), schemaBytes = Buffer.byteLength(JSON.stringify(reconciliationSchema));
+	const { inputBytes, schemaBytes } = measureContextPayload(prompt, reconciliationSchema);
 	if (inputBytes + schemaBytes > config.maxContextBytes) { throw new Error('Reconciliation input exceeds the saved byte budget; narrow the scope'); }
 	const payload = { version: 1 as const, config, snapshotHash: previous.inputHash, sourceRevision: next.revision, sourceFiles: [...sourceFiles].sort(), prompt, metrics: { inputBytes, schemaBytes, sourceBytes, disclosedBytes: sources.reduce((sum, item) => sum + [...item.windows, ...(item.commonWindows ?? [])].reduce((count, window) => count + Buffer.byteLength(window.text), 0), 0), estimatedTokens: Math.ceil((inputBytes + schemaBytes) / 4) }, handles, editableIds: [...impact], sources, resolutions, clarification };
 	return { ...payload, reviewId: contentHash(JSON.stringify(payload)) };

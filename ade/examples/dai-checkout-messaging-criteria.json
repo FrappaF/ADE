@@ -1,0 +1,515 @@
+{
+	"version": 1,
+	"revision": "1",
+	"cases": [
+		{
+			"id": "quantity.0",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": -1
+			},
+			"expected": false
+		},
+		{
+			"id": "quantity.1",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": 0
+			},
+			"expected": false
+		},
+		{
+			"id": "quantity.2",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": 1
+			},
+			"expected": true
+		},
+		{
+			"id": "quantity.3",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": 9007199254740991
+			},
+			"expected": true
+		},
+		{
+			"id": "absent",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {},
+			"expected": null
+		},
+		{
+			"id": "invalid.0",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": null
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "invalid.1",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": "1"
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "invalid.2",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": 9007199254740992
+			},
+			"expected": "typeError"
+		}
+	],
+	"messaging": [
+		{
+			"id": "queue.competitive",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "B",
+						"outcome": "ok",
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1"
+				],
+				"deliveries": [
+					"workers:A:order-1:1:ok",
+					"empty:workers"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "topic.fanout",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.billing",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.topic",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.topic",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "billing",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "analytics",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1"
+				],
+				"deliveries": [
+					"billing:A:order-1:1:ok",
+					"analytics:A:order-1:1:ok"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "producer.dedup",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.publish.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1",
+					"duplicate:order-1"
+				],
+				"deliveries": [
+					"workers:A:order-1:1:ok"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "consumer.idempotent",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					},
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 1001
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "B",
+						"outcome": "ok",
+						"at": 1001
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1",
+					"order-1"
+				],
+				"deliveries": [
+					"workers:A:order-1:1:ok",
+					"duplicate:workers:order-1"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "retry.exhausted",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "fail",
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "B",
+						"outcome": "fail",
+						"at": 99
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "B",
+						"outcome": "fail",
+						"at": 100
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "fail",
+						"at": 300
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1"
+				],
+				"deliveries": [
+					"workers:A:order-1:1:fail",
+					"empty:workers",
+					"workers:B:order-1:2:fail",
+					"workers:A:order-1:3:fail"
+				],
+				"deadLetters": [
+					"workers:order-1:attemptsExhausted"
+				],
+				"errors": []
+			}
+		},
+		{
+			"id": "topic.no-producer",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.analytics",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "consume",
+						"subscriptionId": "analytics",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [],
+				"deliveries": [
+					"empty:analytics"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "topic.publish",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.publish.topic",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.topic",
+						"envelope": {
+							"version": 1,
+							"id": "order-2",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.topic",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-2"
+				],
+				"deliveries": [],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "contract.incompatible",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "2",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [],
+				"deliveries": [],
+				"deadLetters": [],
+				"errors": [
+					"messageVersion"
+				]
+			}
+		},
+		{
+			"id": "producer.undeclared",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "unknown",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [],
+				"deliveries": [],
+				"deadLetters": [],
+				"errors": [
+					"messagePublisher"
+				]
+			}
+		}
+	]
+}

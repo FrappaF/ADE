@@ -1,0 +1,493 @@
+{
+	"version": 1,
+	"kind": "DAI-08-verification",
+	"recordedAt": "2026-11-09T13:20:01.298431+00:00",
+	"timezone": "Europe/Rome",
+	"status": "passed-with-declared-scope",
+	"totalPassed": 680,
+	"aggregation": "Unique tests from full domain/AI/code-import/native/Chromium/broker suites. Affected reruns, production bundled protocol, internal derived/independent harness cases and CLI simulation are not counted twice. Full AI preceded final messaging-specific hardening; six affected project tests and the production bundle were rerun. Full domain plus final 27 messaging rerun cover the last PSM resolution check.",
+	"suites": {
+		"domain": {
+			"tests": 257,
+			"passes": 257,
+			"failures": 0,
+			"outputSha256": "34964d1a88ddc9d6b76b500bc0d2805b891a4a0a1904016a0b405601471f88eb"
+		},
+		"domainAffected": {
+			"tests": 27,
+			"passes": 27,
+			"failures": 0,
+			"outputSha256": "11cb01c8ee8f797ac0f25e786dba5b01978f38a4fc95ba110e6e0b898bb56b87"
+		},
+		"ai": {
+			"tests": 82,
+			"passes": 82,
+			"failures": 0,
+			"outputSha256": "d3007dcf7c81a6d065ce24da0b006c8afb24a0cf1f1669196881008ecfca7582"
+		},
+		"aiAffected": {
+			"tests": 6,
+			"passes": 6,
+			"failures": 0,
+			"outputSha256": "dbf177eec17dac10959401df20a5fe9c01228e9ae6b9b31f090a881193e53f5b"
+		},
+		"codeImport": {
+			"tests": 169,
+			"passes": 169,
+			"failures": 0,
+			"outputSha256": "bb1d836d88ccf2e3de9dc7fddf1934a41aaf37496f79766e2be78509ec326450"
+		},
+		"native": {
+			"suites": 9,
+			"tests": 145,
+			"passes": 145,
+			"pending": 0,
+			"failures": 0,
+			"start": "2026-11-09T13:15:40.955Z",
+			"end": "2026-11-09T13:15:43.475Z",
+			"duration": 2520
+		},
+		"chromium": {
+			"tests": 13,
+			"passes": 13,
+			"failures": 0,
+			"errors": [],
+			"results": [
+				{
+					"title": "A.D.E messaging renderer broker aggregation retains channels/policies and keyboard access to consumers",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E messaging renderer hostile channel labels remain text and explicit subscription policies remain accessible",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable state renderer native state table preserves semantic order, keyboard focus and model",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable state renderer hostile state labels are rendered as text and policy is accessible",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable sequence renderer nested frames and operands render in semantic order with measured, focusable labels",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable sequence renderer hostile labels remain text; accessible and visible rows describe the same policies",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer semantic drill-down is an explicit keyboard-focusable button and leaves geometry untouched",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer shared signatures retain optional versus nullable text and actionable contract references",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer external dependencies expose their context boundary without an internal drill-down",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer ADR reasons, structured constraints and historical reasons are inspectable",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer exact packet is a focusable native disclosure with explicit unavailable cost and zero inference",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer predicate rendering and accessible reading derive the same authored expression without mutation",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer source descriptions are text and cannot introduce markup or actions",
+					"state": "passed"
+				}
+			]
+		},
+		"broker": {
+			"tests": 14,
+			"passes": 14,
+			"failures": 0,
+			"outputSha256": "fa24d5ad56960fdc9016c0db49e9ab13dbd61c1e0b696d3e36f63bbb68231cbf"
+		}
+	},
+	"commands": [
+		"node --test --test-reporter=tap ade/test/*.test.mjs",
+		"npm --prefix ade/ai test",
+		"npm --prefix ade/code-import test",
+		"node --test --test-reporter=tap ade/ai/test/messaging-project.test.mjs",
+		"ADE_NATS_SERVER=/path/to/nats-server npm --prefix ade/messaging run test:broker",
+		"npm --prefix ade/ai run check",
+		"npm --prefix ade/code-import run check",
+		"npm --prefix ade/messaging run check",
+		"node ade/scripts/build-messaging-runtime.mjs --check",
+		"node ade/scripts/build-state-runtime.mjs --check",
+		"node ade/scripts/build-interaction-runtime.mjs --check",
+		"git diff --check"
+	],
+	"typechecks": {
+		"packages": [
+			"ade/ai",
+			"ade/code-import",
+			"ade/messaging"
+		],
+		"workbench": {
+			"roots": 18,
+			"diagnostics": [],
+			"scope": "Production src/tsconfig and typings with real imported sources, syntax and semantic diagnostics selected for 18 changed roots. Full client build not run; root dev dependencies absent."
+		}
+	},
+	"temporaryHarnesses": {
+		"native": {
+			"sha256": "9af92d77bec90499d2a27717806bcbf17917649a930a409e756e66bb2cf86d67",
+			"source": "import { registerHooks } from 'node:module';\nimport { readFileSync, existsSync } from 'node:fs';\nimport { fileURLToPath, pathToFileURL } from 'node:url';\nimport { resolve } from 'node:path';\nimport ts from '/workspace/ADE/ade/ai/node_modules/typescript/lib/typescript.js';\nconst root='/workspace/ADE', src=pathToFileURL(root+'/src/').href, decorator=pathToFileURL(root+'/src/vs/platform/instantiation/common/instantiation.ts').href;\nconst tokens=new Map([[pathToFileURL(root+'/src/vs/workbench/contrib/chat/browser/chat.ts').href,['IChatWidgetService','chatWidgetService']],[pathToFileURL(root+'/src/vs/workbench/contrib/terminal/browser/terminal.ts').href,['ITerminalService','terminalService','ITerminalGroupService','terminalGroupService']]]);\nregisterHooks({resolve(specifier,context,next){if(specifier==='sinon'){return next('file:///tmp/ade-dai08-native/node_modules/sinon/pkg/sinon-esm.js',context);} if(specifier.endsWith('.js')&&context.parentURL?.startsWith(src)){const candidate=new URL(specifier.slice(0,-3)+'.ts',context.parentURL);if(existsSync(fileURLToPath(candidate))){return next(candidate.href,context);}}return next(specifier,context);},load(url,context,next){if(tokens.has(url)){const t=tokens.get(url);return{format:'module',shortCircuit:true,source:`import {createDecorator} from ${JSON.stringify(decorator)};${Array.from({length:t.length/2},(_,i)=>`export const ${t[i*2]}=createDecorator(${JSON.stringify(t[i*2+1])});`).join('')} ${url.endsWith('/chat.ts')?\"export const ChatViewPaneTarget=Symbol('chat');\":''}`};}if(url.endsWith('.css')){return{format:'module',source:'export {};',shortCircuit:true};}if(url.startsWith(src)&&url.endsWith('.ts')){return{format:'module',shortCircuit:true,source:ts.transpileModule(readFileSync(fileURLToPath(url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2024,module:ts.ModuleKind.ESNext,experimentalDecorators:true,useDefineForClassFields:false}}).outputText};}return next(url,context);}});\nconst {default:Mocha}=await import('/tmp/ade-dai08-native/node_modules/mocha/index.js');const mocha=new Mocha({ui:'tdd',reporter:'json',timeout:30000});mocha.suite.emit('pre-require',globalThis,'native',mocha);for(const file of process.argv.slice(2)){await import(pathToFileURL(resolve(root,file)).href);}mocha.run(f=>{process.exitCode=f?1:0;});\n"
+		},
+		"browser": {
+			"sha256": "0a8e2b4a4a668fc4efe4b8ffd479dba9bb74b9cefe49944b8b7d0f113ef3b56d",
+			"source": "import { build } from '/tmp/ade-dai08-native/node_modules/esbuild/lib/main.js';\nimport { chromium } from '/tmp/ade-dai08-native/node_modules/playwright/index.mjs';\nimport { readFile,writeFile } from 'node:fs/promises';\nimport http from 'node:http';\nconst root='/workspace/ADE', base='/tmp/ade-dai08-native/node_modules';\nawait writeFile('/tmp/dai08-process.js',`import process from '${base}/process/browser.js';export {process};`);\nconst files=['adeMessagingRenderer','adeStateRenderer','adeInteractionSequence','adeBlueprintDetails','adeTaskPreview'];\nconst preview=`import {renderAdeMessaging} from '${root}/src/vs/workbench/contrib/ade/browser/adeMessaging.ts';import {messagingFixture} from '${root}/src/vs/workbench/contrib/ade/test/common/messagingFixture.ts';globalThis.showMessagingPreview=()=>{const controls=new AdeControls();document.body.textContent='';renderAdeMessaging(document.body,messagingFixture,'checkout.messaging',controls,()=>{});return ()=>controls.dispose();};import {renderAdeState} from '${root}/src/vs/workbench/contrib/ade/browser/adeState.ts';import {AdeControls} from '${root}/src/vs/workbench/contrib/ade/browser/adeControls.ts';import {stateFixture} from '${root}/src/vs/workbench/contrib/ade/test/common/stateFixture.ts';globalThis.showStatePreview=()=>{const controls=new AdeControls();document.body.textContent='';renderAdeState(document.body,stateFixture,stateFixture.views[0],controls,()=>{},()=>{});return ()=>controls.dispose();};`;\nconst entry=preview+files.map(name=>`import '${root}/src/vs/workbench/contrib/ade/test/browser/${name}.test.ts';`).join('\\n');\nawait build({stdin:{contents:entry,resolveDir:root},outfile:'/tmp/dai08-browser.js',bundle:true,format:'iife',platform:'browser',target:'chrome154',alias:{assert:base+'/assert/build/assert.js',process:base+'/process/browser.js'},inject:['/tmp/dai08-process.js'],tsconfigRaw:{compilerOptions:{experimentalDecorators:true,useDefineForClassFields:false}},loader:{'.css':'empty'}});\nconst html=`<!doctype html><html><head><meta charset=\"utf-8\"><style>body{color:#ccc;background:#1f1f1f;font:14px sans-serif}.ade-state-summary p{margin:16px;padding:8px;border-bottom:1px solid #444}button{background:#333;color:inherit;padding:8px;border:1px solid #666}button:focus-visible{outline:2px solid #54aaff}</style></head><body><div id=\"mocha\"></div><script src=\"/mocha.js\"></script><script>mocha.setup({ui:'tdd',timeout:15000});</script><script src=\"/tests.js\"></script><script>window.results=[];window.finished=false;mocha.run().on('test end',t=>window.results.push({title:t.fullTitle(),state:t.state,error:t.err?.message})).on('end',()=>window.finished=true);</script></body></html>`;\nconst server=http.createServer(async(req,res)=>{try{res.end(req.url==='/mocha.js'?await readFile(base+'/mocha/mocha.js'):req.url==='/tests.js'?await readFile('/tmp/dai08-browser.js'):html);}catch{res.statusCode=500;res.end('error');}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));\nconst browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});try{const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.finished,{timeout:60000});const tests=await page.evaluate(()=>window.results);const result={tests,errors,passed:tests.filter(t=>t.state==='passed').length,failed:tests.filter(t=>t.state!=='passed').length};await writeFile('/tmp/dai08-browser-results.json',JSON.stringify(result,null,2));console.log(result);await page.evaluate(()=>{window.disposePreview=window.showMessagingPreview();});await page.setViewportSize({width:1000,height:1000});await page.screenshot({path:'/tmp/dai08-messaging-preview.png',fullPage:true});await page.evaluate(()=>window.disposePreview());if(errors.length||result.failed||tests.length!==13)process.exitCode=1;}finally{await browser.close();server.close();}\n"
+		},
+		"workbenchTypes": {
+			"sha256": "177f4b93034d6fa26fda2864a537844bf79b72352e9c9e17e37de41e9ec9e690",
+			"source": "import ts from '/workspace/ADE/ade/ai/node_modules/typescript/lib/typescript.js';\nimport {writeFileSync} from 'node:fs';\nconst root='/workspace/ADE', names=process.argv.slice(2), config=ts.readConfigFile(root+'/src/tsconfig.json',ts.sys.readFile), parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,root+'/src');\nparsed.options.types=['node','mocha','sinon'];\nparsed.options.typeRoots=[root+'/ade/ai/node_modules/@types','/tmp/ade-dai08-native/node_modules/@types'];\nconst program=ts.createProgram([...parsed.fileNames.filter(n=>n.endsWith('.d.ts')),...names.map(n=>root+'/'+n)],parsed.options),diagnostics=[];\nfor(const name of names){const f=program.getSourceFile(root+'/'+name);if(!f)throw new Error('Missing '+name);diagnostics.push(...program.getSyntacticDiagnostics(f),...program.getSemanticDiagnostics(f));}\nconsole.log(ts.formatDiagnosticsWithColorAndContext(diagnostics,{getCurrentDirectory:()=>root,getCanonicalFileName:n=>n,getNewLine:()=> '\\n'}));writeFileSync('/tmp/dai08-typecheck.json',JSON.stringify({roots:names.length,diagnostics:diagnostics.map(d=>({file:d.file?.fileName,message:ts.flattenDiagnosticMessageText(d.messageText,'\\n'),code:d.code}))},null,2));process.exitCode=diagnostics.length?1:0;\n"
+		},
+		"productionBundle": {
+			"sha256": "926dee718997b1eac99ab1793bca0482dac4f8d123e1627bf25b91b0d2a9e298",
+			"source": "import { build } from '/tmp/ade-dai08-native/node_modules/esbuild/lib/main.js';\nimport { mkdtemp, mkdir, writeFile, readFile, cp, rm } from 'node:fs/promises';\nimport { tmpdir } from 'node:os';\nimport { join, dirname } from 'node:path';\nimport { pathToFileURL } from 'node:url';\nimport { createRequire } from 'node:module';\nimport { createHash } from 'node:crypto';\nimport assert from 'node:assert/strict';\nimport '/workspace/ADE/ade/scripts/source-loader.mjs';\nimport { checkoutMessaging, messagingCriteria } from '/workspace/ADE/ade/test/fixtures/dai-messaging.mjs';\nconst { messagingRegion } = await import('/workspace/ADE/src/vs/workbench/contrib/ade/common/modelMessaging.ts');\nconst { compileModelTaskContext } = await import('/workspace/ADE/src/vs/workbench/contrib/ade/common/modelTaskContext.ts');\nconst root=await mkdtemp(join(tmpdir(),'ade-dai08-protocol-')), bundle=await mkdtemp(join(tmpdir(),'ade-dai08-bundle-'));\ntry {\nawait build({entryPoints:['/workspace/ADE/ade/code-import/nativeHost.ts'],outfile:join(bundle,'engine.mjs'),bundle:true,platform:'node',format:'esm',target:'node24',banner:{js:\"import { createRequire as adeCreateRequire } from 'node:module'; import { fileURLToPath as adeFileURLToPath } from 'node:url'; import { dirname as adeDirname } from 'node:path'; const require = adeCreateRequire(import.meta.url); const __filename = adeFileURLToPath(import.meta.url); const __dirname = adeDirname(__filename);\"}});\nconst require=createRequire('/workspace/ADE/ade/code-import/package.json');await cp(join(dirname(require.resolve('legacy-tree-sitter')),'tree-sitter.js'),join(bundle,'legacy-runtime.cjs'));\nconst {engine}=await import(pathToFileURL(join(bundle,'engine.mjs'))),run=async request=>JSON.parse(await engine.execute(JSON.stringify({operation:'collaboration',request:JSON.stringify({root,...request})})));\nawait mkdir(join(root,'.ade'));await writeFile(join(root,'.ade/model.json'),JSON.stringify(checkoutMessaging));await writeFile(join(root,'.ade/criteria.json'),JSON.stringify(messagingCriteria));\nconst started=performance.now(),prepared=await run({operation:'structuralPrepare',direction:'forward'}),preparationMs=performance.now()-started,s=prepared.session;\nassert.equal(prepared.status,'staged');const checked=await run({operation:'structuralVerify',id:s.id,reviewId:s.reviewId});assert.equal(checked.status,'passed',checked.verification.output);\nconst publication=await run({operation:'structuralApply',id:s.id,reviewId:s.reviewId});assert.equal(publication.status,'applied');const aligned=await run({operation:'structuralPrepare',direction:'forward'});assert.deepEqual(aligned,{status:'aligned',calls:0});\nconst artifact=s.next.artifacts.find(a=>a.messagingId),changed=structuredClone(checkoutMessaging);changed.foundation.messaging[0].subscriptions[0].maxAttempts=2;changed.foundation.messaging[0].subscriptions[0].backoffMs=[100];await writeFile(join(root,artifact.file),messagingRegion(changed,artifact.messagingId));\nconst reverse=await run({operation:'structuralPrepare',direction:'reverse'}),failed=await run({operation:'structuralVerify',id:reverse.session.id,reviewId:reverse.session.reviewId});assert.equal(failed.status,'failed');await assert.rejects(run({operation:'structuralApply',id:failed.id,reviewId:failed.reviewId}));\nawait writeFile(join(root,artifact.file),artifact.region);const undo=await run({operation:'structuralUndo',id:s.id,reviewId:s.reviewId});assert.equal(undo.status,'undone');\nconst entry=s.packets.find(p=>p.request.target.kind==='messaging'),latencies=[];for(let i=0;i<33;i++){const before=performance.now();await compileModelTaskContext(s.next.model,entry.request);if(i>=3)latencies.push(performance.now()-before);}latencies.sort((a,b)=>a-b);\nconst report={version:1,kind:'DAI-08-real-native-bundle',recordedAt:new Date().toISOString(),timezone:'Europe/Rome',runtime:process.version,preparationMs,preparationMeaning:'Git/filesystem/staging/derived checks; separate from compiler budget',verification:checked.verification,publication:publication.status,aligned,wrongPolicy:{status:failed.status,output:failed.verification.output,publishBlocked:true},undo:undo.status,packet:entry,latencies:{samples:latencies.length,p95Ms:latencies[Math.ceil(latencies.length*.95)-1],limitMs:500},artifacts:s.next.artifacts.map(a=>({id:a.predicateId,file:a.file,bytes:Buffer.byteLength(a.region),sha256:createHash('sha256').update(a.region).digest('hex')})),provider:{calls:0,measuredTokens:null,price:null},limits:['Trusted configuration/simulation module only; no broker in project runner','Real broker proof is separate','No live broker/state transaction, OS/firewall sandbox or full desktop acceptance']};\nawait writeFile('/workspace/ADE/ade/docs/benchmarks/dai-08-project-2026-11-09.json',JSON.stringify(report,null,'\\t')+'\\n',{flag:'wx'});console.log(JSON.stringify({verification:checked.status,generated:checked.verification.generated,independent:checked.verification.independent,packetBytes:entry.packet.byteLength,p95Ms:report.latencies.p95Ms,publication:publication.status,aligned,undo:undo.status}));\n}finally{await rm(root,{recursive:true,force:true});await rm(bundle,{recursive:true,force:true});}\n"
+		}
+	},
+	"runtimeEvidence": {
+		"productionBundle": "ade/docs/benchmarks/dai-08-project-2026-11-09.json",
+		"broker": "ade/docs/benchmarks/dai-08-broker-2026-11-09.json",
+		"simulation": {
+			"version": 1,
+			"kind": "messaging-simulation",
+			"network": false,
+			"persistence": false,
+			"brokerProof": false,
+			"calls": 0,
+			"results": [
+				{
+					"id": "queue.competitive",
+					"passed": true,
+					"expected": {
+						"published": [
+							"order-1"
+						],
+						"deliveries": [
+							"workers:A:order-1:1:ok",
+							"empty:workers"
+						],
+						"deadLetters": [],
+						"errors": []
+					},
+					"actual": {
+						"published": [
+							"order-1"
+						],
+						"deliveries": [
+							"workers:A:order-1:1:ok",
+							"empty:workers"
+						],
+						"deadLetters": [],
+						"errors": []
+					}
+				},
+				{
+					"id": "topic.fanout",
+					"passed": true,
+					"expected": {
+						"published": [
+							"order-1"
+						],
+						"deliveries": [
+							"billing:A:order-1:1:ok",
+							"analytics:A:order-1:1:ok"
+						],
+						"deadLetters": [],
+						"errors": []
+					},
+					"actual": {
+						"published": [
+							"order-1"
+						],
+						"deliveries": [
+							"billing:A:order-1:1:ok",
+							"analytics:A:order-1:1:ok"
+						],
+						"deadLetters": [],
+						"errors": []
+					}
+				},
+				{
+					"id": "producer.dedup",
+					"passed": true,
+					"expected": {
+						"published": [
+							"order-1",
+							"duplicate:order-1"
+						],
+						"deliveries": [
+							"workers:A:order-1:1:ok"
+						],
+						"deadLetters": [],
+						"errors": []
+					},
+					"actual": {
+						"published": [
+							"order-1",
+							"duplicate:order-1"
+						],
+						"deliveries": [
+							"workers:A:order-1:1:ok"
+						],
+						"deadLetters": [],
+						"errors": []
+					}
+				},
+				{
+					"id": "consumer.idempotent",
+					"passed": true,
+					"expected": {
+						"published": [
+							"order-1",
+							"order-1"
+						],
+						"deliveries": [
+							"workers:A:order-1:1:ok",
+							"duplicate:workers:order-1"
+						],
+						"deadLetters": [],
+						"errors": []
+					},
+					"actual": {
+						"published": [
+							"order-1",
+							"order-1"
+						],
+						"deliveries": [
+							"workers:A:order-1:1:ok",
+							"duplicate:workers:order-1"
+						],
+						"deadLetters": [],
+						"errors": []
+					}
+				},
+				{
+					"id": "retry.exhausted",
+					"passed": true,
+					"expected": {
+						"published": [
+							"order-1"
+						],
+						"deliveries": [
+							"workers:A:order-1:1:fail",
+							"empty:workers",
+							"workers:B:order-1:2:fail",
+							"workers:A:order-1:3:fail"
+						],
+						"deadLetters": [
+							"workers:order-1:attemptsExhausted"
+						],
+						"errors": []
+					},
+					"actual": {
+						"published": [
+							"order-1"
+						],
+						"deliveries": [
+							"workers:A:order-1:1:fail",
+							"empty:workers",
+							"workers:B:order-1:2:fail",
+							"workers:A:order-1:3:fail"
+						],
+						"deadLetters": [
+							"workers:order-1:attemptsExhausted"
+						],
+						"errors": []
+					}
+				},
+				{
+					"id": "topic.no-producer",
+					"passed": true,
+					"expected": {
+						"published": [],
+						"deliveries": [
+							"empty:analytics"
+						],
+						"deadLetters": [],
+						"errors": []
+					},
+					"actual": {
+						"published": [],
+						"deliveries": [
+							"empty:analytics"
+						],
+						"deadLetters": [],
+						"errors": []
+					}
+				},
+				{
+					"id": "topic.publish",
+					"passed": true,
+					"expected": {
+						"published": [
+							"order-2"
+						],
+						"deliveries": [],
+						"deadLetters": [],
+						"errors": []
+					},
+					"actual": {
+						"published": [
+							"order-2"
+						],
+						"deliveries": [],
+						"deadLetters": [],
+						"errors": []
+					}
+				},
+				{
+					"id": "contract.incompatible",
+					"passed": true,
+					"expected": {
+						"published": [],
+						"deliveries": [],
+						"deadLetters": [],
+						"errors": [
+							"messageVersion"
+						]
+					},
+					"actual": {
+						"published": [],
+						"deliveries": [],
+						"deadLetters": [],
+						"errors": [
+							"messageVersion"
+						]
+					}
+				},
+				{
+					"id": "producer.undeclared",
+					"passed": true,
+					"expected": {
+						"published": [],
+						"deliveries": [],
+						"deadLetters": [],
+						"errors": [
+							"messagePublisher"
+						]
+					},
+					"actual": {
+						"published": [],
+						"deliveries": [],
+						"deadLetters": [],
+						"errors": [
+							"messagePublisher"
+						]
+					}
+				}
+			]
+		},
+		"contextBytes": 38236,
+		"contextP95Ms": 51.18104899999889,
+		"contextLimitMs": 500,
+		"projectGeneratedCases": 17,
+		"projectIndependentCases": 17,
+		"rendering": "13 real Chromium 154 tests; messaging preview inspected at 1000px. Native service tests use injected external boundaries, not full desktop."
+	},
+	"benchmark": {
+		"report": "ade/docs/benchmarks/dai-08-2026-11-09.json",
+		"memory": {
+			"peakRssMiB": 143.5859375,
+			"limitMiB": 1024,
+			"withinBudget": true
+		},
+		"largeEvidenceOnlyBytes": 284875,
+		"inputLimitBytes": 196608,
+		"largeEvidenceRetained": false,
+		"note": "Same frozen graphs/corpus/budgets; evidence-only overflow is not a structural packet sufficiency proof"
+	},
+	"integrity": {
+		"links": 131,
+		"linksResolve": true,
+		"legacySchemasUnchanged": true,
+		"packetSealVerified": true,
+		"frozenBudgetSha256": "127caa0684c0a7ed41e898d2a05553f4080cb210193e5fcef22e98e98797a8fa",
+		"frozenCorpusSha256": "ee1e4395135d29e28b0167f5e58be59a3c57c081d235649263fb9c71aca7ecdb",
+		"benchmarkSourcesCurrent": true,
+		"finalBaselineRerunPassed": 5
+	},
+	"limits": [
+		"Single local server; no cluster/TLS/remote credentials or broker ACL certification",
+		"At least once, finite producer window, local ledger; no outbox or atomic effects/exactly-once",
+		"Source ack/DLQ/ledger/state checkpoint are separate operations; no distributed transaction",
+		"Serial broker delivery has no effect fencing after expired leases",
+		"Project runner publishes files only; never runs a broker or arbitrary application code",
+		"No complete desktop acceptance, hierarchical states, migrations, second stack or continuous mode",
+		"R01-R16 remain open until final acceptance; DAI-09 extends partial reverse",
+		"Node permission is not an OS/firewall sandbox",
+		"Temporary native/browser/broker test dependencies and stores cleaned after recording; project package dependencies remain installed"
+	],
+	"provider": {
+		"calls": 0,
+		"measuredTokens": null,
+		"price": null
+	},
+	"sourceHashes": {
+		"src/vs/workbench/contrib/ade/common/semanticModel.ts": "13a14e8dd280bd4cd0203b3447fd5499ba48c701ac24825bb6e8addde123adb7",
+		"src/vs/workbench/contrib/ade/common/modelMessaging.ts": "80f37740a17761fbd8876065d8f1a8ae1de7f9c4df142535c5e1f28ea1415523",
+		"src/vs/workbench/contrib/ade/common/messagingRuntime.generated.ts": "aed96b7e1a8e5266ff91c0194413329e3742b6707fefcd8783d08ba1beb884cd",
+		"src/vs/workbench/contrib/ade/common/modelProfiles.ts": "df09e32501c36855723f77ae6972730754a4b083de205642a1d74f56ed95cb0b",
+		"src/vs/workbench/contrib/ade/common/modelReadiness.ts": "9df0e9850f084f11fb2e810b52915c4eb639cacd7504e049ee35075c9169cb19",
+		"src/vs/workbench/contrib/ade/common/modelProject.ts": "fc0531f42613e710d63065851a1e814328382384e9b6cdc2b752861f0aeb67b9",
+		"src/vs/workbench/contrib/ade/common/modelTaskContext.ts": "ac13d527702ffb88bb11c9a4c5dc18cddf19699b7a4a67e5b727e519fe90f505",
+		"src/vs/workbench/contrib/ade/common/modelImpact.ts": "29d611d1c203aba8423598cf704ee9583c15bdf7f64c1637e5a2b5030621f065",
+		"src/vs/workbench/contrib/ade/common/visualEditing.ts": "2b2805e9b657bd508ce71fa844dd7ca00506f4a1d638b637ed550ed48d521e4c",
+		"src/vs/workbench/contrib/ade/common/modelStates.ts": "39702f846db281400330f34fdab6a459dda0faf8d21e55d5a8439468ecb506d9",
+		"src/vs/workbench/contrib/ade/common/modelInteractions.ts": "1269826ad0888116f7335b2f00d0eecb55ce8e193df92da9bfb7462e92401d8c",
+		"src/vs/workbench/contrib/ade/common/modelValues.ts": "bec0382549cc46c158e1e36a4d9bd60ad576f073938645c05788394f37c67a1a",
+		"src/vs/workbench/contrib/ade/browser/adeMessagingEditing.ts": "c0141aba524dee435166afbd2f842d47cc5dd125080023c4565e3fb49ac16d1e",
+		"src/vs/workbench/contrib/ade/browser/adeMessagingCriteria.ts": "65d029be8b67fa435280acded055984f9b839e607f004d60276dfb24a5b742e4",
+		"src/vs/workbench/contrib/ade/browser/adeMessagingContent.ts": "c4964bf0aa44b770104c5988606f64a5f7d529a8a4a0c57cbd9056be04e4bb2c",
+		"src/vs/workbench/contrib/ade/browser/adeMessaging.ts": "8983783c244b974f47ca00e10a62daae8fe3cb7d648641c529c45c40a679b504",
+		"src/vs/workbench/contrib/ade/browser/adeEditing.ts": "19b6a64ed33634a1252fad1542c55b4f1f47c2c768e39d40281729d924def879",
+		"src/vs/workbench/contrib/ade/browser/adeEditor.ts": "d822127f525ed7c92f321efe65ed9c45122ca7f4e43b5bf05ea402efb889d8c1",
+		"src/vs/workbench/contrib/ade/browser/adeAccessibleContent.ts": "a83d133a948a4c16f06febcf7234a8788bee09187edea5a36853390e70b43f29",
+		"src/vs/workbench/contrib/ade/electron-browser/adeAiService.ts": "5cd0106da82ae9a2b4c671726b9be5fb3f939b30f273a11f72714171c40d15e9",
+		"src/vs/workbench/contrib/ade/test/common/messagingFixture.ts": "7f95e5cca8f34ac2adeddb1a5ebcada9a627021fc59ebd00c475541694705e30",
+		"src/vs/workbench/contrib/ade/test/browser/adeMessagingEditing.test.ts": "dc29448010e5171a31437873614597f4cb6c102fbd02b01e1f2ab972c85a90a5",
+		"src/vs/workbench/contrib/ade/test/browser/adeMessagingRenderer.test.ts": "848cf9382ce612678a702a2af7dec5a7ddf6abfbe00a32347f18543ebf6e07af",
+		"src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts": "af966e29679876c264de70de5d589c539c34b0f805f63c868b214c4738d8efc3",
+		"ade/messaging/package.json": "099437a524b799860491883ca992b7f819e4f10cdc4288153989cc3cef2a24fb",
+		"ade/messaging/package-lock.json": "84a5c355921c866e68265434f8bc1eedc0707f2d0de5d04429548a9d31afff9a",
+		"ade/messaging/tsconfig.json": "18a3b40ca0907afd87838e963f8344d52845d41d84a9194ab0bcd30e58397d23",
+		"ade/messaging/jetstream.ts": "7156d88366e5702a1e753230a08c168c61812b5650ac022357a6e1a970647718",
+		"ade/messaging/test/broker.test.mjs": "de9d48b2dfcb66b16937cb069d0216270813fe788d169cff4bcfdb1c3beae96f",
+		"ade/ai/structuralProject.ts": "78b07d49d042422a3de473e0920b577abd21b0c212cf6f0294049bf2492ebf34",
+		"ade/ai/test/messaging-project.test.mjs": "b5482c44d5f2d1e5213ca50a06ed62db39ee5b283df302431ad9e15a5eb65cfb",
+		"ade/test/dai-messaging.test.mjs": "206ff4339324373d05fa0b450ff8dbc8d3d140f3903dc3439b82631a99596c53",
+		"ade/test/fixtures/dai-messaging.mjs": "3d16216052cf48dc127046b55dd8fc98425b1cc7ff1a41f77a3a36900551ebb9",
+		"ade/test/dai-baseline.test.mjs": "b20120bab684f79dd39e6fb7c5e1750fefd0cb4e14e4939209bdb39a59347a07",
+		"ade/test/dai-task.test.mjs": "4e6d632f310b98ca25732a0bd289c8cbb469ea9328b0fb2ae42813a7f2a317d7",
+		"ade/scripts/dai-messaging.mjs": "68c0fa762dc723179447adcb1b6034d9e4670e3ee9db5e29f4c6e3adcef0977b",
+		"ade/scripts/build-messaging-runtime.mjs": "f8304dce271ee0c08b5b87b25c1a1cf7e1b83bd3320e11345c70f5631c630d87",
+		"ade/schema/model-v4.schema.json": "4c3eacf50c48341b6d23fc85ed418d54385dff7e2fc087325b0acd69b865791b",
+		"ade/examples/dai-checkout-messaging.ade.json": "d758b884ee005afb177a3ce39c5b5bbddc3c66c988f3981922df47c548ecd02d",
+		"ade/examples/dai-checkout-messaging-criteria.json": "ea9475a7182c27626462437a36ae67ee0af44a57f225af989c919630c9723a01",
+		"ade/docs/decisions/0011-jetstream-messaging.md": "85416fff43ffde6f82d31aadb5d527c30398fa7e1a677678369d5077a92b7568",
+		"ade/docs/diagram-driven-ai/messaging-v1.md": "d650f12fa6ab0f0b3f029c9764c4e40cc7a59002a7c3fe00fc992bfaece63da7",
+		"ade/docs/diagram-driven-ai/dai-08-acceptance.md": "03b8e83a1b3a1dbf90acd60143c089dc632b638c2fb413e0b4c95e289732455c",
+		"ade/docs/diagram-driven-ai/dai-08.md": "53c4bd69e405ec19b2b8c455fc93bc198eaffef50a8e6e3166bedb841f37a7d4",
+		"ade/docs/diagram-driven-ai/handoff-dai-09.md": "533bc44e89060212f3a0368c0eab868b8422db1e92ed7a1c3bc6914ff97732ca",
+		"ade/docs/diagram-driven-ai/coverage.json": "fb55c1245923c7fb3266ccac304b466951994c4583b372ed9016895cf0b0bf61",
+		"ade/docs/diagram-driven-ai/decisions.md": "6e4e1b86e64cb099aac0b29b92cab0a7ca54d236d84f4a897e5e54ad7192829b",
+		"ade/docs/roadmap.md": "913e145f0062b4f30c06e619eab10e327f873aee8acb76ecc82197724bf678ee",
+		"README.md": "def2621dbfac2c2fb6d793e3784cda7af84f3af445380a2228b7a71f6a39d554",
+		"ade/docs/benchmarks/dai-08-project-2026-11-09.json": "390abc9b98662a192a79a0a425c53e67704f3516f09d59593320c1c9f24a087e",
+		"ade/docs/benchmarks/dai-08-broker-2026-11-09.json": "a5f6adb99e7472ff297a954361e2cd035600b0fc9cc50216857508a4be60f1aa",
+		"ade/docs/benchmarks/dai-08-2026-11-09.json": "ef4b804ffe4d8af6a90a1a039e7ddcc339ad083f4ef2f7c1597d9d9fd62f3dcc"
+	}
+}

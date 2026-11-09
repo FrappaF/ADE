@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { blueprintFixture } from '../common/blueprintFixture.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { describeAdeDiagram, describeAdeHelp, AdeReadingState } from '../../browser/adeAccessibleContent.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
@@ -14,6 +15,12 @@ suite('A.D.E accessible content', () => {
 		return { model: checkoutModel, activeView: checkoutModel.views[1], selectedId: 'declined', section: 'diagram',
 			loading: false, error: undefined, saveError: undefined, dirty: false, editable: false, diagnostics: [], ...overrides };
 	}
+
+	test('shared blueprint contracts and applicable decision reasons remain available to Read Element', async () => {
+		const model = structuredClone(blueprintFixture);
+		const content = describeAdeDiagram(state({ model, section: 'element', activeView: undefined, selectedId: 'contract.checkout' }));
+		assert.deepStrictEqual(['confirmOrder', 'Input · order: Order · Required · Non-null', 'OUT_OF_STOCK', 'Contract members are shared by identity', 'Use the declared protocol for stock requests'].map(value => content.includes(value)), [true, true, true, true, true]);
+	});
 
 	test('reads diagram identities, both payment outcomes and the current selection without inferring execution', () => {
 		const content = describeAdeDiagram(state());

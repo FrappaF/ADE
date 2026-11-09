@@ -1,0 +1,76 @@
+{
+	"version": 1,
+	"revision": "1",
+	"cases": [
+		{
+			"id": "business.quantity.0",
+			"predicateId": "predicate.positive",
+			"criterionId": "criterion.operation.submit",
+			"input": {
+				"input.operation.submit": -1
+			},
+			"expected": false
+		},
+		{
+			"id": "business.quantity.1",
+			"predicateId": "predicate.positive",
+			"criterionId": "criterion.operation.submit",
+			"input": {
+				"input.operation.submit": 0
+			},
+			"expected": false
+		},
+		{
+			"id": "business.quantity.2",
+			"predicateId": "predicate.positive",
+			"criterionId": "criterion.operation.submit",
+			"input": {
+				"input.operation.submit": 1
+			},
+			"expected": true
+		},
+		{
+			"id": "business.quantity.3",
+			"predicateId": "predicate.positive",
+			"criterionId": "criterion.operation.submit",
+			"input": {
+				"input.operation.submit": 9007199254740991
+			},
+			"expected": true
+		},
+		{
+			"id": "business.absent",
+			"predicateId": "predicate.positive",
+			"criterionId": "criterion.operation.submit",
+			"input": {},
+			"expected": null
+		},
+		{
+			"id": "business.invalid.0",
+			"predicateId": "predicate.positive",
+			"criterionId": "criterion.operation.submit",
+			"input": {
+				"input.operation.submit": null
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "business.invalid.1",
+			"predicateId": "predicate.positive",
+			"criterionId": "criterion.operation.submit",
+			"input": {
+				"input.operation.submit": "1"
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "business.invalid.2",
+			"predicateId": "predicate.positive",
+			"criterionId": "criterion.operation.submit",
+			"input": {
+				"input.operation.submit": 9007199254740992
+			},
+			"expected": "typeError"
+		}
+	]
+}

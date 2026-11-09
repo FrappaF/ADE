@@ -16,14 +16,21 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { checkoutModel } from '../common/checkoutModel.js';
-import { InvalidSemanticModelError, migrateSemanticModel, SemanticModelService } from '../common/semanticModel.js';
+import { InvalidSemanticModelError, migrateSemanticModel, readSemanticDraft, validateSemanticModel, emptyFoundation, SemanticModelService } from '../common/semanticModel.js';
 import { DiagramContext, normalizeDiagramContext, resolveElementLocation, SemanticLocation, SemanticNavigationHistory } from '../common/visualNavigation.js';
 
+import { modelProjectProfile } from '../common/modelProfiles.js';
+import { modelTaskIntent } from '../common/modelWorkflow.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { ITextFileService, IResolvedTextFileEditorModel } from '../../../services/textfile/common/textfiles.js';
 import { applyVisualEdit, VisualEdit } from '../common/visualEditing.js';
+import { migrateSemanticModelToV4 } from '../common/modelMigration.js';
+import { getModelReadiness, type GenerationProfile } from '../common/modelReadiness.js';
+import { createPureProject } from '../common/modelProject.js';
+import { compileModelTaskContext, type ModelTaskPacket } from '../common/modelTaskContext.js';
+import { compileModelContext, type ModelContextRequest } from '../common/modelContext.js';
 import { diagnosticMessage } from './adeDiagnostics.js';
 
 export const IAdeProjectService = createDecorator<AdeProjectService>('adeProjectService');
@@ -33,6 +40,8 @@ export class AdeProjectService extends Disposable {
 	declare readonly _serviceBrand: undefined;
 	private readonly changeEmitter = this._register(new Emitter<void>());
 	readonly onDidChange = this.changeEmitter.event;
+	private structuralPreview: { version: string; packet: ModelTaskPacket } | undefined;
+	get taskPreview(): ModelTaskPacket | undefined { return this.structuralPreview?.version === this.documentVersion ? this.structuralPreview.packet : undefined; }
 	private readonly modelDisposables = this._register(new DisposableStore());
 	private readonly watchDisposables = this._register(new DisposableStore());
 	private document: IResolvedTextFileEditorModel | undefined;
@@ -51,6 +60,7 @@ export class AdeProjectService extends Disposable {
 	private _loading = false;
 	private _error: string | undefined;
 	private _diagnostics: string[] = [];
+	private _hasStructuralErrors = false;
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -141,6 +151,7 @@ export class AdeProjectService extends Disposable {
 		this._error = undefined;
 		this._saveError = undefined;
 		this._diagnostics = [];
+		this._hasStructuralErrors = false;
 		this.inspectionId = '';
 		this.clearWorkspaceModel();
 		try { await this.restoreWorkspaceProject(); }
@@ -148,7 +159,9 @@ export class AdeProjectService extends Disposable {
 	}
 
 	private clearWorkspaceModel(): void {
-		this.semantics.replace({ version: 3, id: generateUuid(), name: this.workspaceFolder ? basename(this.workspaceFolder) : localize('ade.emptyWorkspace', "Workspace"), semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] });
+		this._hasStructuralErrors = false;
+		this._diagnostics = [];
+		this.semantics.replace({ version: 4, foundation: emptyFoundation(), id: generateUuid(), name: this.workspaceFolder ? basename(this.workspaceFolder) : localize('ade.emptyWorkspace', "Workspace"), semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] });
 		this.context = { viewId: '', selections: {} };
 		this._section = 'home';
 		this.navigation.reset(this.location);
@@ -175,12 +188,13 @@ export class AdeProjectService extends Disposable {
 	}
 	get loading(): boolean { return this._loading; }
 	get error(): string | undefined { return this.workspaceChangePending ? localize('ade.workspace.pending', "The workspace folder changed. Save or discard changes to the previous project before continuing. Choose Retry to continue opening the current folder.") : this._error; }
+	get hasStructuralErrors(): boolean { return this._hasStructuralErrors; }
 	get diagnostics(): readonly string[] { return this._diagnostics; }
 	get model() { return this.semantics.getSnapshot(); }
-	get activeView() { return this.section === 'element' || this.section === 'impact' || this.section === 'map' ? undefined : this.model.views.find(view => view.id === this.context.viewId); }
+	get activeView() { if (this.hasStructuralErrors) { return undefined; } return this.section === 'element' || this.section === 'impact' || this.section === 'map' ? undefined : this.model.views.find(view => view.id === this.context.viewId); }
 	get selectedId(): string { return this.section === 'element' || this.section === 'impact' ? this.inspectionId : this.context.selections[this.context.viewId] ?? ''; }
-	get canGoBack(): boolean { return !this.loading && !this.error && this.navigation.canGo(this.model, -1); }
-	get canGoForward(): boolean { return !this.loading && !this.error && this.navigation.canGo(this.model, 1); }
+	get canGoBack(): boolean { return !this.loading && !this.error && !this.hasStructuralErrors && this.navigation.canGo(this.model, -1); }
+	get canGoForward(): boolean { return !this.loading && !this.error && !this.hasStructuralErrors && this.navigation.canGo(this.model, 1); }
 	private get location(): SemanticLocation {
 		if (this.section === 'home' || this.section === 'map') { return { section: this.section }; }
 		if (this.section === 'element') { return { section: 'element', elementId: this.inspectionId }; }
@@ -288,6 +302,7 @@ export class AdeProjectService extends Disposable {
 		this._error = undefined;
 		this._loading = false;
 		this._diagnostics = [];
+		this._hasStructuralErrors = false;
 		this.semantics.replace(checkoutModel);
 		this.context = normalizeDiagramContext(checkoutModel, { viewId: '', selections: {} });
 		this._section = 'diagram';
@@ -320,6 +335,53 @@ export class AdeProjectService extends Disposable {
 		else { await this.restoreWorkspaceProject(); }
 	}
 
+	/** Local structural disclosure only; provider/model selection is explicit before any future live task. */
+	async prepareStructuralContext(operationId: string, text: string): Promise<ModelTaskPacket> {
+		const model = this.model; if (model.version !== 4) { throw new Error(localize('ade.task.upgrade', "Structural context requires model version 4.")); }
+		const version = this.documentVersion;
+		const packet = await compileModelTaskContext(model, { version: 1, target: { kind: 'operation', id: operationId }, mode: 'analysis', profileId: modelProjectProfile(model).profile.id, intent: modelTaskIntent(model, 'operation', operationId, text), provider: { id: 'local-preview', model: 'none', configurationRevision: '1' }, baselineRevision: 'structural-preview-v1', delta: [], writeScope: { objects: [{ kind: 'operation', id: operationId }], files: [], createOperationsUnder: [] }, retrievalScope: { objects: [], files: [] }, sources: [], budget: { maxInputBytes: 196608, maxContextBytes: 262144, outputReserveBytes: 65536, overheadReserveBytes: 0 } });
+		if (this.documentVersion !== version) { throw new Error(localize('ade.task.stale', "The project changed. Prepare context again.")); }
+		this.structuralPreview = { version, packet }; this.changeEmitter.fire(); return packet;
+	}
+
+	/** First authored feature and independent test data, available before any code import or chat. */
+	async createPureFeature(): Promise<void> {
+		if (!this.editable || !this.document || this.model.version !== 4 || this.model.semantics.elements.length || !this.projectRoot) { throw new Error(localize('ade.pure.empty', "Create an empty version 4 project first.")); }
+		const version = this.documentVersion;
+		const { model, criteria } = createPureProject(this.model.name, generateUuid); model.id = this.model.id;
+		const feature = model.semantics.elements.find(element => element.kind === 'feature')!;
+		const system = model.semantics.elements.find(element => element.kind === 'system')!;
+		const container = model.semantics.elements.find(element => element.kind === 'container')!;
+		model.views = [{ id: generateUuid(), name: localize('ade.pure.structure', "Quantity Validation · Structure"), kind: 'structure', featureId: feature.id, subjectId: system.id, contextIds: [], nodes: [{ elementId: container.id, x: 80, y: 80 }], relationIds: [] }];
+		const target = URI.joinPath(this.projectRoot, '.ade', 'criteria.json');
+		await this.fileService.createFile(target, VSBuffer.fromString(JSON.stringify(criteria, null, '\t') + '\n'), { overwrite: false });
+		if (version !== this.documentVersion) { throw new Error(localize('ade.pure.stale', "The project changed while preparing the feature.")); }
+		this.replaceDocument(model); this.showDiagram(model.views[0].id);
+	}
+
+	/** Missing fields are computed per target and never written as a generation-ready flag. */
+	readiness(targetId: string, profile?: GenerationProfile) {
+		if (!profile && this.model.version === 4) { try { profile = modelProjectProfile(this.model).profile; } catch { /* Incomplete or mixed runtime remains a structural draft. */ } }
+		return getModelReadiness(this.model, targetId, profile);
+	}
+
+	/** Shared initial packet compiler; callers supply a registered, trusted adapter profile. */
+	prepareContext(request: ModelContextRequest) { return compileModelContext(this.model, request); }
+
+	/** Explicit user action on the native undo stack; opening a legacy document never upgrades it. */
+	upgradeToV4(): void {
+		if (!this.editable || !this.document || this.model.version === 4) { return; }
+		this.replaceDocument(migrateSemanticModelToV4(this.model, generateUuid));
+	}
+
+	private replaceDocument(next: object): void {
+		if (!this.document) { return; }
+		const text = this.document.textEditorModel;
+		text.pushStackElement();
+		text.pushEditOperations([], [{ range: text.getFullModelRange(), text: JSON.stringify(next, null, '\t') + '\n' }], () => null);
+		text.pushStackElement();
+	}
+
 	/** Every visual edit is one transaction in the native text model's undo stack. */
 	edit(edit: VisualEdit): void {
 		this.editBatch([edit]);
@@ -328,10 +390,7 @@ export class AdeProjectService extends Disposable {
 	editBatch(edits: readonly VisualEdit[]): void {
 		if (!this.editable || !this.document) { return; }
 		const next = edits.reduce((model, edit) => applyVisualEdit(model, edit), this.model);
-		const text = this.document.textEditorModel;
-		text.pushStackElement();
-		text.pushEditOperations([], [{ range: text.getFullModelRange(), text: JSON.stringify(next, null, '\t') + '\n' }], () => null);
-		text.pushStackElement();
+		this.replaceDocument(next);
 	}
 
 	async undo(): Promise<void> { await this.document?.textEditorModel.undo(); }
@@ -396,7 +455,7 @@ export class AdeProjectService extends Disposable {
 			return !this.error;
 		}
 		if (!await this.prepareToReplace()) { return false; }
-		const model = { version: 3, id: generateUuid(), name, semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
+		const model = { version: 4, foundation: emptyFoundation(), id: generateUuid(), name, semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
 		await this.fileService.createFolder(directory);
 		await this.fileService.createFile(resource, VSBuffer.fromString(JSON.stringify(model, null, '\t') + '\n'), { overwrite: false });
 		this._section = 'diagram';
@@ -420,8 +479,11 @@ export class AdeProjectService extends Disposable {
 
 	private readDocument(document: IResolvedTextFileEditorModel): void {
 		try {
-			const result = migrateSemanticModel(JSON.parse(document.textEditorModel.getValue()));
+			const value = JSON.parse(document.textEditorModel.getValue());
+			const draft = value?.version === 4 ? readSemanticDraft(value) : undefined;
+			const result = draft ? { model: draft, diagnostics: validateSemanticModel(draft) } : migrateSemanticModel(value);
 			this.semantics.replace(result.model);
+			this._hasStructuralErrors = result.diagnostics.some(item => item.severity === 'error');
 			this.context = normalizeDiagramContext(result.model, this.context);
 			if ((this.section === 'element' || this.section === 'impact') && !result.model.semantics.elements.some(element => element.id === this.inspectionId)) {
 				this._section = 'diagram';

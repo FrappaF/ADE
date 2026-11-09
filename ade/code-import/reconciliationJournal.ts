@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile, readdir, lstat, writeFile, rename, rm, chmod } from 'node:fs/promises';
 import { join, dirname, basename } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { managed, active, activate, atomicJson, snapshotId } from './projectStore.ts';
+import { managed, active, activate, atomicJson, snapshotId, assertNoInterruptedStructuralPublication } from './projectStore.ts';
 import { sourceFile, type SourceMutation } from './sourceChanges.ts';
 import { readSnapshot, type ImportSnapshot } from './snapshot.ts';
 import { object, text, digest, array } from './schemas.ts';
@@ -56,6 +56,7 @@ export async function operationHistory(root: string): Promise<ReconciliationOper
 
 /** An interrupted transaction blocks all further publications until explicit recovery. */
 export async function assertNoInterruptedOperation(root: string): Promise<void> {
+	await assertNoInterruptedStructuralPublication(root);
 	if ((await operationHistory(root)).some(item => item.status === 'reconciling' || item.status === 'undoing')) { throw new Error('Interrupted reconciliation requires recovery before Sync or implementation'); }
 }
 

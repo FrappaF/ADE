@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { renderAdeInteractionSequence } from './adeInteractionSequence.js';
 import { localize } from '../../../../nls.js';
 import { ModelView, SemanticModel } from '../common/semanticModel.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
@@ -11,6 +12,7 @@ import { elementLabels, relationLabels } from './adeLabels.js';
 
 /** Measured message rows keep labels apart; geometry never changes semantic or manual-layout data. */
 export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, view: ModelView, controls: AdeControls, selectedId: string, select: (id: string) => void, context?: { selectRelation?(id: string): void; selectedRelation?: string; element(target: HTMLElement, id: string): void; relation(target: HTMLElement | SVGElement, id: string): void }): { width: number; height: number } {
+	if (model.version === 4 && view.interactionId && model.foundation.interactions.some(entry => entry.id === view.interactionId)) { canvas.classList.add('ade-sequence'); return renderAdeInteractionSequence(canvas, model, view.interactionId, controls, select); }
 	const sequence = getSequenceDiagram(model, view);
 	canvas.classList.add('ade-sequence');
 	const svg = canvas.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');

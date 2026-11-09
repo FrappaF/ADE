@@ -1,0 +1,13 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+
+# Handoff DAI-12 · Chiusura dei gap I5
+
+Scheda §10, 9 novembre 2026. Il [verbale](dai-12.md), la [matrice per criterio](release-review.json) e la [guida locale](local-testing.md) sono l'autorità corrente; gli sprint precedenti conservano le evidenze storiche. Branch `feat/m6-dai-validation`, incrementi DAI-01–12 pubblicati insieme per prove locali. Nessuna accettazione I5 implicita nel push.
+
+1. **Requisiti/comportamento:** 24 osservazioni del corpus su 60 passate, 36 senza adapter esatto. Implementare gli scenari mancanti mantenendo gli attesi congelati; non sostituire le osservazioni complete con fixture più strette. Tutte le accettazioni R01–R16 restano aperte.
+2. **Riuso:** stesso modello v4, archetipi Node ESM 5/Bun ESM 1, task sigillati, coda opt-in, documento/undo, indice derivato, lock e journal comune. Usare `ade:dai:verify` e i runner esistenti; non creare un percorso parallelo di pubblicazione o attestazione.
+3. **Decisioni:** dati/DB non diventano supportati tramite copia checkpoint/ledger; persistenza dello stock e idempotenza della richiesta checkout richiedono un progetto eseguibile completo. Risolvere esplicitamente l'ordine commit/entry dei casi di stato prima di dichiararne l'equivalenza. ADR Node-only rimangono vincolanti.
+4. **Scope/preservazione:** conservare ID, PIM, criteri, layout, regioni custom e operazioni fisiche. Scope e freshness bloccano la pubblicazione dopo edit concorrenti. La correzione `ade:setup` forza `ci` soltanto nel preinstaller degli header; mantenere il test del clone pulito.
+5. **Contesto/budget:** budget/corpus originali invariati. Recall 9/9 o 10/10 e risparmio strutturale sono misure locali; non dimostrano sufficienza dell'intero corpus. `not-executed`, usage/prezzi null e assenza di prove desktop restano visibili. Non ridurre le soglie dopo un fallimento.
+6. **Attesi/negativi:** distinguere suite, casi interni dei runner, osservazioni del corpus, simulazione, broker reale, tentativi CLI e desktop. La CLI autenticata non ha restituito una risposta valida nel tentativo DAI-12; nessun retry/escalation. Una workflow presente non certifica una CI riuscita: collegare i risultati al commit effettivo.
+7. **Esecuzione/recupero:** completare build e due percorsi desktop, screen reader e piattaforme pertinenti; usare i blocchi concreti registrati nel verbale per riprendere. Verificare report/hash e gate di release prima di passare a M7. Pubblicare file o undo non migra servizi vivi, non riavvolge dati e non garantisce exactly-once.

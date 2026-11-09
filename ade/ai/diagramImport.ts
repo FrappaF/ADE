@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { measureContextPayload } from '../../src/vs/workbench/contrib/ade/common/contextTransport.ts';
 import { arrangeDiagram } from '../../src/vs/workbench/contrib/ade/common/diagramLayout.ts';
 import { randomUUID } from 'node:crypto';
 import { readFile, lstat } from 'node:fs/promises';
@@ -292,8 +293,14 @@ function expandCoverage(wire: CompactInterpretation, units: Unit[], previous: Di
 	return { ...result, diagrams, omissions };
 }
 
+/** Legacy interpretation cannot discard v4 identities, provenance or ownership. */
+function assertLegacyDiagramModel(previous: ImportSnapshot, next: CodeImport): void {
+	if ([previous.model, previous.commonModel, next.model].some(model => model.version === 4)) { throw new Error('A v4 diagram adapter is required; legacy interpretation cannot rewrite this model'); }
+}
+
 /** Preparation is local. Approving this manifest authorizes a bounded multi-call job, not repository upload. */
 export async function prepareDiagramImport(previous: ImportSnapshot, next: CodeImport, configValue: unknown, resume?: string, clarification = '', signal?: AbortSignal, planned = true): Promise<DiagramImportJob> {
+	assertLegacyDiagramModel(previous, next);
 	const config = readProviderConfig(configValue);
 	if (next.analysis.semanticInvalidated) { throw new Error('Refresh stale semantic indexes before building diagrams'); }
 	assertManualIdentities(previous, next);
@@ -461,6 +468,7 @@ function completedResults(job: DiagramImportJob): DiagramInterpretation[] {
 
 /** Approval is tied to the exact proposal and source/model revisions, and makes no provider request. */
 export async function approveDiagramPlan(job: DiagramImportJob, previous: ImportSnapshot, next: CodeImport, reviewId: string, signal?: AbortSignal): Promise<void> {
+	assertLegacyDiagramModel(previous, next);
 	const { units } = await inventory(next, signal);
 	if (job.status !== 'plan' || !job.plan || reviewId !== review(job) || !job.config.maxCalls) { throw new Error('Review the current diagram plan before approving it'); }
 	if (previous.inputHash !== job.snapshotHash || next.revision !== job.sourceRevision || contentHash(JSON.stringify(units)) !== job.inventoryHash || await active(job.root) !== basename(previous.directory)) { throw new Error('Model or source changed since the diagram proposal'); }
@@ -484,7 +492,7 @@ async function advancePlannedDiagram(job: DiagramImportJob, previous: ImportSnap
 	const schema = object({ ...properties, ...(rule ? { connections: { ...array(object({ kind: { type: 'string', enum: rule.relations }, from: { type: 'string', enum: references }, to: { type: 'string', enum: references }, name: short, evidence: { ...array(disclosed.length ? { type: 'string', enum: disclosed } : reference), minItems: 1, maxItems: 12 }, details: { anyOf: [relationDetailsSchema, { type: 'null' }] } })), maxItems: disclosed.length ? 6 : 0 } } : {}) });
 	const context = { step: 'diagram', format: 'planned-v1', diagram: item, notationRule: notationRules[item.kind], index, overview: index === 0, graph: { elements: choices.elements, relations: choices.relations.map(({ key, kind, from, to, name, condition }) => ({ key, kind, from, to, name, condition })) }, evidence: packDiagramEvidence(evidenceUnits.slice(0, 12)), omittedEvidenceUnits: Math.max(0, evidenceUnits.length - 12), clarification: job.clarification, previousValidation: job.feedback };
 	const prompt = diagramViewInstruction + '\n' + JSON.stringify(context);
-	const inputBytes = Buffer.byteLength(prompt) + Buffer.byteLength(JSON.stringify(schema));
+	const { totalBytes: inputBytes } = measureContextPayload(prompt, schema);
 	if (inputBytes > inputLimit(job.config)) { throw new Error('Diagram view context exceeds the configured budget; increase it before preparing this project'); }
 	const validate = new Ajv2020().compile<{ questions: string[]; nodes: string[]; relations: string[]; connections?: DiagramConnection[] }>(schema);
 	job.status = 'running'; job.calls++; await save(job);
@@ -553,6 +561,7 @@ async function acceptPlannedView(job: DiagramImportJob, previous: ImportSnapshot
 
 /** One explicit budgeted step. Completed batches are checkpointed and never regenerated on resume. */
 export async function advanceDiagramImport(job: DiagramImportJob, previous: ImportSnapshot, next: CodeImport, approvedReview: string, signal?: AbortSignal, provider: StructuredProvider = createCliProvider()): Promise<{ job: DiagramImportJob; model?: SemanticModel }> {
+	assertLegacyDiagramModel(previous, next);
 	if (job.config.maxCalls === 0 || job.status === 'complete') { throw new Error('Diagram generation is not enabled for this job'); }
 	const { units } = await inventory(next, signal);
 	if (units.length !== job.unitCount || previous.inputHash !== job.snapshotHash || next.revision !== job.sourceRevision || contentHash(JSON.stringify(units)) !== job.inventoryHash || await active(job.root) !== basename(previous.directory)) { throw new Error('Model or source changed during diagram interpretation'); }
@@ -599,7 +608,7 @@ export async function advanceDiagramImport(job: DiagramImportJob, previous: Impo
 	const schema = { ...object({ ...interpretationProperties, ...(job.strategy === 'planned-v1' ? { notation: notationSchema, plan: { ...diagramPlanSchema, minItems: job.singlePass || overview ? 1 : 0 }, diagrams: { ...interpretationProperties.diagrams, maxItems: 0 } } : {}), elements: { ...array(object({ ...elementProperties, symbol: indexed.length ? { type: 'string', enum: indexed } : reference })), maxItems: indexed.length ? 64 : 0 }, overview: overviewSchema, concepts: { ...array(object({ ...conceptProperties, source: { type: 'string', enum: refs } })), maxItems: 60 }, relations: { ...array(object({ key, kind: { type: 'string', enum: relationKinds }, from: reference, to: reference, name: short, condition: { anyOf: [short, { type: 'null' }] }, evidence: { ...array({ type: 'string', enum: [...new Set([...refs, ...neighbors.map(unit => unit.ref)])] }), minItems: 1, maxItems: 12 }, classification: { type: 'string', enum: ['inferred'] } })), maxItems: 100 }, coverage: coverageSchema(refs) }), $defs: { coverageTarget } };
 	const validateWire = new Ajv2020().compile<CompactInterpretation>(schema);
 	const prompt = (job.strategy === 'planned-v1' ? planningInstruction : diagramImportInstruction) + '\n' + JSON.stringify(context);
-	const inputBytes = Buffer.byteLength(prompt) + Buffer.byteLength(JSON.stringify(schema));
+	const { totalBytes: inputBytes } = measureContextPayload(prompt, schema);
 	if (inputBytes > inputLimit(job.config)) { throw new Error('Semantic context exceeds the configured budget; increase it before preparing this project'); }
 	job.status = 'running'; job.calls++; await save(job);
 	try {

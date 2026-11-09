@@ -8,7 +8,7 @@ import { IQuickInputService } from '../../../../platform/quickinput/common/quick
 import { ElementDetails, RelationDetails, SemanticElement, SemanticRelation } from '../common/semanticModel.js';
 
 /** Dialogs edit a detached declaration; Cancel never commits a partial member. */
-export async function editAdeElementNotation(quick: IQuickInputService, element: SemanticElement): Promise<ElementDetails | undefined> {
+export async function editAdeElementNotation(quick: IQuickInputService, element: SemanticElement, version: 2 | 3 | 4 = 3): Promise<ElementDetails | undefined> {
 	const details = structuredClone(element.details ?? { technology: '', environment: '', members: [] });
 	const choice = await quick.pick([
 		{ label: localize('ade.notation.technology', "Technology"), kind: 'technology' as const },
@@ -36,9 +36,11 @@ export async function editAdeElementNotation(quick: IQuickInputService, element:
 	if (type === undefined) { return; }
 	const key = kind.value === 'method' ? { value: 'none' as const } : await quick.pick([{ label: localize('ade.notation.noKey', "No Key"), value: 'none' as const }, { label: localize('ade.notation.pk', "Primary Key"), value: 'primary' as const }, { label: localize('ade.notation.fk', "Foreign Key"), value: 'foreign' as const }, { label: localize('ade.notation.unique', "Unique Key"), value: 'unique' as const }], { title: localize('ade.notation.keyKind', "Key Kind") });
 	if (!key) { return; }
-	const required = await quick.pick([{ label: localize('ade.notation.required', "Required / Not Null"), value: true }, { label: localize('ade.notation.optional', "Optional / Nullable"), value: false }], { title: localize('ade.notation.nullability', "Nullability") });
+	const required = await quick.pick([{ label: version === 4 ? localize('ade.blueprint.requiredField', "Required") : localize('ade.notation.required', "Required / Not Null"), value: true }, { label: version === 4 ? localize('ade.blueprint.optionalField', "Optional") : localize('ade.notation.optional', "Optional / Nullable"), value: false }], { title: version === 4 ? localize('ade.blueprint.presence', "Field Presence") : localize('ade.notation.nullability', "Nullability") });
 	if (!required) { return; }
-	const member = { name, type, kind: kind.value, key: key.value, required: required.value };
+	const nullability = version === 4 ? await quick.pick([{ label: localize('ade.blueprint.notNull', "Non-null Value"), value: false }, { label: localize('ade.blueprint.null', "Null Allowed"), value: true }], { title: localize('ade.blueprint.nullable', "Nullability (Independent of Presence)") }) : undefined;
+	if (version === 4 && !nullability) { return; }
+	const member = { ...(existing?.id ? { id: existing.id } : {}), ...(existing?.typeId && existing.type === type ? { typeId: existing.typeId } : {}), ...(nullability ? { nullable: { state: 'known' as const, value: nullability.value } } : existing?.nullable ? { nullable: existing.nullable } : {}), name, type, kind: kind.value, key: key.value, required: required.value };
 	if (choice.kind === 'existing') { details.members[choice.index] = member; } else { details.members.push(member); }
 	return details;
 }

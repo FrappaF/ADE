@@ -1,0 +1,1152 @@
+{
+	"version": 1,
+	"sprint": "DAI-10",
+	"status": "passed-with-declared-first-profile-scope",
+	"recordedAt": "2026-11-09T14:51:22Z",
+	"timezone": "Europe/Rome",
+	"branch": "work",
+	"head": "05c3a0f05c6e0c369a0e47001359f58542c2eea8",
+	"runtime": "v24.22.1",
+	"uniquePassingTests": 719,
+	"counting": "271 domain (full 270 plus final affected 14 with 13 overlaps), 107 AI/project, 169 code-import, 154 scripted native and 18 Chromium. Reruns and 34 internal production-runner cases are not added.",
+	"suites": {
+		"domainFull": {
+			"summary": {
+				"tests": 270,
+				"suites": 0,
+				"pass": 270,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 40528.089499
+			},
+			"outputSha256": "f285bfc3b79c807dc690021a19217facb9032c2215043f8e818ec9e371e35cee"
+		},
+		"domainFinalAffected": {
+			"summary": {
+				"tests": 14,
+				"suites": 0,
+				"pass": 14,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 372.330307
+			},
+			"outputSha256": "049d9dc692416696b7726208d26af804fe0b976fca53d274cd19ac796a27bf66"
+		},
+		"aiFull": {
+			"summary": {
+				"tests": 107,
+				"suites": 0,
+				"pass": 107,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 208884.153034
+			},
+			"outputSha256": "f6d8fbc42993045a38950b91dd9988b0f571dad81de63f274f3061b3d453bc32"
+		},
+		"aiFinalAffected": {
+			"summary": {
+				"tests": 5,
+				"suites": 0,
+				"pass": 5,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 6822.082367
+			},
+			"outputSha256": "3cc1fedde721aa03db6ce0a68236d933c7e1e593ea2f882c171285776d5bc28a"
+		},
+		"codeImport": {
+			"summary": {
+				"tests": 169,
+				"suites": 0,
+				"pass": 169,
+				"fail": 0,
+				"cancelled": 0,
+				"skipped": 0,
+				"todo": 0,
+				"duration_ms": 120511.880388
+			},
+			"outputSha256": "b11b86b01fcc973ed274a850749f27cc1eb57f41fb9fe7c788e29763b9b231a7"
+		},
+		"native": {
+			"stats": {
+				"suites": 9,
+				"tests": 154,
+				"passes": 154,
+				"pending": 0,
+				"failures": 0,
+				"start": "2026-11-09T14:54:13.116Z",
+				"end": "2026-11-09T14:54:14.164Z",
+				"duration": 1048
+			},
+			"outputSha256": "39e3769aef3e32020af5d9b05881a746f8203a41d8b702c80c7a71892e44fcf9",
+			"cases": [
+				{
+					"title": "A.D.E native AI orchestration primary Codex chat uses the connected CLI account without model setup",
+					"duration": 8
+				},
+				{
+					"title": "A.D.E native AI orchestration native Codex chat opens in the chat pane and focuses input",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E native AI orchestration transient CLI account errors do not start another login",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration diagram generation uses a separate model, reviews its full budget and opens the published model",
+					"duration": 7
+				},
+				{
+					"title": "A.D.E native AI orchestration the diagram proposal is reviewed separately before per-view steps",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration declining the proposal keeps it reviewable and resume does not analyze sources again",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration zero-budget diagram generation prepares scope without inference",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration first diagram generation asks for a model once and skips coding setup",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration cancelling first model selection leaves the codebase available without inference",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration first setup still requires disclosure approval before inference",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration Codex reuses the same terminal until exit and exposes a route back to diagrams",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration native chat reopens its conversation and attaches only the current model",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration failed diagram generation keeps actionable progress for resume",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration manual model edits clear stale completion messages",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration constructing the visual service does not request inference",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration bidirectional Sync reviews selected context and returns one proposal without applying source changes",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration Sync generates diagrams when the design is index, even with no code changes",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration Sync generates diagrams when the design is legacyIndex, even with no code changes",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration Sync generates diagrams when the design is emptyViews, even with no code changes",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration zero-call Sync budget prepares context without making an inference request",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration Update Code prepares all affected files even when more than 20 are suggested",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration an authenticated CLI is recognized without native account login or inference",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration logout blocks inference and a later external login is recognized on refresh",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration unknown CLI status is reported as an error instead of asking for a new login",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration project operations block concurrent AI commands until released",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration session prerequisites are explained for review, apply, undo and recovery",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration zero budget prepares local context without requiring a CLI or making an AI request",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration one-run budget reports that the plan is ready without silently stopping before generation",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration a login that exits before terminal focus still refreshes the CLI account",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration model selection decodes the native Codex account ID and saves an explicit request budget",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration a model ID cannot be saved as the CLI executable",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration an invalid saved executable can use installed Codex while preserving both model settings",
+					"duration": 54
+				},
+				{
+					"title": "A.D.E native AI orchestration cancelling executable repair keeps settings and starts no inference",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration executable repair accepts a validated custom path without changing the model",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration Codex uses native ChatGPT sign-in when ready and the official CLI login otherwise",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration Claude login runs its original CLI in the integrated terminal",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E native AI orchestration native flow suggests files from model evidence and gates application on passing verification",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E native AI orchestration disabling AI prevents CLI launches and inference requests",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration concurrent commands cannot start a second workflow while workspace trust is pending",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration an explicitly selected Codex executable owns its login even when another native SDK is ready",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration missing Codex shows installation and PATH instructions before any sign-in attempt",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration missing Claude shows its official installation instructions",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration Open AI CLI reports a missing executable instead of opening a broken terminal",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E native AI orchestration CLI sign-in uses the resolved executable and confirms where to finish login",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration an already signed-in native account gives feedback without requesting another login",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E native AI orchestration native login reports progress, browser handoff and success without a late timeout",
+					"duration": 4
+				},
+				{
+					"title": "A.D.E native AI orchestration an unanswered native login explains the timeout and offers an explicit CLI fallback",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration native login failures are shown and stop waiting for a response",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration lookup and terminal launch failures are reported instead of rejecting silently",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E native AI orchestration v4 first project uses deterministic structural worker with review, verification, apply and undo",
+					"duration": 11
+				},
+				{
+					"title": "A.D.E native AI orchestration aligned v4 target uses no inference, proposal or review editor",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E native AI orchestration v4 reverse resumes the same structural review and recovery without provider setup",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration v4 publication cancellation keeps the reviewed changes unapplied",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E native AI orchestration semantic changes immediately mark a reviewed pure target for a new review",
+					"duration": 6
+				},
+				{
+					"title": "A.D.E native AI orchestration native state simulation reads authored criteria and explains phases with zero provider requests",
+					"duration": 51
+				},
+				{
+					"title": "A.D.E native AI orchestration continuous preparation is off by default and coalesces native semantic edits without provider setup",
+					"duration": 18
+				},
+				{
+					"title": "A.D.E native AI orchestration continuous budget exhaustion blocks new jobs and resume does not refill the saved budget",
+					"duration": 8
+				},
+				{
+					"title": "A.D.E native AI orchestration continuous preparation ignores layout, blocks incomplete specifications and pauses on project replacement",
+					"duration": 8
+				},
+				{
+					"title": "A.D.E native AI orchestration stale structural review cannot execute verification or publication through direct methods",
+					"duration": 6
+				},
+				{
+					"title": "A.D.E native AI orchestration normal review returns to the diagram; technical packets remain an explicit secondary action",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E native AI orchestration worker freshness rejection invalidates frontend publication and exposes a resolvable issue",
+					"duration": 6
+				},
+				{
+					"title": "A.D.E guided blueprint editing canceling after a detached operation edit leaves all definitions untouched",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E guided blueprint editing renaming an operation uses its existing stable identity",
+					"duration": 4
+				},
+				{
+					"title": "A.D.E guided blueprint editing guided field editing keeps optional presence separate from non-null values",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E guided blueprint editing C4 scope editing preserves subject identity, existing coordinates and foreign context",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E guided blueprint editing decision status changes create one tracked revision and preserve reasons",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E guided blueprint editing feature membership editing keeps ownership and shared identity unchanged",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E task intent and guided properties checkout task and clarification use native text fields, preserve identity and record a new intent revision",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E task intent and guided properties canceling the answer leaves the previous task, layout and behavior unchanged",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E task intent and guided properties async topology gets its own scoped task without copying operation definitions",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E task intent and guided properties properties vary by semantic level and diagnostics route directly to typed editors",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E task intent and guided properties accessible reading retains authored clarifications, unknown reasons and provenance",
+					"duration": 6
+				},
+				{
+					"title": "A.D.E project context a new workspace restores its project and resolves imported snapshots to the source root",
+					"duration": 22
+				},
+				{
+					"title": "A.D.E project context native workspace changes replace the active project and empty folders clear the old model",
+					"duration": 11
+				},
+				{
+					"title": "A.D.E project context cancelled folder switch keeps unsaved work and retry saves before opening the new folder",
+					"duration": 25
+				},
+				{
+					"title": "A.D.E project context copied workspace state cannot restore a project belonging to a different folder",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E project context an existing project is opened only after confirmation, without overwriting its model",
+					"duration": 4
+				},
+				{
+					"title": "A.D.E project context opens the active imported snapshot from a code project folder and rejects pointer traversal",
+					"duration": 7
+				},
+				{
+					"title": "A.D.E project context restores diagram and independent selections after a workspace restart",
+					"duration": 9
+				},
+				{
+					"title": "A.D.E project context migrates M1 selection and recovers from invalid saved presentation state",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E project context migrates the M2.1 branch profile and gives newer presentation keys precedence",
+					"duration": 9
+				},
+				{
+					"title": "A.D.E project context ignores malformed branch profile data while preserving current selections",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E project context system map is a restored history destination and never overwrites per-diagram selections",
+					"duration": 10
+				},
+				{
+					"title": "A.D.E project context invalid documents expose diagnostics and retry recovers without writing the source",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E project context a superseded asynchronous load cannot overwrite a newer document or the demo",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E project context switching documents resets selections even when their diagram identities coincide",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E project context choosing the demo releases navigation from a pending workspace restore",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E project context creates an empty project without overwrites, and records feature creation as one native undo transaction",
+					"duration": 9
+				},
+				{
+					"title": "A.D.E project context visual edits upgrade v2 only on mutation, save and reopen preserve semantic identity and layout",
+					"duration": 15
+				},
+				{
+					"title": "A.D.E project context contract editing shares identity across details and diagrams with native undo, redo and persistence",
+					"duration": 15
+				},
+				{
+					"title": "A.D.E project context sequence order and shared messages use native undo, save, restart and context repair",
+					"duration": 21
+				},
+				{
+					"title": "A.D.E project context resource state views share transitions and persist native history and repaired selection",
+					"duration": 19
+				},
+				{
+					"title": "A.D.E project context resource creation and its state diagram are atomic when a later batch edit is invalid",
+					"duration": 4
+				},
+				{
+					"title": "A.D.E project context impact is a read-only navigation destination that restores through history, save copy and restart",
+					"duration": 14
+				},
+				{
+					"title": "A.D.E project context changing documents clears impact even when identities coincide and failed loads do not expose the old report",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E project context independent project files with overlapping IDs retain their own topology and inspector context",
+					"duration": 12
+				},
+				{
+					"title": "A.D.E project context empty projects create independent resource lifecycles with native undo and round-trip persistence",
+					"duration": 7
+				},
+				{
+					"title": "A.D.E project context saving a copy preserves diagram and selections across source revert and workspace restart",
+					"duration": 13
+				},
+				{
+					"title": "A.D.E project context a completed save copy cannot reopen a project superseded during file IO",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E project context semantic exploration reaches unplaced contracts and restores exact perspectives without dirtying the model",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E project context inspector context survives save copy and restart while history remains local to the new document",
+					"duration": 11
+				},
+				{
+					"title": "A.D.E project context deleting inspected identities repairs context and opening another file clears navigation history",
+					"duration": 9
+				},
+				{
+					"title": "A.D.E project context correlated watcher reloads clean inspectors, preserves dirty edits and is released when leaving the document",
+					"duration": 12
+				},
+				{
+					"title": "A.D.E project context watcher recovers a failed new-file open without reusing selections from the previous document",
+					"duration": 7
+				},
+				{
+					"title": "A.D.E project context cancelled document replacement preserves dirty edits; discard restores the original file",
+					"duration": 10
+				},
+				{
+					"title": "A.D.E project context v4 upgrade is explicit, recoverable through native undo, and stable after save/reopen",
+					"duration": 13
+				},
+				{
+					"title": "A.D.E project context referentially invalid v4 drafts remain editable, saveable and recoverable without allocating new IDs",
+					"duration": 14
+				},
+				{
+					"title": "A.D.E project context blueprint operations and ADR revisions round-trip in one native undo transaction",
+					"duration": 24
+				},
+				{
+					"title": "A.D.E project context a required interface draft saves, reopens and can be repaired with undo",
+					"duration": 10
+				},
+				{
+					"title": "A.D.E project context pure predicates save, undo and reopen through the native document without replacing stable IDs",
+					"duration": 8
+				},
+				{
+					"title": "A.D.E project context structural context preview is local, leaves document bytes unchanged and hides stale data",
+					"duration": 37
+				},
+				{
+					"title": "A.D.E project context an unsupported future document cannot be saved through the semantic editor",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E project context first pure feature is created from an empty project with independent criteria and native undo",
+					"duration": 9
+				},
+				{
+					"title": "A.D.E project context pure starter never replaces an existing specification",
+					"duration": 4
+				},
+				{
+					"title": "A.D.E project context executable interaction edits preserve hierarchy, save, reopen and participate in native undo/redo",
+					"duration": 22
+				},
+				{
+					"title": "A.D.E project context flat machine edits save/reopen with native undo/redo and stale revision protection",
+					"duration": 27
+				},
+				{
+					"title": "A.D.E project context messaging topology saves/reopens and uses native undo/redo with stale policy protection",
+					"duration": 21
+				},
+				{
+					"title": "A.D.E project context task clarification uses native undo/redo, survives save/reopen, and seals the current intent in preview",
+					"duration": 24
+				},
+				{
+					"title": "A.D.E executable interaction editing canceling inside a child operand leaves the complete hierarchy untouched",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E executable interaction editing editing an optional guard retains frame/message identities and saves one atomic command",
+					"duration": 8
+				},
+				{
+					"title": "A.D.E executable interaction editing moving an alternative before its result is defined blocks saving and preserves the source model",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E executable interaction editing canceling authored independent expectations cannot create an inferred oracle",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E executable interaction editing accessible reading exposes semantic operands, ref contract, timeout and required replies",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E executable interaction editing native typed controls author an independent checkout case without executing the generator",
+					"duration": 8
+				},
+				{
+					"title": "A.D.E executable state editing canceling a nested transition leaves all definitions untouched",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E executable state editing native transition edit preserves stable IDs, uses explicit policy and one undo transaction",
+					"duration": 9
+				},
+				{
+					"title": "A.D.E executable state editing creating a flat lifecycle and state uses native typed fields with an atomic batch",
+					"duration": 10
+				},
+				{
+					"title": "A.D.E executable state editing canceled independent state criteria do not create generated oracles",
+					"duration": 8
+				},
+				{
+					"title": "A.D.E executable state editing native controls author independent state outcomes and ordered phases before simulation",
+					"duration": 15
+				},
+				{
+					"title": "A.D.E executable state editing accessible reading and simulation describe policy, order and exact failures",
+					"duration": 18
+				},
+				{
+					"title": "A.D.E messaging native editing nested cancel preserves contracts, policies and source model",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E messaging native editing explicit retry edit is an atomic detached batch with stable subscription identity",
+					"duration": 9
+				},
+				{
+					"title": "A.D.E messaging native editing native binding explicitly chooses publish direction and preserves occurrence identity",
+					"duration": 6
+				},
+				{
+					"title": "A.D.E messaging native editing canceled criteria authoring never mutates an independent oracle",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E messaging native editing native controls author independent empty-consumer observation without running the generator",
+					"duration": 2
+				},
+				{
+					"title": "A.D.E messaging native editing typed native publisher collects record fields and declared correlation/routing keys",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E messaging native editing accessible diagram includes logical channels, explicit directions and all subscription policies",
+					"duration": 5
+				},
+				{
+					"title": "A.D.E pure predicate editing canceling a detached reset preserves the original authored graph",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E pure predicate editing editing phase preserves predicate and node identities with an atomic semantic edit",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E pure predicate editing typed literal choices are native items with validated safe integer values",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E pure predicate editing the builder rejects a scalar root rather than saving a non-boolean guard",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E accessible content shared blueprint contracts and applicable decision reasons remain available to Read Element",
+					"duration": 3
+				},
+				{
+					"title": "A.D.E accessible content reads diagram identities, both payment outcomes and the current selection without inferring execution",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E accessible content distinguishes additional relationships of a shared selection from relationships drawn in the view",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E accessible content loading, invalid documents and Home never expose the previous diagram as current",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E accessible content a source index reads as evidence awaiting AI interpretation, not as completed diagrams",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E accessible content empty feature diagrams keep their owner and reading never mutates the model",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E accessible content selected behavior, source evidence and save errors reflect the supplied document",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E accessible content element details read unplaced contracts without inventing a diagram",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E accessible content sequence reading preserves participant and message order and identifies unsupported relationships",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E accessible content state reading names resource ownership and events while preserving historical context",
+					"duration": 1
+				},
+				{
+					"title": "A.D.E accessible content impact reading explains reverse reasons and recorded revisions without stale diagrams or current verification claims",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E accessible content help distinguishes read-only navigation from editing and uses resolvable command keybindings",
+					"duration": 0
+				},
+				{
+					"title": "A.D.E accessible content system map reads hierarchy, unplaced elements and all relationship conditions without a stale diagram",
+					"duration": 1
+				}
+			]
+		},
+		"chromium": {
+			"tests": [
+				{
+					"title": "A.D.E messaging renderer broker aggregation retains channels/policies and keyboard access to consumers",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E messaging renderer hostile channel labels remain text and explicit subscription policies remain accessible",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable state renderer native state table preserves semantic order, keyboard focus and model",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable state renderer hostile state labels are rendered as text and policy is accessible",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable sequence renderer nested frames and operands render in semantic order with measured, focusable labels",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E executable sequence renderer hostile labels remain text; accessible and visible rows describe the same policies",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer semantic drill-down is an explicit keyboard-focusable button and leaves geometry untouched",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer shared signatures retain optional versus nullable text and actionable contract references",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer external dependencies expose their context boundary without an internal drill-down",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E blueprint details renderer ADR reasons, structured constraints and historical reasons are inspectable",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer exact packet is a focusable native disclosure with explicit unavailable cost and zero inference",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer predicate rendering and accessible reading derive the same authored expression without mutation",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E structural context renderer source descriptions are text and cannot introduce markup or actions",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E visual structural review real verification and reviewed publication are distinct, with disabled stale publication",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E visual structural review keyboard focus and disclosure expansion survive a review update",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E visual structural review hostile names/output remain text and technical details are secondary",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E visual structural review busy review disables all actions; outcomes and coverage are conveyed in text",
+					"state": "passed"
+				},
+				{
+					"title": "A.D.E visual structural review failed real checks remain visible and publication stays blocked",
+					"state": "passed"
+				}
+			],
+			"errors": [],
+			"passed": 18,
+			"failed": 0
+		}
+	},
+	"newDomainOutput": "✔ DAI10 intent survives persistence; clarification advances revision and preserves the complete previous intent (38.993801ms)\n✔ DAI10 stale clarification, retargeting and incomplete intent fail without mutating the model (9.727516ms)\n✔ DAI10 duplicate intent revisions and missing targets are explicit model diagnostics (2.87402ms)\n✔ DAI10 selection/layout/formatting do not change the semantic revision used for preparation (8.625666ms)\n✔ DAI10 opt-in off starts no jobs and invalid budgets cannot enable preparation (1.925892ms)\n✔ DAI10 rapid edits coalesce into the latest frozen revision with a durable reservation first (1.244986ms)\n✔ DAI10 obsolete completion is discarded even when the adapter ignores cancellation (1.013627ms)\n✔ DAI10 an incomplete draft cancels a valid revision and starts no replacement (0.832284ms)\n✔ DAI10 exhausted budget blocks further work before adapter execution; resume retains consumption (0.78966ms)\n✔ DAI10 stop cancels running work and discards results; explicit resume can retry (0.984093ms)\n✔ DAI10 failure is visible and does not retry on repeated presentation events (1.007809ms)\n✔ DAI10 aligned target repeats cause no proposals and no additional preparations (0.520885ms)\n✔ DAI10 replacing project policy cannot accept a previous project result (0.645262ms)\n✔ DAI10 an invalid current document cancels preparation even when its last parsed semantic revision is unchanged (0.509908ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 372.330307\n",
+	"newProjectOutput": "✔ DAI10 checkout: authored clarification enters sealed context; real checks/publication/undo use the shared protocol (2005.938049ms)\n✔ DAI10 async messaging: authored clarification enters sealed context; real checks/publication/undo use the shared protocol (1888.810367ms)\n✔ DAI10 a smaller preventive input budget blocks before worktree creation without truncation (54.641461ms)\n✔ DAI10 cancelled preparation exits before any adapter files or worktree are written (2.667455ms)\n✔ DAI10 changed clarification after real checks invalidates publication and preserves physical source (716.168988ms)\nℹ tests 5\nℹ suites 0\nℹ pass 5\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 6822.082367\n",
+	"typechecks": {
+		"packages": [
+			"ade/ai",
+			"ade/code-import",
+			"ade/messaging"
+		],
+		"result": "passed",
+		"workbench": {
+			"roots": 20,
+			"diagnostics": []
+		},
+		"note": "Diagnostics selected for 20 changed production/test workbench roots using repository compiler options; not a full-client build."
+	},
+	"generatedRuntimeChecks": {
+		"interaction": "passed",
+		"state": "passed",
+		"messaging": "passed"
+	},
+	"productionBundle": {
+		"report": "ade/docs/benchmarks/dai-10-project-2026-11-09.json",
+		"compilerCopies": 1,
+		"continuityObserved": {
+			"coalesced": 2,
+			"prepared": 1,
+			"reservedAttempts": 1,
+			"providerCalls": 0,
+			"automaticPublications": 0
+		},
+		"packetBytes": 51629,
+		"packetSealVerified": true,
+		"contextP95Ms": 13.851464999999735,
+		"generatedCases": 17,
+		"independentCases": 17
+	},
+	"browserVariants": {
+		"variants": [
+			{
+				"theme": "light",
+				"width": 320,
+				"scrollWidth": 320,
+				"buttons": [
+					{
+						"text": "Run Real Verification",
+						"disabled": false
+					},
+					{
+						"text": "Publish Verified Model and Code",
+						"disabled": false
+					},
+					{
+						"text": "Undo Publication",
+						"disabled": true
+					},
+					{
+						"text": "Technical Preview and Differences",
+						"disabled": false
+					},
+					{
+						"text": "Return to Diagram Selection",
+						"disabled": false
+					}
+				],
+				"status": "Real Verification Passed · Ready for Reviewed Publication",
+				"color": "rgb(32, 32, 32)",
+				"background": "rgb(255, 255, 255)"
+			},
+			{
+				"theme": "light",
+				"width": 1000,
+				"scrollWidth": 1000,
+				"buttons": [
+					{
+						"text": "Run Real Verification",
+						"disabled": false
+					},
+					{
+						"text": "Publish Verified Model and Code",
+						"disabled": false
+					},
+					{
+						"text": "Undo Publication",
+						"disabled": true
+					},
+					{
+						"text": "Technical Preview and Differences",
+						"disabled": false
+					},
+					{
+						"text": "Return to Diagram Selection",
+						"disabled": false
+					}
+				],
+				"status": "Real Verification Passed · Ready for Reviewed Publication",
+				"color": "rgb(32, 32, 32)",
+				"background": "rgb(255, 255, 255)"
+			},
+			{
+				"theme": "dark",
+				"width": 320,
+				"scrollWidth": 320,
+				"buttons": [
+					{
+						"text": "Run Real Verification",
+						"disabled": false
+					},
+					{
+						"text": "Publish Verified Model and Code",
+						"disabled": false
+					},
+					{
+						"text": "Undo Publication",
+						"disabled": true
+					},
+					{
+						"text": "Technical Preview and Differences",
+						"disabled": false
+					},
+					{
+						"text": "Return to Diagram Selection",
+						"disabled": false
+					}
+				],
+				"status": "Real Verification Passed · Ready for Reviewed Publication",
+				"color": "rgb(204, 204, 204)",
+				"background": "rgb(31, 31, 31)"
+			},
+			{
+				"theme": "dark",
+				"width": 1000,
+				"scrollWidth": 1000,
+				"buttons": [
+					{
+						"text": "Run Real Verification",
+						"disabled": false
+					},
+					{
+						"text": "Publish Verified Model and Code",
+						"disabled": false
+					},
+					{
+						"text": "Undo Publication",
+						"disabled": true
+					},
+					{
+						"text": "Technical Preview and Differences",
+						"disabled": false
+					},
+					{
+						"text": "Return to Diagram Selection",
+						"disabled": false
+					}
+				],
+				"status": "Real Verification Passed · Ready for Reviewed Publication",
+				"color": "rgb(204, 204, 204)",
+				"background": "rgb(31, 31, 31)"
+			},
+			{
+				"theme": "high-contrast",
+				"width": 320,
+				"scrollWidth": 320,
+				"buttons": [
+					{
+						"text": "Run Real Verification",
+						"disabled": false
+					},
+					{
+						"text": "Publish Verified Model and Code",
+						"disabled": false
+					},
+					{
+						"text": "Undo Publication",
+						"disabled": true
+					},
+					{
+						"text": "Technical Preview and Differences",
+						"disabled": false
+					},
+					{
+						"text": "Return to Diagram Selection",
+						"disabled": false
+					}
+				],
+				"status": "Real Verification Passed · Ready for Reviewed Publication",
+				"color": "rgb(255, 255, 255)",
+				"background": "rgb(0, 0, 0)"
+			},
+			{
+				"theme": "high-contrast",
+				"width": 1000,
+				"scrollWidth": 1000,
+				"buttons": [
+					{
+						"text": "Run Real Verification",
+						"disabled": false
+					},
+					{
+						"text": "Publish Verified Model and Code",
+						"disabled": false
+					},
+					{
+						"text": "Undo Publication",
+						"disabled": true
+					},
+					{
+						"text": "Technical Preview and Differences",
+						"disabled": false
+					},
+					{
+						"text": "Return to Diagram Selection",
+						"disabled": false
+					}
+				],
+				"status": "Real Verification Passed · Ready for Reviewed Publication",
+				"color": "rgb(255, 255, 255)",
+				"background": "rgb(0, 0, 0)"
+			}
+		],
+		"keyboard": {
+			"actions": [
+				"verify",
+				"apply",
+				"technical"
+			],
+			"disabledSkipped": true
+		},
+		"css": "production ade.css",
+		"desktop": false
+	},
+	"baseline": {
+		"report": "ade/docs/benchmarks/dai-10-2026-11-09.json",
+		"peakRssMiB": 144.6953125,
+		"largeEvidenceOnlyBytes": 284875,
+		"largeEvidenceWithinInputBudget": false
+	},
+	"temporaryHarnesses": {
+		"native": {
+			"sha256": "822bf3e319faeb35e89eb24a8d4979e8f5a2c4feddb5e2a039b30604804f3988",
+			"source": "import { registerHooks } from 'node:module';\nimport { readFileSync, existsSync } from 'node:fs';\nimport { fileURLToPath, pathToFileURL } from 'node:url';\nimport { resolve } from 'node:path';\nimport ts from '/workspace/ADE/ade/ai/node_modules/typescript/lib/typescript.js';\nconst root='/workspace/ADE', src=pathToFileURL(root+'/src/').href, decorator=pathToFileURL(root+'/src/vs/platform/instantiation/common/instantiation.ts').href;\nconst tokens=new Map([[pathToFileURL(root+'/src/vs/workbench/contrib/chat/browser/chat.ts').href,['IChatWidgetService','chatWidgetService']],[pathToFileURL(root+'/src/vs/workbench/contrib/terminal/browser/terminal.ts').href,['ITerminalService','terminalService','ITerminalGroupService','terminalGroupService']]]);\nregisterHooks({resolve(specifier,context,next){if(specifier==='sinon'){return next('file:///tmp/ade-dai10-native/node_modules/sinon/pkg/sinon-esm.js',context);} if(specifier.endsWith('.js')&&context.parentURL?.startsWith(src)){const candidate=new URL(specifier.slice(0,-3)+'.ts',context.parentURL);if(existsSync(fileURLToPath(candidate))){return next(candidate.href,context);}}return next(specifier,context);},load(url,context,next){if(tokens.has(url)){const t=tokens.get(url);return{format:'module',shortCircuit:true,source:`import {createDecorator} from ${JSON.stringify(decorator)};${Array.from({length:t.length/2},(_,i)=>`export const ${t[i*2]}=createDecorator(${JSON.stringify(t[i*2+1])});`).join('')} ${url.endsWith('/chat.ts')?\"export const ChatViewPaneTarget=Symbol('chat');\":''}`};}if(url.endsWith('.css')){return{format:'module',source:'export {};',shortCircuit:true};}if(url.startsWith(src)&&url.endsWith('.ts')){return{format:'module',shortCircuit:true,source:ts.transpileModule(readFileSync(fileURLToPath(url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2024,module:ts.ModuleKind.ESNext,experimentalDecorators:true,useDefineForClassFields:false}}).outputText};}return next(url,context);}});\nconst {default:Mocha}=await import('/tmp/ade-dai10-native/node_modules/mocha/index.js');const mocha=new Mocha({ui:'tdd',reporter:'json',timeout:30000});mocha.suite.emit('pre-require',globalThis,'native',mocha);for(const file of process.argv.slice(2)){await import(pathToFileURL(resolve(root,file)).href);}mocha.run(f=>{process.exitCode=f?1:0;});\n"
+		},
+		"browser": {
+			"sha256": "190399d8ee04bc56b46eb37b2643adaa781a19a64b0364aa18ab0af11cfe8693",
+			"source": "import { build } from '/tmp/ade-dai10-native/node_modules/esbuild/lib/main.js';\nimport { chromium } from '/tmp/ade-dai10-native/node_modules/playwright/index.mjs';\nimport { readFile,writeFile } from 'node:fs/promises';\nimport http from 'node:http';\nconst root='/workspace/ADE', base='/tmp/ade-dai10-native/node_modules';\nawait writeFile('/tmp/dai10-process.js',`import process from '${base}/process/browser.js';export {process};`);\nconst files=['adeMessagingRenderer','adeStateRenderer','adeInteractionSequence','adeBlueprintDetails','adeTaskPreview','adeStructuralReview'];\nconst preview=`import {renderAdeMessaging} from '${root}/src/vs/workbench/contrib/ade/browser/adeMessaging.ts';import {messagingFixture} from '${root}/src/vs/workbench/contrib/ade/test/common/messagingFixture.ts';globalThis.showMessagingPreview=()=>{const controls=new AdeControls();document.body.textContent='';renderAdeMessaging(document.body,messagingFixture,'checkout.messaging',controls,()=>{});return ()=>controls.dispose();};import {renderAdeState} from '${root}/src/vs/workbench/contrib/ade/browser/adeState.ts';import {AdeControls} from '${root}/src/vs/workbench/contrib/ade/browser/adeControls.ts';import {stateFixture} from '${root}/src/vs/workbench/contrib/ade/test/common/stateFixture.ts';globalThis.showStatePreview=()=>{const controls=new AdeControls();document.body.textContent='';renderAdeState(document.body,stateFixture,stateFixture.views[0],controls,()=>{},()=>{});return ()=>controls.dispose();};`;\nconst reviewPreview=`import {renderStructuralReview} from '${root}/src/vs/workbench/contrib/ade/browser/adeStructuralReview.ts';import {nodeOrdersFixture} from '${root}/src/vs/workbench/contrib/ade/test/common/nodeOrdersFixture.ts';globalThis.showReviewPreview=()=>{document.body.textContent='';const host=document.createElement('main');host.className='ade-shell';document.body.appendChild(host);const controls=new AdeControls();globalThis.reviewActions=[];renderStructuralReview(host,nodeOrdersFixture,{direction:'forward',status:'passed',mutations:[{file:'src/orders/quantity.mjs',before:null,after:{content:'',mode:420}}],verification:{generated:8,independent:8,output:'16 tests passed. Business boundary: zero quantity rejected.'}},controls,{busy:false,canVerify:true,canApply:true,canUndo:false,verify:()=>reviewActions.push('verify'),apply:()=>reviewActions.push('apply'),undo:()=>reviewActions.push('undo'),technical:()=>reviewActions.push('technical'),returnToDiagram:()=>reviewActions.push('return')});return()=>controls.dispose();};`;\nconst entry=preview+reviewPreview+files.map(name=>`import '${root}/src/vs/workbench/contrib/ade/test/browser/${name}.test.ts';`).join('\\n');\nawait build({stdin:{contents:entry,resolveDir:root},outfile:'/tmp/dai10-browser.js',bundle:true,format:'iife',platform:'browser',target:'chrome154',alias:{assert:base+'/assert/build/assert.js',process:base+'/process/browser.js'},inject:['/tmp/dai10-process.js'],tsconfigRaw:{compilerOptions:{experimentalDecorators:true,useDefineForClassFields:false}},loader:{'.css':'empty'}});\nconst html=`<!doctype html><html><head><meta charset=\"utf-8\"><style>body{color:#ccc;background:#1f1f1f;font:14px sans-serif}.ade-state-summary p{margin:16px;padding:8px;border-bottom:1px solid #444}button{background:#333;color:inherit;padding:8px;border:1px solid #666}button:focus-visible{outline:2px solid #54aaff}</style></head><body><div id=\"mocha\"></div><script src=\"/mocha.js\"></script><script>mocha.setup({ui:'tdd',timeout:15000});</script><script src=\"/tests.js\"></script><script>window.results=[];window.finished=false;mocha.run().on('test end',t=>window.results.push({title:t.fullTitle(),state:t.state,error:t.err?.message})).on('end',()=>window.finished=true);</script></body></html>`;\nconst server=http.createServer(async(req,res)=>{try{res.end(req.url==='/mocha.js'?await readFile(base+'/mocha/mocha.js'):req.url==='/tests.js'?await readFile('/tmp/dai10-browser.js'):html);}catch{res.statusCode=500;res.end('error');}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));\nconst browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});try{const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.finished,{timeout:60000});const tests=await page.evaluate(()=>window.results);const result={tests,errors,passed:tests.filter(t=>t.state==='passed').length,failed:tests.filter(t=>t.state!=='passed').length};await writeFile('/tmp/dai10-browser-results.json',JSON.stringify(result,null,2));console.log(result);await page.addStyleTag({content:await readFile(root+'/src/vs/workbench/contrib/ade/browser/media/ade.css','utf8')});\nawait page.addStyleTag({content:':root{--vscode-fontSize-body1:13px;--vscode-fontSize-heading2:18px;--vscode-fontWeight-regular:400;--vscode-fontWeight-semiBold:600;--vscode-strokeThickness:1px;--vscode-spacing-size80:8px;--vscode-spacing-size120:12px;--vscode-cornerRadius-small:4px;--vscode-cornerRadius-medium:6px;--vscode-cornerRadius-large:8px}body{margin:0}'});\nawait page.evaluate(()=>{window.disposePreview=window.showReviewPreview();});\nconst themes=[{name:'light',fg:'#202020',bg:'#ffffff',button:'#e8e8e8',focus:'#005fcc',contrast:'#737373'},{name:'dark',fg:'#cccccc',bg:'#1f1f1f',button:'#333333',focus:'#54aaff',contrast:'#777777'},{name:'high-contrast',fg:'#ffffff',bg:'#000000',button:'#000000',focus:'#ffff00',contrast:'#ffffff'}];const variants=[];\nfor(const theme of themes){for(const width of [320,1000]){await page.setViewportSize({width,height:900});await page.evaluate(t=>{for(const [name,value] of Object.entries({'foreground':t.fg,'editor-foreground':t.fg,'editor-background':t.bg,'button-secondaryForeground':t.fg,'button-secondaryBackground':t.button,'button-secondaryHoverBackground':t.button,'focusBorder':t.focus,'contrastBorder':t.contrast,'disabledForeground':t.contrast})){document.documentElement.style.setProperty('--vscode-'+name,value);}},theme);const bounds=await page.evaluate(()=>({width:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,buttons:[...document.querySelectorAll('button')].map(b=>({text:b.textContent,disabled:b.disabled})),status:document.querySelector('[role=status]')?.textContent,color:getComputedStyle(document.querySelector('.ade-structural-review')).color,background:getComputedStyle(document.querySelector('.ade-structural-review')).backgroundColor}));if(bounds.scrollWidth>width)throw Error('Review overflows '+theme.name+' '+width);if(!bounds.status.includes('Real Verification Passed'))throw Error('Missing textual status');variants.push({theme:theme.name,width,...bounds});await page.screenshot({path:'/tmp/dai10-review-'+theme.name+'-'+width+'.png',fullPage:true});}}\nawait page.locator('button').filter({hasText:'Run Real Verification'}).focus();await page.keyboard.press('Enter');await page.keyboard.press('Tab');const focused=await page.evaluate(()=>document.activeElement.textContent);if(focused!=='Publish Verified Model and Code')throw Error('Unexpected keyboard order: '+focused);await page.keyboard.press('Enter');await page.keyboard.press('Tab');if(await page.evaluate(()=>document.activeElement.textContent)!=='Technical Preview and Differences')throw Error('Disabled undo is not skipped');await page.keyboard.press('Enter');const actions=await page.evaluate(()=>window.reviewActions);if(JSON.stringify(actions)!==JSON.stringify(['verify','apply','technical']))throw Error('Keyboard actions failed');\nawait writeFile('/tmp/dai10-browser-variants.json',JSON.stringify({variants,keyboard:{actions,disabledSkipped:true},css:'production ade.css',desktop:false},null,2));await page.evaluate(()=>window.disposePreview());if(errors.length||result.failed||tests.length!==18)process.exitCode=1;}finally{await browser.close();server.close();}\n"
+		},
+		"workbenchTypes": {
+			"sha256": "57eb7697c1238ca1bc75c3551eac019965028d4fdb19afe630e321b077d4cd39",
+			"source": "import ts from '/workspace/ADE/ade/ai/node_modules/typescript/lib/typescript.js';\nimport {writeFileSync} from 'node:fs';\nconst root='/workspace/ADE', names=process.argv.slice(2), config=ts.readConfigFile(root+'/src/tsconfig.json',ts.sys.readFile), parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,root+'/src');\nparsed.options.types=['node','mocha','sinon'];\nparsed.options.typeRoots=[root+'/ade/ai/node_modules/@types','/tmp/ade-dai10-native/node_modules/@types'];\nconst program=ts.createProgram([...parsed.fileNames.filter(n=>n.endsWith('.d.ts')),...names.map(n=>root+'/'+n)],parsed.options),diagnostics=[];\nfor(const name of names){const f=program.getSourceFile(root+'/'+name);if(!f)throw new Error('Missing '+name);diagnostics.push(...program.getSyntacticDiagnostics(f),...program.getSemanticDiagnostics(f));}\nconsole.log(ts.formatDiagnosticsWithColorAndContext(diagnostics,{getCurrentDirectory:()=>root,getCanonicalFileName:n=>n,getNewLine:()=> '\\n'}));writeFileSync('/tmp/dai10-typecheck.json',JSON.stringify({roots:names.length,diagnostics:diagnostics.map(d=>({file:d.file?.fileName,message:ts.flattenDiagnosticMessageText(d.messageText,'\\n'),code:d.code}))},null,2));process.exitCode=diagnostics.length?1:0;\n"
+		},
+		"production": {
+			"sha256": "d9fe65f115a9b3fb255b5bf1b7294a938e44be159d9c26f66a5760c931b9a93e",
+			"source": "import assert from 'node:assert/strict';\nimport { readFile, writeFile, mkdir, mkdtemp, rm, copyFile, rename, chmod } from 'node:fs/promises';\nimport { join } from 'node:path';\nimport { createHash } from 'node:crypto';\nimport { build } from '/tmp/ade-dai10-native/node_modules/esbuild/lib/main.js';\nimport '/workspace/ADE/ade/scripts/source-loader.mjs';\nimport { checkoutMessaging, messagingCriteria } from '/workspace/ADE/ade/test/fixtures/dai-messaging.mjs';\nconst sourceRoot='/workspace/ADE', buildRoot=await mkdtemp('/tmp/ade-dai10-bundle-'), root=await mkdtemp('/tmp/ade-dai10-protocol-');\nconst hash=b=>createHash('sha256').update(b).digest('hex');\ntry {\n const result=await build({entryPoints:[join(sourceRoot,'ade/code-import/nativeHost.ts')],outfile:join(buildRoot,'engine.mjs'),bundle:true,platform:'node',format:'esm',target:'node24',metafile:true,banner:{js:\"import { createRequire as adeCreateRequire } from 'node:module'; import { fileURLToPath as adeFileURLToPath } from 'node:url'; import { dirname as adeDirname } from 'node:path'; const require = adeCreateRequire(import.meta.url); const __filename = adeFileURLToPath(import.meta.url); const __dirname = adeDirname(__filename);\"}});\n const compilers=Object.keys(result.metafile.inputs).filter(x=>x.endsWith('typescript/lib/typescript.js')); assert.equal(compilers.length,1);\n await copyFile(join(sourceRoot,'ade/code-import/node_modules/legacy-tree-sitter/tree-sitter.js'),join(buildRoot,'legacy-runtime.cjs'));\n const {engine}=await import(join(buildRoot,'engine.mjs'));\n const call=async request=>JSON.parse(await engine.execute(JSON.stringify({operation:'collaboration',request:JSON.stringify(request)})));\n const {applyVisualEdit}=await import('/workspace/ADE/src/vs/workbench/contrib/ade/common/visualEditing.ts');\n const model=applyVisualEdit(checkoutMessaging,{kind:'taskIntent',entry:{id:'task.messaging',target:{kind:'messaging',id:checkoutMessaging.foundation.messaging[0].id},revision:'intent.2',text:'Preserve async delivery business rules',clarifications:[{question:'Acknowledge before persistence?',answer:'No'}],history:[]}});\n await mkdir(join(root,'.ade')); await writeFile(join(root,'.ade/model.json'),JSON.stringify(model,null,'\\t')+'\\n'); await writeFile(join(root,'.ade/criteria.json'),JSON.stringify(messagingCriteria));\n const {ModelContinuity}=await import('/workspace/ADE/src/vs/workbench/contrib/ade/common/modelContinuity.ts');\n const accepted=[], reservations=[], queue=new ModelContinuity(result=>accepted.push(result),policy=>{if(policy)reservations.push({...policy});},60000);\n const start=performance.now();let prepared;\n try { queue.configure({version:1,revision:'native-budget.1',root,maxPreparations:2,attempted:0,maxInputBytes:196608,outputReserveBytes:65536,review:'manual',providerCalls:0});queue.update('obsolete',true,async()=>{throw Error('obsolete preparation must coalesce');});queue.update('current',true,async(signal,policy)=>{signal.throwIfAborted();assert.equal(reservations.at(-1).attempted,1);return call({operation:'structuralPrepare',root,direction:'forward',maxInputBytes:policy.maxInputBytes});});await queue.flush();assert.equal(accepted.length,1);assert.equal(queue.state,'review');prepared=accepted[0]; } finally { queue.dispose(); }\n const preparationMs=performance.now()-start, continuityObserved={coalesced:2,prepared:accepted.length,reservedAttempts:reservations.at(-1).attempted,providerCalls:0,automaticPublications:0};\n async function publish(s){ const c=await call({operation:'structuralVerify',root,id:s.id,reviewId:s.reviewId}); assert.equal(c.status,'passed',c.verification.output); assert.equal((await call({operation:'structuralApply',root,id:s.id,reviewId:s.reviewId})).status,'applied'); return c; }\n const verified=await publish(prepared.session), a=verified.next.artifacts.find(x=>x.messagingId);\n const source=await readFile(join(root,a.file),'utf8'); await writeFile(join(root,a.file),'// custom\\n'+source); await chmod(join(root,a.file),0o640);\n const move=await call({operation:'structuralPrepare',root,direction:'forward',paths:{[a.predicateId]:'src/orders/handler.mjs'}}); await publish(move.session);\n await mkdir(join(root,'src/renamed')); await rename(join(root,'src/orders/handler.mjs'),join(root,'src/renamed/handler.mjs')); await rm(join(root,'.ade/structural/source-index.json'));\n const reversed=await call({operation:'structuralPrepare',root,direction:'reverse'}), checked=await publish(reversed.session), p=checked.packets.find(x=>x.request.target.kind==='messaging');\n assert.deepEqual(JSON.parse(p.packet.bytes).intent,{revision:'intent.2',text:'Preserve async delivery business rules',clarifications:[{question:'Acknowledge before persistence?',answer:'No'}]});\n assert.ok(p.request.sources.some(s=>s.file==='src/renamed/handler.mjs')); assert.equal(p.packet.seal,hash(p.packet.bytes)); assert.equal(p.packet.byteLength,Buffer.byteLength(p.packet.bytes));\n const aligned=await call({operation:'structuralPrepare',root,direction:'reverse'}); assert.deepEqual(aligned,{status:'aligned',calls:0});\n const {prepareStructuralSourceContext}=await import('/workspace/ADE/ade/ai/structuralContext.ts');\n for(let i=0;i<3;i++) await prepareStructuralSourceContext(root,checked.next.model,p.request);\n const samples=[]; for(let i=0;i<30;i++){const start=performance.now(); await prepareStructuralSourceContext(root,checked.next.model,p.request); samples.push(performance.now()-start);} const sorted=[...samples].sort((a,b)=>a-b), p95Ms=sorted[Math.ceil(samples.length*.95)-1];\n const undo=await call({operation:'structuralUndo',root,id:checked.id,reviewId:checked.reviewId}); assert.equal(undo.status,'undone');\n const report={version:1,kind:'DAI-10-real-native-bundle',recordedAt:new Date().toISOString(),timezone:'Europe/Rome',runtime:process.version,productionCompilerCopies:compilers,preparationMs,continuityObserved,preparationMeaning:'Git, filesystem, index, derived checks and staging; separate from context compiler budget',verification:verified.verification,moveVerification:move.session.id,reverseVerification:checked.verification,aligned,undo:undo.status,packet:p,contextCompiler:{warmups:3,samples,p95Ms,limitMs:500,withinBudget:p95Ms<=500},provider:{calls:0,usage:null,price:null},scope:'Production-config nativeHost bundle and actual outer collaboration protocol; real Git/worktree/Node. No desktop or live broker test.',sourceHashes:Object.fromEntries(await Promise.all(['ade/ai/structuralProject.ts','ade/ai/structuralSourceIndex.ts','ade/code-import/typescriptRuntime.ts','ade/code-import/typescriptSemantic.ts','ade/code-import/nativeHost.ts','src/vs/workbench/contrib/ade/common/modelProject.ts','src/vs/workbench/contrib/ade/common/modelWorkflow.ts','src/vs/workbench/contrib/ade/common/modelContinuity.ts','src/vs/workbench/contrib/ade/common/semanticModel.ts'].map(async file=>[file,hash(await readFile(join(sourceRoot,file)))])))};\n await writeFile(join(sourceRoot,'ade/docs/benchmarks/dai-10-project-2026-11-09.json'),JSON.stringify(report,null,'\\t')+'\\n',{flag:'wx'}); console.log(JSON.stringify({status:'passed',generated:verified.verification.generated,independent:verified.verification.independent,packetBytes:p.packet.byteLength,p95Ms,compilerCopies:compilers.length}));\n} finally { await rm(buildRoot,{recursive:true,force:true}); await rm(root,{recursive:true,force:true}); }\n"
+		}
+	},
+	"tools": {
+		"node": "24.22.1",
+		"typescript": "6.0.2",
+		"esbuild": "0.25.12",
+		"mocha": "11.7.5",
+		"sinon": "21.0.0",
+		"playwright": "1.56.1",
+		"assert": "2.1.0",
+		"chromium": "Chromium 154.0.8037.57 built on Debian GNU/Linux 13 (trixie)"
+	},
+	"provider": {
+		"calls": 0,
+		"usage": null,
+		"price": null
+	},
+	"limits": [
+		"First declared Node ESM profile only; R01-R16 remain open.",
+		"Native tests inject QuickInput/service and in-memory document boundaries; they execute production ADE code, not a complete desktop.",
+		"Chromium renderer/keyboard/theme/viewport checks use production CSS; not an Electron workbench or screen-reader session.",
+		"Project runner tests emitted behavior and independent data; custom code and live broker are outside that runner. Live broker was unchanged and not rerun in DAI-10.",
+		"Recovery coverage uses persisted-state injections; no power-loss certification.",
+		"No live provider, automatic publication, data migration, second archetype or full-client build.",
+		"Late cancellation can leave a bounded staged worktree; it is never automatically published."
+	],
+	"sourceHashes": {
+		"ade/ai/engine.ts": "159b6d2edb233eff0b9012d835b0f70b2a8f374d417bad7989ae6fddd513050d",
+		"ade/ai/structuralProject.ts": "6f80283126955b2fecb5f928e5fd691be4a74b5e6b80687f599b0d2117261467",
+		"ade/ai/structuralSourceIndex.ts": "ddd9311cc596f7761dcbc1a274a871a4619ad7e73094bb6dedf48b41fda6f737",
+		"ade/ai/structuralContext.ts": "329786fd4533c2de1f3f503ad530eebd3e7e49b523e655bb4261a0e7ecf2ac4a",
+		"ade/ai/test/workflow-project.test.mjs": "8271a78044a085d95c5fbe1354476e3d64022ee201713b73ca1f393ccd035cfe",
+		"ade/ai/test/roundtrip-project.test.mjs": "21e4ed38729ee1be578c90f72dafed8183f0187398e02dd52e4652a09514b4d4",
+		"ade/code-import/nativeHost.ts": "87da00dc7029b7665beced7657d634570361ab7413defe010eb128d279c3efda",
+		"ade/code-import/reconciliationJournal.ts": "45ffa7e0e0f69cc63eafc01949935c6776ec666a08fe26c32d64df53b23cd595",
+		"ade/code-import/sourceChanges.ts": "cea3ef8684d3bd88dcd282015d8957d7120e258c43eabdc204580c41ce648e61",
+		"ade/code-import/typescriptRuntime.ts": "e1706d893d7ea6561934d02105ea67df660506fc336878d654a69d9d1828d54b",
+		"ade/test/dai-workflow.test.mjs": "d29627adea8bef398b00f4314e92b04dc60441942220d6bb6f9a0158aad21aca",
+		"ade/test/dai-baseline.test.mjs": "c2c81107fa387bdee41702370ee53771141dab163c540c7c8a00957cf3bbadb1",
+		"ade/schema/model-v4.schema.json": "c77bd52d3f1bacc3b947126990a6219a10d2e2c5b86610d5c15224984f0a66b3",
+		"README.md": "b861b04d0f32b805cd058b78cebbe7ef6088b5142b0a5c34899c63579c921015",
+		"ade/docs/roadmap.md": "5eab1ea4856ab09f8845eda3833d94dd19d1c30822474ef72dc99defa2a5f9ea",
+		"ade/docs/diagram-driven-ai/coverage.json": "d9406bdcf34301f79d5ed9703597a9c1c989aa4d49161b9ef825e2e265aff5f3",
+		"ade/docs/diagram-driven-ai/dai-10-acceptance.md": "960c9402022f1e784269bcd75ca1b97e7e177e6483b38865ad6328b57930d9ca",
+		"ade/docs/diagram-driven-ai/workflow-v1.md": "0d6075a113f105d46fb872296aa4ead5115f4007770fc4f5af156f97d2445bc4",
+		"ade/docs/diagram-driven-ai/dai-10.md": "d5be1611d41bb420551b1991fc576dd39e9fb94c2d99f824674b3b2bb9af9ab4",
+		"ade/docs/diagram-driven-ai/handoff-dai-11.md": "8dac2f338279d95eed11f86bae969199e87a3a8c1ccff8164045eaf98fa094a2",
+		"ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md": "ae0f2cf5fbd3efa1c6578f2eb15dd0077cf7ac96b4753c5d966739ff12f4e3f8",
+		"src/vs/workbench/contrib/ade/common/modelContinuity.ts": "d71f1b552bab4e10e1df0d95fa9ecddf0341be669b16ee59713af13edb8244b7",
+		"src/vs/workbench/contrib/ade/common/modelWorkflow.ts": "45797812c8d6bec593ebb856eb898dbff8e00062f2c0eef00dcbebfdf47a7483",
+		"src/vs/workbench/contrib/ade/common/semanticModel.ts": "06a57378c0714118ff2acbbea60b07bb4ff5b74693935275684b8ab1e4368688",
+		"src/vs/workbench/contrib/ade/common/visualEditing.ts": "cf12da6e4fcfedcb082d9a687892476594e7e8cf88be117c2292583ede7e2ae3",
+		"src/vs/workbench/contrib/ade/common/modelProject.ts": "fba1c570da6b665f204bdece1703e12df39abb6576aa18a4726a1e71a4b2a7d9",
+		"src/vs/workbench/contrib/ade/common/modelProfiles.ts": "df09e32501c36855723f77ae6972730754a4b083de205642a1d74f56ed95cb0b",
+		"src/vs/workbench/contrib/ade/common/modelTaskContext.ts": "ac13d527702ffb88bb11c9a4c5dc18cddf19699b7a4a67e5b727e519fe90f505",
+		"src/vs/workbench/contrib/ade/browser/adeTaskEditing.ts": "89fbd0f8384618f81d9d6ac056821fd341a452d7cd2cfa11852c275921a5f70d",
+		"src/vs/workbench/contrib/ade/browser/adeStructuralReview.ts": "436c0c21c4022900d258ef58f00cdc4d55c61651051838c8d3426cd7022fec6b",
+		"src/vs/workbench/contrib/ade/browser/adeSpecificationContent.ts": "a250f078dd33c9cfe52bcec51596e001d9b6861c417e0275344c9f3d92bba63d",
+		"src/vs/workbench/contrib/ade/browser/adeBlueprintEditing.ts": "2b55c6c5d884802cb9eb44feab7883cd14aa62172ec138fb10b7c3e099215d84",
+		"src/vs/workbench/contrib/ade/browser/adeBlueprintContent.ts": "e49213352d239c6163d0972da23c9433b275cc4450dea5efcd079c2441c1f32a",
+		"src/vs/workbench/contrib/ade/browser/adeBlueprintDetails.ts": "2dc51ddfa51b2625c30c9cb956cfefebdb45f56521dac1e65af6481b2d36b85a",
+		"src/vs/workbench/contrib/ade/browser/adeAiService.ts": "4d549a679324742c216074f380532c7efa65f55ae0b39dc8a40b2db76619e249",
+		"src/vs/workbench/contrib/ade/browser/adeProjectService.ts": "3e3058d1de666322673387ba7ec19de2582d592211b675a16c20bd6018aa7f21",
+		"src/vs/workbench/contrib/ade/browser/adeDiagnostics.ts": "8eaec8c27ece4ad0aee41994d5d703f7abfdab81b3a23471fe33e4940e5c4a5d",
+		"src/vs/workbench/contrib/ade/browser/adeEditing.ts": "9cd42c74bcac4ca2e56f567041233d783b279c8ec8dfb2f461ffe79c8067245e",
+		"src/vs/workbench/contrib/ade/browser/adeEditor.ts": "c35a4634c803b061e3d2c52e6f8348b502b9b818723c8654d4d11bd8f0487e1e",
+		"src/vs/workbench/contrib/ade/browser/media/ade.css": "017d9dfd131f44ce0432ce9d972de6eeeb0ede4d4fddebaac131c5e578ab6569",
+		"src/vs/workbench/contrib/ade/electron-browser/adeAiService.ts": "df1a02c50e6c61e56beeacc3c955ad66c6ccf53a54666195db4139f2be8702b6",
+		"src/vs/workbench/contrib/ade/test/browser/adeTaskEditing.test.ts": "27248a356d3afe9b60e8c5bb0de7a4e597c9c17cdaca92cb09bd9f46d0372942",
+		"src/vs/workbench/contrib/ade/test/browser/adeStructuralReview.test.ts": "c9afacdada594ead53bcc555d6ba6c9caac7fdfb7d15a1d321423209dd852332",
+		"src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts": "f80e1e038575141faaa629df4a011b0f7640e6b9bb076c9661bf6cb53563cda3",
+		"src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts": "c5dd532efc4d1b77169bc2e799ac96cdb50f2fbafc5b9af588d69ae0fa4a9934"
+	},
+	"commitPushPrDeploy": false,
+	"integrity": {
+		"localMarkdownLinks": 372,
+		"markdownFiles": 51,
+		"linksResolve": true,
+		"legacySchemasUnchanged": true,
+		"frozenBudgetSha256": "127caa0684c0a7ed41e898d2a05553f4080cb210193e5fcef22e98e98797a8fa",
+		"frozenCorpusSha256": "ee1e4395135d29e28b0167f5e58be59a3c57c081d235649263fb9c71aca7ecdb",
+		"reportSourcesCurrent": true,
+		"finalBaselineRerunPassed": true
+	},
+	"commands": [
+		"node --test --test-reporter=tap ade/test/*.test.mjs",
+		"node --test ade/test/dai-workflow.test.mjs",
+		"npm --prefix ade/ai test",
+		"node --test --test-isolation=none ade/ai/test/workflow-project.test.mjs",
+		"npm --prefix ade/code-import test",
+		"node /tmp/dai10-native.mjs src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts src/vs/workbench/contrib/ade/test/browser/adeTaskEditing.test.ts src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts src/vs/workbench/contrib/ade/test/browser/adeInteractionEditing.test.ts src/vs/workbench/contrib/ade/test/browser/adeStateEditing.test.ts src/vs/workbench/contrib/ade/test/browser/adeMessagingEditing.test.ts src/vs/workbench/contrib/ade/test/browser/adePredicateEditing.test.ts src/vs/workbench/contrib/ade/test/browser/adeAccessibleContent.test.ts",
+		"node /tmp/dai10-browser.mjs",
+		"node /tmp/dai10-production.mjs",
+		"node ade/scripts/benchmark-dai.mjs --v4 --output NEW_REPORT.json",
+		"npm --prefix ade/ai run check",
+		"npm --prefix ade/code-import run check",
+		"npm --prefix ade/messaging run check",
+		"node ade/scripts/build-interaction-runtime.mjs --check",
+		"node ade/scripts/build-state-runtime.mjs --check",
+		"node ade/scripts/build-messaging-runtime.mjs --check",
+		"node --test ade/test/dai-baseline.test.mjs",
+		"git diff --check"
+	],
+	"finalBaselineOutput": "✔ DAI coverage assigns every requirement and step without certifying future capabilities (3.637945ms)\n✔ baseline evidence links resolve to files and declared symbols rather than invented APIs (81.08619ms)\n✔ authored corpus covers business, async, recovery and negative inputs with explicit independent observations (2.733602ms)\n✔ fixed benchmark graphs are valid at every declared scale and contain no existing business verification (37.078982ms)\n✔ frozen report binds budget, corpus and exact benchmark fixtures while retaining unmeasured results (24.155308ms)\nℹ tests 5\nℹ suites 0\nℹ pass 5\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 463.908739\n",
+	"temporaryArtifacts": {
+		"installedUnder": "/tmp/ade-dai10-native",
+		"harnesses": "embedded in this report; restore under /tmp and install declared tool versions to reproduce",
+		"persistentDependenciesAdded": false,
+		"cleanup": "Completed: task-prefixed /tmp harnesses, logs, screenshots, installed tools and npm cache removed after embedding evidence. Runtime fixtures/worktrees remove themselves. No persistent dependency added."
+	},
+	"gitDiffCheck": "passed"
+}

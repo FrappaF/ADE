@@ -1,6 +1,6 @@
 # Roadmap A.D.E
 
-Il [piano di attuazione Diagram-Driven AI](diagram-driven-ai-implementation-plan.md) definisce i requisiti R01–R16 e gli step S00–S15. La nuova fase **M6.DAI**, collocata fra M6 e M7, li organizza in dodici sprint con dipendenze, consegne e criteri di completamento. Tutti gli sprint sono da sviluppare; la pianificazione non certifica capacità già disponibili.
+Il [piano di attuazione Diagram-Driven AI](diagram-driven-ai-implementation-plan.md) definisce i requisiti R01–R16 e gli step S00–S15. La nuova fase **M6.DAI**, collocata fra M6 e M7, li organizza in dodici sprint con dipendenze, consegne e criteri di completamento. [DAI-01](diagram-driven-ai/baseline.md) consegna baseline, glossario, copertura, corpus, decisioni e budget con misure locali; [DAI-02](diagram-driven-ai/dai-02.md) consegna v4, migrazioni, readiness e pacchetto iniziale; [DAI-03](diagram-driven-ai/dai-03.md) consegna C4, contratti condivisi e ADR; [DAI-04](diagram-driven-ai/dai-04.md) consegna predicati, profilo e contesto strutturale; [DAI-05](diagram-driven-ai/dai-05.md) consegna il primo progetto puro con review, runner indipendenti e recupero; [DAI-06](diagram-driven-ai/dai-06.md) consegna espressioni complete e frame eseguibili locali; [DAI-07](diagram-driven-ai/dai-07.md) consegna macchine piatte e checkpoint locali; [DAI-08](diagram-driven-ai/dai-08.md) consegna topologie e broker locale; [DAI-09](diagram-driven-ai/dai-09.md) consegna round trip delimitato e operazioni fisiche; [DAI-10](diagram-driven-ai/dai-10.md) consegna percorso visuale/accessibile, chiarimenti versionati e preparazione continua opt-in; [DAI-11](diagram-driven-ai/dai-11.md) consegna secondo runtime Bun con PIM invariato; [DAI-12](diagram-driven-ai/dai-12.md) consegna strumenti e rapporto del collaudo locale; l’accettazione I5 resta aperta secondo la [matrice di uscita](diagram-driven-ai/release-review.json).
 
 La [revisione UX del 6 novembre](ux-ai-workflow.md) semplifica il primo avvio, riusa la chat Codex e rende esplicito il ritorno ai diagrammi, distinguendo revisione, esecuzione e ripresa.
 
@@ -53,7 +53,7 @@ L’editor testuale, il terminale e gli strumenti tecnici restano disponibili pe
 | M4 · Ponte con il codice | Importazione e tracciabilità | M1, M3 | Completato funzionalmente sul perimetro dichiarato: 16 profili, import/Sync nativi, rinomine, evidenze e recupero; verifica Linux e benchmark nel verbale M4 |
 | M5 · Collaborazione IA | Prima feature implementata dal modello | M2, M4 | Criterio funzionale Node/Linux verificato con Codex e account reali: UI, test, riavvio e undo; benchmark su tre campioni (Sol 3/3, Luna 2/3). CI Linux/macOS richiesta per il merge; esiti nella PR #7 |
 | M6 · Riconciliazione | Modello e codice aggiornati in entrambe le direzioni | M4, M5 | Motore IA indipendente dal linguaggio, Sync nativo, revisioni comuni, conflitti, undo/recupero e benchmark disponibili; test su 16 profili e SQL. Smoke Electron Linux passato; benchmark live bloccato da autenticazione, macOS e CI aperti |
-| M6.DAI · Diagram-Driven AI | Specifica eseguibile, contesto IA sufficiente, forward/reverse e percorso visuale su due archetipi | M1–M6 | Pianificato in dodici sprint; requisiti R01–R16 e step S00–S15 da completare |
+| M6.DAI · Diagram-Driven AI | Specifica eseguibile, contesto IA sufficiente, forward/reverse e percorso visuale su due archetipi | M1–M6 | DAI-01–11 consegnati; DAI-12 collaudo locale consegnato, accettazione I5/R01–R16 aperta |
 | M7 · Ambiente dinamico | Esecuzione e diagnostica nel modello | M3, M5, M6, M6.DAI | Da sviluppare |
 | M8 · Beta utilizzabile | Progetto completo sul perimetro supportato | M2–M7, inclusa M6.DAI | Da sviluppare |
 | M9 · Espansione | Altri adattatori, piattaforme e collaborazione | M8 | Da valutare |
@@ -337,7 +337,7 @@ Il motore e il protocollo IA devono essere indipendenti dal linguaggio. La dispo
 
 **Fonte e obiettivo:** attuare integralmente il [piano Diagram-Driven AI](diagram-driven-ai-implementation-plan.md), compresi architettura informativa, requisiti R01–R16, step S00–S15, criteri di maturità, decisioni e contratto di handoff. Il risultato è un modello progettuale tipizzato dal quale derivano viste, contesto IA e trasformazioni verificabili, con un percorso completo nuovo progetto → codice → modifica esterna → riconciliazione.
 
-**Base e stato:** riusare modello, notazioni, importazione, worktree, protocolli compatti e journal di M1–M6. La baseline del piano è `9e0efde8`; il documento è stato integrato in `main` con `15c78215`. All'avvio dello sviluppo la baseline va verificata nuovamente. Tutti gli sprint sotto sono pianificati e nessuno step futuro è dichiarato implementato. Le verifiche M2/M3/M5/M6 ancora aperte restano tracciate nei rispettivi verbali.
+**Base e stato:** riusare modello, notazioni, importazione, worktree, protocolli compatti e journal di M1–M6. La baseline del piano è `9e0efde8`; il documento è stato integrato in `main` con `15c78215`. DAI-01 ha ricontrollato la baseline su `05c3a0f0`, dopo pull fast-forward, e consegnato [inventario, contratto di accettazione e misure](diagram-driven-ai/baseline.md). S00–S09 sono consegnati nei rispettivi perimetri strutturale e di orchestrazione locale; S11/S14/S15 avviati con [DAI-02](diagram-driven-ai/dai-02.md); S12/S13 avviati nel sottoinsieme puro con [DAI-05](diagram-driven-ai/dai-05.md). DAI-06 consegna espressioni e tutti i frame locali con [prove indipendenti](diagram-driven-ai/dai-06.md); DAI-07 consegna macchine piatte e checkpoint locali con [prove indipendenti](diagram-driven-ai/dai-07.md); DAI-08 consegna topologie e policy con [broker reale isolato](diagram-driven-ai/dai-08.md); [DAI-09](diagram-driven-ai/dai-09.md) completa S13 nel primo profilo dichiarato; [DAI-10](diagram-driven-ai/dai-10.md) consegna S14 e continuità S12 del primo profilo con review manuale; [DAI-11](diagram-driven-ai/dai-11.md) consegna S10 sui runtime Node/Bun con PIM invariato; [DAI-12](diagram-driven-ai/dai-12.md) consegna il collaudo locale riproducibile; I5 e tutte le accettazioni R01–R16 restano aperti. Le verifiche M2/M3/M5/M6 ancora aperte restano tracciate nei rispettivi verbali.
 
 **Vincoli architetturali trasversali:** mantenere dominio e validazione in `common/`, senza dipendenze Node/Electron/browser; servizi del workbench per editing/rendering e adattatori/worker per sorgenti, provider e applicazione. Separare logicamente identità/ownership, contratti, comportamenti, decisioni, piattaforma, viste, evidenze/mapping e operazioni/verifiche, partendo da JSON e snapshot esistenti. Introdurre shard o indici ricostruibili solo dopo misure. Il modello governa l'intento accettato; il codice è evidenza dell'implementazione e le divergenze richiedono riconciliazione.
 
@@ -364,6 +364,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 
 ### DAI-01 — Baseline, lessico e contratto di accettazione
 
+**Stato:** consegnato; [baseline e prove](diagram-driven-ai/baseline.md), [matrice R01–R16/S00–S15](diagram-driven-ai/coverage.json), [decisioni](diagram-driven-ai/decisions.md) e [handoff DAI-02](diagram-driven-ai/handoff.md). I casi di business del corpus sono attesi indipendenti, ancora da eseguire attraverso gli adapter dei prossimi sprint.
+
 **Step di lavoro:**
 
 1. **DAI-01.1 / S00:** ricontrollare la revisione di partenza e inventariare capacità presenti, parziali e mancanti, collegando ciascuna a schema, servizio, UI e prova. Risolvere le discrepanze fra README, codice e verbali senza riscrivere M1–M6.
@@ -375,6 +377,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 **Consegna e uscita:** inventario, glossario, matrice R01–R16/S00–S15, corpus e budget revisionati. Ogni requisito ha un percorso di implementazione e verifica; nessuna capacità presente è dichiarata tale senza riferimento. Le soglie di accettazione sono fissate prima dei benchmark finali.
 
 ### DAI-02 — Metamodello, migrazioni e generabilità
+
+**Stato:** consegnato nel perimetro I0; [contratto v4](diagram-driven-ai/schema-v4.md), [prove e limiti](diagram-driven-ai/dai-02.md), [handoff DAI-03](diagram-driven-ai/handoff-dai-03.md). Nessun archetipo produttivo è ancora registrato; S11/S14/S15 proseguono negli sprint previsti.
 
 **Step di lavoro:**
 
@@ -388,6 +392,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 
 ### DAI-03 — C4 L1–L4, contratti e ADR dei progetti
 
+**Stato:** consegnato nel perimetro strutturale; [contratto](diagram-driven-ai/blueprint-v4.md), [prove e limiti](diagram-driven-ai/dai-03.md), [handoff DAI-04](diagram-driven-ai/handoff-dai-04.md). S11/S14/S15 e le accettazioni di release restano aperti.
+
 **Step di lavoro:**
 
 1. **DAI-03.1 / S03:** aggiungere soggetto e scope alle viste C4. L1 dichiara sistema governato, persone, esterni e integrazioni; L2 responsabilità, applicazioni/store, tecnologie PSM, trasporto e payload; L3 owner, componenti e interfacce fornite/richieste. Package e librerie non distribuibili restano moduli con binding espliciti.
@@ -399,6 +405,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 **Consegna e uscita:** checkout navigabile da persona a contratto con gli stessi ID; libreria condivisa senza duplicazioni; componente fuori owner respinto o mostrato come contesto. Provare fornitore non dichiarato, parametro incompatibile, errore non dichiarato, interfaccia richiesta non soddisfatta e firma modificata. Una proposta contraria a un ADR verificabile è respinta; ADR contraddittori bloccano il target. Gli ADR non applicabili restano fuori dal payload.
 
 ### DAI-04 — Espressioni iniziali, primo archetipo e compilatore del contesto
+
+**Stato:** consegnato nel perimetro strutturale; [contratto](diagram-driven-ai/context-v1.md), [prove e limiti](diagram-driven-ai/dai-04.md), [handoff DAI-05](diagram-driven-ai/handoff-dai-05.md). S05/S10 restano parziali per frame/stati/stack futuri; S11 prosegue sulle capacità successive. Il primo progetto produttivo rimane DAI-05.
 
 **Step di lavoro:**
 
@@ -413,6 +421,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 
 ### DAI-05 — Primo progetto e generazione esplicita governata
 
+**Stato:** consegnato nel sottoinsieme di feature a predicati puri; [contratto](diagram-driven-ai/project-v1.md), [prove e limiti](diagram-driven-ai/dai-05.md), [handoff DAI-06](diagram-driven-ai/handoff-dai-06.md). Bootstrap senza importazione, forward/reverse verificabile, oracoli indipendenti e pubblicazione recuperabile sono operativi. Corpi arbitrari di operazioni e costrutti dinamici richiedono gli adapter successivi; S12/S13 e R01–R16 restano aperti sul perimetro completo.
+
 **Step di lavoro:**
 
 1. **DAI-05.1 / S12:** creare il percorso progetto vuoto → PIM → profilo → feature pronta, senza importazione preventiva. Preparare bootstrap del repository, manifest, binding e scheletri deterministici; il piano elenca creazioni, modifiche e cancellazioni previste.
@@ -424,6 +434,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 **Consegna e uscita I2:** generare e modificare una feature dal progetto vuoto, verificarla con criteri indipendenti e ripristinarla. Test fallito, domanda essenziale o revisione cambiata dopo la review bloccano la pubblicazione. Arresto parziale lascia la versione precedente utilizzabile. Target allineato e solo layout producono zero chiamate IA. Le capacità dinamiche non ancora realizzate risultano non supportate, senza generazioni approssimate.
 
 ### DAI-06 — Espressioni complete e sequenze eseguibili
+
+**Stato:** consegnato nel profilo locale Node ESM revisione 3; [contratto](diagram-driven-ai/interactions-v1.md), [prove e limiti](diagram-driven-ai/dai-06.md), [handoff DAI-07](diagram-driven-ai/handoff-dai-07.md). Tutti i frame sono eseguiti con adapter di risposte come dati; broker, DB e codice applicativo arbitrario rimangono fuori dal runner. Prossimo sprint: **DAI-07 · Macchine a stati piatte**.
 
 **Step di lavoro:**
 
@@ -437,6 +449,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 
 ### DAI-07 — Macchine a stati complete nel profilo piatto
 
+**Stato:** consegnato nel profilo locale Node ESM revisione 4: [contratto](diagram-driven-ai/states-v1.md), [prove e limiti](diagram-driven-ai/dai-07.md), [handoff DAI-08](diagram-driven-ai/handoff-dai-08.md). Azioni con risposte JSON e checkpoint salvati dal chiamante; nessuna istanza viva pubblicata dal runner. Prossimo sprint: **DAI-08 · Messaggi, queue/topic e politiche di consegna**.
+
 **Step di lavoro:**
 
 1. **DAI-07.1 / S07:** registrare il profilo piatto con un evento alla volta per istanza; definire owner, iniziale univoco, finali, eventi tipizzati, transizioni, trigger, guardie ed effetti. Distinguere transizioni interne e auto-transizioni, priorità/esclusività, eventi inattesi e persistenza.
@@ -448,6 +462,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 
 ### DAI-08 — Messaggi, queue/topic e politiche di consegna
 
+**Stato:** consegnato nel profilo Node ESM revisione 5 / NATS JetStream 2.11.9 locale: [contratto](diagram-driven-ai/messaging-v1.md), [prove e limiti](diagram-driven-ai/dai-08.md), [handoff DAI-09](diagram-driven-ai/handoff-dai-09.md). Prossimo sprint: **DAI-09 · Reverse e operazioni fisiche**.
+
 **Step di lavoro:**
 
 1. **DAI-08.1 / S08/S09/S10:** registrare broker e capacità scelti, distinguere broker distribuibile, canale logico queue/topic e subscription con owner. Consentire aggregazione L2 mantenendo accesso ai dettagli e direzione publish/subscribe esplicita.
@@ -458,6 +474,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 **Consegna e uscita I3:** checkout con alternative/loop/ref, caso concorrente, macchina a stati e topologia asincrona generati e verificati. Policy mancanti bloccano il target; nessun retry, ordinamento, compensazione o infrastruttura è inferito da un generico nome «Message Bus».
 
 ### DAI-09 — Reverse e operazioni fisiche su tutto il primo profilo
+
+**Stato:** consegnato nel perimetro dichiarato del primo profilo: [matrice e contratto](diagram-driven-ai/roundtrip-v1.md), [prove e limiti](diagram-driven-ai/dai-09.md), [handoff DAI-10](diagram-driven-ai/handoff-dai-10.md). S13 completato per queste proiezioni; reverse arbitrario resta esplicitamente parziale. Prossimo sprint: **DAI-10 · Percorso visuale/accessibile e modalità continua**.
 
 **Step di lavoro:**
 
@@ -471,6 +489,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 
 ### DAI-10 — Percorso visuale/accessibile e modalità continua
 
+**Stato:** consegnato nel primo profilo; [percorso e matrice](diagram-driven-ai/workflow-v1.md), [prove e limiti](diagram-driven-ai/dai-10.md), [handoff DAI-11](diagram-driven-ai/handoff-dai-11.md). Continuità opt-in per sola preparazione locale, budget preventivo e review/pubblicazione manuali; 719 test distinti. Secondo stack, desktop completo e R01–R16 restano aperti. Prossimo sprint: **DAI-11 · Secondo stack con PIM invariato**.
+
 **Step di lavoro:**
 
 1. **DAI-10.1 / S14:** chiudere la matrice vedere/creare/modificare del piano per L1, L2, L3, L4, sequenze, stati, messaggi, ADR e operazioni. Proprietà guidate dal livello/schema espongono owner, maturità, ignoti, vincoli, provenienza e impatto; le diagnostiche aprono il campo pertinente.
@@ -483,6 +503,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 
 ### DAI-11 — Secondo stack con PIM invariato
 
+**Stato:** consegnato nel perimetro Node ESM/Bun ESM; [matrice e contratto](diagram-driven-ai/stacks-v1.md), [prove e limiti](diagram-driven-ai/dai-11.md), [handoff DAI-12](diagram-driven-ai/handoff-dai-12.md). Stesso PIM e criteri di business, runner reali, checkpoint/ledger offline e broker isolato; database e deploy automatico unsupported. Prossimo sprint: **DAI-12 · Benchmark, collaudo finale e chiusura della copertura**.
+
 **Step di lavoro:**
 
 1. **DAI-11.1 / S10:** scegliere e versionare il secondo archetipo con ADR e matrice di capacità per creazione, analisi, forward, reverse, test, stati, frame, asincronia e migrazioni. Implementare binding e runner mancanti; i profili di parsing M4 non certificano queste capacità.
@@ -493,6 +515,8 @@ Gli sprint sono unità di consegna, senza date o durate presunte. La sequenza ma
 **Consegna e uscita:** due stack superano i criteri obbligatori sullo stesso PIM senza ridisegnare attori, scenari o regole. Una capacità obbligatoria assente nel secondo profilo mantiene aperto lo sprint; differenze semantiche non vengono nascoste da firme o output apparentemente equivalenti.
 
 ### DAI-12 — Benchmark, collaudo finale e chiusura della copertura
+
+**Stato:** collaudo locale e rapporto consegnati; [prove e lacune](diagram-driven-ai/dai-12.md), [revisione per Rxx/Sxx](diagram-driven-ai/release-review.json), [prova della branch in locale](diagram-driven-ai/local-testing.md). I5 resta aperto: gli adapter non coprono tutte le osservazioni del corpus congelato; live, desktop/accessibilità e CI della revisione pubblicata richiedono ancora evidenze. Nessuna dichiarazione di completamento al 100%.
 
 **Step di lavoro:**
 
@@ -615,7 +639,7 @@ Ogni milestone deve aggiornare documentazione ed esempi e includere verifiche pr
 
 ## Decisioni da prendere e prossimo incremento
 
-La matrice M4 registra gli stack sintattici e i produttori semantici verificati; ulteriori backend richiedono collaudi propri. Provider IA e politiche di esecuzione e invio dei dati appartengono a M5. Il prossimo incremento del [piano Diagram-Driven AI](diagram-driven-ai-implementation-plan.md) è DAI-01: ricontrollare la baseline, fissare corpus/budget e registrare la decisione sullo schema prima di DAI-02. Prima della beta vanno definiti licenza e distribuzione; M6.DAI fissa e misura gli obiettivi di prestazione del proprio perimetro. Le decisioni architetturali saranno registrate con motivazione e conseguenze.
+La matrice M4 registra gli stack sintattici e i produttori semantici verificati; ulteriori backend richiedono collaudi propri. Provider IA e politiche di esecuzione e invio dei dati appartengono a M5. Il [collaudo DAI-12](diagram-driven-ai/dai-12.md) registra risultati locali e lacune ancora bloccanti del [piano Diagram-Driven AI](diagram-driven-ai-implementation-plan.md) sui [due runtime DAI-11](diagram-driven-ai/stacks-v1.md), dopo il [percorso visuale e la continuità DAI-10](diagram-driven-ai/workflow-v1.md), sul [round trip DAI-09](diagram-driven-ai/roundtrip-v1.md), broker e politiche di [DAI-08](diagram-driven-ai/dai-08.md) e sul [contratto v4](diagram-driven-ai/schema-v4.md) verificato in DAI-02. Prima della beta vanno definiti licenza e distribuzione; M6.DAI fissa e misura gli obiettivi di prestazione del proprio perimetro. Le decisioni architetturali saranno registrate con motivazione e conseguenze.
 
 ## Ordine operativo dei prossimi incrementi
 

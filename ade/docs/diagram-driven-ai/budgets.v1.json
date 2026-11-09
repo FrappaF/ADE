@@ -1,0 +1,50 @@
+{
+	"version": 1,
+	"id": "dai-release-v1",
+	"frozenBeforeMeasurement": true,
+	"reference": {
+		"os": "Linux x64",
+		"node": "24.22.1",
+		"cpu": "AMD EPYC 9V74",
+		"cpuQuota": 2,
+		"memoryLimitMiB": 8192,
+		"portability": "Other hardware is reported separately; no desktop or cross-platform certification from a Node benchmark."
+	},
+	"measurement": { "warmups": 3, "samples": 20, "percentile": 95, "clock": "performance.now", "memory": "process.resourceUsage.maxRSS; process peak, not per-operation allocation" },
+	"graphs": [
+		{ "id": "small", "elements": 64, "relations": 62, "views": 1, "visibleNodes": 63, "editP95Ms": 50, "validationP95Ms": 50, "impactP95Ms": 50, "evidencePackingP95Ms": 25 },
+		{ "id": "medium", "elements": 256, "relations": 254, "views": 1, "visibleNodes": 255, "editP95Ms": 100, "validationP95Ms": 100, "impactP95Ms": 100, "evidencePackingP95Ms": 50 },
+		{ "id": "large", "elements": 1024, "relations": 1022, "views": 1, "visibleNodes": 1023, "editP95Ms": 250, "validationP95Ms": 250, "impactP95Ms": 250, "evidencePackingP95Ms": 100 }
+	],
+	"release": {
+		"processPeakRssMiB": 1024,
+		"desktopInputToPaintP95Ms": 100,
+		"contextPreparationP95Ms": 500,
+		"contextInputMaxBytes": 196608,
+		"responseReserveBytes": 65536,
+		"contextMaxEstimatedTokens": 49152,
+		"tokenEstimate": "ceil(UTF-8 bytes / 4), heuristic only; measured provider usage remains separate",
+		"implementationMaxAgentRuns": 2,
+		"diagramJobMaxAgentRuns": 8,
+		"noOpMaxAgentRuns": 0,
+		"layoutMaxAgentRuns": 0,
+		"automaticRetries": 0,
+		"liveRunsPerCasePerCandidate": 3,
+		"liveCallTimeoutMs": 120000,
+		"maxInputTokensPerCallWhenReported": 131072,
+		"maxOutputTokensPerCallWhenReported": 8192,
+		"monetaryCost": null,
+		"monetaryPolicy": "Unknown until comparable prices and units are available. Subscription quota is not a monetary price; no automatic paid escalation."
+	},
+	"correctness": {
+		"mandatoryScenarioPassRate": 1,
+		"mandatoryNegativeRejectionRate": 1,
+		"requiredDependencyRecall": 1,
+		"unrelatedMutations": 0,
+		"silentEssentialOmissions": 0,
+		"dataLossInRecoveryCases": 0,
+		"contextByteReductionAgainstSameFixture": 0.1,
+		"economyEligibility": "At least 10% fewer input bytes on identical fixtures with all mandatory scenarios and constraints preserved. Byte savings alone never qualify a model or compiler."
+	},
+	"changePolicy": "Never tune thresholds after a failing acceptance run. A new version records rationale and reruns both baseline and candidate; retain the old report. These are acceptance targets, not current runtime enforcement."
+}

@@ -1,0 +1,15 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+
+# ADR 0010 · Macchine piatte, eventi serializzati e checkpoint
+
+Stato: accettata per DAI-07, 9 novembre 2026 (Europe/Rome). Chiude D03 nel profilo locale; estende ADR 0008/0009.
+
+Una macchina ha owner, contratto di inizializzazione, un iniziale, finali, eventi con contratti di operazione, azioni riferite a interazioni versionate e transizioni con ID stabili. Stati gerarchici e regioni ortogonali rimangono dati conservati ma bloccano la generazione. L'archetipo usa una tabella di transizioni. Le priorità sono interi espliciti: vince il valore maggiore fra le guardie vere; due candidate vere alla massima priorità falliscono. Nessuna precedenza deriva dall'ordine nel file. Una guardia indeterminata fallisce prima di qualsiasi azione.
+
+Ogni istanza accoda e copia gli eventi all'invio. Ogni evento ha un ID di consegna: una consegna già accettata è ignorata senza ripetere effetti; un ID riutilizzato con payload diverso fallisce. Eventi inattesi/finali sono rifiutati e non consumati. Un errore di azione blocca l'istanza nello stato precedente, con errore e fase osservabili: effetti già eseguiti non sono compensati né ritentati. Un nuovo tentativo richiede una nuova istanza dopo decisione esplicita; un checkpoint fallito resta bloccato dopo riapertura.
+
+Ordine esterno: guardie → cancellazione cooperativa e drain della do → exit → effetti → entry destinazione → commit atomico locale dello stato e dell'ID evento → avvio do. La do parte dopo commit, non trattiene la coda; il suo errore blocca l'istanza senza annullare lo stato già commesso. La transizione interna richiede from=to, esegue solo effetti e mantiene do/entry/exit; l'auto-transizione esterna percorre l'intero ordine. Le azioni entry/exit/do dipendono soltanto dall'input iniziale immutabile, gli effetti anche dal payload dell'evento. Nessun risultato di un'azione diventa implicitamente una variabile persistente.
+
+Il checkpoint v1 contiene identità/revisione macchina e istanza, input, stato, consegne consumate, contatore e stato della do/errore. Si esporta soltanto a istanza quiescente: do in corso e operazioni accodate bloccano l'esportazione. La riapertura controlla forma esatta, riferimenti, tipi, revisione e coerenza e non ripete entry o do completata/cancellata. Non sono promessi exactly-once distribuito, transazioni fra servizi o ripresa di effetti interrotti. Il chiamante deve salvare il JSON con scrittura atomica; i test provano salvataggio e riapertura reali. La pubblicazione del progetto modifica modello, codice e test nello stesso journal esistente; nessuna istanza viva è eseguita o pubblicata dal runner.
+
+Azioni e do usano esclusivamente l'orchestrazione fidata DAI-06 con risposte JSON, timer reali e AbortSignal. Nessun codice applicativo arbitrario, rete, broker o DB è eseguito. Gli attesi indipendenti precedono l'emettitore. Il runtime generato deriva dalla sorgente canonica, il reverse accetta solo piani dati validi con identità esistenti e runtime integralmente riemesso. Il profilo viene revisionato per invalidare le review precedenti.

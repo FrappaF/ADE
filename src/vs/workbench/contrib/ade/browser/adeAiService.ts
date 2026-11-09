@@ -6,6 +6,7 @@
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
+import type { StructuralProjectSession } from '../common/modelProject.js';
 import { CodePreview, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
 
 export const IAdeAiService = createDecorator<IAdeAiService>('adeAiService');
@@ -32,6 +33,17 @@ export interface IAdeAiService {
 	refreshConnection(): Promise<void>;
 	openCli(): Promise<void>;
 	implement(): Promise<void>;
+	readonly structuralProblem: string | undefined;
+	readonly structuralReview: StructuralProjectSession | undefined;
+	readonly continuityStatus: string;
+	configureContinuity(): Promise<void>;
+	structuralTechnicalReview(): Promise<void>;
+	structuralReverse(): Promise<void>;
+	structuralResume(): Promise<void>;
+	structuralRecover(): Promise<void>;
+	simulateStates(): Promise<void>;
+	editPureCriteria(): Promise<void>;
+	movePureSource(): Promise<void>;
 	interpret(): Promise<void>;
 	review(): Promise<void>;
 	verify(): Promise<void>;
@@ -63,6 +75,17 @@ class UnavailableAiService implements IAdeAiService {
 	async refreshConnection(): Promise<void> { }
 	async openCli(): Promise<void> { }
 	async implement(): Promise<void> { }
+	readonly structuralProblem = undefined;
+	readonly structuralReview = undefined;
+	readonly continuityStatus = '';
+	async configureContinuity(): Promise<void> { }
+	async structuralTechnicalReview(): Promise<void> { }
+	async structuralReverse(): Promise<void> { }
+	async structuralResume(): Promise<void> { }
+	async structuralRecover(): Promise<void> { }
+	async simulateStates(): Promise<void> { }
+	async editPureCriteria(): Promise<void> { }
+	async movePureSource(): Promise<void> { }
 	async interpret(): Promise<void> { }
 	async review(): Promise<void> { }
 	async verify(): Promise<void> { }

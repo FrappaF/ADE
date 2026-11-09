@@ -60,7 +60,7 @@ export async function editAdeBehavior(quickInput: IQuickInputService, model: Sem
 			{ label: localize('ade.behavior.optional', "Optional"), required: false }
 		], { title: localize('ade.behavior.presence', "Field Presence") });
 		if (!required) { return undefined; }
-		fields.splice(index < 0 ? fields.length : index, index < 0 ? 0 : 1, { name: name.trim(), type: type.trim(), required: required.required });
+		fields.splice(index < 0 ? fields.length : index, index < 0 ? 0 : 1, { ...(current?.id ? { id: current.id } : {}), ...(current?.typeId && current.type === type.trim() ? { typeId: current.typeId } : {}), ...(current?.nullable ? { nullable: current.nullable } : {}), name: name.trim(), type: type.trim(), required: required.required });
 	} else if (section.key === 'errors') {
 		const current = behavior.errors[index];
 		const code = await text(localize('ade.behavior.errorCode', "Error Code"), current?.code, value => {

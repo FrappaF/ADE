@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { measureContextPayload } from '../../src/vs/workbench/contrib/ade/common/contextTransport.ts';
 import { createHash } from 'node:crypto';
 import { open, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -29,7 +30,7 @@ export interface PreparedImplementation {
 export const hash = (value: string): string => createHash('sha256').update(value).digest('hex');
 
 /** Reads bounded UTF-8 text through a canonical path, rejecting redirected and binary inputs. */
-async function readSource(root: string, file: string, signal?: AbortSignal): Promise<string> {
+export async function readSource(root: string, file: string, signal?: AbortSignal): Promise<string> {
 	signal?.throwIfAborted();
 	if (!isDisclosableSource(file)) { throw new Error('Source path is not eligible for disclosure'); }
 	const path = join(root, file);
@@ -59,6 +60,7 @@ export async function prepareImplementation(requestValue: unknown, configValue: 
 	signal?.throwIfAborted();
 	const snapshot = await readSnapshot(request.snapshot);
 	const { state, model } = snapshot;
+	if (model.version === 4) { throw new Error('A registered diagram-driven generation profile is required for v4; legacy M5 cannot generate this model'); }
 	if (state.analysis.semanticInvalidated) { throw new Error('Refresh the deterministic semantic index before planning'); }
 	const feature = model.semantics.elements.find(element => element.id === request.featureId);
 	if (feature?.kind !== 'feature') { throw new Error('Select a feature in the semantic model'); }
@@ -83,7 +85,7 @@ export async function prepareImplementation(requestValue: unknown, configValue: 
 		impact: { elementIds: [...new Set([...impact.scope.map(element => element.id), ...impact.dependents.map(entry => entry.element.id)])], viewIds: impact.views.map(view => view.id) },
 		semantic: { providers: state.semantic?.providers ?? [], dependencies: state.semantic?.dependencies.filter(edge => ids.has(edge.from) || ids.has(edge.to)) ?? [], diagnostics: state.semantic?.diagnostics.filter(item => request.sourceFiles.includes(item.file)) ?? [] }, sources
 	};
-	if (Buffer.byteLength(JSON.stringify(context)) > config.maxContextBytes) { throw new Error('Context exceeds configured byte budget; narrow the request'); }
+	if (measureContextPayload(planningInstruction + '\n' + JSON.stringify(context), planSchema).totalBytes > config.maxContextBytes) { throw new Error('Context exceeds configured byte budget; narrow the request'); }
 	// Reuse the exact M4 scope and cached ASTs, including files not disclosed to the provider.
 	const observed = await importCode(root, state.projectId, { previous: state, signal });
 	if (observed.revision !== state.revision) { throw new Error('Source manifest changed; run deterministic Sync before planning'); }

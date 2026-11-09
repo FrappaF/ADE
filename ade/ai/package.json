@@ -6,7 +6,8 @@
 	"engines": { "node": ">=24.22.1 <25" },
 	"scripts": {
 		"check": "tsc --project tsconfig.json",
-		"test": "node --test --test-isolation=none test/*.test.mjs"
+		"test": "node --test --test-isolation=none test/*.test.mjs",
+		"test:stacks": "node --test --test-isolation=none test/second-stack.integration.mjs"
 	},
 	"dependencies": { "ajv": "8.17.1", "proper-lockfile": "4.1.2" },
 	"devDependencies": { "@types/node": "24.10.1", "@types/proper-lockfile": "4.1.4", "typescript": "6.0.2" }

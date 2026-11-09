@@ -31,7 +31,7 @@ The desktop is started separately with ade/scripts/dev.sh (scripts\\code.bat on 
 	if (!npmCli) { throw new Error('Run this script with npm run ade:setup.'); }
 	const env = { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', FOUNDRY_LOCAL_SKIP_INSTALL: '1' };
 	const steps = [
-		{ label: 'Prepare native headers', args: ['build/npm/preinstall.ts'] },
+		{ label: 'Prepare native headers', args: ['build/npm/preinstall.ts'], env: { ...env, npm_command: 'ci' } },
 		{ label: 'Install dependencies', args: [npmCli, 'ci'] }
 	];
 	if (!args.includes('--install-only')) {
@@ -45,7 +45,7 @@ The desktop is started separately with ade/scripts/dev.sh (scripts\\code.bat on 
 	for (const [index, step] of steps.entries()) {
 		console.log(`\n[ade:setup ${index + 1}/${steps.length}] ${step.label}`);
 		// Invoke npm through this Node executable, including when paths contain spaces on Windows.
-		const result = spawnSync(process.execPath, step.args, { cwd: root, env, stdio: 'inherit' });
+		const result = spawnSync(process.execPath, step.args, { cwd: root, env: step.env ?? env, stdio: 'inherit' });
 		if (result.error) { throw new Error(`${step.label}: ${result.error.message}`); }
 		if (result.status !== 0) {
 			console.error(`[ade:setup] ${step.label} failed${result.signal ? ` (${result.signal})` : ` (exit ${result.status})`}. Setup stopped.`);

@@ -3,12 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { adeInteractionRows } from './adeInteractionContent.js';
 import { localize } from '../../../../nls.js';
 import { isSourceEvidenceModel, notationRelationLabel, ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
+import { describeBlueprint } from './adeBlueprintContent.js';
 import { notationLines } from '../common/diagramLayout.js';
 import { getDiagramGroups } from '../common/visualNavigation.js';
 import { getSystemMap } from '../common/systemMap.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
+import { adeMessagingRows } from './adeMessagingContent.js';
+import { adeStateRows } from './adeStateContent.js';
 import { getStateDiagram } from '../common/stateDiagram.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 import { describeChangeImpact, describeRecordedEvidence } from './adeImpactContent.js';
@@ -87,7 +91,9 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 			? localize('ade.reading.feature', "Feature: {0}", group.name) : localize('ade.reading.systemDiagram', "System Diagram"));
 		lines.push(localize('ade.diagramType', "Diagram Type: {0}", viewLabels[view.kind]));
 		if (view.kind === 'sequence') { lines.push(localize('ade.reading.sequence', "Declared sequence. Participants follow their left-to-right order; numbered messages follow this diagram's order, not observed execution. One occurrence per relationship; no inferred replies, timing or combined fragments.")); }
-		if (view.kind === 'state') {
+		if (model.version === 4 && view.messagingId) { lines.push(...adeMessagingRows(model, view.messagingId).map(row => row.text)); }
+		if (view.kind === 'state' && model.version === 4 && view.stateMachineId) { lines.push(...adeStateRows(model, view.stateMachineId).map(row => row.text)); }
+		if (view.kind === 'state' && !view.stateMachineId) {
 			const lifecycle = getStateDiagram(model, view);
 			lines.push(localize('ade.reading.stateIntent', "Declared resource lifecycles, not observed runtime states. Events and guards are declarations; no initial or final state is inferred."));
 			for (const group of lifecycle.groups) {
@@ -126,6 +132,7 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 	const relations = model.semantics.relations.filter(relation => view ? view.relationIds.includes(relation.id) : relation.from === state.selectedId || relation.to === state.selectedId);
 	lines.push('', view ? localize('ade.reading.relations', "Relationships in This Diagram: {0}", relations.length) : localize('ade.reading.detailRelations', "Related Relationships: {0}", relations.length));
 	if (view?.kind === 'sequence') {
+		if (model.version === 4 && view.interactionId) { lines.push(...adeInteractionRows(model, view.interactionId).map(row => `${'  '.repeat(row.depth)}${row.text}`)); }
 		const sequence = getSequenceDiagram(model, view);
 		for (const [index, relation] of sequence.messages.entries()) {
 			lines.push(localize('ade.reading.messageNumber', "Message {0}", index + 1));
@@ -136,6 +143,9 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 			describeRelation(relation);
 		}
 	} else { for (const relation of relations) { describeRelation(relation); } }
+	if (model.version === 4) {
+		for (const elementId of view ? view.nodes.map(node => node.elementId) : [state.selectedId]) { lines.push(...describeBlueprint(model, elementId)); }
+	}
 	const selected = state.section === 'element' || visible.has(state.selectedId) ? elements.get(state.selectedId) : undefined;
 	if (selected) {
 		lines.push('', localize('ade.reading.selected', "Selected Element: {0}", selected.name));

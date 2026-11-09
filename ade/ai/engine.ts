@@ -13,12 +13,15 @@ import { benchmarkReconciliation } from './reconciliationBenchmark.ts';
 import { applyImplementation, planReviewId, readSession, recoverImplementation, stageImplementation, verifyImplementation } from './implementation.ts';
 
 interface CollaborationRequest {
-	operation: 'prepare' | 'plan' | 'interpret' | 'stage' | 'session' | 'verify' | 'apply' | 'undo' | 'recover' | 'benchmark' | 'reconciliationBenchmark';
+	maxInputBytes?: number; direction?: 'forward' | 'reverse'; paths?: Record<string, string>;
+	operation: 'structuralPrepare' | 'structuralVerify' | 'structuralApply' | 'structuralUndo' | 'structuralSession' | 'structuralRecover' | 'prepare' | 'plan' | 'interpret' | 'stage' | 'session' | 'verify' | 'apply' | 'undo' | 'recover' | 'benchmark' | 'reconciliationBenchmark';
 	candidates?: BenchmarkCandidate[];
 	request?: object; config?: object; prepared?: PreparedImplementation; plan?: object;
 	reviewId?: string; root?: string; id?: string;
 }
 const valid = new Ajv2020().compile<CollaborationRequest>({ oneOf: [
+	object({ operation: { const: 'structuralPrepare' }, root: text, direction: { enum: ['forward', 'reverse'] }, paths: { type: 'object', additionalProperties: text }, maxInputBytes: { type: 'integer', minimum: 1, maximum: 196608 } }, ['direction', 'paths', 'maxInputBytes']),
+	object({ operation: { enum: ['structuralVerify', 'structuralApply', 'structuralUndo', 'structuralSession', 'structuralRecover'] }, root: text, id: text, reviewId: text }, ['reviewId']),
 	object({ operation: { const: 'prepare' }, request: { type: 'object' }, config: { type: 'object' } }),
 	object({ operation: { enum: ['plan', 'interpret'] }, prepared: { type: 'object' }, reviewId: text }),
 	object({ operation: { const: 'stage' }, prepared: { type: 'object' }, plan: { type: 'object' }, reviewId: text }),
@@ -34,6 +37,15 @@ export async function executeCollaboration(input: string, signal?: AbortSignal):
 	signal?.throwIfAborted();
 	let result: object;
 	switch (request.operation) {
+		case 'structuralPrepare': case 'structuralVerify': case 'structuralApply': case 'structuralUndo': case 'structuralSession': case 'structuralRecover': {
+			const adapter = await import('./structuralProject.ts');
+			if (request.operation === 'structuralPrepare') { result = await adapter.prepareStructuralProject(request.root!, request.direction, request.paths, request.maxInputBytes, signal); }
+			else if (request.operation === 'structuralVerify') { result = await adapter.verifyStructuralProject(request.root!, request.id!, request.reviewId ?? '', signal); }
+			else if (request.operation === 'structuralSession') { result = await adapter.readStructuralSession(request.root!, request.id!); }
+			else if (request.operation === 'structuralRecover') { result = await adapter.recoverStructuralProject(request.root!, request.id!); }
+			else { result = await adapter.publishStructuralProject(request.root!, request.id!, request.reviewId ?? '', request.operation === 'structuralUndo'); }
+			break;
+		}
 		case 'prepare': result = await prepareImplementation(request.request, request.config, signal); break;
 		case 'benchmark': result = await benchmarkModels(request.candidates!, signal); break;
 		case 'reconciliationBenchmark': result = await benchmarkReconciliation(request.candidates!, signal); break;

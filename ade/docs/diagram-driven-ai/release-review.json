@@ -1,0 +1,793 @@
+{
+	"version": 1,
+	"sprint": "DAI-12",
+	"recordedDate": "2026-11-09",
+	"revision": "05c3a0f05c6e0c369a0e47001359f58542c2eea8 + source hashes in verification report",
+	"releaseAccepted": false,
+	"status": "open",
+	"requirements": [
+		{
+			"id": "R01",
+			"capability": "Modello primario e PIM/PSM",
+			"criterion": "Stesso PIM e identità su due archetipi, nessun dato inventato durante migrazione.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Migrazioni storage/dati del corpus non implementate; PIM/PSM e switch runtime verificati nel perimetro dichiarato."
+		},
+		{
+			"id": "R02",
+			"capability": "L1 e scope esterni",
+			"criterion": "L1 dichiara soggetto/esterni e blocca integrazioni non dichiarate.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Negativi per riferimenti, tecnologia, tipo e integrazione respinti; percorso completo di generazione business del corpus ancora assente."
+		},
+		{
+			"id": "R03",
+			"capability": "L2 distribuibilità e trasporto",
+			"criterion": "Ogni target L2 risolve responsabilità, tecnologia, protocollo e payload.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Archetipi e contesto strutturale verificati; nessuna implementazione checkout completa con persistenza su entrambi gli stack."
+		},
+		{
+			"id": "R04",
+			"capability": "L3 componenti e interfacce",
+			"criterion": "Interfacce fornite/richieste compatibili e componenti nel proprio container, librerie condivise senza duplicati.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "C4 e contratti condivisi coperti dalle suite; mancano i collaudi desktop completi e il corpus applicativo equivalente."
+		},
+		{
+			"id": "R05",
+			"capability": "L4 contratti selettivi",
+			"criterion": "Registro tipi, operazioni con ID e firme condivise; negativi su tipi/errori/parametri respinti.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Espressioni e contratti locali verificati; autorizzazione, scorte e ordini persistiti del corpus non hanno adapter completo."
+		},
+		{
+			"id": "R06",
+			"capability": "Sequenze eseguibili",
+			"criterion": "Tutti i frame del profilo, correlazioni ed errori superano oracoli su numero e ordine delle chiamate.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Frame/runtime verificati; checkout-last-unit, idempotency e timeout del corpus non sono certificati dai casi locali più stretti."
+		},
+		{
+			"id": "R07",
+			"capability": "Macchine a stati",
+			"criterion": "Profilo piatto con ordine e atomicità dichiarati, guardie ed errori verificati.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Macchine piatte verificate su altra fixture; stati/azioni/ordine commit del corpus congelato richiedono un adapter esatto e decisione semantica esplicita."
+		},
+		{
+			"id": "R08",
+			"capability": "Queue/topic e messaggi",
+			"criterion": "Broker reale con fan-out, redelivery, DLQ e incompatibilità provati senza effetti duplicati.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Broker reale verificato su entrambi i runtime; manca osservatore esatto del payload/topologia/ack del corpus congelato."
+		},
+		{
+			"id": "R09",
+			"capability": "Metamodello e proiezioni",
+			"criterion": "Editing di ogni nuovo costrutto condiviso, persistente e recuperabile senza duplicazioni.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Persistenza, identità, undo e proprietà nativi scriptati verificati; collaudo desktop e matrice completa dei percorsi ancora aperti."
+		},
+		{
+			"id": "R10",
+			"capability": "Forward incrementale/continuo",
+			"criterion": "Bootstrap, verifica indipendente, pubblicazione/undo e continuità con budget e cancellazione.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Bootstrap/continuità/review verificati sul sottoinsieme locale; storage e checkout applicativo completo del corpus non implementati."
+		},
+		{
+			"id": "R11",
+			"capability": "Reverse e riconciliazione",
+			"criterion": "Nuovo dominio sincronizzato con conflitti, create/move/delete e recupero senza perdita.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Conflitto, freschezza e undo verificati; fixture physical-recovery su sorgenti arbitrari manca di adapter esatto."
+		},
+		{
+			"id": "R12",
+			"capability": "ADR utente normativi",
+			"criterion": "ADR versionati per scope, vincoli risolti e conflitti bloccanti prima della generazione.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Conflitti ADR bloccano il contesto su entrambi i profili; collaudo end-to-end su tutti gli scenari e desktop ancora aperto."
+		},
+		{
+			"id": "R13",
+			"capability": "Percorso visuale/accessibile completo",
+			"criterion": "Matrice vedere/creare/modificare e due percorsi desktop senza editing JSON, anche da tastiera.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "19 prove Chromium e 124 nativi scriptati; mancano Electron completo, screen reader reale e collaudo macOS di questa revisione."
+		},
+		{
+			"id": "R14",
+			"capability": "Maturità e criteri di uscita",
+			"criterion": "Ogni criterio obbligatorio ha prova della revisione e non resta non misurato.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Matrice di uscita esplicita; non tutti i criteri obbligatori hanno prova positiva."
+		},
+		{
+			"id": "R15",
+			"capability": "Contesto minimo sufficiente",
+			"criterion": "Dipendenze obbligatorie tutte presenti o blocco esplicito; risparmio confrontato a correttezza invariata.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Recall e risparmio misurati sulle fixture strutturali; sufficienza sul corpus business completo e inferenze live non dimostrate."
+		},
+		{
+			"id": "R16",
+			"capability": "Prove indipendenti e recupero",
+			"criterion": "Scenari/oracoli e negativi obbligatori su due stack, recupero e metriche con limiti espliciti.",
+			"status": "open",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json",
+				"ade/docs/diagram-driven-ai/local-testing.md",
+				"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+				"ade/scripts/verify-dai.mjs",
+				"ade/test/dai-release.test.mjs"
+			],
+			"reason": "Report riproducibili e gate bloccante; corpus completo, live e desktop non superati integralmente."
+		}
+	],
+	"steps": [
+		{
+			"id": "S00",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Inventario aggiornato, glossario e matrice di capacità. Ogni requisito ha almeno uno step e ogni capacità dichiarata presente ha un riferimento verificabile. Questa analisi fornisce la baseline iniziale, da ricontrollare quando inizierà lo sviluppo.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/baseline.md",
+				"ade/docs/diagram-driven-ai/glossary.md",
+				"ade/docs/diagram-driven-ai/coverage.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S00"
+		},
+		{
+			"id": "S01",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Tipi del dominio, schema, migrazioni e serializzazione coerenti. Lettura/salvataggio dei vecchi esempi non perde dati; una seconda migrazione non introduce cambiamenti; un lettore incompatibile rifiuta il nuovo formato senza riscriverlo. Le variazioni di solo layout non cambiano l'hash semantico. Lo schema generato e quello versionato coincidono.",
+			"evidence": [
+				"ade/schema/model-v4.schema.json",
+				"src/vs/workbench/contrib/ade/common/modelMigration.ts#migrateSemanticModelToV4",
+				"ade/test/dai-foundation.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S01"
+		},
+		{
+			"id": "S02",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "API di validazione e rapporto di readiness utilizzabili da UI, CLI e motore IA. Fixture negative: riferimento inventato, tecnologia mancante, dipendenza esterna non dichiarata, conflitto ADR, tipo non supportato. In ciascun caso la bozza resta recuperabile e la generazione del target si ferma prima della chiamata o dell'applicazione, secondo la fase in cui l'errore è conoscibile.",
+			"evidence": [
+				"src/vs/workbench/contrib/ade/common/modelReadiness.ts#getModelReadiness",
+				"src/vs/workbench/contrib/ade/common/modelReadiness.ts#validateModelLayers",
+				"ade/test/dai-foundation.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S02"
+		},
+		{
+			"id": "S03",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Scope e regole C4 nel dominio, navigazione coordinata ed editing delle relazioni. Caso checkout: persona → sistema → API/store → componente → contratto, con gli stessi ID. Un componente di un altro container è respinto o mostrato come dipendenza di contesto; una modifica allo stack segnala impatto e non riclassifica automaticamente i componenti. Un tentativo di integrare un fornitore assente da L1 produce una richiesta di modifica del contesto.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-03.md",
+				"ade/test/dai-blueprint.test.mjs",
+				"src/vs/workbench/contrib/ade/test/browser/adeBlueprintEditing.test.ts",
+				"src/vs/workbench/contrib/ade/test/browser/adeBlueprintDetails.test.ts",
+				"src/vs/workbench/contrib/ade/common/modelBlueprint.ts",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S03"
+		},
+		{
+			"id": "S04",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Editing dei contratti, risoluzione dei tipi, analisi dei cambiamenti incompatibili e mapping agli adattatori. Verificare risultato nullable contro campo opzionale, errore non dichiarato, parametro incompatibile e interfaccia richiesta non soddisfatta. La modifica di una firma invalida gli scenari dipendenti senza rinominare automaticamente operazioni o generare implementazioni alternative.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-03.md",
+				"ade/test/dai-blueprint.test.mjs",
+				"src/vs/workbench/contrib/ade/test/browser/adeBlueprintEditing.test.ts",
+				"src/vs/workbench/contrib/ade/test/browser/adeBlueprintDetails.test.ts",
+				"src/vs/workbench/contrib/ade/common/modelBlueprint.ts",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S04"
+		},
+		{
+			"id": "S05",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Grammatica/versione, schema dell'AST, type checker e resa visuale. Esempi: confronto tra quantità e denaro respinto; variabile di un ramo usata fuori scope respinta; guardia su valore assente con comportamento definito; espressione supportata interpretata e generata con lo stesso esito su casi limite.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-04.md",
+				"ade/docs/diagram-driven-ai/dai-06.md",
+				"ade/test/dai-interactions.test.mjs",
+				"ade/ai/test/interaction-project.test.mjs",
+				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S05"
+		},
+		{
+			"id": "S06",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Modello delle interazioni, editor annidato, renderer, migrazione e adattatore del primo stack. Verificare chiamata ripetuta, `alt` dentro `loop`, `ref` con parametri, fallimento di un ramo parallelo e timeout. Due layout della stessa interazione devono produrre lo stesso input semantico. Il risultato generato deve rispettare i test di esito e di numero/ordine delle chiamate dove l'ordine è richiesto.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-06.md",
+				"ade/test/dai-interactions.test.mjs",
+				"ade/ai/test/interaction-project.test.mjs",
+				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S06"
+		},
+		{
+			"id": "S07",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Editing, simulazione e generazione del profilo iniziale. Verificare stato iniziale assente, transizioni concorrenti ambigue, evento inatteso, sequenza `exit/effetto/entry`, evento ripetuto e riapertura del progetto. Eventuali side effect e persistenza devono avere test di errore; lo stato non viene avanzato silenziosamente dopo un'azione fallita.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-07.md",
+				"ade/docs/diagram-driven-ai/states-v1.md",
+				"ade/test/dai-states.test.mjs",
+				"ade/ai/test/state-project.test.mjs",
+				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S07"
+		},
+		{
+			"id": "S08",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Tipi/canali nel dominio, editing e adapter di un broker selezionato. Verificare consegna competitiva per queue, fan-out su due subscription del topic, messaggio duplicato, errore oltre il limite di retry, versione incompatibile e producer non dichiarato. I test di integrazione col broker sono distinti dalle simulazioni del modello.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-08.md",
+				"ade/docs/diagram-driven-ai/messaging-v1.md",
+				"ade/docs/decisions/0011-jetstream-messaging.md",
+				"ade/test/dai-messaging.test.mjs",
+				"ade/ai/test/messaging-project.test.mjs",
+				"ade/messaging/test/broker.test.mjs",
+				"ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S08"
+		},
+		{
+			"id": "S09",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Pannello ADR, riferimenti e risolutore dei vincoli. Una proposta contraria a un vincolo verificabile è respinta; due ADR incompatibili producono un conflitto localizzato. Un cambio di stato invalida il contesto delle operazioni interessate; un ADR non applicabile non occupa spazio nel payload del task.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-03.md",
+				"ade/test/dai-blueprint.test.mjs",
+				"src/vs/workbench/contrib/ade/test/browser/adeBlueprintEditing.test.ts",
+				"src/vs/workbench/contrib/ade/test/browser/adeBlueprintDetails.test.ts",
+				"ade/docs/decisions/0005-project-adr-constraints.md",
+				"ade/docs/diagram-driven-ai/dai-08.md",
+				"ade/docs/diagram-driven-ai/messaging-v1.md",
+				"ade/docs/decisions/0011-jetstream-messaging.md",
+				"ade/test/dai-messaging.test.mjs",
+				"ade/ai/test/messaging-project.test.mjs",
+				"ade/messaging/test/broker.test.mjs",
+				"ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S09"
+		},
+		{
+			"id": "S10",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Contratto degli archetipi, profilo iniziale e test di compatibilità. Una variazione di versione invalida i task pertinenti. Nel secondo stack gli stessi criteri di business devono passare; differenze di semantica numerica, null, concorrenza o transazioni devono essere risolte o segnalate, non nascoste dal generatore.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-04.md",
+				"ade/docs/diagram-driven-ai/dai-05.md",
+				"ade/ai/test/structural-project.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-06.md",
+				"ade/test/dai-interactions.test.mjs",
+				"ade/ai/test/interaction-project.test.mjs",
+				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-07.md",
+				"ade/docs/diagram-driven-ai/states-v1.md",
+				"ade/test/dai-states.test.mjs",
+				"ade/ai/test/state-project.test.mjs",
+				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-08.md",
+				"ade/docs/diagram-driven-ai/messaging-v1.md",
+				"ade/docs/decisions/0011-jetstream-messaging.md",
+				"ade/test/dai-messaging.test.mjs",
+				"ade/ai/test/messaging-project.test.mjs",
+				"ade/messaging/test/broker.test.mjs",
+				"ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-11.md",
+				"ade/docs/diagram-driven-ai/stacks-v1.md",
+				"ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ade/test/dai-stack.test.mjs",
+				"ade/ai/test/second-stack.integration.mjs",
+				"ade/messaging/test/stack-transfer.integration.mjs",
+				"ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S10"
+		},
+		{
+			"id": "S11",
+			"implementationStatus": "started",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Libreria condivisa di compilazione del contesto, contratto di trasporto, strumenti di misura e fixture di sufficienza. Stesso input sigillato → stessi byte del pacchetto, esclusi gli identificatori operativi esterni al contenuto. Una libreria di cento operazioni usata da una sola feature invia solo i contratti necessari. Rinominare un file aggiorna le evidenze senza cambiare identità di dominio. Un contratto obbligatorio oltre budget blocca il task. Un ref inventato, una richiesta di contesto fuori scope e un'istruzione ostile nel sorgente non possono autorizzare nuove letture/scritture. Confrontare riduzione di byte/token ed esiti con il percorso precedente su fixture uguali, senza promettere una percentuale prima della misura.",
+			"evidence": [
+				"src/vs/workbench/contrib/ade/common/modelContext.ts#compileModelContext",
+				"ade/ai/diagramDriven.ts#createDiagramDrivenAdapter",
+				"ade/docs/diagram-driven-ai/dai-03.md",
+				"ade/docs/diagram-driven-ai/dai-04.md",
+				"ade/docs/diagram-driven-ai/dai-05.md",
+				"ade/ai/test/structural-project.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-06.md",
+				"ade/test/dai-interactions.test.mjs",
+				"ade/ai/test/interaction-project.test.mjs",
+				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-07.md",
+				"ade/docs/diagram-driven-ai/states-v1.md",
+				"ade/test/dai-states.test.mjs",
+				"ade/ai/test/state-project.test.mjs",
+				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-08.md",
+				"ade/docs/diagram-driven-ai/messaging-v1.md",
+				"ade/docs/decisions/0011-jetstream-messaging.md",
+				"ade/test/dai-messaging.test.mjs",
+				"ade/ai/test/messaging-project.test.mjs",
+				"ade/messaging/test/broker.test.mjs",
+				"ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-11.md",
+				"ade/docs/diagram-driven-ai/stacks-v1.md",
+				"ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ade/test/dai-stack.test.mjs",
+				"ade/ai/test/second-stack.integration.mjs",
+				"ade/messaging/test/stack-transfer.integration.mjs",
+				"ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S11"
+		},
+		{
+			"id": "S12",
+			"implementationStatus": "started",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Percorso completo nuovo progetto → modifica → verifica → applicazione → undo. Un target già allineato e una modifica di solo layout producono zero chiamate. Una modifica dopo la review invalida l'applicazione. Un test indipendente fallito blocca la pubblicazione. Una generazione interrotta riprende senza sovrascrivere codice sconosciuto; un fallimento parziale conserva la versione precedente utilizzabile.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-05.md",
+				"ade/ai/test/structural-project.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-06.md",
+				"ade/test/dai-interactions.test.mjs",
+				"ade/ai/test/interaction-project.test.mjs",
+				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-07.md",
+				"ade/docs/diagram-driven-ai/states-v1.md",
+				"ade/test/dai-states.test.mjs",
+				"ade/ai/test/state-project.test.mjs",
+				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-08.md",
+				"ade/docs/diagram-driven-ai/messaging-v1.md",
+				"ade/docs/decisions/0011-jetstream-messaging.md",
+				"ade/test/dai-messaging.test.mjs",
+				"ade/ai/test/messaging-project.test.mjs",
+				"ade/messaging/test/broker.test.mjs",
+				"ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-10.md",
+				"ade/docs/diagram-driven-ai/workflow-v1.md",
+				"ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+				"ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+				"ade/test/dai-workflow.test.mjs",
+				"ade/ai/test/workflow-project.test.mjs",
+				"src/vs/workbench/contrib/ade/test/browser/adeTaskEditing.test.ts",
+				"src/vs/workbench/contrib/ade/test/browser/adeStructuralReview.test.ts",
+				"ade/docs/diagram-driven-ai/dai-11.md",
+				"ade/docs/diagram-driven-ai/stacks-v1.md",
+				"ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ade/test/dai-stack.test.mjs",
+				"ade/ai/test/second-stack.integration.mjs",
+				"ade/messaging/test/stack-transfer.integration.mjs",
+				"ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S12"
+		},
+		{
+			"id": "S13",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Matrice di copertura per adattatore, gestione dei conflitti e journal esteso. Provare entrambe le direzioni, modifica concorrente della stessa guardia, rename/spostamento/cancellazione, perdita dell'indice, arresto prima/durante/dopo pubblicazione e undo dopo una modifica manuale. Il sistema deve terminare in coppia coerente oppure conflitto esplicito e recuperabile. Un Sync immediato senza cambiamenti produce nessuna proposta, nessuna riscrittura e nessuna chiamata.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/dai-05.md",
+				"ade/ai/test/structural-project.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-06.md",
+				"ade/test/dai-interactions.test.mjs",
+				"ade/ai/test/interaction-project.test.mjs",
+				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-07.md",
+				"ade/docs/diagram-driven-ai/states-v1.md",
+				"ade/test/dai-states.test.mjs",
+				"ade/ai/test/state-project.test.mjs",
+				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-08.md",
+				"ade/docs/diagram-driven-ai/messaging-v1.md",
+				"ade/docs/decisions/0011-jetstream-messaging.md",
+				"ade/test/dai-messaging.test.mjs",
+				"ade/ai/test/messaging-project.test.mjs",
+				"ade/messaging/test/broker.test.mjs",
+				"ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-09.md",
+				"ade/docs/diagram-driven-ai/roundtrip-v1.md",
+				"ade/ai/test/roundtrip-project.test.mjs",
+				"ade/docs/benchmarks/dai-09-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-11.md",
+				"ade/docs/diagram-driven-ai/stacks-v1.md",
+				"ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ade/test/dai-stack.test.mjs",
+				"ade/ai/test/second-stack.integration.mjs",
+				"ade/messaging/test/stack-transfer.integration.mjs",
+				"ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S13"
+		},
+		{
+			"id": "S14",
+			"implementationStatus": "delivered",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Percorsi end-to-end e lettura accessibile dei nuovi costrutti. Un utente crea e cambia il checkout e il caso asincrono senza aprire codice o JSON; completa un chiarimento, rivede un conflitto e torna al diagramma selezionato. I medesimi cambiamenti sono eseguibili da tastiera; salvataggio/riapertura e undo conservano semantica e navigazione.",
+			"evidence": [
+				"src/vs/workbench/contrib/ade/browser/adeProjectService.ts#upgradeToV4",
+				"src/vs/workbench/contrib/ade/browser/adeDiagnostics.ts#readinessDiagnosticMessage",
+				"src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts",
+				"ade/docs/diagram-driven-ai/dai-03.md",
+				"ade/docs/diagram-driven-ai/dai-04.md",
+				"ade/docs/diagram-driven-ai/dai-05.md",
+				"ade/ai/test/structural-project.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-06.md",
+				"ade/test/dai-interactions.test.mjs",
+				"ade/ai/test/interaction-project.test.mjs",
+				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-07.md",
+				"ade/docs/diagram-driven-ai/states-v1.md",
+				"ade/test/dai-states.test.mjs",
+				"ade/ai/test/state-project.test.mjs",
+				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-08.md",
+				"ade/docs/diagram-driven-ai/messaging-v1.md",
+				"ade/docs/decisions/0011-jetstream-messaging.md",
+				"ade/test/dai-messaging.test.mjs",
+				"ade/ai/test/messaging-project.test.mjs",
+				"ade/messaging/test/broker.test.mjs",
+				"ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-10.md",
+				"ade/docs/diagram-driven-ai/workflow-v1.md",
+				"ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+				"ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+				"ade/test/dai-workflow.test.mjs",
+				"ade/ai/test/workflow-project.test.mjs",
+				"src/vs/workbench/contrib/ade/test/browser/adeTaskEditing.test.ts",
+				"src/vs/workbench/contrib/ade/test/browser/adeStructuralReview.test.ts",
+				"ade/docs/diagram-driven-ai/dai-11.md",
+				"ade/docs/diagram-driven-ai/stacks-v1.md",
+				"ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ade/test/dai-stack.test.mjs",
+				"ade/ai/test/second-stack.integration.mjs",
+				"ade/messaging/test/stack-transfer.integration.mjs",
+				"ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S14"
+		},
+		{
+			"id": "S15",
+			"implementationStatus": "started",
+			"releaseAcceptanceStatus": "open",
+			"criterion": "Rapporto di release, matrice capacità/prove e benchmark del contesto. Un candidato più breve o meno costoso è eleggibile solo a parità di scenari obbligatori superati e vincoli preservati. Se mancano dati o oracoli, il rapporto indica «non misurato» e il requisito resta aperto.",
+			"evidence": [
+				"ade/docs/diagram-driven-ai/corpus.v1.json",
+				"ade/docs/diagram-driven-ai/budgets.v1.json",
+				"ade/scripts/benchmark-dai.mjs",
+				"ade/docs/diagram-driven-ai/dai-02.md",
+				"ade/ai/test/diagram-driven.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-03.md",
+				"ade/docs/diagram-driven-ai/dai-04.md",
+				"ade/docs/diagram-driven-ai/dai-05.md",
+				"ade/ai/test/structural-project.test.mjs",
+				"ade/docs/diagram-driven-ai/dai-06.md",
+				"ade/test/dai-interactions.test.mjs",
+				"ade/ai/test/interaction-project.test.mjs",
+				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-07.md",
+				"ade/docs/diagram-driven-ai/states-v1.md",
+				"ade/test/dai-states.test.mjs",
+				"ade/ai/test/state-project.test.mjs",
+				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-08.md",
+				"ade/docs/diagram-driven-ai/messaging-v1.md",
+				"ade/docs/decisions/0011-jetstream-messaging.md",
+				"ade/test/dai-messaging.test.mjs",
+				"ade/ai/test/messaging-project.test.mjs",
+				"ade/messaging/test/broker.test.mjs",
+				"ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-09.md",
+				"ade/docs/diagram-driven-ai/roundtrip-v1.md",
+				"ade/ai/test/roundtrip-project.test.mjs",
+				"ade/docs/benchmarks/dai-09-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-10.md",
+				"ade/docs/diagram-driven-ai/workflow-v1.md",
+				"ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+				"ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+				"ade/test/dai-workflow.test.mjs",
+				"ade/ai/test/workflow-project.test.mjs",
+				"src/vs/workbench/contrib/ade/test/browser/adeTaskEditing.test.ts",
+				"src/vs/workbench/contrib/ade/test/browser/adeStructuralReview.test.ts",
+				"ade/docs/diagram-driven-ai/dai-11.md",
+				"ade/docs/diagram-driven-ai/stacks-v1.md",
+				"ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ade/test/dai-stack.test.mjs",
+				"ade/ai/test/second-stack.integration.mjs",
+				"ade/messaging/test/stack-transfer.integration.mjs",
+				"ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"ade/docs/diagram-driven-ai/dai-12.md",
+				"ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"reason": "Accettazione di release distinta dalla consegna locale: corpus, live, desktop e piattaforme pertinenti ancora aperti.",
+			"source": "ade/docs/diagram-driven-ai-implementation-plan.md#S15"
+		}
+	],
+	"maturity": [
+		{
+			"capability": "typed predicates and contracts",
+			"profile": "node.esm@5",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "typed predicates and contracts",
+			"profile": "bun.esm@1",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "structured interactions",
+			"profile": "node.esm@5",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "structured interactions",
+			"profile": "bun.esm@1",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "flat states",
+			"profile": "node.esm@5",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "flat states",
+			"profile": "bun.esm@1",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "messaging",
+			"profile": "node.esm@5",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "messaging",
+			"profile": "bun.esm@1",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "round trip and recovery",
+			"profile": "node.esm@5",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "round trip and recovery",
+			"profile": "bun.esm@1",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "context compiler and continuity",
+			"profile": "node.esm@5",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		},
+		{
+			"capability": "context compiler and continuity",
+			"profile": "bun.esm@1",
+			"defined": true,
+			"modelled": "local production fixtures verified; full frozen business observation remains open",
+			"optimising": false,
+			"reason": "Economy on structural fixtures is not corpus/desktop/live release acceptance."
+		}
+	]
+}

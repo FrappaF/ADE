@@ -17,7 +17,13 @@ import { acceptsNotationRelation, notationRelationLabel, notationRules, isCompat
 import { IAdeCodeService } from './adeCodeService.js';
 import { IAdeAiService } from './adeAiService.js';
 import { AdeInput } from './adeInput.js';
+import { renderModelTaskPreview } from './adeTaskPreview.js';
+import { specificationEditors } from './adeSpecificationContent.js';
+import { renderStructuralReview } from './adeStructuralReview.js';
+import { readinessDiagnosticMessage, readinessEditor } from './adeDiagnostics.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
+import { renderBlueprintDetails } from './adeBlueprintDetails.js';
+import { getC4DrillDown } from '../common/modelBlueprint.js';
 import { AdeControls } from './adeControls.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -30,6 +36,7 @@ import { getSystemMap } from '../common/systemMap.js';
 import { DiagramBox, placeConnectionLabel, routeDiagramConnections } from '../common/diagramRouting.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
 import { renderAdeSequence } from './adeSequence.js';
+import { renderAdeMessaging } from './adeMessaging.js';
 import { renderAdeState, stateTransitionLabel } from './adeState.js';
 import { DiagramCamera, DiagramBounds, fitDiagramCamera, zoomDiagram } from '../common/diagramCamera.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
@@ -169,7 +176,7 @@ export class AdeEditor extends EditorPane {
 		this.floatingInspector = undefined;
 		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
 		const sourceEvidence = isSourceEvidenceModel(this.project.model);
-		const canvasMode = !sourceEvidence && this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error;
+		const canvasMode = !sourceEvidence && this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error && !this.project.hasStructuralErrors;
 		this.root.classList.toggle('ade-canvas-mode', canvasMode);
 		if (this.cameraKey) { this.cameras.set(this.cameraKey, { ...this.camera }); }
 		const cameraKey = canvasMode ? `${this.project.projectRoot?.toString() ?? 'demo'}:${this.project.model.id}:${this.project.activeView!.id}` : undefined;
@@ -181,7 +188,13 @@ export class AdeEditor extends EditorPane {
 			const content = dom.append(this.root, dom.$('main.ade-content'));
 			this.content = content;
 			if (!canvasMode && !sourceEvidence) { this.renderWorkflow(content); }
-			if (sourceEvidence && !this.project.loading && !this.project.error) {
+			if (this.project.hasStructuralErrors && !this.project.error && !this.project.loading) {
+				dom.append(content, dom.$('h1')).textContent = localize('ade.draft.title', "Draft Needs Correction");
+				this.paragraph(content, localize('ade.draft.recoverable', "Your draft can be saved, reopened and undone. Correct its references before using its diagrams or generating code."));
+				for (const diagnostic of this.project.diagnostics) { this.paragraph(content, diagnostic); }
+				if (this.project.model.version === 4 && this.project.editable) { this.button(content, localize('ade.blueprint.edit', "Edit Blueprint"), () => { void this.commandService.executeCommand('ade.blueprint'); }); }
+				this.button(content, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); });
+			} else if (sourceEvidence && !this.project.loading && !this.project.error) {
 				dom.append(content, dom.$('h1')).textContent = localize('ade.import.interpretTitle', "Create Diagrams from Your Code");
 				this.paragraph(content, localize('ade.import.interpretDescription', "Source analysis is ready. AI will identify your application's capabilities, objects, actions and interactions, and compose a few meaningful diagrams. Files and symbols are evidence, not diagrams."));
 				if (this.code.context) { this.renderWorkflow(content); }
@@ -228,7 +241,7 @@ export class AdeEditor extends EditorPane {
 		if (this.ai.chatLocation && this.root.classList.contains('ade-canvas-mode')) { this.button(parent, localize('ade.backToDiagrams', "Back to Diagrams"), () => { void this.ai.returnToDiagrams(); }); }
 		const sync = this.button(parent, localize('ade.updateCode', "Update Code"), () => { void this.code.sync('model'); });
 		sync.classList.toggle('ade-sync-project', this.project.dirty && !this.code.changed);
-		this.explainDisabled(sync, !!this.project.error || isSourceEvidenceModel(this.project.model) || !this.code.available || !this.code.context || this.code.busy || this.ai.busy, !this.code.context ? localize('ade.linkRequired', "Import a Codebase to Update Its Code from Diagram Changes.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
+		this.explainDisabled(sync, !!this.project.error || this.project.model.version === 4 || isSourceEvidenceModel(this.project.model) || !this.code.available || !this.code.context || this.code.busy || this.ai.busy, this.project.model.version === 4 ? localize('ade.compatibleProfileRequired', "Choose a Compatible Generation Profile Before Updating Code.") : !this.code.context ? localize('ade.linkRequired', "Import a Codebase to Update Its Code from Diagram Changes.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
 		if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) {
 			this.button(parent, localize('ade.ai.chat', "Chat with Codex"), () => { void this.ai.chat(); }).disabled = !!this.project.error || this.ai.busy || this.code.busy;
 			if (this.code.context?.diagramState === 'diagrams') {
@@ -257,6 +270,7 @@ export class AdeEditor extends EditorPane {
 		this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
 		this.button(content, localize('ade.demo', "Explore Purchase Example"), () => { void this.project.useDemo(); });
 		this.button(content, localize('ade.createProject', "Create Project"), () => { void this.commandService.executeCommand('ade.createProject'); });
+		if (this.project.editable && this.project.model.version === 4 && !this.project.model.semantics.elements.length) { this.button(content, localize('ade.pure.start', "Add Pure Quantity Feature"), () => { void this.commandService.executeCommand('ade.createPureFeature'); }); }
 		this.button(content, localize('ade.importCode', "Import Codebase"), () => { void this.code.importCodebase(); }).disabled = !this.code.available || this.code.busy;
 		this.paragraph(content, localize('ade.editingFuture', "Create a project, add a feature, and design its structure and flow. The purchase example is read-only."));
 	}
@@ -279,6 +293,7 @@ export class AdeEditor extends EditorPane {
 			this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
 			return;
 		}
+		if (view.subjectId) { this.renderBreadcrumbs(content); }
 		const workspace = dom.append(content, dom.$('.ade-workspace'));
 		workspace.classList.toggle('has-inspector', this.inspectorOpen);
 		const visual = dom.append(workspace, dom.$('section.ade-visual'));
@@ -311,6 +326,7 @@ export class AdeEditor extends EditorPane {
 		const spread = this.button(menu, localize('ade.spreadOut', "Spread Out"), () => { this.project.edit({ kind: 'layout', viewId: view.id, density: 'spacious' }); this.focusSelection(); });
 		spread.disabled = !this.project.editable || view.kind === 'sequence';
 		const title = dom.append(menu, dom.$('h1.ade-canvas-title')); title.textContent = view.name; title.title = view.name;
+		if (view.subjectId) { this.renderBreadcrumbs(menu); }
 		const actions = this.controls.details(menu, localize('ade.canvasMenu', "Actions"), 'canvas-actions');
 		this.renderNavigation(actions, true);
 		if (this.code.context) { this.renderPrimaryActions(menu); }
@@ -325,6 +341,7 @@ export class AdeEditor extends EditorPane {
 		this.iconButton(zoom, localize('ade.zoomIn', "Zoom In"), Codicon.add, () => { this.zoom *= 1.2; this.applyCamera(); }, 'canvas-zoom-in');
 		this.button(zoom, localize('ade.fitDiagram', "Fit Diagram"), () => this.fitDiagram(), 'canvas-fit');
 		const workflow = dom.append(parent, dom.$('section.ade-floating-workflow')); this.renderWorkflow(workflow);
+		if (this.project.model.version === 4 && view.messagingId) { renderAdeMessaging(this.controls.details(actions, localize('ade.messaging.details', "Messaging Details"), 'canvas-messaging'), this.project.model, view.messagingId, this.controls, id => this.project.inspectElement(id)); }
 		if (view.kind === 'state') { renderAdeState(this.controls.details(actions, localize('ade.state.lifecycle', "Lifecycle Details"), 'canvas-lifecycle'), this.project.model, view, this.controls, id => this.project.inspectElement(id), id => { this.inspectorOpen = true; this.project.selectElement(id); this.render(); this.focusSelection(); }); }
 		if (view.kind === 'sequence') { this.paragraph(this.controls.details(actions, localize('ade.sequence.info', "Sequence Details"), 'canvas-sequence'), localize('ade.sequence.intent', "Declared sequence: invocations, reads and writes, one occurrence per relationship. Order is local to this diagram, not observed execution.")); }
 		if (view.id.startsWith('semantic:')) { this.paragraph(this.controls.details(actions, localize('ade.ai.info', "Interpretation Details"), 'canvas-interpretation'), localize('ade.ai.interpretationHint', "AI Interpretation · Review Inferred Responsibilities and Flows Against the Source.")); }
@@ -402,6 +419,9 @@ export class AdeEditor extends EditorPane {
 			}
 		} else {
 			const view = this.project.activeView;
+			if (model.version === 4 && view?.subjectId) {
+				for (const element of getElementPath(model, view.subjectId)) { this.button(breadcrumbs, element.name, () => { const next = getC4DrillDown(model, element.id)[0]; if (next) { this.project.showDiagram(next.id); this.project.selectElement(element.id); } else { this.project.inspectElement(element.id); } }, `c4-breadcrumb:${element.id}`); }
+			}
 			const group = getDiagramGroups(model).find(group => group.featureId && group.views.some(candidate => candidate.id === view?.id));
 			if (group?.featureId) { this.button(breadcrumbs, group.name, () => this.project.inspectElement(group.featureId!), `breadcrumb:${group.featureId}`); }
 			if (view) {
@@ -666,6 +686,17 @@ export class AdeEditor extends EditorPane {
 		if (!element) { return; }
 		dom.append(detail, dom.$('h3')).textContent = element.name;
 		this.paragraph(detail, localize('ade.elementKind', "Type: {0}", elementLabels[element.kind]));
+		if (model.version === 4) {
+			renderBlueprintDetails(detail, model, element.id, this.controls, (viewId, elementId) => { this.project.showDiagram(viewId); this.project.selectElement(elementId); }, id => this.project.inspectElement(id));
+			if (this.project.editable) { for (const property of specificationEditors(model, element.id)) { this.button(detail, property.label, () => { void this.commandService.executeCommand('ade.blueprint', element.id, property.mode); }, `property:${property.mode}:${element.id}`); } }
+			if (this.project.editable) { this.button(detail, localize('ade.blueprint.edit', "Edit Blueprint"), () => { void this.commandService.executeCommand('ade.blueprint', element.id); }); }
+			this.button(detail, localize('ade.predicate.edit', "Edit Pure Predicate"), () => { void this.commandService.executeCommand('ade.predicate', element.id); });
+			this.button(detail, localize('ade.task.preview', "Structural AI Context Preview"), () => { void this.commandService.executeCommand('ade.prepareStructuralContext'); });
+			if (this.project.taskPreview) { renderModelTaskPreview(detail, this.project.taskPreview, this.controls); }
+			const readiness = this.project.readiness(element.id);
+			this.paragraph(detail, readiness.state === 'draft' ? localize('ade.ready.draft', "Specification: Draft") : readiness.state === 'generationReady' ? localize('ade.ready.ready', "Specification: Ready for the Selected Profile") : localize('ade.ready.structured', "Specification: Structurally Valid"));
+			for (const diagnostic of readiness.diagnostics) { const route = readinessEditor(diagnostic); this.button(detail, readinessDiagnosticMessage(model, diagnostic), () => { void this.commandService.executeCommand(route.command, diagnostic.object?.id ?? element.id, route.mode); }, `readiness:${diagnostic.code}:${diagnostic.object?.id}:${diagnostic.field}`); }
+		}
 		const floating = this.root.classList.contains('ade-canvas-mode') && !!view;
 		if (floating) {
 			if (element.description) { this.paragraph(detail, element.description); }
@@ -713,7 +744,8 @@ export class AdeEditor extends EditorPane {
 		}
 		for (const line of notationLines(element)) { this.paragraph(detail, line); }
 		if (this.project.editable) { this.button(detail, localize('ade.notation.edit', "Edit Attributes and Technology"), () => { void this.commandService.executeCommand('ade.notation', element.id); }); }
-		if (this.project.editable) { this.button(detail, localize('ade.notation.parent', "Change Boundary or Parent"), () => { void this.commandService.executeCommand('ade.parent', element.id); }); }
+		if (this.project.editable && model.version !== 4) { this.button(detail, localize('ade.notation.parent', "Change Boundary or Parent"), () => { void this.commandService.executeCommand('ade.parent', element.id); }); }
+		if (this.project.editable && model.version === 4) { this.button(detail, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); }); }
 		if (element.parentId) { this.paragraph(detail, localize('ade.notation.parentName', "Boundary / Parent: {0}", model.semantics.elements.find(parent => parent.id === element.parentId)?.name ?? element.parentId)); }
 		if (element.description && !floating) { this.paragraph(detail, element.description); }
 		if (element.behavior) {
@@ -1029,6 +1061,9 @@ export class AdeEditor extends EditorPane {
 		this.paragraph(parent, relation.name || relationLabels[relation.kind]);
 		this.paragraph(parent, relationLabels[relation.kind]);
 		if (relation.details) { this.paragraph(parent, notationRelationLabel(relation)); }
+		if (this.project.model.version === 4) {
+			for (const transport of this.project.model.foundation.blueprint?.transports.filter(transport => transport.relationId === id) ?? []) { this.paragraph(parent, localize('ade.blueprint.transportDetails', "Transport: {0} · Payload: {1} · Schema: {2} · Version: {3}", transport.protocol, transport.format, this.project.model.foundation.types.find(type => type.id === transport.schemaTypeId)?.name ?? '', transport.schemaVersion)); }
+		}
 		if (this.project.editable) { this.button(parent, localize('ade.notation.editRelation', "Edit Cardinalities and Protocol"), () => { void this.commandService.executeCommand('ade.relationNotation', id); }); }
 		for (const target of [relation.from, relation.to]) {
 			this.button(parent, this.project.model.semantics.elements.find(element => element.id === target)!.name, () => this.revealElement(target));
@@ -1051,7 +1086,7 @@ export class AdeEditor extends EditorPane {
 
 		const implement = this.button(this.controls.details(parent, localize('ade.ai.advancedImplementation', "Guided Feature Implementation"), 'ai-implementation'), localize('ade.ai.implementButton', "Implement Feature"), () => { void this.ai.implement(); });
 		implement.classList.add('ade-primary-action');
-		this.explainDisabled(implement, this.ai.busy || this.code.busy || !this.code.context, !this.code.context ? localize('ade.ai.importRequired', "Import a Git Codebase with a Commit and Add a Feature Before Implementing. Use Import Codebase or Sync Project.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."));
+		this.explainDisabled(implement, this.ai.busy || this.code.busy || (!this.code.context && this.project.model.version !== 4), !this.code.context && this.project.model.version !== 4 ? localize('ade.ai.importRequired', "Import a Git Codebase with a Commit and Add a Feature Before Implementing. Use Import Codebase or Sync Project.") : localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."));
 		const more = this.controls.details(parent, localize('ade.ai.more', "Review, Recovery and Other AI Actions"), 'ai-more');
 		for (const [label, action, enabled, reason] of [
 			[localize('ade.ai.interpretButton', "Interpret Unresolved Evidence"), () => this.ai.interpret(), !!this.code.context, localize('ade.ai.evidenceRequired', "Import a Codebase to Inspect Its Unresolved Evidence.")],
@@ -1071,6 +1106,13 @@ export class AdeEditor extends EditorPane {
 	}
 
 	private renderWorkflow(parent: HTMLElement): void {
+		if (this.ai.structuralProblem) {
+			const issue = dom.append(parent, dom.$('section.ade-structural-review')); issue.setAttribute('role', 'alert');
+			this.paragraph(issue, localize('ade.review.resolve', "Model and Code Need Review Before Publication")); this.paragraph(issue, this.ai.structuralProblem);
+			this.button(issue, localize('ade.review.revise', "Review Specification and Constraints"), () => { void this.commandService.executeCommand('ade.blueprint'); });
+			this.button(issue, localize('ade.task.edit', "Tasks and Clarifications"), () => { void this.commandService.executeCommand('ade.taskIntent'); });
+		}
+		if (this.ai.structuralReview) { renderStructuralReview(parent, this.project.model, this.ai.structuralReview, this.controls, { busy: this.ai.busy || this.code.busy, canVerify: this.ai.canVerify, canApply: this.ai.canApply, canUndo: this.ai.canUndo, verify: () => { void this.ai.verify(); }, apply: () => { void this.ai.apply(); }, undo: () => { void this.ai.undo(); }, technical: () => { void this.ai.structuralTechnicalReview(); }, returnToDiagram: () => this.focusSelection() }); }
 		if (!this.code.context || !this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
 		const progress = this.ai.diagramProgress;
 		const pending = progress && progress.status !== 'complete';
@@ -1126,6 +1168,26 @@ export class AdeEditor extends EditorPane {
 			back.setAttribute('aria-description', this.ai.chatLocation === 'terminal' ? localize('ade.codexInTerminal', "Codex Is Open in the Terminal") : localize('ade.codexInChat', "Codex Is Open in Chat"));
 		}
 		const moreTools = this.controls.details(toolbar, localize('ade.moreTools', "More Tools"), 'technical-tools');
+		if (this.project.model.version === 4 && this.project.editable) {
+			this.paragraph(moreTools, this.ai.continuityStatus);
+			this.button(moreTools, localize('ade.continuity.toggle', "Start or Stop Continuous Preparation"), () => { void this.ai.configureContinuity(); });
+			this.button(moreTools, localize('ade.task.edit', "Tasks and Clarifications"), () => { void this.commandService.executeCommand('ade.taskIntent'); });
+			this.button(moreTools, localize('ade.review.prepare', "Prepare Model to Code Review"), () => { void this.ai.implement(); }).disabled = this.ai.busy || this.code.busy;
+			this.button(moreTools, localize('ade.task.profile', "Choose Runtime and Review Stack Plan"), () => { void this.commandService.executeCommand('ade.selectStructuralProfile'); });
+			this.button(moreTools, localize('ade.states.simulate', "Simulate State Machine"), () => { void this.commandService.executeCommand('ade.ai.simulateStates'); });
+			this.button(moreTools, localize('ade.messaging.edit', "Edit Messaging Topology"), () => { void this.commandService.executeCommand('ade.messaging'); });
+			this.button(moreTools, localize('ade.messaging.simulate', "Simulate Messaging"), () => { void this.commandService.executeCommand('ade.simulateMessaging'); });
+			this.button(moreTools, localize('ade.states.edit', "Edit Executable State Machine"), () => { void this.commandService.executeCommand('ade.stateMachine'); });
+			this.button(moreTools, localize('ade.interaction.edit', "Edit Executable Interaction"), () => { void this.commandService.executeCommand('ade.interaction'); });
+			this.button(moreTools, localize('ade.predicate.edit', "Edit Pure Predicate"), () => { void this.commandService.executeCommand('ade.predicate'); });
+			if (this.project.model.version === 4) {
+				this.button(moreTools, localize('ade.pure.expectations', "Independent Business Expectations"), () => { void this.ai.editPureCriteria(); });
+				this.button(moreTools, localize('ade.pure.reverse', "Reverse Model Behavior from Code"), () => { void this.ai.structuralReverse(); });
+			}
+			this.button(moreTools, localize('ade.task.preview', "Structural AI Context Preview"), () => { void this.commandService.executeCommand('ade.prepareStructuralContext'); });
+			this.button(moreTools, localize('ade.blueprint.edit', "Edit Blueprint"), () => { void this.commandService.executeCommand('ade.blueprint'); });
+			this.button(moreTools, localize('ade.blueprint.decisions', "Project Architecture Decisions"), () => { void this.commandService.executeCommand('ade.projectDecisions'); });
+		}
 		this.button(moreTools, localize('ade.systemMap', "System Map"), () => this.project.showSystemMap());
 		this.button(moreTools, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search'); });
 		this.button(moreTools, localize('ade.syncProject', "Sync Project"), () => { void this.code.sync(); }).disabled = this.code.busy || this.ai.busy || !this.code.context;

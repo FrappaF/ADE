@@ -1,0 +1,13 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+
+# Handoff DAI-11 → DAI-12
+
+Scheda §10, 9 novembre 2026 (Europe/Rome). Branch `work`, HEAD `05c3a0f0`; DAI-01–11 locali senza commit/push/PR. Preservare modifiche, fixture e report storici.
+
+1. **Requisiti/comportamento:** DAI-12 verifica e chiude ogni criterio R01–R16/S00–S15 con evidenza effettiva. DAI-11 consegna S10 nel perimetro dichiarato: Node ESM 24.22.1/profilo 5 e Bun ESM 1.3.2/profilo 1, stesso linguaggio/PSM diversi. Non promettere un secondo linguaggio, DB o framework.
+2. **Riuso:** [due stack](stacks-v1.md), [verbale](dai-11.md), [ADR 0014](../decisions/0014-bun-esm-second-archetype.md), [workflow](workflow-v1.md) e [round trip](roundtrip-v1.md). Servizio documento/undo, proprietà, QuickInput, task CAS, review nel diagramma, coda cancellabile, journal e indice restano comuni.
+3. **Decisioni:** descrittore Node invariato, digest `2558425ea86e106e58ab78240c93ac69f5a2efafa9c8d27482005ca05c1be838`. Bun eseguibile host assoluto `ADE_BUN_EXECUTABLE`; verifica versione, mai fallback Node o path dal modello/provider. Bun non ha permission Node; runner ammette solo codice ricostruito fidato, ambiente vuoto, limiti tempo/output, nessuna sandbox OS/rete dichiarata.
+4. **Scope/preservazione:** switch atomico dei soli binding, ID/PIM/scenari/criteri/ADR/layout conservati. Piano completo e verifica nel runtime target; ADR Node-only blocca Bun senza revisione esplicita. Reverse arbitrario rimane parziale. Continuità opt-in solo preparazione, verifica e pubblicazione manuali.
+5. **Contesto/budget:** 192 KiB input/64 KiB output, overflow prima del worktree, null per consumo/prezzo ignoti, zero chiamate IA nelle prove deterministiche. Distinguere compilazione contesto da Git/staging e memoria host del bundle da runner. Corpus/budget congelati invariati.
+6. **Attesi indipendenti:** test dei due runtime, round trip per costrutto, checkpoint e ledger Node→Bun→Node, broker reale su entrambi, nativi scriptati e Chromium. Il report conserva harness/versioni/hash/comandi e limiti. Non trasformare queste prove in collaudo desktop o certificazione del corpus completo.
+7. **Recovery/esecuzione:** stessa autorità snapshot/lock/journal; cache derivata ricostruibile, baseline persa blocca. Copie dati offline con stop/drain/backup e programma invariato; nessun deploy/migrazione viva/rewind ledger implicito. DAI-12 deve eseguire corpus completo, inferenze live autorizzate/configurate, Linux/macOS pertinenti, accessibilità desktop e rapporto per criterio; risultati non misurati rimangono aperti, senza inventare provider/costi o attestazioni.

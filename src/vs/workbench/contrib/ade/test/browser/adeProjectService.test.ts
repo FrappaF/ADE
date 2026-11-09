@@ -4,6 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { messagingFixture } from '../common/messagingFixture.js';
+import { stateFixture } from '../common/stateFixture.js';
+import { interactionFixture } from '../common/interactionFixture.js';
+import { createPureProject } from '../../common/modelProject.js';
+import { switchModelStack } from '../../common/modelStack.js';
+import { nodeOrdersFixture } from '../common/nodeOrdersFixture.js';
+import { blueprintFixture } from '../common/blueprintFixture.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -21,6 +28,7 @@ import { AdeProjectService } from '../../browser/adeProjectService.js';
 import { IWorkspaceContextService, IWorkspaceFoldersChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
 import { testWorkspace } from '../../../../../platform/workspace/test/common/testWorkspace.js';
 import { projectDocuments } from './testProjectDocuments.js';
+import { migrateSemanticModelToV4 } from '../../common/modelMigration.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 import { libraryModel, observatoryModel } from '../common/independentProjects.js';
 
@@ -327,7 +335,7 @@ suite('A.D.E project context', () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		const folder = URI.parse('test:/project');
 		assert.strictEqual(await project.createProject('Checkout', folder), true);
-		assert.deepStrictEqual([project.model.version, project.model.name, project.model.views.length, project.dirty], [3, 'Checkout', 0, false]);
+		assert.deepStrictEqual([project.model.version, project.model.name, project.model.views.length, project.dirty], [4, 'Checkout', 0, false]);
 		project.editBatch([
 			{ kind: 'feature', id: 'purchase', name: 'Conferma acquisto' },
 			{ kind: 'diagram', id: 'structure', featureId: 'purchase', name: 'Struttura', viewKind: 'structure' },
@@ -674,4 +682,179 @@ suite('A.D.E project context', () => {
 		assert.deepStrictEqual([project.modelUri, project.dirty, project.model], [undefined, false, checkoutModel]);
 		assert.deepStrictEqual(JSON.parse((await files.readFile(resource)).value.toString()), checkoutModel);
 	});
+	test('v4 upgrade is explicit, recoverable through native undo, and stable after save/reopen', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		const original = (await files.readFile(resource)).value.toString();
+		await project.openModelResource(resource);
+		assert.strictEqual(project.model.version, 2, 'opening does not migrate a legacy document');
+		project.upgradeToV4();
+		const upgraded = project.model;
+		assert.deepStrictEqual([upgraded.version, project.dirty, project.hasStructuralErrors], [4, true, false]);
+		assert.strictEqual((await files.readFile(resource)).value.toString(), original, 'migration does not save implicitly');
+		await project.undo();
+		assert.strictEqual(project.model.version, 2);
+		await project.redo();
+		assert.deepStrictEqual(project.model, upgraded);
+		assert.strictEqual(await project.save(), true);
+		await project.openModelResource(resource);
+		assert.deepStrictEqual(project.model, upgraded);
+		assert.notStrictEqual(project.readiness('checkout-controller').state, 'generationReady');
+	});
+
+	test('referentially invalid v4 drafts remain editable, saveable and recoverable without allocating new IDs', async () => {
+		const model = migrateSemanticModelToV4(checkoutModel);
+		model.semantics.relations.push({ id: 'draft.invalid', kind: 'dependency', from: 'checkout-controller', to: 'not-declared', name: 'Incomplete' });
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		assert.strictEqual(await project.openModelResource(resource), true);
+		assert.deepStrictEqual([project.error, project.hasStructuralErrors, project.editable, project.activeView], [undefined, true, true, undefined]);
+		project.edit({ kind: 'rename', target: 'element', id: 'checkout-controller', name: 'Recoverable Draft' });
+		assert.strictEqual(await project.save(), true);
+		await project.undo();
+		assert.deepStrictEqual(project.model, model);
+		await project.redo();
+		const edited = project.model;
+		await project.save();
+		await project.openModelResource(resource);
+		assert.deepStrictEqual(project.model, edited);
+		assert.strictEqual(project.hasStructuralErrors, true);
+	});
+
+	test('blueprint operations and ADR revisions round-trip in one native undo transaction', async () => {
+		const model = structuredClone(blueprintFixture);
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		const operation = structuredClone(model.foundation.blueprint!.operations[0]); operation.name = 'submitOrder';
+		const decision = structuredClone(model.foundation.decisions[0]); decision.revision = 'adr.2'; decision.record!.decision = 'Clarified rationale';
+		project.editBatch([{ kind: 'blueprint', section: 'operations', entry: operation }, { kind: 'decision', entry: decision, expectedRevision: 'adr.1' }]);
+		const edited = project.model;
+		await project.undo(); assert.deepStrictEqual(project.model, model);
+		await project.redo(); assert.deepStrictEqual(project.model, edited);
+		assert.strictEqual(await project.save(), true);
+		await project.openModelResource(resource); assert.deepStrictEqual(project.model, edited);
+		assert.throws(() => project.edit({ kind: 'decision', entry: decision, expectedRevision: 'adr.1' }), /stale/);
+		assert.deepStrictEqual(project.model, edited);
+	});
+
+	test('a required interface draft saves, reopens and can be repaired with undo', async () => {
+		const model = structuredClone(blueprintFixture);
+		model.foundation.blueprint!.connections = [];
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		assert.deepStrictEqual([project.error, project.hasStructuralErrors, project.editable], [undefined, true, true]);
+		project.edit({ kind: 'description', id: 'component.checkout', description: 'Draft responsibility' });
+		assert.strictEqual(await project.save(), true); await project.openModelResource(resource);
+		assert.strictEqual(project.hasStructuralErrors, true);
+	});
+
+	test('pure predicates save, undo and reopen through the native document without replacing stable IDs', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(nodeOrdersFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		const predicate = structuredClone(nodeOrdersFixture.foundation.predicates![0]); predicate.nodes[1] = { id: 'zero', kind: 'literal', typeId: 'type.quantity', value: 1 };
+		project.edit({ kind: 'predicate', entry: predicate }); const edited = project.model;
+		await project.undo(); assert.deepStrictEqual(project.model, nodeOrdersFixture); await project.redo();
+		await project.save(); await project.openModelResource(resource); assert.deepStrictEqual(project.model, edited);
+	});
+
+	test('structural context preview is local, leaves document bytes unchanged and hides stale data', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(nodeOrdersFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource); const before = project.model;
+		const packet = await project.prepareStructuralContext('operation.submit', 'Inspect the declared predicate');
+		assert.deepStrictEqual([project.model, project.dirty, project.taskPreview?.seal, packet.metrics.calls], [before, false, packet.seal, 0]);
+		project.edit({ kind: 'description', id: 'component.checkout', description: 'Revised responsibility' }); assert.strictEqual(project.taskPreview, undefined);
+	});
+
+	test('an unsupported future document cannot be saved through the semantic editor', async () => {
+		const source = JSON.stringify({ ...checkoutModel, version: 5 });
+		await files.writeFile(resource, VSBuffer.fromString(source));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		assert.strictEqual(await project.openModelResource(resource), false);
+		assert.strictEqual(await project.save(), false);
+		project.upgradeToV4();
+		assert.strictEqual((await files.readFile(resource)).value.toString(), source);
+	});
+
+	test('first pure feature is created from an empty project with independent criteria and native undo', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.createProject('Quantity Domain', URI.parse('test:/pure-project'));
+		const identity = project.model.id; await project.createPureFeature();
+		assert.strictEqual(project.model.id, identity);
+		assert.strictEqual(project.model.version === 4 && project.model.foundation.predicates?.length, 1);
+		const criteria = JSON.parse((await files.readFile(URI.parse('test:/pure-project/.ade/criteria.json'))).value.toString());
+		assert.deepStrictEqual(criteria.cases.map((entry: { expected: boolean | null | string }) => entry.expected), [false, false, true, true, null, 'typeError', 'typeError', 'typeError']);
+		await project.undo(); assert.strictEqual(project.model.semantics.elements.length, 0); await project.redo();
+		await project.save(); await project.openProject(URI.parse('test:/pure-project'));
+		assert.strictEqual(project.model.version === 4 && project.model.foundation.predicates?.length, 1);
+	});
+
+	test('pure starter never replaces an existing specification', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs)); await project.openModelResource(resource);
+		await assert.rejects(project.createPureFeature(), /empty version 4/); assert.deepStrictEqual(project.model, checkoutModel);
+	});
+
+	test('executable interaction edits preserve hierarchy, save, reopen and participate in native undo/redo', async () => {
+		const model = structuredClone(interactionFixture); model.views = [{ id: 'sequence', name: 'Checkout Sequence', kind: 'sequence', nodes: [], relationIds: [], interactionId: 'interaction.checkout' }];
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs)); await project.openModelResource(resource);
+		const interaction = structuredClone(model.foundation.interactions[0]); interaction.execution!.revision = '2';
+		const frames = model.foundation.frames.filter(frame => interaction.frameIds.includes(frame.id)).map(frame => structuredClone(frame));
+		const frame = frames.find(frame => frame.kind === 'alt')!; if (frame.kind === 'alt') { const node = frame.operands[0].guard!.nodes.find(node => node.kind === 'literal')!; if (node.kind === 'literal') { node.value = 'pending'; } }
+		const entry = { interaction, frames, occurrences: model.foundation.occurrences.filter(call => interaction.occurrenceIds.includes(call.id)), expectedRevision: '1' };
+		project.editBatch([{ kind: 'interaction', entry }, { kind: 'viewInteraction', viewId: 'sequence', interactionId: interaction.id }]); const edited = project.model;
+		await project.undo(); assert.deepStrictEqual(project.model, model); await project.redo(); assert.deepStrictEqual(project.model, edited);
+		await project.save(); await project.openModelResource(resource); assert.deepStrictEqual(project.model, edited); assert.throws(() => project.edit({ kind: 'interaction', entry }), /revision changed/);
+	});
+
+	test('flat machine edits save/reopen with native undo/redo and stale revision protection', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(stateFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs)); await project.openModelResource(resource);
+		const entry = structuredClone(stateFixture.foundation.stateMachines![0]); entry.revision = '2'; entry.transitions[0].priority = 5;
+		project.editBatch([{ kind: 'stateMachine', entry, expectedRevision: '1' }, { kind: 'viewStateMachine', viewId: 'view.lifecycle', stateMachineId: entry.id }]); const edited = project.model;
+		await project.undo(); assert.deepStrictEqual(project.model, stateFixture); await project.redo(); assert.deepStrictEqual(project.model, edited); await project.save(); await project.openModelResource(resource); assert.deepStrictEqual(project.model, edited); assert.throws(() => project.edit({ kind: 'stateMachine', entry, expectedRevision: '1' }), /revision changed/);
+	});
+
+	test('messaging topology saves/reopens and uses native undo/redo with stale policy protection', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(messagingFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs)); await project.openModelResource(resource);
+		const entry = structuredClone(messagingFixture.foundation.messaging![0]); entry.revision = '2'; entry.subscriptions[0].ackWaitMs = 1000;
+		project.editBatch([{ kind: 'messaging', entry, expectedRevision: '1' }, { kind: 'viewMessaging', viewId: 'view.messaging', messagingId: entry.id }]); const edited = project.model;
+		await project.undo(); assert.deepStrictEqual(project.model, messagingFixture); await project.redo(); assert.deepStrictEqual(project.model, edited); await project.save(); await project.openModelResource(resource); assert.deepStrictEqual(project.model, edited); assert.throws(() => project.edit({ kind: 'messaging', entry, expectedRevision: '1' }), /revision changed/);
+	});
+
+	test('task clarification uses native undo/redo, survives save/reopen, and seals the current intent in preview', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(nodeOrdersFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		const entry = { id: 'task.quantity', target: { kind: 'operation' as const, id: 'operation.submit' }, revision: '1', text: 'Strict quantity rule', clarifications: [], history: [] };
+		project.edit({ kind: 'taskIntent', entry });
+		project.edit({ kind: 'taskIntent', expectedRevision: '1', entry: { ...entry, revision: '2', clarifications: [{ question: 'Zero?', answer: 'Reject zero' }] } });
+		const edited = project.model; await project.undo(); assert.strictEqual(project.model.version === 4 && project.model.foundation.tasks![0].revision, '1');
+		await project.redo(); assert.deepStrictEqual(project.model, edited); await project.save(); await project.openModelResource(resource); assert.deepStrictEqual(project.model, edited);
+		const packet = await project.prepareStructuralContext('operation.submit', 'fallback'); const value = JSON.parse(packet.bytes);
+		assert.deepStrictEqual(value.intent, { revision: '2', text: 'Strict quantity rule', clarifications: [{ question: 'Zero?', answer: 'Reject zero' }] });
+	});
+
+	test('runtime binding batch is one native undo, invalidates preview and survives save/reopen with Bun context', async () => {
+		let serial = 0; const portable = createPureProject('Portable Quantity', () => 'portable.' + ++serial).model, operationId = portable.foundation.blueprint!.operations[0].id;
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(portable)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource); const initial = project.model; if (initial.version !== 4) { throw new Error('Expected v4'); }
+		await project.prepareStructuralContext(operationId, 'Keep same business rule'); const oldSeal = project.taskPreview!.seal;
+		project.editBatch(switchModelStack(initial, 'bun.esm').foundation.platform.bindings.map(entry => ({ kind: 'platformBinding', entry })));
+		assert.strictEqual(project.taskPreview, undefined); const edited = project.model; await project.undo(); assert.deepStrictEqual(project.model, initial); await project.redo(); assert.deepStrictEqual(project.model, edited);
+		await project.save(); await project.openModelResource(resource); const packet = await project.prepareStructuralContext(operationId, 'Keep same business rule'); assert.notStrictEqual(packet.seal, oldSeal); assert.ok(packet.bytes.includes('bun.esm')); assert.deepStrictEqual(project.model, edited);
+	});
+
+	test('Node-specific normative ADR remains binding and blocks Bun context until explicitly revised', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(nodeOrdersFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource); const model = project.model; if (model.version !== 4) { throw new Error('Expected v4'); }
+		project.editBatch(switchModelStack(model, 'bun.esm').foundation.platform.bindings.map(entry => ({ kind: 'platformBinding', entry })));
+		await assert.rejects(project.prepareStructuralContext('operation.submit', 'Keep same business rule'), /decisionUnsatisfied/);
+	});
+
 });

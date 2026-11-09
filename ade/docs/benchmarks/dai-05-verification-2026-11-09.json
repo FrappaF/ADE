@@ -1,0 +1,206 @@
+{
+	"version": 1,
+	"sprint": "DAI-05",
+	"recordedAt": "2026-11-09T09:47:56.903649+00:00",
+	"timezone": "Europe/Rome",
+	"revision": "05c3a0f05c6e0c369a0e47001359f58542c2eea8",
+	"branch": "work",
+	"workingTreeDirty": true,
+	"totalPassed": 528,
+	"suites": [
+		{
+			"kind": "node-domain",
+			"command": "node --test --test-reporter=tap ade/test/*.test.mjs",
+			"tests": 167,
+			"pass": 167,
+			"fail": 0,
+			"cancelled": 0,
+			"skipped": 0,
+			"todo": 0
+		},
+		{
+			"kind": "ai-engine",
+			"command": "npm --prefix ade/ai test",
+			"tests": 62,
+			"pass": 62,
+			"fail": 0,
+			"cancelled": 0,
+			"skipped": 0,
+			"todo": 0
+		},
+		{
+			"kind": "code-import",
+			"command": "npm --prefix ade/code-import test",
+			"tests": 169,
+			"pass": 169,
+			"fail": 0,
+			"cancelled": 0,
+			"skipped": 0,
+			"todo": 0
+		},
+		{
+			"kind": "native-source-mocha",
+			"tests": 123,
+			"pass": 123,
+			"fail": 0,
+			"skipped": 0,
+			"suites": [
+				"adeProjectService",
+				"adeAiService",
+				"adeBlueprintEditing",
+				"adePredicateEditing",
+				"adeAccessibleContent",
+				"adeBehaviorEditing"
+			],
+			"mode": "Production source, real text model and in-memory filesystem, injected services/dialogs; not a full desktop smoke."
+		},
+		{
+			"kind": "chromium",
+			"tests": 7,
+			"pass": 7,
+			"fail": 0,
+			"version": "154.0.8037.57",
+			"results": [
+				{
+					"title": "A.D.E blueprint details renderer semantic drill-down is an explicit keyboard-focusable button and leaves geometry untouched",
+					"passed": true
+				},
+				{
+					"title": "A.D.E blueprint details renderer shared signatures retain optional versus nullable text and actionable contract references",
+					"passed": true
+				},
+				{
+					"title": "A.D.E blueprint details renderer external dependencies expose their context boundary without an internal drill-down",
+					"passed": true
+				},
+				{
+					"title": "A.D.E blueprint details renderer ADR reasons, structured constraints and historical reasons are inspectable",
+					"passed": true
+				},
+				{
+					"title": "A.D.E structural context renderer exact packet is a focusable native disclosure with explicit unavailable cost and zero inference",
+					"passed": true
+				},
+				{
+					"title": "A.D.E structural context renderer predicate rendering and accessible reading derive the same authored expression without mutation",
+					"passed": true
+				},
+				{
+					"title": "A.D.E structural context renderer source descriptions are text and cannot introduce markup or actions",
+					"passed": true
+				}
+			],
+			"mode": "Real Chromium, esbuild production-source bundle, Mocha; standard assert/process browser polyfills, no fake DOM/global replacements."
+		}
+	],
+	"finalAffectedProjectRerun": {
+		"command": "node --test --test-isolation=none --test-reporter=tap ade/ai/test/structural-project.test.mjs",
+		"tests": 27,
+		"pass": 27,
+		"fail": 0,
+		"cancelled": 0,
+		"skipped": 0,
+		"todo": 0
+	},
+	"checks": {
+		"aiTypecheck": true,
+		"codeImportTypecheck": true,
+		"workbenchTargetedDiagnostics": {
+			"files": 7,
+			"diagnostics": 0,
+			"finalChangedFiles": 2,
+			"finalDiagnostics": 0,
+			"limitations": "Only changed ADE roots assessed against actual src tsconfig and src typings; not a broad app build/typecheck."
+		},
+		"nativeEngineBundle": {
+			"nativeBundle": true,
+			"prepare": "staged",
+			"verify": "passed",
+			"independent": 8,
+			"publish": "applied",
+			"undo": "undone",
+			"calls": 0
+		},
+		"syntax": true,
+		"gitDiffCheck": true,
+		"localDocumentationLinks": 140,
+		"frozenCorpusGraphsBudget": true,
+		"historicalV2V3SchemasUnchanged": true
+	},
+	"businessArtifact": "ade/docs/benchmarks/dai-05-project-2026-11-09.json",
+	"fixedBudgetBenchmark": "ade/docs/benchmarks/dai-05-2026-11-09.json",
+	"sourceHashes": {
+		"ade/ai/structuralProject.ts": "1b4155ebb21f64cc3ebe2cefad2d7ef6732e4816e4cbd72d014d9703ab7c49ee",
+		"ade/ai/structuralContext.ts": "329786fd4533c2de1f3f503ad530eebd3e7e49b523e655bb4261a0e7ecf2ac4a",
+		"ade/ai/engine.ts": "cd8dbb5fc9e74fe63e1101023b16d7e94e20e1732bc3a486be68f37d68f20818",
+		"ade/ai/cli.mjs": "3fe6989cfc1b28df507b92d3f9ae135217e9a4c4012e436462f0231d847f1f79",
+		"ade/ai/process.ts": "48cd6b56aad01fbf7214c6e28cce2172ae8c87af837828a434ebefeeff7606a4",
+		"ade/ai/test/structural-project.test.mjs": "f03695fe108424f8f88bc0810e3f07a387f61193c7982e9ead5595818708840c",
+		"ade/code-import/projectStore.ts": "333931403216dd827c4af695fbb6601e66cb1bc0d3dce3195883300f6ae7c5d7",
+		"ade/code-import/sourceChanges.ts": "cea3ef8684d3bd88dcd282015d8957d7120e258c43eabdc204580c41ce648e61",
+		"ade/code-import/reconciliationJournal.ts": "45ffa7e0e0f69cc63eafc01949935c6776ec666a08fe26c32d64df53b23cd595",
+		"ade/scripts/dai-project.mjs": "90d49c4aeafa7bd069e735377f5b12872c9b78ee1a6490900c46129481767db5",
+		"ade/scripts/dai-model.mjs": "274656e34aa4bc584e78296732637d5e109667fc8d9926409925db7e3e6a8a8e",
+		"ade/test/dai-task.test.mjs": "1d7bf2d83a64f3075dd035e21e0092df7c9212acf0c3e23eafa5d63a7bad2b16",
+		"ade/test/dai-baseline.test.mjs": "50bbf369bdc2a0c006d6b4159e3e2321392445d1ebfd0407ff946f039c825e8e",
+		"ade/examples/dai-node-orders.ade.json": "cfecf192f8edd09188fd20bdad52fe7ae353704277d59497b9def0a8a73972b0",
+		"ade/examples/dai-node-criteria.json": "e3499d0b1bda78607164cc2932e375c3d883969efba988a2ad65e88984075a4a",
+		"ade/docs/diagram-driven-ai/dai-05-acceptance.md": "dbff66fdd0f67187f8cfb47c265579ee06d8184ea28bc0985358546d8451a342",
+		"ade/docs/decisions/0008-pure-project-runner-and-publication.md": "88ef0711ffcb024f6df2ea77317cb937573d960f777377033379f2058a98c45e",
+		"src/vs/workbench/contrib/ade/common/modelProject.ts": "3012e3555c569c641100d5b179fe6086916a606d8511961c49f7be7fbc0dbca6",
+		"src/vs/workbench/contrib/ade/common/modelProfiles.ts": "2d6b657985a057e052f4502ef2e1ebda8dc371b2a77f85b1982de3f91a158ad7",
+		"src/vs/workbench/contrib/ade/common/modelExpressions.ts": "eb08c679b9f22bd589e8c606ee16ee2a1a2dba37c9de0f1a20cfad7590481966",
+		"src/vs/workbench/contrib/ade/common/semanticModel.ts": "6fcc58c4455ae489ae101dd299cfb13865539bc9ad7aea8f9dfe8061d82b3043",
+		"src/vs/workbench/contrib/ade/common/modelSerialization.ts": "951f7b05b3d68cd44f88f83f9da2ddf71e53e64fe6670f58823a0a55c6d426ed",
+		"src/vs/workbench/contrib/ade/common/modelReadiness.ts": "238d6a05fc1d2b535c12f43e920a5305b4fa753fc1b48d5f062dd3958f6654fe",
+		"src/vs/workbench/contrib/ade/common/modelTaskContext.ts": "702098540a5a6ed15c011ede4d6895e0a54121683c8d5edb50835634ff416c93",
+		"src/vs/workbench/contrib/ade/common/modelTaskResponse.ts": "35c3e13e9591d7cd561531d6efa10d614210050a7e60fd4d7fa53877bc2b9b9c",
+		"src/vs/workbench/contrib/ade/common/contextTransport.ts": "97d7626e92774c3bf1f3816a67652c43572904dfdb2efee85f002b4592714d14",
+		"src/vs/workbench/contrib/ade/browser/adeProjectService.ts": "3387f65ef7f76eb592045c77f788485dc3a07ac3a5dda2c80f7763cbd3780e86",
+		"src/vs/workbench/contrib/ade/browser/adeAiService.ts": "84dbb1ceb910063f6f84ea8676979db34a37d03210a41794a72b3c027c1bd29b",
+		"src/vs/workbench/contrib/ade/browser/adeEditing.ts": "b2d3f38cd2d7fc43214bb8b20c2fd5517ee6b4068187961e1d71302812936adb",
+		"src/vs/workbench/contrib/ade/browser/adeEditor.ts": "e71f5674e43a5705a0c4412a79ddd62c4325582bab91a0062b315ef330489fc1",
+		"src/vs/workbench/contrib/ade/electron-browser/adeAiService.ts": "49416da4c7519bda55a19a0bf479883f5e6a09a38d6f7604ae020a7de4636c9b",
+		"src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts": "e1afc9f68bad3aee263206a15e6dccc90d312aaa3cbd79e7eab3eb0c77176939",
+		"src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts": "4e2462b7ca64b076f945a0ce4f8ea689cb357e64ca4eabf2903cefb0ee18d93c"
+	},
+	"provider": {
+		"calls": 0,
+		"live": false,
+		"measuredTokens": null,
+		"price": null
+	},
+	"claims": [
+		"Real filesystem, Git worktree, Node process, independent oracle, explicit publication, source reverse, undo and process-interruption recovery in the declared pure subset.",
+		"The wrong ge predicate passes derived tests and fails the independently authored zero case, preventing publication.",
+		"M5/M6 legacy guards remain and share the interrupted-publication check."
+	],
+	"notCertified": [
+		"Arbitrary operation implementation",
+		"Arbitrary custom project code/test execution",
+		"Full desktop smoke or OS/network isolation",
+		"Live provider quality, measured token cost",
+		"Frames, states, broker, persistence, runtime database migration or deploy",
+		"Continuous mode or second archetype",
+		"Release R01-R16 acceptance"
+	],
+	"finalPhysicalGuardRerun": {
+		"command": "node --test --test-isolation=none --test-reporter=tap --test-name-pattern='P07|P08' ade/ai/test/structural-project.test.mjs",
+		"tests": 10,
+		"pass": 10,
+		"fail": 0
+	},
+	"finalBaselineRerun": {
+		"command": "node --test --test-reporter=tap ade/test/dai-baseline.test.mjs",
+		"tests": 5,
+		"pass": 5,
+		"fail": 0
+	},
+	"finalLegacyReconciliationRerun": {
+		"command": "node --test ade/code-import/test/reconciliation.test.mjs",
+		"tests": 30,
+		"pass": 30,
+		"fail": 0,
+		"note": "Final source paths and new evidence links verified by the separate five-check baseline rerun."
+	}
+}

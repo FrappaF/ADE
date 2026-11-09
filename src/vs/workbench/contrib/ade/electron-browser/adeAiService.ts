@@ -3,6 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { assertPureProject } from '../common/modelProject.js';
+import { ModelContinuity, type ContinuityPolicy } from '../common/modelContinuity.js';
+import { validateSemanticModel } from '../common/semanticModel.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { editAdeMessagingCriteria } from '../browser/adeMessagingCriteria.js';
+import { editAdeStateCriteria } from '../browser/adeStateCriteria.js';
+import { describeAdeStateSimulation } from '../browser/adeStateContent.js';
+import { interpretModelStateMachine } from '../common/modelStates.js';
+import { editAdeInteractionCriteria } from '../browser/adeInteractionCriteria.js';
+import type { StructuralProjectSession as StructuralSession, ProjectCriteria } from '../common/modelProject.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
@@ -39,6 +49,7 @@ import { AdeInput } from '../browser/adeInput.js';
 import { viewLabels } from '../browser/adeLabels.js';
 import { openAdeTerminal } from '../browser/adeTerminal.js';
 import { getModelImpact } from '../common/modelImpact.js';
+import { canonicalJson, semanticContent } from '../common/modelSerialization.js';
 import { isSourceEvidenceModel } from '../common/semanticModel.js';
 import { CodePreview, CodeReconciliationContext, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
 
@@ -83,7 +94,69 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	private config: CliConfig | undefined;
 	diagramProgress: CodeDiagramProgress | undefined;
 	private session: CollaborationSession | undefined;
+	private structuralSession: StructuralSession | undefined;
+	private structuralInvalid = false;
+	private preparationProblem: string | undefined;
+	get structuralProblem(): string | undefined { return this.preparationProblem ?? this.continuity.error; }
+	get structuralReview(): StructuralSession | undefined { return this.structuralSession; }
+	private readonly continuity = this._register(new ModelContinuity<StructuralSession>(session => {
+		this.structuralInvalid = false; this.preparationProblem = undefined; this.structuralSession = session; this.session = undefined;
+		this.storage.store('ade.structural.session', JSON.stringify({ root: session.root, id: session.id }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+	}, policy => {
+		if (policy) { this.storage.store('ade.structural.continuity', JSON.stringify(policy), StorageScope.WORKSPACE, StorageTarget.MACHINE); }
+		this.changes.fire();
+	}));
+	get continuityStatus(): string {
+		const labels = { off: localize('ade.continuity.off', "Off"), paused: localize('ade.continuity.paused', "Paused"), waiting: localize('ade.continuity.waiting', "Waiting for Stable Edits"), preparing: localize('ade.continuity.preparing', "Preparing Review"), review: localize('ade.continuity.review', "Review Required"), aligned: localize('ade.continuity.aligned', "Aligned"), blocked: localize('ade.continuity.blocked', "Complete the Specification"), exhausted: localize('ade.continuity.exhausted', "Budget Exhausted"), failed: localize('ade.continuity.failed', "Preparation Failed") };
+		const budget = this.continuity.budget;
+		return localize('ade.continuity.status', "Continuous Preparation: {0} · {1}/{2} Jobs · Zero AI Calls · Manual Publication", labels[this.continuity.state], budget?.attempted ?? 0, budget?.maxPreparations ?? 0) + (this.continuity.error ? ` · ${this.continuity.error}` : '');
+	}
+	async configureContinuity(): Promise<void> {
+		const root = this.project.projectRoot?.fsPath;
+		if (!root || this.project.model.version !== 4) { return; }
+		if (this.continuity.active) { this.continuity.pause(); return; }
+		let saved: ContinuityPolicy | undefined;
+		try { saved = JSON.parse(this.storage.get('ade.structural.continuity', StorageScope.WORKSPACE) ?? 'null'); } catch { /* Invalid saved policy requires a new explicit budget. */ }
+		const choice = saved?.root === root ? await this.quick.pick([{ label: localize('ade.continuity.resume', "Resume Saved Budget"), value: 'resume' }, { label: localize('ade.continuity.new', "Set New Budget"), value: 'new' }], { title: localize('ade.continuity.title', "Continuous Preparation") }) : { value: 'new' };
+		if (!choice) { return; }
+		let policy = saved;
+		if (choice.value === 'new') {
+			const jobs = await this.quick.input({ title: localize('ade.continuity.limit', "Preparation Budget (1–100 Jobs)"), value: '10', validateInput: async value => /^([1-9]|[1-9][0-9]|100)$/.test(value) ? undefined : localize('ade.continuity.integer', "Enter an integer from 1 to 100.") }); if (!jobs) { return; }
+			policy = { version: 1, revision: generateUuid(), root, maxPreparations: Number(jobs), attempted: 0, maxInputBytes: 196608, outputReserveBytes: 65536, review: 'manual', providerCalls: 0 };
+		}
+		if (!policy || policy.root !== root || this.project.projectRoot?.fsPath !== root) { return; }
+		if (!(await this.dialogs.confirm({ message: localize('ade.continuity.enable', "Enable Continuous Local Preparation for This Project?"), detail: localize('ade.continuity.disclose', "Valid semantic edits are saved and coalesced into reviewed Node ESM proposals. At most {0} further preparations, 192 KiB per context and 64 KiB output reserve. Zero provider calls. Tests and publication require explicit review. Stop at any time; resuming retains consumption. Restarting the workbench leaves preparation paused.", policy.maxPreparations - policy.attempted), primaryButton: localize('ade.continuity.start', "Enable Preparation") })).confirmed || this.project.projectRoot?.fsPath !== root || !await this.trust.requestWorkspaceTrust()) { return; }
+		this.continuity.configure(policy); this.updateContinuity();
+	}
+	private updateContinuity(): void {
+		if (!this.continuity.active) { return; }
+		const root = this.project.projectRoot?.fsPath;
+		if (root !== this.continuity.budget?.root) { this.continuity.pause(); return; }
+		let valid = this.project.editable !== false && !this.project.error && this.project.model.version === 4 && !validateSemanticModel(this.project.model).some(item => item.severity === 'error');
+		if (valid && this.project.model.version === 4) { try { assertPureProject(this.project.model); } catch { valid = false; } }
+		const revision = `${root}:${valid}:${canonicalJson(semanticContent(this.project.model))}`;
+		this.continuity.update(revision, valid, async (signal, policy) => {
+			const operation = this.operations.acquire('ai');
+			if (!operation || this.busy) { operation?.dispose(); throw new Error(localize('ade.continuity.busy', "Another Project Operation Is Active. Pause and Resume Preparation to Retry.")); }
+			const cancellation = new CancellationTokenSource(), cancel = () => cancellation.cancel(); signal.addEventListener('abort', cancel, { once: true });
+			this.busy = true; this.changes.fire();
+			try {
+				signal.throwIfAborted();
+				if (!await this.trust.requestWorkspaceTrust() || !await this.project.save() || revision !== `${this.project.projectRoot?.fsPath}:true:${canonicalJson(semanticContent(this.project.model))}`) { throw new Error(localize('ade.continuity.changed', "The Project Changed Before Preparation.")); }
+				signal.throwIfAborted();
+				const result = await this.request<{ session?: StructuralSession }>({ operation: 'structuralPrepare', root, direction: 'forward', maxInputBytes: policy.maxInputBytes }, cancellation.token);
+				return result.session;
+			} finally { signal.removeEventListener('abort', cancel); cancellation.dispose(); operation.dispose(); this.busy = false; this.changes.fire(); }
+		});
+	}
+	private get structuralCurrent(): boolean {
+		const session = this.structuralSession; if (!session || this.structuralInvalid || this.project.projectRoot?.fsPath !== session.root) { return false; }
+		const expected = session.status === 'applied' ? session.next.model : JSON.parse(session.observed.find(entry => entry.file === '.ade/model.json')!.value!.content);
+		return canonicalJson(semanticContent(this.project.model)) === canonicalJson(semanticContent(expected));
+	}
 	get status(): string {
+		if (this.structuralSession && !this.structuralCurrent) { return localize('ade.pure.changed', "Model Behavior Changed · Prepare a New Review"); }
+		if (this.structuralSession) { return localize('ade.pure.status', "Model Behavior · {0} · {1} Independent Cases · {2} AI Calls", this.structuralSession.status, this.structuralSession.verification?.independent ?? (this.structuralSession.criteria.cases.length + (this.structuralSession.criteria.interactions?.length ?? 0) + (this.structuralSession.criteria.states?.length ?? 0) + (this.structuralSession.criteria.messaging?.length ?? 0)), this.structuralSession.calls); }
 		if (this.activityStatus) { return this.activityStatus; }
 		if (this.session) {
 			const labels = { staged: localize('ade.ai.staged', "Changes Ready for Review"), passed: localize('ade.ai.passed', "Tests Passed · Ready to Apply"), failed: localize('ade.ai.failed', "Verification Failed · Changes Not Applied"), applied: localize('ade.ai.applied', "Applied · Undo Available"), undone: localize('ade.ai.undone', "Changes Undone") };
@@ -91,12 +164,12 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		}
 		return this._connectionStatus ?? (this.config ? localize('ade.ai.selected', "{0} · {1}", this.config!.provider === 'codex' ? 'Codex' : 'Claude Code', this.config!.model) : localize('ade.ai.setup', "Choose an AI Model in AI Settings"));
 	}
-	get canVerify(): boolean { return !!this.session && ['staged', 'failed', 'passed'].includes(this.session.status); }
-	get canApply(): boolean { return this.session?.status === 'passed'; }
-	get canUndo(): boolean { return this.session?.status === 'applied'; }
+	get canVerify(): boolean { return this.structuralCurrent && !!this.structuralSession && ['staged', 'failed', 'passed', 'rolledBack'].includes(this.structuralSession.status) || !!this.session && ['staged', 'failed', 'passed'].includes(this.session.status); }
+	get canApply(): boolean { return this.structuralCurrent && this.structuralSession?.status === 'passed' || this.session?.status === 'passed'; }
+	get canUndo(): boolean { return this.structuralCurrent && this.structuralSession?.status === 'applied' || this.session?.status === 'applied'; }
 
 	constructor(
-		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'projectRoot' | 'modelUri' | 'activeView' | 'onDidChange'>,
+		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'projectRoot' | 'modelUri' | 'activeView' | 'onDidChange' | 'revert' | 'editable' | 'error'>,
 		@IAdeCodeService private readonly code: IAdeCodeService,
 		@IQuickInputService private readonly quick: IQuickInputService,
 		@INotificationService private readonly notifications: INotificationService,
@@ -118,7 +191,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		super();
 		let projectId = project.model.id;
 		this._register(project.onDidChange(() => {
-			if (projectId !== project.model.id) { this.conversation = undefined; projectId = project.model.id; }
+			if (projectId !== project.model.id) { this.continuity.pause(); this.preparationProblem = undefined; this.conversation = undefined; this.structuralSession = undefined; projectId = project.model.id; }
+			this.updateContinuity();
 			if (!this.busy) { this.activityStatus = undefined; this.changes.fire(); }
 		}));
 		const saved = storage.get('ade.ai.cliConfig', StorageScope.PROFILE);
@@ -148,17 +222,17 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		this.report(localize('ade.ai.phase.done', "{0} · Completed", label));
 		return result;
 	}
-	private async run(task: (token: CancellationToken) => Promise<void>, diagramJob = false): Promise<void> {
-		if (this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { this.info(localize('ade.ai.disabled', "AI Features Are Disabled in Settings.")); return; }
+	private async run(task: (token: CancellationToken) => Promise<void>, diagramJob = false, local = false): Promise<void> {
+		if (!local && this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { this.info(localize('ade.ai.disabled', "AI Features Are Disabled in Settings.")); return; }
 		const operation = this.operations.acquire('ai');
 		if (this.busy || !operation) { operation?.dispose(); this.notifications.info(localize('ade.ai.busy', "An A.D.E operation is already running. Wait for it to finish or cancel it before starting another.")); return; }
 		if (diagramJob) { this.diagramError?.close(); this.diagramError = undefined; }
-		this.busy = true; this.report(localize('ade.ai.starting', "Preparing AI Operation"));
-		const cancelled = () => diagramJob ? localize('ade.ai.diagramCancelled', "Diagram Generation Paused · Completed Steps Can Be Resumed") : localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.");
+		this.busy = true; this.report(local ? localize('ade.states.simulation.preparing', "Preparing Local Operation") : localize('ade.ai.starting', "Preparing AI Operation"));
+		const cancelled = () => local ? localize('ade.states.simulation.cancelled', "Local Operation Cancelled") : diagramJob ? localize('ade.ai.diagramCancelled', "Diagram Generation Paused · Completed Steps Can Be Resumed") : localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.");
 		const cancellation = new CancellationTokenSource();
 		try {
-			if (!await this.trust.requestWorkspaceTrust({ message: localize('ade.ai.trust', "A.D.E runs the original AI CLI and reviewed project tests on this computer.") })) { this.info(localize('ade.ai.untrusted', "AI Operation Cancelled · Workspace Trust Was Not Granted.")); return; }
-			await this.progress.withProgress({ location: ProgressLocation.Notification, title: localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
+			if (!local && !await this.trust.requestWorkspaceTrust({ message: localize('ade.ai.trust', "A.D.E runs the original AI CLI and reviewed project tests on this computer.") })) { this.info(localize('ade.ai.untrusted', "AI Operation Cancelled · Workspace Trust Was Not Granted.")); return; }
+			await this.progress.withProgress({ location: ProgressLocation.Notification, title: local ? localize('ade.states.simulation.progress', "A.D.E Local Operation") : localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
 			if (cancellation.token.isCancellationRequested) { this.info(cancelled()); }
 		}
 		catch (error) {
@@ -517,7 +591,101 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	}
 
 	async implement(): Promise<void> {
-		await this.collaborate('plan');
+		if (this.project.model.version === 4) { await this.preparePureProject('forward'); return; }
+		this.structuralSession = undefined; await this.collaborate('plan');
+	}
+	async structuralReverse(): Promise<void> { await this.preparePureProject('reverse'); }
+	async movePureSource(): Promise<void> {
+		const model = this.project.model; if (model.version !== 4) { return; }
+		const behavior = await this.quick.pick([...(model.foundation.predicates ?? []).map(predicate => ({ label: predicate.id, id: predicate.id })), ...model.foundation.interactions.filter(entry => entry.execution).map(entry => ({ label: entry.id, id: entry.id })), ...(model.foundation.messaging ?? []).map(entry => ({ label: entry.id, id: entry.id })), ...(model.foundation.stateMachines ?? []).map(entry => ({ label: model.semantics.elements.find(element => element.id === entry.ownerId)?.name ?? entry.id, id: entry.id }))], { title: localize('ade.pure.move', "Move Model Behavior Source") }); if (!behavior) { return; }
+		const file = await this.quick.input({ title: localize('ade.pure.move.path', "Destination Source"), value: 'src/model-behavior.mjs', prompt: localize('ade.pure.move.hint', "Choose a source filename. The reviewed plan preserves the behavior identity.") });
+		if (file) { await this.preparePureProject('forward', { [behavior.id]: file }); }
+	}
+	private async preparePureProject(direction: 'forward' | 'reverse', paths?: Record<string, string>): Promise<void> {
+		await this.run(async token => {
+			const root = this.project.projectRoot?.fsPath;
+			if (!root || !this.project.modelUri?.path.endsWith('/.ade/model.json') || !await this.project.save() || !await this.trust.requestWorkspaceTrust()) { return; }
+			const revision = canonicalJson(semanticContent(this.project.model));
+			this.preparationProblem = undefined;
+			let result: { status: string; session?: StructuralSession };
+			try { result = await this.request({ operation: 'structuralPrepare', root, direction, ...(paths ? { paths } : {}) }, token); }
+			catch (error) { if (!token.isCancellationRequested) { this.preparationProblem = error instanceof Error ? error.message : String(error); this.changes.fire(); } throw error; }
+			if (token.isCancellationRequested || this.project.projectRoot?.fsPath !== root || revision !== canonicalJson(semanticContent(this.project.model))) { return; }
+			if (!result.session) { this.structuralSession = undefined; this.session = undefined; this.structuralInvalid = false; this.info(localize('ade.pure.aligned', "Model Behavior Is Aligned · No Proposal · No AI Calls")); return; }
+			this.structuralInvalid = false; this.structuralSession = result.session; this.session = undefined;
+			this.storage.store('ade.structural.session', JSON.stringify({ root, id: result.session.id }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			await this.reviewPureProject();
+		}, false, true);
+	}
+	async structuralTechnicalReview(): Promise<void> { await this.run(async () => this.reviewPureProject(true), false, true); }
+	private async reviewPureProject(technical = false): Promise<void> {
+		const session = this.structuralSession; if (!session) { return; }
+		if (!technical) { await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } }); this.changes.fire(); return; }
+		const summary = session.mutations.map(edit => ({ file: edit.file, action: edit.before === null ? 'create' : edit.after === null ? 'delete' : 'modify', before: edit.before?.content ?? null, after: edit.after?.content ?? null }));
+		for (const edit of summary) {
+			const folder = URI.joinPath(URI.file(session.root), '.ade', 'structural', 'sessions', session.id, 'review');
+			const original = URI.joinPath(folder, 'before', edit.file), modified = URI.joinPath(folder, 'after', edit.file);
+			await this.files.createFolder(URI.joinPath(original, '..')); await this.files.createFolder(URI.joinPath(modified, '..'));
+			await this.files.writeFile(original, VSBuffer.fromString(edit.before ?? '')); await this.files.writeFile(modified, VSBuffer.fromString(edit.after ?? ''));
+			const pane = await this.editors.openEditor({ original: { resource: original }, modified: { resource: modified }, label: edit.file, options: { pinned: true } });
+			const control = pane?.getControl(); if (isDiffEditor(control)) { control.updateOptions({ readOnly: true, originalEditable: false }); }
+		}
+		await this.editors.openEditor({ contents: JSON.stringify({ status: this.status, direction: session.direction, changes: summary.map(({ before, after, ...entry }) => entry), coverage: session.coverage, context: session.packets.map(entry => JSON.parse(entry.packet.bytes)), verification: session.verification ?? null, calls: 0, cost: null }, null, '\t'), languageId: 'json', options: { pinned: true } });
+	}
+	private async runPureAction(operation: 'structuralVerify' | 'structuralApply' | 'structuralUndo'): Promise<void> {
+		await this.run(async token => {
+			if (!(operation === 'structuralVerify' ? this.canVerify : operation === 'structuralUndo' ? this.canUndo : this.canApply)) { return; }
+			const session = this.structuralSession; if (!session || !this.structuralCurrent || this.project.projectRoot?.fsPath !== session.root || !await this.project.save()) { return; }
+			const message = operation === 'structuralVerify' ? localize('ade.pure.verify', "Verify the Reviewed Model Behavior?") : operation === 'structuralUndo' ? localize('ade.pure.undo', "Restore the Previous Model and Code?") : localize('ade.pure.apply', "Publish the Verified Model and Code?");
+			if (!(await this.dialogs.confirm({ message, detail: operation === 'structuralVerify' ? localize('ade.pure.runner', "Runs domain-emitted expressions, interactions and flat state machines with scripted response data and independent business criteria. Custom project code and tests are excluded.") : session.mutations.map(edit => edit.file).join('\n'), primaryButton: localize('ade.pure.continue', "Continue") })).confirmed) { return; }
+			if (!this.structuralCurrent || this.project.projectRoot?.fsPath !== session.root || !await this.project.save() || operation === 'structuralVerify' && !await this.trust.requestWorkspaceTrust()) { return; }
+			try { this.structuralSession = await this.request<StructuralSession>({ operation, root: session.root, id: session.id, reviewId: session.reviewId }, token); }
+			catch (error) { this.structuralInvalid = true; this.preparationProblem = error instanceof Error ? error.message : String(error); this.changes.fire(); throw error; }
+			if (operation !== 'structuralVerify') { this.continuity.pause(); await this.project.revert(); }
+			await this.reviewPureProject();
+		}, false, true);
+	}
+	async structuralResume(): Promise<void> { await this.resumePureProject(false); }
+	async structuralRecover(): Promise<void> { await this.resumePureProject(true); }
+	private async resumePureProject(recover: boolean): Promise<void> {
+		await this.run(async token => {
+			const saved = this.storage.get('ade.structural.session', StorageScope.WORKSPACE); if (!saved) { return; }
+			const request: { root: string; id: string } = JSON.parse(saved);
+			if (request.root !== this.project.projectRoot?.fsPath || !await this.project.save()) { return; }
+			this.structuralSession = await this.request<StructuralSession>({ ...request, operation: recover ? 'structuralRecover' : 'structuralSession' }, token); this.structuralInvalid = false; this.preparationProblem = undefined; this.session = undefined;
+			if (recover) { await this.project.revert(); } await this.reviewPureProject();
+		}, false, true);
+	}
+	async simulateStates(): Promise<void> {
+		await this.run(async token => {
+			const root = this.project.projectRoot, model = this.project.model; if (!root || model.version !== 4) { return; }
+			const version = canonicalJson(semanticContent(model)), file = URI.joinPath(root, '.ade', 'criteria.json'); if (!await this.files.exists(file)) { this.info(localize('ade.states.simulation.author', "Author an Independent State Case Before Simulating.")); return; }
+			const before = (await this.files.readFile(file)).value.toString(); if (new TextEncoder().encode(before).length > 2097152) { throw new Error(localize('ade.states.simulation.budget', "The Criteria File Exceeds the Local Simulation Budget.")); } const criteria: ProjectCriteria = JSON.parse(before);
+			const choice = await this.quick.pick((criteria.states ?? []).map(entry => ({ label: entry.id, entry })), { title: localize('ade.states.simulation.select', "Simulate Authored State Scenario") }); if (!choice) { return; }
+			const controller = new AbortController(), listener = token.onCancellationRequested(() => controller.abort()); let result: Awaited<ReturnType<typeof interpretModelStateMachine>>;
+			try { if (token.isCancellationRequested) { controller.abort(); } result = await interpretModelStateMachine(model, choice.entry.machineId, choice.entry.scenario, controller.signal); } finally { listener.dispose(); }
+			if (canonicalJson(semanticContent(this.project.model)) !== version || this.project.projectRoot?.toString() !== root.toString() || (await this.files.readFile(file)).value.toString() !== before) { throw new Error(localize('ade.states.simulation.stale', "The Specification Changed. Run a New Simulation.")); }
+			await this.editors.openEditor({ contents: describeAdeStateSimulation(model, choice.entry.machineId, result), languageId: 'plaintext', options: { pinned: true } });
+		}, false, true);
+	}
+	async editPureCriteria(): Promise<void> {
+		await this.run(async () => {
+			const root = this.project.projectRoot; if (!root) { return; } const file = URI.joinPath(root, '.ade', 'criteria.json');
+			const exists = await this.files.exists(file); const before = exists ? (await this.files.readFile(file)).value.toString() : undefined; const criteria: ProjectCriteria = before ? JSON.parse(before) : { version: 1, revision: '1', cases: [] };
+			const model = this.project.model, version = canonicalJson(semanticContent(this.project.model));
+			if (model.version === 4 && (model.foundation.interactions.some(entry => entry.execution) || model.foundation.stateMachines?.length || model.foundation.messaging?.length)) {
+				const mode = await this.quick.pick([...(model.foundation.messaging?.length ? [{ label: localize('ade.messaging.newCase', "Author Independent Messaging Case"), interaction: true, messaging: true }] : []), ...(model.foundation.stateMachines?.length ? [{ label: localize('ade.criteria.newState', "Author Independent State Case"), interaction: true, states: true }] : []), { label: localize('ade.criteria.newInteraction', "Author Independent Interaction Case"), interaction: true }, ...(criteria.cases.length ? [{ label: localize('ade.criteria.predicate', "Edit Predicate Expectation"), interaction: false }] : [])], { title: localize('ade.pure.criteria', "Independent Business Expectations") }); if (!mode) { return; }
+				if (mode.interaction) {
+					const next = 'messaging' in mode && mode.messaging ? await editAdeMessagingCriteria(this.quick, model, criteria) : 'states' in mode && mode.states ? await editAdeStateCriteria(this.quick, model, criteria) : await editAdeInteractionCriteria(this.quick, model, criteria); if (!next) { return; }
+					if (canonicalJson(semanticContent(this.project.model)) !== version || this.project.projectRoot?.toString() !== root.toString() || (await this.files.exists(file) ? (await this.files.readFile(file)).value.toString() : undefined) !== before) { throw new Error(localize('ade.pure.criteria.stale', "Criteria changed. Open them again.")); }
+					if (exists) { await this.files.writeFile(file, VSBuffer.fromString(JSON.stringify(next, null, '\t') + '\n')); } else { await this.files.createFile(file, VSBuffer.fromString(JSON.stringify(next, null, '\t') + '\n'), { overwrite: false }); } return;
+				}
+			}
+			const entry = await this.quick.pick(criteria.cases.map(entry => ({ label: entry.id, description: JSON.stringify(entry.input), entry })), { title: localize('ade.pure.criteria', "Independent Business Expectations") }); if (!entry) { return; }
+			const expected = await this.quick.pick([{ label: localize('ade.pure.true', "Satisfied"), value: true }, { label: localize('ade.pure.false', "Not Satisfied"), value: false }, { label: localize('ade.pure.unknown', "Indeterminate"), value: null }, { label: localize('ade.pure.error', "Input Type Error"), value: 'typeError' as const }, { label: localize('ade.expression.zero', "Division by Zero"), value: 'arithmeticZero' as const }, { label: localize('ade.expression.precision', "Nonintegral Result or Integer Overflow"), value: 'arithmeticPrecision' as const }], { title: localize('ade.pure.expected', "Expected Result · Independent of the Generator") }); if (!expected) { return; }
+			if ((await this.files.readFile(file)).value.toString() !== before) { throw new Error(localize('ade.pure.criteria.stale', "Criteria changed. Open them again.")); }
+			entry.entry.expected = expected.value; criteria.revision = String(Date.now()); await this.files.writeFile(file, VSBuffer.fromString(JSON.stringify(criteria, null, '\t') + '\n'));
+		});
 	}
 	async interpret(): Promise<void> {
 		await this.collaborate('interpret');
@@ -557,6 +725,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		return result;
 	}
 	private async collaborate(operation: 'plan' | 'interpret'): Promise<void> {
+		if (this.project.model.version === 4) { this.info(localize('ade.ai.v4Profile', "Choose a Compatible Generation Profile Before Implementing This Specification. You Can Continue Editing and Saving the Draft.")); return; }
 		if (this.busy || this.operations.busy) { this.notifications.info(localize('ade.ai.busy', "An A.D.E operation is already running. Wait for it to finish or cancel it before starting another.")); return; }
 		if (!this.code.context) { this.info(localize('ade.ai.importRequired', "Import a Git Codebase with a Commit and Add a Feature Before Implementing. Use Import Codebase or Sync Project.")); return; }
 		if (!await this.ensureConfigured()) { return; }
@@ -607,7 +776,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		});
 	}
 
-	async review(): Promise<void> { await this.run(async () => this.reviewCurrent()); }
+	async review(): Promise<void> { await this.run(async () => this.structuralSession ? this.reviewPureProject() : this.reviewCurrent()); }
 	private async reviewCurrent(): Promise<void> {
 		if (!this.session) { this.info(localize('ade.ai.sessionRequired', "No Implementation Is Open. Implement a Feature or Resume a Saved Session First.")); return; }
 		const session = this.session;
@@ -633,6 +802,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		].join('\n\n'), languageId: 'plaintext', options: { pinned: true } });
 	}
 	async verify(): Promise<void> {
+		if (this.structuralSession) { await this.runPureAction('structuralVerify'); return; }
 		if (!this.canVerify) { this.info(localize('ade.ai.verifyRequired', "Generate or Resume Changes Before Running Tests.")); return; }
 		await this.run(async token => {
 			if (!this.session) { this.info(localize('ade.ai.sessionRequired', "No Implementation Is Open. Implement a Feature or Resume a Saved Session First.")); return; }
@@ -643,8 +813,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			await this.reviewCurrent();
 		});
 	}
-	async apply(): Promise<void> { await this.changeSource(false); }
-	async undo(): Promise<void> { await this.changeSource(true); }
+	async apply(): Promise<void> { if (this.structuralSession) { await this.runPureAction('structuralApply'); return; } await this.changeSource(false); }
+	async undo(): Promise<void> { if (this.structuralSession) { await this.runPureAction('structuralUndo'); return; } await this.changeSource(true); }
 	private async changeSource(undo: boolean): Promise<void> {
 		if (undo ? !this.canUndo : !this.canApply) { this.info(localize('ade.ai.applyPrerequisite', "Apply Requires Passing Tests; Undo Requires an Applied Implementation. Review the Current Session First.")); return; }
 		await this.run(async token => {
@@ -731,6 +901,14 @@ for (const [id, title, method] of [
 	['ade.ai.undo', localize2('ade.ai.undoCommand', "A.D.E: Undo Implementation"), 'undo'],
 	['ade.ai.resume', localize2('ade.ai.resumeCommand', "A.D.E: Resume Implementation"), 'resume'],
 	['ade.ai.recover', localize2('ade.ai.recoverCommand', "A.D.E: Recover Interrupted Implementation"), 'recover'],
+	['ade.ai.configureContinuity', localize2('ade.continuity.command', "A.D.E: Start or Stop Continuous Preparation"), 'configureContinuity'],
+	['ade.ai.structuralTechnicalReview', localize2('ade.pure.technical.command', "A.D.E: Inspect Technical Review"), 'structuralTechnicalReview'],
+	['ade.ai.structuralReverse', localize2('ade.pure.reverse.command', "A.D.E: Reverse Model Behavior from Code"), 'structuralReverse'],
+	['ade.ai.structuralResume', localize2('ade.pure.resume.command', "A.D.E: Resume Model Behavior Review"), 'structuralResume'],
+	['ade.ai.structuralRecover', localize2('ade.pure.recover.command', "A.D.E: Recover Model Behavior Publication"), 'structuralRecover'],
+	['ade.ai.simulateStates', localize2('ade.states.simulation.command', "A.D.E: Simulate State Machine"), 'simulateStates'],
+	['ade.ai.editPureCriteria', localize2('ade.pure.criteria.command', "A.D.E: Edit Independent Business Expectations"), 'editPureCriteria'],
+	['ade.ai.movePureSource', localize2('ade.pure.move.command', "A.D.E: Move Model Behavior Source"), 'movePureSource'],
 	['ade.ai.benchmark', localize2('ade.ai.benchmarkCommand', "A.D.E: Compare AI Models"), 'benchmark'],
 	['ade.ai.benchmarkReconciliation', localize2('ade.ai.benchmarkReconciliationCommand', "A.D.E: Compare Reconciliation Models"), 'benchmarkReconciliation'],
 	['ade.ai.exportBenchmark', localize2('ade.ai.exportBenchmarkCommand', "A.D.E: Export Model Benchmark Results"), 'exportBenchmark']

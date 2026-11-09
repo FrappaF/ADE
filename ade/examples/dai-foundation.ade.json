@@ -1,0 +1,50 @@
+{
+	"version": 4,
+	"id": "shop.foundation",
+	"name": "Fondazione semantica indipendente",
+	"semantics": {
+		"elements": [
+			{ "id": "system.shop", "kind": "system", "name": "Negozio", "scope": "governed" },
+			{ "id": "container.api", "kind": "container", "name": "API acquisti" },
+			{ "id": "feature.checkout", "kind": "feature", "name": "Acquisto" },
+			{ "id": "component.checkout", "kind": "component", "name": "Conferma ordine", "behavior": {
+				"id": "operation.confirm",
+				"inputs": [{ "id": "field.requestId", "name": "requestId", "type": "string", "required": true }],
+				"outputs": [{ "id": "field.confirmed", "name": "confirmed", "type": "boolean", "required": false }],
+				"preconditions": [], "postconditions": [], "errors": [], "permissions": [], "acceptanceCriteria": []
+			} },
+			{ "id": "feature.draft", "kind": "feature", "name": "Bozza indipendente" },
+			{ "id": "container.draft", "kind": "container", "name": "Analisi da progettare" }
+		],
+		"relations": []
+	},
+	"views": [{ "id": "view.checkout", "kind": "structure", "featureId": "feature.checkout", "name": "Proiezione", "nodes": [{ "elementId": "component.checkout", "x": 0, "y": 0 }], "relationIds": [] }],
+	"codeMappings": [],
+	"verifications": [],
+	"foundation": {
+		"ownership": [
+			{ "id": "ownership.api", "elementId": "container.api", "ownerId": "system.shop", "role": "architecture" },
+			{ "id": "ownership.checkout", "elementId": "component.checkout", "ownerId": "container.api", "role": "architecture" },
+			{ "id": "ownership.draft", "elementId": "container.draft", "ownerId": "system.shop", "role": "architecture" }
+		],
+		"memberships": [
+			{ "id": "membership.checkout", "elementId": "component.checkout", "featureId": "feature.checkout" },
+			{ "id": "membership.draft", "elementId": "container.draft", "featureId": "feature.draft" }
+		],
+		"integrations": [],
+		"types": [],
+		"occurrences": [],
+		"frames": [],
+		"interactions": [],
+		"assertions": [{
+			"id": "assertion.optional", "subject": { "kind": "field", "id": "field.confirmed" }, "field": "/required", "value": { "state": "known", "value": false },
+			"provenance": { "kind": "authored", "producer": "quality-fixture", "revision": "fixture.1" },
+			"acceptance": { "status": "accepted", "revision": "fixture.1" }
+		}],
+		"platform": { "bindings": [
+			{ "id": "binding.api", "elementId": "container.api", "profileId": "fixture.spec", "technology": { "state": "known", "value": "fixture-runtime" } },
+			{ "id": "binding.draft", "elementId": "container.draft", "profileId": "fixture.spec", "technology": { "state": "unknown", "reason": "Scelta da definire" } }
+		] },
+		"decisions": []
+	}
+}

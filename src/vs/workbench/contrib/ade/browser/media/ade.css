@@ -857,3 +857,38 @@
 .ade-shell .ade-node.is-boundary[aria-pressed="true"] {
 	border-color: var(--vscode-focusBorder);
 }
+
+.ade-sequence .ade-sequence-frame {
+	fill: none;
+	stroke: var(--vscode-contrastBorder, var(--vscode-editorWidget-border, var(--vscode-descriptionForeground)));
+	stroke-width: 1;
+}
+
+/* Structural review stays readable alongside the diagram at narrow widths and in every theme. */
+.ade-structural-review {
+	min-width: 0;
+	max-width: 100%;
+	padding: 16px;
+	color: var(--vscode-foreground);
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-contrastBorder, transparent);
+	border-radius: var(--vscode-cornerRadius-medium);
+	overflow-wrap: anywhere;
+}
+.ade-structural-review pre {
+	max-height: 240px;
+	max-width: 100%;
+	overflow: auto;
+	white-space: pre-wrap;
+}
+.ade-review-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.ade-structural-review button:focus-visible,
+.ade-structural-review summary:focus-visible,
+.ade-structural-review pre:focus-visible {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}

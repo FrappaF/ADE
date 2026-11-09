@@ -1,0 +1,19 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+
+# ADR 0008 · Primo progetto puro, runner e pubblicazione recuperabile
+
+Stato: adottato, 9 novembre 2026 (Europe/Rome). Attua D08 e l'incremento strutturale di S12/S13; estende [ADR 0007](0007-node-esm-structural-profile.md) alla revisione 2 del profilo `node.esm`.
+
+Il primo artefatto eseguibile è una feature di verifica di predicati puri v1, con ABI a ID stabili e risultato booleano/indeterminato. Il contratto di un'operazione e la prosa non ne determinano un corpo arbitrario: tali corpi, sequenze, stati e integrazioni richiedono adapter successivi. La generazione deterministica usa lo stesso dominio tipizzato del workbench; non consuma inferenze per riscrivere una funzione già specificata.
+
+Il repository può nascere senza importazione. Un repository nuovo riceve un commit vuoto di ancoraggio; non si commettono file dell'utente o modifiche esistenti. Manifest ESM, sorgenti e test derivati compaiono nel piano revisionabile e nel worktree. Il manifest ammette solo Node 24.22.1, nessuna dipendenza esterna e nessuno storage/servizio implicito. Il codice personalizzato fuori regione è conservato e non certificato.
+
+Il runner usa il binario Node del processo fidato, verifica la versione esatta, esegue controlli sintattici e `node --permission --allow-fs-read=<cartella-di-verifica> --disallow-code-generation-from-strings --test --test-isolation=none`. Env del figlio vuoto, timeout 30 secondi e output massimo 1 MiB. Nella cartella entrano soltanto funzioni riemesse dal dominio e harness del prodotto: sorgenti/test arbitrari del progetto non vengono eseguiti. I casi indipendenti in `.ade/criteria.json` sono dati revisionati separatamente; il generatore non può modificarli. Un caso fallito blocca l'intera pubblicazione anche quando i test derivati passano.
+
+Un worktree non costituisce una sandbox OS. Le permission Node non dimostrano un firewall; l'assenza di accessi alla rete deriva dal sottoinsieme chiuso dell'emettitore, non da un adapter runtime di rete. Nel cloud la prova `bwrap --unshare-net` non è disponibile (`setting up uid map: Read-only file system`); non si riducono le restrizioni dell'ambiente. L'esecuzione futura di codice/test arbitrari richiede una decisione e un adapter di isolamento separati. Nessun provider live è necessario o certificato da questo incremento.
+
+La pubblicazione riusa lock di progetto, JSON atomici e namespace gestiti M5/M6, estendendo le pre/postimmagini fisiche a presenza/assenza e permessi. Uno snapshot comune immutabile conserva modello, mapping delle regioni e test derivati. Il journal completo precede le scritture; l'attivazione atomica della baseline è il punto di commit logico. Recovery ripristina tutte le preimmagini oppure riconosce la coppia già pubblicata; modifiche sconosciute bloccano il recupero. Non si promette atomicità fisica multi-file né resistenza a perdita di alimentazione. Le altre pubblicazioni M5/M6 si fermano durante una pubblicazione strutturale interrotta.
+
+Reverse supporta soltanto confronti e letterali la cui intera regione eseguibile coincide con una nuova emissione verificata. Il metadato di identità, da solo, non prova il corpo. Rinomine/spostamenti conservano ID e richiedono identità univoca; codice arbitrario produce mapping parziale, modifiche concorrenti della regola producono conflitto. Il resto del modello e gli ADR rimangono intatti.
+
+Una migrazione DB è solo un artefatto con origine/destinazione, precondizioni, strategia dei dati, recupero e natura distruttiva espliciti, `execution: manual-only`, `deploy: false`. La fixture negativa lo verifica senza eseguire migrazioni; la capacità `migrations` del profilo resta falsa. Storage reale e gestione dei dati restano lavoro degli adapter pertinenti.
