@@ -15,7 +15,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService, INotificationHandle, Severity } from '../../../../platform/notification/common/notification.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
+import { FileOperationResult, IFileService, toFileOperationResult } from '../../../../platform/files/common/files.js';
 import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
@@ -68,8 +68,9 @@ export class AdeAiDiagrams extends Disposable {
 	private explorationToolResource: URI | undefined;
 
 	async chat(): Promise<void> {
-		if (this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(); return; }
 		if (this.host.busy || this.operations.busy || this.chatOpening || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
+		await this.discardMissingExploration();
+		if (this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(); return; }
 		const opening = this.operations.acquire('ai');
 		if (!opening) { return; }
 		this.chatOpening = true; this.host.busy = true;
@@ -136,6 +137,23 @@ export class AdeAiDiagrams extends Disposable {
 		if (this.exploration) { this.storage.store('ade.ai.exploration', JSON.stringify(this.exploration), StorageScope.WORKSPACE, StorageTarget.MACHINE); }
 	}
 
+	/** A reimport can replace .ade while the workspace still remembers its old session. */
+	private async discardMissingExploration(): Promise<void> {
+		const session = this.exploration;
+		if (!session || session.root !== this.code.context?.sourceRoot) { return; }
+		try {
+			await this.files.stat(URI.joinPath(URI.file(session.root), '.ade', 'exploration', `${session.id}.json`));
+		} catch (error) {
+			if (!(error instanceof Error) || toFileOperationResult(error) !== FileOperationResult.FILE_NOT_FOUND) { throw error; }
+			if (this.exploration !== session || this.code.context?.sourceRoot !== session.root) { return; }
+			this.resetProject();
+			this.exploration = undefined;
+			this.storage.remove('ade.ai.exploration', StorageScope.WORKSPACE);
+			this.host.report(localize('ade.explore.removed', "Previous Exploration Was Removed · Ready to Start a New Exploration"));
+			this.host.changed();
+		}
+	}
+
 	private async explorationRequest(request: object, token = CancellationToken.None, failOnDiagnostics = true): Promise<{ sessionId: string; data: CodeDiagramExploration & { reviewFile?: string; images?: { path: string; viewId: string }[]; snapshot?: string; mcp?: { command: string; args: string[] } }; diagnostics: { code: string }[] }> {
 		const context = this.code.context;
 		if (!context) { throw new Error(localize('ade.explore.importRequired', "Import a Project to Explore Its Architecture.")); }
@@ -145,6 +163,7 @@ export class AdeAiDiagrams extends Disposable {
 	}
 
 	private async refreshExploration(): Promise<void> {
+		await this.discardMissingExploration();
 		if (!this.exploration || this.exploration.root !== this.code.context?.sourceRoot) { return; }
 		const result = await this.explorationRequest({ action: 'open', sessionId: this.exploration.id });
 		this._diagramExploration = result.data; this.host.changed();
@@ -177,15 +196,18 @@ export class AdeAiDiagrams extends Disposable {
 
 	private async exploreDiagrams(): Promise<void> {
 		if (this.host.busy || this.operations.busy || !this.code.context) { return; }
+		let opened = false;
 		await this.host.run(async token => {
 			if (!await this.project.save()) { return; }
 			const root = this.code.context!.sourceRoot;
 			if (this.exploration?.root !== root) { this.exploration = undefined; }
+			await this.discardMissingExploration();
 			const result = await this.explorationRequest({ action: 'open', ...(this.exploration ? { sessionId: this.exploration.id } : {}), ...(!this.exploration ? { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' } : {}) }, token);
 			this.exploration = { ...this.exploration, root, id: result.sessionId, snapshot: this.code.context!.snapshot };
 			this._diagramExploration = result.data; this._diagramProgress = undefined; this.persistExploration();
+			opened = true;
 		}, { kind: 'diagram' });
-		if (this.exploration) { await this.chat(); }
+		if (opened) { await this.chat(); }
 	}
 
 	private async explorationCliArguments(): Promise<string[]> {
