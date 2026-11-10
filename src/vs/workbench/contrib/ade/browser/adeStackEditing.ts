@@ -5,11 +5,11 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import type { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { modelProjectProfile } from '../common/modelProfiles.js';
 import { switchModelStack } from '../common/modelStack.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
-import type { VisualEdit } from '../common/visualEditing.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
+import { type VisualEdit } from '../common/visualEditing.js';
 
 /** One detached atomic binding edit; source, test and data publication still require the shared review. */
 export async function editAdeStack(quickInput: Pick<IQuickInputService, 'pick'>, model: SemanticModelV4): Promise<VisualEdit[] | undefined> {

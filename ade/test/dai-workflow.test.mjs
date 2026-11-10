@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import './source-loader.mjs';
+import '../scripts/source-loader.mjs';
 const { ModelContinuity } = await import('../../src/vs/workbench/contrib/ade/common/modelContinuity.ts');
 const { modelTaskIntent } = await import('../../src/vs/workbench/contrib/ade/common/modelWorkflow.ts');
 const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');

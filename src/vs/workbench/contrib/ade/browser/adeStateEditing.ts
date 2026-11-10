@@ -5,10 +5,10 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import type { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import type { ModelField, ModelStateMachine, SemanticModelV4 } from '../common/semanticModel.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { type ModelField, type ModelStateMachine, type SemanticModelV4 } from '../common/modelTypes.js';
 import { setModelStateMachine, validateModelStateMachine } from '../common/modelStates.js';
-import type { VisualEdit } from '../common/visualEditing.js';
+import { type VisualEdit } from '../common/visualEditing.js';
 import { buildAdeExpression } from './adePredicateEditing.js';
 
 type Dialogs = Pick<IQuickInputService, 'pick' | 'input'>;

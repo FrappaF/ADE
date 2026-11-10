@@ -5,7 +5,7 @@
 
 import { localize } from '../../../../nls.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { ElementDetails, RelationDetails, SemanticElement, SemanticRelation } from '../common/semanticModel.js';
+import { ElementDetails, RelationDetails, SemanticElement, SemanticRelation } from '../common/modelTypes.js';
 
 /** Dialogs edit a detached declaration; Cancel never commits a partial member. */
 export async function editAdeElementNotation(quick: IQuickInputService, element: SemanticElement, version: 2 | 3 | 4 | 5 = 3): Promise<ElementDetails | undefined> {

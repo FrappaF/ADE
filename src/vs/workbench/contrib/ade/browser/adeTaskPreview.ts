@@ -5,8 +5,8 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
-import type { ModelTaskPacket } from '../common/modelTaskContext.js';
-import type { AdeControls } from './adeControls.js';
+import { type ModelTaskPacket } from '../common/modelTaskContext.js';
+import { type AdeControls } from './adeControls.js';
 
 /** Quiet native disclosures distinguish actual bytes, unknown cost and the exact data to be shared. */
 export function renderModelTaskPreview(parent: HTMLElement, packet: ModelTaskPacket, controls: AdeControls): void {

@@ -3,12 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { checkoutInteractions, interactionCriteria, literal, reference, compare, argument, message } from './fixtures/dai-interactions.mjs';
 const { validateSemanticModel } = await import('../../src/vs/workbench/contrib/ade/common/semanticModel.ts');
-const { validateModelInteraction, interpretModelInteraction, emitModelInteraction, interactionRegion, reverseModelInteraction } = await import('../../src/vs/workbench/contrib/ade/common/modelInteractions.ts');
+const { validateModelInteraction, interpretModelInteraction } = await import('../../src/vs/workbench/contrib/ade/common/modelInteractions.ts');
+const { emitModelInteraction, interactionRegion, reverseModelInteraction } = await import('../../src/vs/workbench/contrib/ade/common/interactionRuntime.ts');
 const { checkModelExpression, evaluateModelExpression, emitModelExpression } = await import('../../src/vs/workbench/contrib/ade/common/modelValues.ts');
 const observe = r => ({ outcome: r.outcome, calls: r.trace.filter(t => t.kind === 'call').map(t => t.id), outputs: r.outputs, ...(r.error ? { error: r.error.code } : {}) });
 const runEmitted = async (model, id, input, replies) => (await import('data:text/javascript,' + encodeURIComponent(emitModelInteraction(model, id)))).default(input, replies);

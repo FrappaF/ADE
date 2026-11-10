@@ -5,9 +5,9 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import type { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import type { ModelTaskIntent, SemanticModelV4 } from '../common/semanticModel.js';
-import type { VisualEdit } from '../common/visualEditing.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { type ModelTaskIntent, type SemanticModelV4 } from '../common/modelTypes.js';
+import { type VisualEdit } from '../common/visualEditing.js';
 
 /** Human task intent, independently versioned from an immutable context packet. */
 export async function editAdeTask(quick: Pick<IQuickInputService, 'pick' | 'input'>, model: SemanticModelV4): Promise<VisualEdit[] | undefined> {

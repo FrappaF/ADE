@@ -10,7 +10,7 @@ import { blueprintPlatformLabels } from '../../browser/adeBlueprintContent.js';
 import { createPureProject } from '../../common/modelProject.js';
 import { applyVisualEdit } from '../../common/visualEditing.js';
 import { modelProjectProfile } from '../../common/modelProfiles.js';
-import type { SemanticModelV4 } from '../../common/semanticModel.js';
+import { type SemanticModelV4 } from '../../common/modelTypes.js';
 
 suite('A.D.E second runtime editing', () => {
 	function fixture() { let id = 0; return createPureProject('Quantity', () => 'native.' + ++id).model; }

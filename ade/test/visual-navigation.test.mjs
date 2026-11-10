@@ -3,10 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
-import { getDiagramGroups, getFeatureViews, getElementPath, normalizeDiagramContext, resolveElementLocation, SemanticNavigationHistory } from '../../src/vs/workbench/contrib/ade/common/visualNavigation.ts';
+const { checkoutModel } = await import('../../src/vs/workbench/contrib/ade/common/checkoutModel.ts');
+const { getDiagramGroups, getFeatureViews, getElementPath, normalizeDiagramContext, resolveElementLocation, SemanticNavigationHistory } = await import('../../src/vs/workbench/contrib/ade/common/visualNavigation.ts');
 
 test('native navigation groups diagrams by semantic feature with shared resources in both contexts', () => {
 	assert.deepEqual(getDiagramGroups(checkoutModel).map(group => ({

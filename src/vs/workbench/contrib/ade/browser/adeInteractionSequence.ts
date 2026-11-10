@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModelV4 } from '../common/semanticModel.js';
-import type { AdeControls } from './adeControls.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
+import { type AdeControls } from './adeControls.js';
 import { adeInteractionRows } from './adeInteractionContent.js';
 
 /** Frames and operands follow the semantic hierarchy; measured text never changes execution order. */

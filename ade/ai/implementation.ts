@@ -7,9 +7,9 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, lstat, realpath, unlink, chmod } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import { lock } from '../code-import/projectStore.ts';
+import { lock } from '../runtime/projectStore.ts';
 import { assertNoInterruptedOperation } from '../code-import/reconciliationJournal.ts';
-import { object, array, text, digest } from '../code-import/schemas.ts';
+import { object, array, text, digest } from '../runtime/schemas.ts';
 import { readSnapshot } from '../code-import/snapshot.ts';
 import { assertPreparedCurrent, hash, isDisclosableSource, type PreparedImplementation } from './context.ts';
 import { readImplementationPlan } from './plan.ts';
@@ -33,7 +33,7 @@ export interface ImplementationSession {
 	verification?: { code: number; output: string; testFiles: string[]; durationMs: number };
 }
 
-export const implementationSchema = object({
+const implementationSchema = object({
 	summary: { ...text, maxLength: 8000 },
 	files: { ...array(object({ file: text, kind: { enum: ['create', 'modify', 'delete'] }, baseRevision: { anyOf: [digest, { type: 'null' }] }, content: { type: ['string', 'null'], maxLength: 262144 } })), minItems: 1, maxItems: 30 },
 	tests: { ...array(object({ file: text, elementId: text, criterionId: text })), minItems: 1, maxItems: 50 }

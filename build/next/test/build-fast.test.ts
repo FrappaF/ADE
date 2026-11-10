@@ -372,21 +372,23 @@ suite('build-fast orchestration', () => {
 });
 
 suite('build-fast Git discovery', () => {
-	test('discovers AI engine edits and schedules the client bundle instead of a no-op', async () => {
+	test('discovers AI and runtime engine edits and schedules the client bundle instead of a no-op', async () => {
 		const repoRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'vscode-build-fast-ai-'));
 		try {
 			runGit(repoRoot, ['init']);
 			runGit(repoRoot, ['config', 'user.email', 'build-fast@example.com']);
 			runGit(repoRoot, ['config', 'user.name', 'Build Fast Test']);
 			await write(repoRoot, 'ade/ai/protocol.ts', 'initial');
+			await write(repoRoot, 'ade/runtime/nativeHost.ts', 'initial');
 			runGit(repoRoot, ['add', '.']);
 			runGit(repoRoot, ['commit', '-m', 'initial']);
 			const before = await collectSnapshot(repoRoot);
 			await write(repoRoot, 'ade/ai/protocol.ts', 'updated');
+			await write(repoRoot, 'ade/runtime/nativeHost.ts', 'updated');
 			const after = await collectSnapshot(repoRoot);
 			const plan = createBuildPlan(savedState(), environment, changes(computeChangedPaths(before, after, [])), outputsPresent, false, true);
 			assert.deepStrictEqual({ dirty: after.dirty, modes: [plan.client, plan.extensions, plan.copilot] }, {
-				dirty: { 'ade/ai/protocol.ts': createHash('sha256').update('updated').digest('hex') },
+				dirty: { 'ade/ai/protocol.ts': createHash('sha256').update('updated').digest('hex'), 'ade/runtime/nativeHost.ts': createHash('sha256').update('updated').digest('hex') },
 				modes: ['incremental', 'skip', 'skip'],
 			});
 		} finally {

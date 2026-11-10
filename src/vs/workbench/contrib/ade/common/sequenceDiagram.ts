@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ModelView, SemanticModel, SemanticRelation } from './semanticModel.js';
+import { type ModelView, type SemanticModel, type SemanticRelation } from './modelTypes.js';
 
 /** The first sequence subset orders declared interactions, without inferring calls or execution. */
 export function isSequenceMessage(relation: Pick<SemanticRelation, 'kind' | 'classification'>): boolean {

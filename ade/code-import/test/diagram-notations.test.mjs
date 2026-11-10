@@ -3,14 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { createCodeEngine } from '../nativeHost.ts';
+const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
 import { architectureFiles, notationAnalysis, notationView } from './notation-fixture.mjs';
-import { validateSemanticModel, viewKinds } from '../../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+const { validateSemanticModel } = await import('../../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
+const { viewKinds } = await import('../../../src/vs/workbench/contrib/ade/common/modelTypes.ts');
 
 const config = { version: 1, provider: 'codex', connection: 'cli', model: 'notation-fixture', executable: 'codex', maxCalls: 1, timeoutMs: 10000, maxContextBytes: 262144 };
 async function fixture(t, transform = value => value, viewTransform = (_context, value) => value) {

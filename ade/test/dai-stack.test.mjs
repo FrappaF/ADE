@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import './source-loader.mjs';
+import '../scripts/source-loader.mjs';
 import { checkoutMessaging } from './fixtures/dai-messaging.mjs';
 const { createPureProject, assertPureProject } = await import('../../src/vs/workbench/contrib/ade/common/modelProject.ts');
 const { getModelArchetype, modelProjectProfile, modelArchetypeRevision, resolveModelPlatform, assertArchetypeCapability } = await import('../../src/vs/workbench/contrib/ade/common/modelProfiles.ts');

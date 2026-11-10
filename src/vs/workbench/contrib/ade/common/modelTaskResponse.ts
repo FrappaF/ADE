@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { modelObjects, readSemanticDraft, type ModelOperation, type ModelReference, type SemanticModelV4 } from './semanticModel.js';
+import { modelObjects } from './modelFoundation.js';
+import { readSemanticDraft } from './modelValidation.js';
+import { type ModelOperation, type ModelReference, type SemanticModelV4 } from './modelTypes.js';
 import { assertModelProposalAllowed } from './modelReadiness.js';
 import { getModelArchetype } from './modelProfiles.js';
 import { assertModelTaskCurrent, compileModelTaskContext, type ModelTaskPacket, type ModelTaskRequest, type TaskSource } from './modelTaskContext.js';

@@ -2,14 +2,16 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { samples } from './samples.mjs';
-import { importCode } from '../importCode.ts';
-import { prepareSync } from '../syncCode.ts';
+const { importCode } = await import('../importCode.ts');
+const { prepareSync } = await import('../syncCode.ts');
 
 test('contract, confirmed rename and deletion retain unchanged syntax in every declared language', async t => {
 	for (const [language, file, source] of samples) {

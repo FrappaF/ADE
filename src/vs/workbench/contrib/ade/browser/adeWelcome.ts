@@ -5,7 +5,7 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
-import type { AdeControls } from './adeControls.js';
+import { type AdeControls } from './adeControls.js';
 
 interface WelcomeActions {
 	open(): void; create(): void; importCode(): void; openModel(): void; example(): void;

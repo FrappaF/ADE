@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink } from 'node:fs/promises';
@@ -11,9 +13,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { importCode } from '../importCode.ts';
-import { languageAdapters } from '../languages.ts';
-import { validateSemanticModel } from '../../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+const { importCode } = await import('../importCode.ts');
+const { languageAdapters } = await import('../languages.ts');
+const { validateSemanticModel } = await import('../../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
 import { samples } from './samples.mjs';
 
 const run = promisify(execFile);

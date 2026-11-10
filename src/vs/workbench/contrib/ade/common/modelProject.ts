@@ -6,13 +6,14 @@
 import { validateModelMessaging, type MessagingScenario, type MessagingObservation } from './modelMessaging.js';
 import { validateModelStateMachine, type StateScenario, type StateObservation } from './modelStates.js';
 import { validateModelInteraction, type InteractionReplies } from './modelInteractions.js';
-import type { ModelValue } from './modelValues.js';
-import type { ModelTaskPacket, ModelTaskRequest } from './modelTaskContext.js';
+import { type ModelValue } from './modelValues.js';
+import { type ModelTaskPacket, type ModelTaskRequest } from './modelTaskContext.js';
 import { emitModelPredicate, validateModelPredicate, type PredicateInput } from './modelExpressions.js';
 import { modelProjectProfile } from './modelProfiles.js';
-import { canonicalJson, hashSemanticModel } from './modelSerialization.js';
+import { canonicalJson } from './modelSerialization.js';
 import { getModelReadiness } from './modelReadiness.js';
-import { emptyFoundation, type ModelPredicate, type SemanticModelV4 } from './semanticModel.js';
+import { emptyFoundation } from './modelFoundation.js';
+import { type ModelPredicate, type SemanticModelV4 } from './modelTypes.js';
 
 export interface PredicateCase { id: string; predicateId: string; criterionId: string; input: Record<string, PredicateInput>; expected: boolean | null | 'typeError' | 'arithmeticZero' | 'arithmeticPrecision' }
 export interface InteractionCase { id: string; interactionId: string; criterionId: string; input: Record<string, ModelValue>; replies: InteractionReplies; expected: { outcome: 'completed' | 'failed'; calls: string[]; outputs: Record<string, ModelValue>; error?: string } }
@@ -22,7 +23,7 @@ export interface ProjectCriteria { version: 1; revision: string; cases: Predicat
 // predicateId is the v1 journal binding key, retained for old snapshots; interactionId identifies the extended artifact kind.
 export interface PredicateArtifact { predicateId: string; interactionId?: string; stateMachineId?: string; messagingId?: string; operationId: string; file: string; region: string }
 /** Coverage is deliberately per construct: a preserved contract is not reconstructed implementation intent. */
-export const projectRoundTripMatrix = [
+const projectRoundTripMatrix = [
 	{ construct: 'contracts/types', forward: 'validated closure in emitted plans', reverse: 'preserved; incompatible source contract is partial', identity: 'stable model IDs' },
 	{ construct: 'predicate expressions', forward: 'full declared expression grammar', reverse: 'partial: existing literals and comparisons with exact re-emission', identity: 'existing node IDs' },
 	{ construct: 'interaction frames', forward: 'alt/opt/loop/par/critical/ref plans', reverse: 'partial: existing plan identities and supported execution fields', identity: 'existing frame/occurrence IDs' },
@@ -104,8 +105,6 @@ export function reversePredicate(model: SemanticModelV4, source: string, baselin
 	if (region.replace(oldMetadata, nextMetadata) !== predicateRegion(model, candidate)) { throw new Error('Partial mapping: executable code is outside supported grammar'); }
 	return candidate;
 }
-
-export async function pureProjectRevision(model: SemanticModelV4): Promise<string> { return hashSemanticModel(model); }
 
 export interface MigrationArtifact { version: 1; id: string; from: string; to: string; preconditions: string[]; dataStrategy: string; recovery: string; destructive: boolean; execution: 'manual-only'; deploy: false }
 export function migrationArtifact(value: MigrationArtifact): MigrationArtifact {

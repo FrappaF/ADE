@@ -7,7 +7,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { EditorInputCapabilities, IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { isSourceEvidenceModel } from '../common/semanticModel.js';
+import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 
 export class AdeInput extends EditorInput {

@@ -7,8 +7,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import './source-loader.mjs';
-import { validateSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import '../scripts/source-loader.mjs';
+const { validateSemanticModel } = await import('../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
 import { createDaiGraph, createDaiEvidence } from '../benchmarks/dai-fixtures.mjs';
 
 const root = new URL('../../', import.meta.url);

@@ -5,11 +5,11 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import type { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import type { ModelField, SemanticModelV4 } from '../common/semanticModel.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { type ModelField, type SemanticModelV4 } from '../common/modelTypes.js';
 import { compileModelInteraction, type InteractionReplies } from '../common/modelInteractions.js';
 import { resolveValueType, type ModelValue } from '../common/modelValues.js';
-import type { InteractionCase, ProjectCriteria } from '../common/modelProject.js';
+import { type InteractionCase, type ProjectCriteria } from '../common/modelProject.js';
 
 type Dialogs = Pick<IQuickInputService, 'pick' | 'input'>;
 /** Collect authored JSON data through typed native controls; expectations never come from execution. */

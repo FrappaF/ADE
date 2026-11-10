@@ -13,10 +13,11 @@ import { checkoutMessaging, messagingCriteria } from '../../test/fixtures/dai-me
 import { checkoutInteractions, interactionCriteria } from '../../test/fixtures/dai-interactions.mjs';
 const { createPureProject } = await import('../../../src/vs/workbench/contrib/ade/common/modelProject.ts');
 const { switchModelStack, transferModelCheckpoint } = await import('../../../src/vs/workbench/contrib/ade/common/modelStack.ts');
-const { compileModelStateMachine, executeStateProgram, emitModelStateMachine } = await import('../../../src/vs/workbench/contrib/ade/common/modelStates.ts');
+const { compileModelStateMachine, executeStateProgram } = await import('../../../src/vs/workbench/contrib/ade/common/modelStates.ts');
+const { emitModelStateMachine } = await import('../../../src/vs/workbench/contrib/ade/common/stateRuntime.ts');
 const { ModelContinuity } = await import('../../../src/vs/workbench/contrib/ade/common/modelContinuity.ts');
 const { prepareStructuralProject: prepare, verifyStructuralProject: verify, publishStructuralProject: publish, recoverStructuralProject: recover } = await import('../structuralProject.ts');
-const { physicalImage, replacePhysicalImage } = await import('../../code-import/sourceChanges.ts');
+const { physicalImage, replacePhysicalImage } = await import('../../runtime/sourceChanges.ts');
 const { runProcess } = await import('../process.ts');
 if (!process.env.ADE_BUN_EXECUTABLE) { throw new Error('DAI11 requires the actual pinned Bun runtime; tests never silently skip'); }
 async function fixture(t, kind = 'pure', profileId = 'bun.esm') {

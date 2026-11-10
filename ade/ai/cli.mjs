@@ -7,8 +7,8 @@ import { open, unlink, realpath } from 'node:fs/promises';
 import { resolve, dirname, basename, join } from 'node:path';
 import '../scripts/source-loader.mjs';
 const { executeCollaboration } = await import('./engine.ts');
-import { outputOutsideSource } from '../code-import/paths.ts';
-import { readSnapshot } from '../code-import/snapshot.ts';
+const { outputOutsideSource } = await import('../code-import/paths.ts');
+const { readSnapshot } = await import('../code-import/snapshot.ts');
 
 const controller = new AbortController();
 const cancel = () => controller.abort();

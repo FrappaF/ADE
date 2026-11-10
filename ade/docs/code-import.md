@@ -19,6 +19,7 @@ Le versioni native risiedono in `.ade/imports/<uuid>/`; `.ade/code-project.json`
 Usare Node dalla `.nvmrc`, poi dalla radice:
 
 ```sh
+npm --prefix ade/runtime ci --ignore-scripts
 npm --prefix ade/code-import ci --ignore-scripts
 npm --prefix ade/code-import run check
 npm --prefix ade/code-import test

@@ -7,8 +7,8 @@ import * as dom from '../../../../base/browser/dom.js';
 import { FileAccess } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
-import type { AdeDiagramReview } from './adeAiService.js';
-import type { AdeControls } from './adeControls.js';
+import { type AdeDiagramReview } from './adeAiService.js';
+import { type AdeControls } from './adeControls.js';
 
 interface DiagramReviewActions {
 	busy: boolean; current: boolean;

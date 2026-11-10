@@ -20,7 +20,10 @@ const optional = async path => { try { return (await readFile(path, 'utf8')).tri
 
 async function sourceHashes() {
 	const files = [...new Set(git('ls-files', '-c', '-m', '-o', '--exclude-standard', '--', 'ade', 'src/vs/workbench/contrib/ade', 'package.json', '.github/workflows/ade-dai.yml').split('\n'))].filter(path => /\.(?:ts|mjs|json|yml)$/.test(path) && !path.startsWith('ade/docs/'));
-	return Object.fromEntries(await Promise.all(files.sort().map(async path => [path, sha(await readFile(resolve(root, path)))])));
+	return Object.fromEntries(await Promise.all(files.sort().map(async path => {
+		try { return [path, sha(await readFile(resolve(root, path)))]; }
+		catch (error) { if (error.code === 'ENOENT') { return [path, null]; } throw error; }
+	})));
 }
 
 async function main() {
@@ -58,10 +61,11 @@ async function main() {
 			if (version !== '1.3.2') { throw new Error('Expected Bun 1.3.2, received ' + version); }
 			bun = { path, version, sha256: sha(await readFile(path)), status: 'available' };
 		} catch (error) { bun = { status: 'not-executed', reason: error.message }; }
-		const files = async directory => (await readdir(resolve(root, directory))).filter(file => file.endsWith('.test.mjs')).sort().map(file => directory + '/' + file);
+		const files = async directory => (await readdir(resolve(root, directory))).filter(file => /\.test\.(?:mjs|ts)$/.test(file)).sort().map(file => directory + '/' + file);
 		await run('domain', ['--test', '--test-isolation=none', ...await files('ade/test')]);
 		await run('ai', ['--test', '--test-isolation=none', ...await files('ade/ai/test')]);
 		await run('import', ['--test', ...await files('ade/code-import/test')]);
+		await run('runtime', ['--test', ...await files('ade/runtime/test')]);
 		if (bun.status === 'available') {
 			await run('two-stacks', ['--test', '--test-isolation=none', 'ade/ai/test/second-stack.integration.mjs']);
 			await run('bun-roundtrip', ['--test', '--test-isolation=none', 'ade/ai/test/roundtrip-project.test.mjs'], { ...process.env, ADE_ROUNDTRIP_PROFILE: 'bun.esm' });

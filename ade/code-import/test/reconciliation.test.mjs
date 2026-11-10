@@ -3,18 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm, chmod, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCodeEngine } from '../nativeHost.ts';
+const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
 import { samples } from './samples.mjs';
-import { readSnapshot } from '../snapshot.ts';
-import { prepareAiReconciliation, proposeAiReconciliation, reconciliationSchema } from '../../ai/reconciliation.ts';
+const { readSnapshot } = await import('../snapshot.ts');
+const { prepareAiReconciliation, proposeAiReconciliation, reconciliationSchema } = await import('../../ai/reconciliation.ts');
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { importCode } from '../importCode.ts';
-import { runProcess } from '../../ai/process.ts';
+const { importCode } = await import('../importCode.ts');
+const { runProcess } = await import('../../ai/process.ts');
 
 const config = { version: 1, provider: 'codex', connection: 'cli', model: 'economical-test-model', executable: 'codex', timeoutMs: 10000, maxContextBytes: 262144, maxCalls: 1 };
 const empty = () => ({ summary: 'Reviewed reconciliation', questions: [], modelEdits: [], sourceEdits: [], bindings: [] });

@@ -5,9 +5,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import './source-loader.mjs';
-import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
-import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import '../scripts/source-loader.mjs';
+const { checkoutModel } = await import('../../src/vs/workbench/contrib/ade/common/checkoutModel.ts');
+const { readSemanticModel } = await import('../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
 
 const { applyVisualEdit, upgradeVisualModel } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');
 

@@ -2,8 +2,11 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import './source-loader.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { migrateSemanticModel, InvalidSemanticModelError } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+const { migrateSemanticModel } = await import('../../src/vs/workbench/contrib/ade/common/modelLegacyMigration.ts');
+const { InvalidSemanticModelError } = await import('../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
 
 const [input, output, modelId] = process.argv.slice(2);
 if (!input || !output) {

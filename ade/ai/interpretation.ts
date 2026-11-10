@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { array, object, text } from '../code-import/schemas.ts';
+import { array, object, text } from '../runtime/schemas.ts';
 import { assertPreparedCurrent, hash, type PreparedImplementation } from './context.ts';
 import { createCliProvider } from './providers.ts';
 import type { FeatureContext, StructuredProvider } from './contracts.ts';
 
 /** Only residual diagnostics from deterministic analysis are eligible; proven facts are never re-inferred. */
-export function unresolvedEvidence(context: FeatureContext) {
+function unresolvedEvidence(context: FeatureContext) {
 	return [
 		...context.sources.flatMap(source => source.diagnostics.filter(item => item.code === 'unresolvedConstruct')),
 		...context.semantic.diagnostics.filter(item => ['unresolvedRelationship', 'ambiguousSymbol'].includes(item.code))

@@ -20,7 +20,8 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { getDiagramGroups, getFeatureViews } from '../common/visualNavigation.js';
-import { isSourceEvidenceModel, ModelView } from '../common/semanticModel.js';
+import { isSourceEvidenceModel } from '../common/modelFoundation.js';
+import { ModelView } from '../common/modelTypes.js';
 import { AdeControls } from './adeControls.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { adeFocusedSurface, getAdeAccessibilityHint } from './adeAccessibilityContext.js';

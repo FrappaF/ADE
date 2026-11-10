@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { projectDescriptiveActivity } from './descriptiveActivity.js';
-import { notationRelationLabel, scenarioUnorderedOccurrences, type ModelView, type SemanticModelV4 } from './semanticModel.js';
+import { notationRelationLabel } from './modelNotation.js';
+import { scenarioUnorderedOccurrences } from './modelScenario.js';
+import { type ModelView, type SemanticModelV4 } from './modelTypes.js';
 import { arrangeDiagram, notationLines, notationBoundaries, notationGroupMembers, notationNodeSize, wrapDiagramText } from './diagramLayout.js';
 import { describeModelInteraction } from './modelInteractions.js';
 import { routeDiagramConnections, placeConnectionLabel, type DiagramBox } from './diagramRouting.js';

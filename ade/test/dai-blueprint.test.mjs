@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import './source-loader.mjs';
+import '../scripts/source-loader.mjs';
 const { validateSemanticModel, validateSemanticShape, semanticModelV4Schema, areModelOperationsCompatible } = await import('../../src/vs/workbench/contrib/ade/common/semanticModel.ts');
 const { getModelReadiness, assertModelProposalAllowed } = await import('../../src/vs/workbench/contrib/ade/common/modelReadiness.ts');
 const { compileModelContext, assertModelContextCurrent } = await import('../../src/vs/workbench/contrib/ade/common/modelContext.ts');

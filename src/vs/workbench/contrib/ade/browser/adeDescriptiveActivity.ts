@@ -5,9 +5,9 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
 import { projectDescriptiveActivity } from '../common/descriptiveActivity.js';
-import type { AdeControls } from './adeControls.js';
+import { type AdeControls } from './adeControls.js';
 
 /** Reuse native controls and boundary styling; arrows come exclusively from the scenario. */
 export function renderAdeDescriptiveActivity(canvas: HTMLElement, model: SemanticModelV4, scenarioId: string, controls: AdeControls, select: (id: string) => void): { width: number; height: number } {

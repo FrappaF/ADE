@@ -2,12 +2,14 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { importCode } from '../importCode.ts';
+const { importCode } = await import('../importCode.ts');
 
 test('confirmed container rename preserves descendants; conflicting, stale and copy hints are rejected', async t => {
 	const root = await mkdtemp(join(tmpdir(), 'ade-rename-'));

@@ -2,13 +2,15 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fixture, original } from './fixtures.mjs';
-import { stageImplementation, verifyImplementation, planReviewId, recoverImplementation } from '../implementation.ts';
-import { interpretResiduals } from '../interpretation.ts';
+const { stageImplementation, verifyImplementation, planReviewId, recoverImplementation } = await import('../implementation.ts');
+const { interpretResiduals } = await import('../interpretation.ts');
 
 test('interrupted application rolls back only exact applied preimages after restart', async t => {
 	const f = await fixture(t);

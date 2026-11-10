@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import type { ReadinessDiagnostic } from '../common/modelReadiness.js';
-import { ModelDiagnostic, SemanticModel } from '../common/semanticModel.js';
+import { type ReadinessDiagnostic } from '../common/modelReadiness.js';
+import { ModelDiagnostic, SemanticModel } from '../common/modelTypes.js';
 
 /** Localized presentation of domain diagnostics, also usable by later editor adapters. */
 export function diagnosticMessage(diagnostic: ModelDiagnostic): string {

@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import './source-loader.mjs';
+import '../scripts/source-loader.mjs';
 const { arrangeDiagram, diagramNodeWidth, diagramNodeHeight } = await import('../../src/vs/workbench/contrib/ade/common/diagramLayout.ts');
 const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');
 

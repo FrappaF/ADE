@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { wrapDiagramText } from './diagramLayout.js';
-import { scenarioLayers, scenarioUnorderedOccurrences, type Knowledge, type SemanticModelV4 } from './semanticModel.js';
+import { scenarioLayers, scenarioUnorderedOccurrences } from './modelScenario.js';
+import { type Knowledge, type SemanticModelV4 } from './modelTypes.js';
 
 interface ActivityBox { x: number; y: number; width: number; height: number }
 export interface DescriptiveActivityProjection {

@@ -5,10 +5,10 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import type { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import type { SemanticModelV4, ModelMessaging } from '../common/semanticModel.js';
-import type { MessagingScenario, MessagingObservation } from '../common/modelMessaging.js';
-import type { ProjectCriteria } from '../common/modelProject.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { type SemanticModelV4, type ModelMessaging } from '../common/modelTypes.js';
+import { type MessagingScenario, type MessagingObservation } from '../common/modelMessaging.js';
+import { type ProjectCriteria } from '../common/modelProject.js';
 import { adeCriteriaData } from './adeInteractionCriteria.js';
 
 type Dialogs = Pick<IQuickInputService, 'pick' | 'input'>;

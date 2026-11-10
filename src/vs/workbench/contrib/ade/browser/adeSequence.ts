@@ -5,7 +5,7 @@
 
 import { renderAdeInteractionSequence } from './adeInteractionSequence.js';
 import { localize } from '../../../../nls.js';
-import { ModelView, SemanticModel } from '../common/semanticModel.js';
+import { ModelView, SemanticModel } from '../common/modelTypes.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
 import { AdeControls } from './adeControls.js';
 import { elementLabels, relationLabels } from './adeLabels.js';

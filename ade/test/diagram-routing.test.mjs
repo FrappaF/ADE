@@ -3,9 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isClearSegment, placeConnectionLabel, routeDiagramConnection, routeDiagramConnections } from '../../src/vs/workbench/contrib/ade/common/diagramRouting.ts';
+const { isClearSegment, placeConnectionLabel, routeDiagramConnection, routeDiagramConnections } = await import('../../src/vs/workbench/contrib/ade/common/diagramRouting.ts');
 
 const boxes = [
 	{ id: 'from', x: 64, y: 100, width: 192, height: 88 },

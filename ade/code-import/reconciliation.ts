@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { isDeepStrictEqual } from 'node:util';
-import type { SemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import type { CodeImport } from './importCode.ts';
 import type { ImportSnapshot } from './snapshot.ts';
 import { prepareSync, type SyncResolution } from './syncCode.ts';
-import type { SourceMutation } from './sourceChanges.ts';
+import type { SourceMutation } from '../runtime/sourceChanges.ts';
 import { getModelImpact } from '../../src/vs/workbench/contrib/ade/common/modelImpact.ts';
 
 /** Language-neutral reconciliation state. Deterministic tools supply evidence, never an implementation. */

@@ -8,25 +8,27 @@ import { modelTaskIntent } from '../../src/vs/workbench/contrib/ade/common/model
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, realpath, lstat, writeFile, rm } from 'node:fs/promises';
 import { isAbsolute, join, posix } from 'node:path';
-import { lock, managed, atomicJson, snapshotId } from '../code-import/projectStore.ts';
+import { lock, managed, atomicJson, snapshotId } from '../runtime/projectStore.ts';
 import { assertNoInterruptedOperation } from '../code-import/reconciliationJournal.ts';
-import { physicalImage, replacePhysicalImage, samePhysicalImage, contentHash, type PhysicalMutation } from '../code-import/sourceChanges.ts';
+import { physicalImage, replacePhysicalImage, samePhysicalImage, contentHash, type PhysicalMutation } from '../runtime/sourceChanges.ts';
 import { runProcess } from './process.ts';
 import { refreshStructuralSourceIndex } from './structuralSourceIndex.ts';
 import { readBoundedText } from './io.ts';
 import { prepareStructuralSourceContext } from './structuralContext.ts';
-import { predicateRegion, readPredicateRegion, reversePredicate, predicateFile, assertPureProject, projectCoverage, type PredicateArtifact, type ProjectCriteria, type InteractionCase, type PredicateCase, type StateCase, type MessagingCase } from '../../src/vs/workbench/contrib/ade/common/modelProject.ts';
+import { predicateRegion, readPredicateRegion, reversePredicate, predicateFile, assertPureProject, projectCoverage, type PredicateArtifact, type ProjectCriteria, type InteractionCase, type PredicateCase, type StateCase, type MessagingCase, type StructuralProjectSession as StructuralSession, type ProjectSnapshot } from '../../src/vs/workbench/contrib/ade/common/modelProject.ts';
 import { compileModelMessaging, simulateMessaging, emitModelMessaging, messagingRegion, readMessagingRegion, reverseModelMessaging } from '../../src/vs/workbench/contrib/ade/common/modelMessaging.ts';
-import { compileModelStateMachine, interpretModelStateMachine, emitModelStateMachine, stateMachineRegion, readStateMachineRegion, reverseModelStateMachine } from '../../src/vs/workbench/contrib/ade/common/modelStates.ts';
-import { compileModelInteraction, interpretModelInteraction, emitModelInteraction, interactionRegion, readInteractionRegion, reverseModelInteraction } from '../../src/vs/workbench/contrib/ade/common/modelInteractions.ts';
+import { compileModelStateMachine, interpretModelStateMachine } from '../../src/vs/workbench/contrib/ade/common/modelStates.ts';
+import { emitModelStateMachine, stateMachineRegion, readStateMachineRegion, reverseModelStateMachine } from '../../src/vs/workbench/contrib/ade/common/stateRuntime.ts';
+import { compileModelInteraction, interpretModelInteraction } from '../../src/vs/workbench/contrib/ade/common/modelInteractions.ts';
+import { emitModelInteraction, interactionRegion, readInteractionRegion, reverseModelInteraction } from '../../src/vs/workbench/contrib/ade/common/interactionRuntime.ts';
 import { evaluateModelPredicate, emitModelPredicate } from '../../src/vs/workbench/contrib/ade/common/modelExpressions.ts';
 import { canonicalJson, hashSemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';
 import { modelProjectProfile, modelArchetypeRevision } from '../../src/vs/workbench/contrib/ade/common/modelProfiles.ts';
-import { readSemanticModel, type SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelValidation.ts';
+import { type SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import type { ModelTaskRequest } from '../../src/vs/workbench/contrib/ade/common/modelTaskContext.ts';
 
-export type { StructuralProjectSession as StructuralSession } from '../../src/vs/workbench/contrib/ade/common/modelProject.ts';
-import type { StructuralProjectSession as StructuralSession, ProjectSnapshot } from '../../src/vs/workbench/contrib/ade/common/modelProject.ts';
+export type { StructuralSession };
 export interface StructuralPreparation { status: 'staged' | 'aligned'; calls: 0; session?: StructuralSession }
 const metadata = '.ade/model.json';
 const criteriaFile = '.ade/criteria.json';

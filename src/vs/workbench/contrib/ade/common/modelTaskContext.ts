@@ -3,7 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { modelObjects, readSemanticDraft, semanticModelV4Schema, predicateSchema, blueprintRules, type ModelReference, type SemanticModelV4 } from './semanticModel.js';
+import { modelObjects } from './modelFoundation.js';
+import { readSemanticDraft } from './modelValidation.js';
+import { semanticModelV4Schema, predicateSchema } from './modelSchema.js';
+import { blueprintRules, type ModelReference, type SemanticModelV4 } from './modelTypes.js';
 import { generationRules, getModelReadiness } from './modelReadiness.js';
 import { messagingRules } from './modelMessaging.js';
 import { stateRules } from './modelStates.js';

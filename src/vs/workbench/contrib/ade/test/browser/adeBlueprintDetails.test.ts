@@ -8,7 +8,8 @@ import * as dom from '../../../../../base/browser/dom.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { AdeControls } from '../../browser/adeControls.js';
 import { renderBlueprintDetails } from '../../browser/adeBlueprintDetails.js';
-import { emptyBlueprint, emptyFoundation, type SemanticModelV4 } from '../../common/semanticModel.js';
+import { emptyBlueprint, emptyFoundation } from '../../common/modelFoundation.js';
+import { type SemanticModelV4 } from '../../common/modelTypes.js';
 
 suite('A.D.E blueprint details renderer', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();

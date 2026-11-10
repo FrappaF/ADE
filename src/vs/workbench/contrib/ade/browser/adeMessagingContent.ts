@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
 
 /** Shared visual/accessibility projection; broker aggregation never discards channel identities. */
 export function adeMessagingRows(model: SemanticModelV4, id: string): { id: string; label: string; text: string }[] {

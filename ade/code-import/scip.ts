@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { importCode, projectModel, validateProjection, type CodeImport, type SourceEvidence, type IndexedFile, type CodeDeclaration } from './importCode.ts';
 import { semanticDependencyId, validateSemanticGraph, type SemanticGraph } from './semanticGraph.ts';
-import { array, object, text, digest } from './schemas.ts';
+import { array, object, text, digest } from '../runtime/schemas.ts';
 import { isSourcePath } from './paths.ts';
 
 interface SingleLineRange { line?: number; start_character?: number; end_character?: number }

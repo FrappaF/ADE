@@ -3,13 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readSourceScope } from './sourceScope.ts';
-import { readRenameHints } from './identity.ts';
-import { createTypeScriptBundle } from './typescriptSemantic.ts';
-import { importCode } from './importCode.ts';
-import { readSnapshot, writeSnapshot } from './snapshot.ts';
-import { prepareSync } from './syncCode.ts';
-import { applyScipBundles, readScipBundle } from './scip.ts';
+import '../scripts/source-loader.mjs';
+
+const { readSourceScope } = await import('./sourceScope.ts');
+const { readRenameHints } = await import('./identity.ts');
+const { createTypeScriptBundle } = await import('./typescriptSemantic.ts');
+const { importCode } = await import('./importCode.ts');
+const { readSnapshot, writeSnapshot } = await import('./snapshot.ts');
+const { prepareSync } = await import('./syncCode.ts');
+const { applyScipBundles, readScipBundle } = await import('./scip.ts');
 import { readFile, stat } from 'node:fs/promises';
 
 const input = process.argv.slice(2);

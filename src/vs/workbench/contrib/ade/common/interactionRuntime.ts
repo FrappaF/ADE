@@ -7,7 +7,7 @@ import { compileModelInteraction, validateModelInteraction } from './modelIntera
 import { valueRuntime } from './modelValues.js';
 import { interactionInterpreterSource } from './interactionRuntime.generated.js';
 import { canonicalJson } from './modelSerialization.js';
-import type { SemanticModelV4 } from './semanticModel.js';
+import { type SemanticModelV4 } from './modelTypes.js';
 
 const begin = '// <ade:interaction-v1>\n', end = '// </ade:interaction-v1>\n';
 /** Canonical data plan and a profile-owned runtime. No project code or arbitrary text becomes executable. */

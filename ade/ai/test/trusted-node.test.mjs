@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import '../../scripts/source-loader.mjs';
-import { needsExternalStructuralNode, verifyWithExternalNode } from '../trustedNode.ts';
+const { needsExternalStructuralNode, verifyWithExternalNode } = await import('../trustedNode.ts');
 const { createPureProject } = await import('../../../src/vs/workbench/contrib/ade/common/modelProject.ts');
 const { prepareStructuralProject } = await import('../structuralProject.ts');
 
@@ -30,7 +30,7 @@ test('external Node verifies a real staged project with the shared engine and in
 	const { session } = await prepareStructuralProject(directory);
 	// A source wrapper stands in for the built ESM bundle and loads the same production engine.
 	const wrapper = join(directory, 'engine.mjs');
-	await writeFile(wrapper, `await import(${JSON.stringify(new URL('../../scripts/source-loader.mjs', import.meta.url).href)});export const {engine}=await import(${JSON.stringify(new URL('../../code-import/nativeHost.ts', import.meta.url).href)});`);
+	await writeFile(wrapper, `await import(${JSON.stringify(new URL('../../scripts/source-loader.mjs', import.meta.url).href)});export const {engine}=await import(${JSON.stringify(new URL('../../runtime/nativeHost.ts', import.meta.url).href)});`);
 	const before = process.env.ADE_NODE_EXECUTABLE; process.env.ADE_NODE_EXECUTABLE = process.execPath;
 	t.after(() => { if (before === undefined) { delete process.env.ADE_NODE_EXECUTABLE; } else { process.env.ADE_NODE_EXECUTABLE = before; } });
 	const result = JSON.parse(await verifyWithExternalNode(JSON.stringify({ operation: 'structuralVerify', root: directory, id: session.id, reviewId: session.reviewId }), pathToFileURL(wrapper).href));
@@ -62,7 +62,7 @@ test('cancelling external verification also kills the nested trusted test proces
 	const directory = await realpath(await mkdtemp(join(tmpdir(), 'ade-node-cancel-'))), pidFile = join(directory, 'child.pid'), wrapper = join(directory, 'engine.mjs');
 	t.after(() => rm(directory, { recursive: true, force: true }));
 	const code = `require('node:fs').writeFileSync(${JSON.stringify(pidFile)},String(process.pid));setInterval(()=>{},1000);`;
-	await writeFile(wrapper, `const {runProcess}=await import(${JSON.stringify(new URL('../process.ts', import.meta.url).href)});const {lock}=await import(${JSON.stringify(new URL('../../code-import/projectStore.ts', import.meta.url).href)});export const engine={execute:async(_input,signal)=>lock(${JSON.stringify(directory)},async()=>{await runProcess(process.execPath,['--eval',${JSON.stringify(code)}],${JSON.stringify(directory)},{signal});return '{}';})};`);
+	await writeFile(wrapper, `const {runProcess}=await import(${JSON.stringify(new URL('../process.ts', import.meta.url).href)});const {lock}=await import(${JSON.stringify(new URL('../../runtime/projectStore.ts', import.meta.url).href)});export const engine={execute:async(_input,signal)=>lock(${JSON.stringify(directory)},async()=>{await runProcess(process.execPath,['--eval',${JSON.stringify(code)}],${JSON.stringify(directory)},{signal});return '{}';})};`);
 	const before = process.env.ADE_NODE_EXECUTABLE; process.env.ADE_NODE_EXECUTABLE = process.execPath;
 	t.after(() => { if (before === undefined) { delete process.env.ADE_NODE_EXECUTABLE; } else { process.env.ADE_NODE_EXECUTABLE = before; } });
 	const controller = new AbortController();

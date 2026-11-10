@@ -3,8 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../scripts/source-loader.mjs';
+
 import { readFile, writeFile } from 'node:fs/promises';
-import { benchmarkReconciliation } from './reconciliationBenchmark.ts';
+const { benchmarkReconciliation } = await import('./reconciliationBenchmark.ts');
 
 const [input, output] = process.argv.slice(2);
 if (!input || !output || process.argv.length !== 4) { throw new Error('Usage: node ade/ai/reconciliation-benchmark.mjs CANDIDATES.json NEW_REPORT.json'); }

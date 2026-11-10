@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import './source-loader.mjs';
+import '../scripts/source-loader.mjs';
 import { fixtureProfile } from './fixtures/dai-profile.mjs';
 const { readSemanticModel, readSemanticDraft, validateSemanticModel, semanticModelV4Schema, SemanticModelService } = await import('../../src/vs/workbench/contrib/ade/common/semanticModel.ts');
 const { migrateSemanticModelToV4 } = await import('../../src/vs/workbench/contrib/ade/common/modelMigration.ts');
@@ -78,19 +78,19 @@ test('migration retains uncertain classification and never derives ownership, nu
 	assert.throws(() => migrateSemanticModelToV4(source, () => source.semantics.elements[0].id), /fresh valid identity/);
 });
 
-test('legacy migration CLI rejects v4 before creating an output; explicit v4 CLI never overwrites', async () => {
+test('both migration CLIs preserve v4 and never overwrite an existing output', async () => {
 	const directory = await mkdtemp(join(tmpdir(), 'ade-v4-'));
 	try {
 		const input = join(directory, 'draft.json'); const output = join(directory, 'new.json');
 		const text = serializeSemanticModel(base); await writeFile(input, text);
-		await assert.rejects(run(process.execPath, [new URL('../scripts/migrate-model.mjs', import.meta.url).pathname, input, output]));
-		await assert.rejects(readFile(output), { code: 'ENOENT' });
-		assert.equal(await readFile(input, 'utf8'), text);
 		const cli = new URL('../scripts/dai-model.mjs', import.meta.url).pathname;
-		await run(process.execPath, [cli, 'migrate', input, output]);
-		await assert.rejects(run(process.execPath, [cli, 'migrate', input, output]));
-		assert.deepEqual(JSON.parse(await readFile(output, 'utf8')), base);
-		assert.equal(await readFile(input, 'utf8'), text);
+		for (const args of [[new URL('../scripts/migrate-model.mjs', import.meta.url).pathname], [cli, 'migrate']]) {
+			await run(process.execPath, [...args, input, output]);
+			await assert.rejects(run(process.execPath, [...args, input, output]));
+			assert.deepEqual(JSON.parse(await readFile(output, 'utf8')), base);
+			assert.equal(await readFile(input, 'utf8'), text);
+			await rm(output);
+		}
 		const inspection = JSON.parse((await run(process.execPath, [cli, 'inspect', input, 'operation.confirm'])).stdout);
 		assert.ok(inspection.diagnostics.some(item => item.code === 'profileMissing'));
 	} finally { await rm(directory, { recursive: true, force: true }); }

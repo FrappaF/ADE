@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { ElementKind, ModelView, RelationKind } from '../common/semanticModel.js';
+import { ElementKind, ModelView, RelationKind } from '../common/modelTypes.js';
 
 export const elementLabels: Record<ElementKind, string> = {
 	feature: localize('ade.kind.feature', "Feature"), actor: localize('ade.kind.actor', "Actor"),

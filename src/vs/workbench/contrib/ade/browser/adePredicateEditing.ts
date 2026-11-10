@@ -5,10 +5,10 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import type { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import type { ModelExpression, ModelField, ModelPredicate, PredicateNode, SemanticModelV4 } from '../common/semanticModel.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { type ModelExpression, type ModelField, type ModelPredicate, type PredicateNode, type SemanticModelV4 } from '../common/modelTypes.js';
 import { checkModelExpression, fieldValueType } from '../common/modelValues.js';
-import type { VisualEdit } from '../common/visualEditing.js';
+import { type VisualEdit } from '../common/visualEditing.js';
 
 /** Native, bounded AST builder. A canceled dialog never publishes the detached graph. */
 export async function editAdePredicate(quick: Pick<IQuickInputService, 'pick' | 'input'>, model: SemanticModelV4, elementId?: string): Promise<VisualEdit[] | undefined> {

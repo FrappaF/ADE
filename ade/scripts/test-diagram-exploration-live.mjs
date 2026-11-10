@@ -8,10 +8,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-const { createCodeEngine } = await import('../code-import/nativeHost.ts');
+const { createCodeEngine } = await import('../runtime/nativeHost.ts');
 const { executeDiagramExploration, readExplorationSession } = await import('../ai/diagramSession.ts');
 const { runProcess } = await import('../ai/process.ts');
-const { active } = await import('../code-import/projectStore.ts');
+const { active } = await import('../runtime/projectStore.ts');
 
 const [rootArgument, model, outputArgument] = process.argv.slice(2);
 if (!rootArgument || !model || !outputArgument) { throw new Error('Usage: node ade/scripts/test-diagram-exploration-live.mjs ROOT EXPLICIT_MODEL OUTPUT_DIRECTORY'); }

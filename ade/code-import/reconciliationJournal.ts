@@ -7,10 +7,10 @@ import { randomUUID } from 'node:crypto';
 import { readFile, readdir, lstat, writeFile, rename, rm, chmod } from 'node:fs/promises';
 import { join, dirname, basename } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { managed, active, activate, atomicJson, snapshotId, assertNoInterruptedStructuralPublication } from './projectStore.ts';
-import { sourceFile, type SourceMutation } from './sourceChanges.ts';
+import { managed, active, activate, atomicJson, snapshotId, assertNoInterruptedStructuralPublication } from '../runtime/projectStore.ts';
+import { sourceFile, type SourceMutation } from '../runtime/sourceChanges.ts';
 import { readSnapshot, type ImportSnapshot } from './snapshot.ts';
-import { object, text, digest, array } from './schemas.ts';
+import { object, text, digest, array } from '../runtime/schemas.ts';
 
 export interface ReconciliationOperation {
 	version: 1; id: string; root: string; created: string;
@@ -34,7 +34,7 @@ async function save(operation: ReconciliationOperation): Promise<void> {
 	await atomicJson(join(await managed(operation.root, 'reconciliation'), `${operation.id}.json`), operation);
 }
 
-export async function readOperation(root: string, id: string): Promise<ReconciliationOperation> {
+async function readOperation(root: string, id: string): Promise<ReconciliationOperation> {
 	if (!snapshotId(id)) { throw new Error('Invalid reconciliation operation'); }
 	const path = join(await managed(root, 'reconciliation'), `${id}.json`);
 	const info = await lstat(path);

@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { array, object, text } from '../code-import/schemas.ts';
+import { array, object, text } from '../runtime/schemas.ts';
 import type { CodeDeclaration, ImportDiagnostic } from '../code-import/importCode.ts';
 import type { SemanticGraph } from '../code-import/semanticGraph.ts';
-import type { SemanticElement, SemanticRelation, CodeMapping } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { type SemanticElement, type SemanticRelation, type CodeMapping } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 
 export interface ProviderConfig {
 	version: 1;

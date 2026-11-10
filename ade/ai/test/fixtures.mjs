@@ -2,13 +2,15 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { importCode } from '../../code-import/importCode.ts';
-import { writeSnapshot } from '../../code-import/snapshot.ts';
-import { runProcess } from '../process.ts';
-import { prepareImplementation } from '../context.ts';
+const { importCode } = await import('../../code-import/importCode.ts');
+const { writeSnapshot } = await import('../../code-import/snapshot.ts');
+const { runProcess } = await import('../process.ts');
+const { prepareImplementation } = await import('../context.ts');
 
 export const config = { version: 1, provider: 'codex', connection: 'cli', executable: 'codex', model: 'explicit-fixture-model', timeoutMs: 10000, maxContextBytes: 65536, maxCalls: 2 };
 export const original = "export function checkout(approved) { return 'paid'; }\n";

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import '../source-loader.mjs';
+import '../../scripts/source-loader.mjs';
 const { createPureProject } = await import('../../../src/vs/workbench/contrib/ade/common/modelProject.ts');
 let serial = 0;
 const model = createPureProject('Checkout Frames', () => 'checkout.' + ++serial).model;

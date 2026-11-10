@@ -5,7 +5,7 @@
 
 import { projectModel, validateProjection, type CodeImport } from './importCode.ts';
 import { semanticDependencyId } from './semanticGraph.ts';
-import type { SemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import type { ImportSnapshot } from './snapshot.ts';
 
 /** AI proposes identity continuity; deterministic evidence must identify exactly one compatible declaration. */

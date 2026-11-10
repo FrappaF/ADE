@@ -14,7 +14,7 @@ import { applyIncrementalClientChanges, mapWithConcurrency, MAX_CONCURRENT_FILE_
 const STATE_SCHEMA = 2;
 const BUILD_RECIPE = 5;
 const LOCK_STALE_AFTER_MS = 30_000;
-const BUILD_SCOPES = ['ade/ai', 'ade/code-import', 'ade/scripts/build-code-import.mjs', 'src', 'extensions', '.vscode/extensions', 'build', 'gulpfile.mjs', 'package.json', 'package-lock.json', '.nvmrc'];
+const BUILD_SCOPES = ['ade/ai', 'ade/code-import', 'ade/runtime', 'ade/scripts/build-code-import.mjs', 'src', 'extensions', '.vscode/extensions', 'build', 'gulpfile.mjs', 'package.json', 'package-lock.json', '.nvmrc'];
 const API_PROPOSALS_OUTPUT = 'src/vs/platform/extensions/common/extensionsApiProposals.ts';
 const EXTENSION_POINTS_OUTPUT = 'src/vs/workbench/services/extensions/common/extensionPoints.json';
 const EXTENSION_BUILD_ARGS = ['run', 'gulp', 'transpile-extensions', 'compile-extension-media'];
@@ -375,7 +375,7 @@ function affectsLane(filePath: string, lane: BuildLane): boolean {
 		return true;
 	}
 	switch (lane) {
-		case 'client': return filePath.startsWith('src/') || filePath.startsWith('ade/ai/') || filePath.startsWith('ade/code-import/') || filePath === 'ade/scripts/build-code-import.mjs';
+		case 'client': return filePath.startsWith('src/') || filePath.startsWith('ade/ai/') || filePath.startsWith('ade/code-import/') || filePath.startsWith('ade/runtime/') || filePath === 'ade/scripts/build-code-import.mjs';
 		case 'extensions': return (filePath.startsWith('extensions/') && !filePath.startsWith('extensions/copilot/')) || filePath.startsWith('.vscode/extensions/');
 		case 'copilot': return filePath.startsWith('extensions/copilot/');
 	}

@@ -5,10 +5,10 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
-import type { StructuralProjectSession } from '../common/modelProject.js';
-import type { SemanticModel } from '../common/semanticModel.js';
+import { type StructuralProjectSession } from '../common/modelProject.js';
+import { type SemanticModel } from '../common/modelTypes.js';
 import { describeModelPredicate, validateModelPredicate } from '../common/modelExpressions.js';
-import type { AdeControls } from './adeControls.js';
+import { type AdeControls } from './adeControls.js';
 
 export interface StructuralReviewActions {
 	busy: boolean; canVerify: boolean; canApply: boolean; canUndo: boolean;

@@ -3,8 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { acceptsNotationElement, acceptsNotationRelation, isCompatibleRelation, notationRules, viewKinds, type ModelView } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
-import { object, text, array } from '../code-import/schemas.ts';
+import { acceptsNotationElement, acceptsNotationRelation, notationRules } from '../../src/vs/workbench/contrib/ade/common/modelNotation.ts';
+import { isCompatibleRelation } from '../../src/vs/workbench/contrib/ade/common/modelValidation.ts';
+import { viewKinds, type ModelView } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
+import { object, text, array } from '../runtime/schemas.ts';
 import type { DiagramInterpretation, Diagram } from './diagramImport.ts';
 
 export interface DiagramPlanItem {

@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { elementKinds, relationKinds, viewKinds, knowledgeSchema, semanticModelV5Schema, relationDetailsSchema, type Schema as IJSONSchema } from './semanticModel.js';
+import { elementKinds, relationKinds, viewKinds, type Schema as IJSONSchema } from './modelTypes.js';
+import { knowledgeSchema, semanticModelV5Schema, relationDetailsSchema } from './modelSchema.js';
 
 const string: IJSONSchema = { type: 'string', minLength: 1, maxLength: 2000 };
 const id: IJSONSchema = { type: 'string', minLength: 1, maxLength: 120 };

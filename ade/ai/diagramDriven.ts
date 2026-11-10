@@ -5,7 +5,7 @@
 
 import { compileModelContext, assertModelContextCurrent, type SealedModelContext } from '../../src/vs/workbench/contrib/ade/common/modelContext.ts';
 import { assertModelProposalAllowed, getModelReadiness, type GenerationProfile } from '../../src/vs/workbench/contrib/ade/common/modelReadiness.ts';
-import type { SemanticModel, SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { type SemanticModel, type SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 
 /** Tool-owned registry. No production archetype is registered until S10 supplies an actual adapter. */
 export function createDiagramDrivenAdapter(profiles: readonly GenerationProfile[]) {

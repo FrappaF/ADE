@@ -3,13 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { createCodeEngine } from '../nativeHost.ts';
-import { readSnapshot } from '../snapshot.ts';
+const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
+const { readSnapshot } = await import('../snapshot.ts');
 import { samples } from './samples.mjs';
 import { expandDiagramContext, compactDiagramReply, plannedDiagramReply } from './compact-diagram-fixture.mjs';
 import { Ajv2020 } from 'ajv/dist/2020.js';

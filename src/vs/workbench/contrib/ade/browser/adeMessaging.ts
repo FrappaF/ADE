@@ -5,8 +5,8 @@
 
 import { localize } from '../../../../nls.js';
 import * as dom from '../../../../base/browser/dom.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
-import type { AdeControls } from './adeControls.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
+import { type AdeControls } from './adeControls.js';
 import { adeMessagingRows } from './adeMessagingContent.js';
 
 export function renderAdeMessaging(parent: HTMLElement, model: SemanticModelV4, id: string, controls: AdeControls, select: (id: string) => void): void {

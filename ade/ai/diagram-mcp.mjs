@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { active } from '../code-import/projectStore.ts';
+const { active } = await import('../runtime/projectStore.ts');
 const { executeDiagramExploration } = await import('./diagramSession.ts');
 const { diagramToolDefinitions, diagramSessionInstruction } = await import('../../src/vs/workbench/contrib/ade/common/diagramTools.ts');
 

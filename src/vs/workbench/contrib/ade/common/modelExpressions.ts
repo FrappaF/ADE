@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { checkShape, predicateSchema, type ModelDiagnostic, type ModelField, type ModelPredicate, type SemanticModelV4 } from './semanticModel.js';
+import { checkShape, predicateSchema } from './modelSchema.js';
+import { type ModelDiagnostic, type ModelField, type ModelPredicate, type SemanticModelV4 } from './modelTypes.js';
 import { checkModelExpression, evaluateModelExpression, emitModelExpression, fieldValueType, type ExpressionScope } from './modelValues.js';
 
 export const expressionRules = {
@@ -38,7 +39,7 @@ function referenceField(model: SemanticModelV4, predicate: ModelPredicate, field
 }
 
 /** Type checks the bounded, ordered graph; returns stable reasons rather than executing invalid ASTs. */
-export function predicateScope(model: SemanticModelV4, predicate: ModelPredicate): ExpressionScope {
+function predicateScope(model: SemanticModelV4, predicate: ModelPredicate): ExpressionScope {
 	const operation = model.foundation.blueprint?.operations.find(operation => operation.id === predicate.operationId);
 	return Object.fromEntries([...(operation?.inputs ?? []), ...(predicate.phase === 'post' ? operation?.outputs ?? [] : [])].map(field => [field.id!, fieldValueType(field)]));
 }

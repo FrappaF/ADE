@@ -3,15 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export const text = { type: 'string', minLength: 1 };
-export const identifier = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]*$' };
-export const digest = { type: 'string', pattern: '^[a-f0-9]{64}$' };
-
-/** Small schema constructors shared by persisted state and external-index validation. */
-export function array(items: object): object { return { type: 'array', items }; }
-export function object(properties: Record<string, object>, optional: string[] = []): object {
-	return { type: 'object', properties, required: Object.keys(properties).filter(key => !optional.includes(key)), additionalProperties: false };
-}
+import { array, object, text, identifier, digest } from '../runtime/schemas.ts';
 
 export const evidence = object({ file: text, revision: digest, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 0 }, line: { type: 'integer', minimum: 1 }, endLine: { type: 'integer', minimum: 1 } });
 const provider = { type: 'integer', minimum: 0 };

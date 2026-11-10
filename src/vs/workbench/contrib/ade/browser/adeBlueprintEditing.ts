@@ -6,8 +6,9 @@
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { emptyBlueprint, modelObjects, type DecisionConstraint, type Knowledge, type ModelBlueprint, type ModelDecision, type ModelField, type ModelOperation, type ModelReference, type ModelType, type ModelView, type SemanticElement, type SemanticModelV4 } from '../common/semanticModel.js';
-import type { VisualEdit } from '../common/visualEditing.js';
+import { emptyBlueprint, modelObjects } from '../common/modelFoundation.js';
+import { type DecisionConstraint, type Knowledge, type ModelBlueprint, type ModelDecision, type ModelField, type ModelOperation, type ModelReference, type ModelType, type ModelView, type SemanticElement, type SemanticModelV4 } from '../common/modelTypes.js';
+import { type VisualEdit } from '../common/visualEditing.js';
 
 export type BlueprintEditMode = 'c4' | 'scope' | 'owner' | 'membership' | 'integration' | 'binding' | 'types' | 'operations' | 'interfaces' | 'ports' | 'connections' | 'transports' | 'modules' | 'mapping' | 'assertion' | 'decision';
 

@@ -8,7 +8,7 @@ import { valueRuntime } from './modelValues.js';
 import { interactionInterpreterSource } from './interactionRuntime.generated.js';
 import { stateInterpreterSource } from './stateRuntime.generated.js';
 import { canonicalJson } from './modelSerialization.js';
-import type { SemanticModelV4 } from './semanticModel.js';
+import { type SemanticModelV4 } from './modelTypes.js';
 
 const begin = '// <ade:state-v1>\n', end = '// </ade:state-v1>\n';
 /** Static runtime and canonical data. Model prose is never executable source. */

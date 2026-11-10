@@ -22,6 +22,7 @@ import { appendFileSync } from 'node:fs';
 const args = process.argv.slice(2);
 appendFileSync(process.env.ADE_SETUP_TEST_TRACE, JSON.stringify({
 	args, cwd: process.cwd(), node: process.execPath,
+	npmCommand: process.env.npm_command,
 	playwright: process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD,
 	foundry: process.env.FOUNDRY_LOCAL_SKIP_INSTALL,
 	inherited: process.env.ADE_SETUP_TEST_INHERITED
@@ -36,19 +37,19 @@ if (args.includes(process.env.ADE_SETUP_TEST_FAIL)) { process.exit(23); }
 		root,
 		run: (...args) => spawnSync(process.execPath, [join(root, 'ade/scripts/setup.mjs'), ...args], {
 			cwd: tmpdir(), encoding: 'utf8', timeout: 30000,
-			env: { ...process.env, npm_execpath: npmCli, ADE_SETUP_TEST_TRACE: trace, ADE_SETUP_TEST_FAIL: overrides.fail ?? '',
+			env: { ...process.env, npm_execpath: npmCli, npm_command: 'run-script', ADE_SETUP_TEST_TRACE: trace, ADE_SETUP_TEST_FAIL: overrides.fail ?? '',
 				ADE_SETUP_TEST_INHERITED: 'preserved', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '0', FOUNDRY_LOCAL_SKIP_INSTALL: '0' }
 		}),
 		events: () => existsSync(trace) ? readFileSync(trace, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : []
 	};
 }
 
-test('setup works outside the checkout with spaces in paths and preserves the child environment', t => {
+test('setup invoked from npm run prepares native headers before installing, preserving paths and the child environment', t => {
 	const f = fixture(t);
 	const result = f.run('--install-only');
 	assert.equal(result.status, 0, result.stderr);
-	assert.deepEqual(f.events(), [[], ['ci']].map(args => ({
-		args, cwd: f.root, node: process.execPath, playwright: '1', foundry: '1', inherited: 'preserved'
+	assert.deepEqual(f.events(), [[], ['ci']].map((args, index) => ({
+		args, cwd: f.root, node: process.execPath, npmCommand: index === 0 ? 'ci' : 'run-script', playwright: '1', foundry: '1', inherited: 'preserved'
 	})));
 });
 

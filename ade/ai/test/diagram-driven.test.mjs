@@ -8,14 +8,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { semanticModelV4Schema, validateSemanticShape } from '../../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+const { semanticModelV4Schema } = await import('../../../src/vs/workbench/contrib/ade/common/modelSchema.ts');
+const { validateSemanticShape } = await import('../../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
 import '../../scripts/source-loader.mjs';
 import { fixture, config } from './fixtures.mjs';
-import { readSnapshot, writeSnapshot } from '../../code-import/snapshot.ts';
-import { prepareSync } from '../../code-import/syncCode.ts';
-import { prepareImplementation } from '../context.ts';
-import { prepareAiReconciliation } from '../reconciliation.ts';
-import { prepareDiagramImport, advanceDiagramImport } from '../diagramImport.ts';
+const { readSnapshot, writeSnapshot } = await import('../../code-import/snapshot.ts');
+const { prepareSync } = await import('../../code-import/syncCode.ts');
+const { prepareImplementation } = await import('../context.ts');
+const { prepareAiReconciliation } = await import('../reconciliation.ts');
+const { prepareDiagramImport, advanceDiagramImport } = await import('../diagramImport.ts');
 const { migrateSemanticModelToV4 } = await import('../../../src/vs/workbench/contrib/ade/common/modelMigration.ts');
 
 test('legacy planning, Sync and reconciliation reject v4 without rewriting snapshots or source', async t => {

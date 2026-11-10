@@ -6,7 +6,7 @@
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
-import type { StructuralProjectSession } from '../common/modelProject.js';
+import { type StructuralProjectSession } from '../common/modelProject.js';
 import { CodePreview, CodeResolution, CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
 
 export const IAdeAiService = createDecorator<IAdeAiService>('adeAiService');

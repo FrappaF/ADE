@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { TerminalLocation, IShellLaunchConfig } from '../../../../platform/terminal/common/terminal.js';
-import type { ITerminalService, ITerminalGroupService, ITerminalInstance } from '../../terminal/browser/terminal.js';
+import { type ITerminalService, type ITerminalGroupService, type ITerminalInstance } from '../../terminal/browser/terminal.js';
 
 /** A hidden terminal cannot finish focusWhenReady: reveal its panel before awaiting focus. */
 export async function openAdeTerminal(terminals: ITerminalService, groups: ITerminalGroupService, config: IShellLaunchConfig, onCreated?: (terminal: ITerminalInstance) => void): Promise<ITerminalInstance> {

@@ -3,13 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../scripts/source-loader.mjs';
+
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { open, rm } from 'node:fs/promises';
-import { readSnapshot } from './snapshot.ts';
-import { importCode } from './importCode.ts';
-import { captureScip } from './scip.ts';
-import { outputOutsideSource } from './paths.ts';
+const { readSnapshot } = await import('./snapshot.ts');
+const { importCode } = await import('./importCode.ts');
+const { captureScip } = await import('./scip.ts');
+const { outputOutsideSource } = await import('./paths.ts');
 
 const input = process.argv.slice(2);
 const separator = input.indexOf('--');

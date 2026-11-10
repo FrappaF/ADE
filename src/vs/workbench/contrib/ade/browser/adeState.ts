@@ -5,7 +5,7 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
-import { ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
+import { ModelView, SemanticModel, SemanticRelation } from '../common/modelTypes.js';
 import { adeStateRows } from './adeStateContent.js';
 import { getStateDiagram } from '../common/stateDiagram.js';
 import { AdeControls } from './adeControls.js';

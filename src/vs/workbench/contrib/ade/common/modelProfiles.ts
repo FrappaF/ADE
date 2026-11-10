@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { GenerationProfile } from './modelReadiness.js';
+import { type GenerationProfile } from './modelReadiness.js';
 import { canonicalJson, modelDigest } from './modelSerialization.js';
-import type { SemanticModelV4 } from './semanticModel.js';
+import { type SemanticModelV4 } from './modelTypes.js';
 
 export interface ModelArchetype {
 	version: 1;

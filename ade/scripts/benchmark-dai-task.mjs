@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import { cpus, arch, platform } from 'node:os';
-import '../test/source-loader.mjs';
+import './source-loader.mjs';
 import { nodeOrders, taskRequest } from '../test/fixtures/dai-task.mjs';
 const { compileModelTaskContext } = await import('../../src/vs/workbench/contrib/ade/common/modelTaskContext.ts');
 const { compileModelContext } = await import('../../src/vs/workbench/contrib/ade/common/modelContext.ts');

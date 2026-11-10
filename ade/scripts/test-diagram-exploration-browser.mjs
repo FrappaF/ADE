@@ -11,7 +11,7 @@ import { chromium } from 'playwright-core';
 const { emptyFoundation } = await import('../../src/vs/workbench/contrib/ade/common/semanticModel.ts');
 const { diagramModelRevision, proposeDiagramModel, applyDiagramProposal } = await import('../../src/vs/workbench/contrib/ade/common/modelProposals.ts');
 const { renderDiagramPreview, inspectDiagramQuality } = await import('../../src/vs/workbench/contrib/ade/common/diagramPreview.ts');
-const { contentHash } = await import('../code-import/sourceChanges.ts');
+const { contentHash } = await import('../runtime/sourceChanges.ts');
 
 const output = resolve(process.argv[2] ?? '.build/ade-exploration-preview'); await mkdir(output, { recursive: true });
 const model = { version: 5, id: 'visual-fixture', name: 'Visual fixture', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [], foundation: { ...emptyFoundation(), evidence: [] } };

@@ -2,17 +2,19 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { engine as productionEngine, createCodeEngine, codeBridgeProtocol } from '../nativeHost.ts';
-import { adeCodeProtocolVersion } from '../../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
-import { importCode } from '../importCode.ts';
-import { createTypeScriptBundle } from '../typescriptSemantic.ts';
-import { applyScipBundles } from '../scip.ts';
-import { defaultScope } from '../sourceScope.ts';
+const { engine: productionEngine, createCodeEngine, codeBridgeProtocol } = await import('../../runtime/nativeHost.ts');
+const { adeCodeProtocolVersion } = await import('../../../src/vs/workbench/contrib/ade/common/codeBridge.ts');
+const { importCode } = await import('../../code-import/importCode.ts');
+const { createTypeScriptBundle } = await import('../../code-import/typescriptSemantic.ts');
+const { applyScipBundles } = await import('../../code-import/scip.ts');
+const { defaultScope } = await import('../../code-import/sourceScope.ts');
 // Existing code-evidence scenarios now include an explicit structured AI proposal.
 // The provider is simulated; tests still traverse the production validation/publication boundary.
 const engine = createCodeEngine({ async complete(_config, prompt) {
@@ -37,6 +39,16 @@ async function workspace(t, files) {
 }
 test('native boundary advertises the semantic diagram protocol', () => {
 	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'exploration', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'restore', 'source'] });
+});
+test('independent engines cannot consume each other\'s reconciliation previews', async t => {
+	const root = await workspace(t, { 'task.py': 'def task():\n    return 1\n' });
+	const owner = createCodeEngine(), other = createCodeEngine();
+	const initial = JSON.parse(await owner.execute(JSON.stringify({ operation: 'import', root, syntaxOnly: true })));
+	const preview = JSON.parse(await owner.execute(JSON.stringify({ operation: 'preview', snapshot: initial.snapshot })));
+	const request = JSON.stringify({ operation: 'reconciliationPrepare', token: preview.token, config: JSON.stringify(config), sourceFiles: [] });
+	await assert.rejects(other.execute(request), /preview expired/);
+	const prepared = JSON.parse(await owner.execute(request));
+	assert.ok(prepared.reviewId);
 });
 test('native boundary identifies malformed AI requests without disclosing configuration values', async () => {
 	for (const [request, expected] of [

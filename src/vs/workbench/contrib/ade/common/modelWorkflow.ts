@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { modelObjects, type ModelTaskIntent, type SemanticModelV4 } from './semanticModel.js';
+import { modelObjects } from './modelFoundation.js';
+import { type ModelTaskIntent, type SemanticModelV4 } from './modelTypes.js';
 import { canonicalJson } from './modelSerialization.js';
 
 /** Compare-and-swap task edits on the same native document/undo stack as the specification. */

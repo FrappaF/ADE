@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { emptyBlueprint, readSemanticDraft, validateSemanticModel, type ModelBlueprint, type ModelDecision, type ModelView, type SemanticModelV4 } from './semanticModel.js';
+import { emptyBlueprint } from './modelFoundation.js';
+import { readSemanticDraft, validateSemanticModel } from './modelValidation.js';
+import { type ModelBlueprint, type ModelDecision, type ModelView, type SemanticModelV4 } from './modelTypes.js';
 
 /** Semantic C4 navigation is separate from geometric zoom; every destination keeps its subject identity. */
 export function getC4DrillDown(model: SemanticModelV4, elementId: string): ModelView[] {

@@ -28,7 +28,7 @@ import { IShellEnvironmentService } from '../../../services/environment/electron
 import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { AdeInput } from '../browser/adeInput.js';
-import { isSourceEvidenceModel } from '../common/semanticModel.js';
+import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { IAdeProjectWorkspaceService, AdeProjectWorkspace } from '../browser/adeProjectWorkspace.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { adeCodeChannel, adeCodeProtocolVersion, CliAccountState, CliRuntimeEnvironment, CodeBridgeProtocol, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeSource } from '../common/codeBridge.js';
