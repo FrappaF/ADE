@@ -6,7 +6,7 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 5;
+export const adeCodeProtocolVersion = 6;
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
 export interface CliRuntimeEnvironment { path?: string; pathExt?: string; codexHome?: string }
@@ -61,6 +61,9 @@ export interface CodeEngine { execute(request: string, signal?: AbortSignal): Pr
 /** Compact product state; detailed receipts and proposals stay in the project journal. */
 export interface CodeDiagramExploration {
 	sessionId: string; model: string;
+	workflow?: 'project';
+	plan?: { revision: string; items: { id: string; name: string; viewKind: import('./modelTypes.js').ModelView['kind']; intent: string; rationale: string; parentId?: string; dependsOn: string[] }[] };
+	batch?: { blockers: string[] };
 	invalidation?: { evidenceIds: string[]; objectIds: string[]; viewIds: string[]; queryIds: string[] };
 	budget: { maxToolCalls: number; maxReadBytes: number; maxDurationMs: number; maxModelTurns: number };
 	usage: { toolCalls: number; readBytes: number; modelTurns: string[]; turnsObservable: boolean; inputTokens: null; outputTokens: null };

@@ -4,6 +4,8 @@
 
 Data: 10 novembre 2026. Evoluzione di [ADR 0004](0004-diagram-driven-schema-v4.md), secondo il [piano di riprogettazione](../diagram-import-redesign-plan.md) e la [valutazione MCP](../mcp-diagram-evaluation.md). Stato: implementazione locale e primi collaudi reali riusciti su ChartMuseum/HTTPie; promozione qualitativa completa sul corpus ancora da completare.
 
+Il flusso desktop di pianificazione e approvazione è aggiornato da [ADR 0016 — Generazione completa con review unica](0016-complete-diagram-generation.md). Questo documento conserva le decisioni originarie del protocollo incrementale.
+
 ## Decisione
 
 L'importazione dei diagrammi usa una conversazione persistente con strumenti locali sopra servizi ADE condivisi. Non richiede la classificazione IA di ogni dichiarazione, una sintesi globale o un piano immutabile. L'inventario deterministico resta disponibile prima dell'inferenza. Una proposta contiene al massimo una vista: un'altra vista viene salvata in una proposta indipendente, così una bozza irrealizzabile non blocca quelle valide.

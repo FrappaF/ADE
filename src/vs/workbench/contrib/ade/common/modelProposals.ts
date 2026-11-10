@@ -28,7 +28,7 @@ type Entry = CodeMapping | SemanticModelV4['foundation']['memberships'][number] 
 export interface ModelPatch { collection: Collection; id: string; before: string | null; value: Entry | null }
 export interface DiagramProposal {
 	version: 2; id: string; fingerprint: string; baseSemanticRevision: string; aliases: Record<string, string>; redirects?: Record<string, string>;
-	supersededBy?: string;
+	supersededBy?: string; excludedByPlan?: string;
 	readSet: { collection: Collection; id: string; revision: string }[]; readEvidenceIds: string[]; queryIds: string[];
 	patch: ModelPatch[]; diagnostics: ModelDiagnostic[]; status: 'invalid' | 'ready' | 'applied';
 }

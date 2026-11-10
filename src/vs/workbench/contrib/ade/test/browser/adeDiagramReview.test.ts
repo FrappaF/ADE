@@ -43,16 +43,22 @@ suite('A.D.E imported diagram review', () => {
 		assert.deepStrictEqual(f.called, ['apply']);
 	});
 
-	test('Review Draft opens an actionable review from the imported project Home and returns to exploration', () => {
+	for (const projectWorkflow of [false, true]) {
+	test(`${projectWorkflow ? 'Review All Changes' : 'Review Draft'} opens an actionable review from the imported project Home and returns to exploration`, () => {
 		const f = fixture();
 		const instantiation = workbenchInstantiationService(undefined, store);
 		const changed = store.add(new Emitter<void>());
 		const model: SemanticModel = { version: 3, id: 'code:imported', name: 'Imported Project', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
+		if (projectWorkflow) {
+			f.review.projectReviewId = 'project-seal'; f.review.proposal.views.push({ ...f.review.proposal.views[0], id: 'details', name: 'Details' });
+			f.review.plan = { revision: 'plan', items: f.review.proposal.views.map(view => ({ id: view.id, name: view.name, viewKind: view.kind, intent: 'Explain this scope', rationale: 'Relevant to the project', dependsOn: view.id === 'details' ? ['overview'] : [] })) };
+			f.review.tasks = f.review.plan.items.map(item => ({ id: item.id, intent: item.intent, status: 'ready', gaps: [] }));
+		}
 		f.review.semanticRevision = canonicalJson(semanticContent(model));
 		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.parse(f.review.modelUri), section: 'home', selectedId: '', onDidChange: Event.None, restore: async () => {} });
 		const ai = Object.assign(new (mock<IAdeAiService>())(), {
 			available: true, onDidChange: changed.event, diagramReview: undefined as AdeDiagramReview | undefined,
-			diagramExploration: { sessionId: 'session', model: 'test', proposals: [f.review.proposal], tasks: [], usage: { toolCalls: 1, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, budget: { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 } },
+			diagramExploration: { ...(projectWorkflow ? { workflow: 'project' as const, batch: { blockers: [] } } : {}), sessionId: 'session', model: 'test', proposals: [f.review.proposal], plan: f.review.plan, tasks: f.review.tasks ?? [], usage: { toolCalls: 1, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, budget: { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 } },
 			refreshConnection: async () => {},
 			reviewDiagramProposal: async () => { ai.diagramReview = f.review; changed.fire(); },
 			applyDiagramReview: async () => { f.called.push('apply'); },
@@ -64,16 +70,21 @@ suite('A.D.E imported diagram review', () => {
 		const editor = store.add(instantiation.createInstance(AdeEditor, Object.assign(new (mock<IEditorGroup>())(), { id: 1, windowId: 1 })));
 		editor.create(root);
 		const button = (name: string) => [...root.querySelectorAll('button')].find(button => button.textContent === name)!;
-		button('Review Draft').click();
+		const reviewLabel = projectWorkflow ? 'Review All Changes' : 'Review Draft', applyLabel = projectWorkflow ? 'Apply All Changes' : 'Apply to Project';
+		if (projectWorkflow) { assert.equal(button('Review Draft'), undefined); assert.ok(root.textContent?.includes('Diagram Plan')); }
+		button(reviewLabel).click();
 		assert.ok(root.querySelector('.ade-review-mode'), 'the ready review must replace the import landing page');
-		assert.equal(button('Apply to Project').disabled, false);
+		assert.equal(button(applyLabel).disabled, false);
+		assert.equal(root.querySelectorAll('figure.ade-review-preview').length, projectWorkflow ? 2 : 1);
 		assert.ok(editor.describeCurrentContext().includes('Source Evidence'));
 		assert.deepStrictEqual(f.called, []);
-		button('Apply to Project').click();
+		button(applyLabel).click();
 		assert.deepStrictEqual(f.called, ['apply']);
 		button('Return to Exploration').click();
-		assert.deepStrictEqual([!!button('Review Draft'), project.section, project.model], [true, 'home', model]);
+		assert.deepStrictEqual([!!button(reviewLabel), project.section, project.model], [true, 'home', model]);
 	});
+
+	}
 
 	test('invalid or stale drafts cannot apply and their review remains consultable', () => {
 		const f = fixture();

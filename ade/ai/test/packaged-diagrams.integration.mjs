@@ -22,14 +22,14 @@ test('packaged engine starts its advertised MCP server and produces a reviewable
 	const call = async request => JSON.parse(await engine.execute(JSON.stringify(request)));
 	const context = await call({ operation: 'import', root, syntaxOnly: true });
 	const publishedModel = await readFile(context.model, 'utf8');
-	const opened = await call({ operation: 'exploration', snapshot: context.snapshot, request: JSON.stringify({ action: 'open' }) });
+	const opened = await call({ operation: 'exploration', snapshot: context.snapshot, request: JSON.stringify({ action: 'open', workflow: 'project' }) });
 	const { mcp } = opened.data;
 	await access(mcp.args[0]);
 	const transport = new StdioClientTransport({ command: mcp.command, args: mcp.args, stderr: 'pipe' });
 	let stderr = '';
 	transport.stderr?.on('data', chunk => { stderr += chunk; });
 	try { await client.connect(transport); } catch (error) { throw new Error(`Packaged MCP startup failed: ${stderr}`, { cause: error }); }
-	assert.equal((await client.listTools()).tools.length, 8);
+	assert.equal((await client.listTools()).tools.length, 9);
 	const tool = async (name, args) => {
 		const response = await client.callTool({ name, arguments: args });
 		assert.deepEqual(response.structuredContent.diagnostics, []);
@@ -39,6 +39,8 @@ test('packaged engine starts its advertised MCP server and produces a reviewable
 	const file = inventory.data.files.items.find(file => file.path === 'checkout.mjs');
 	const read = await tool('ade_source_read', { file: file.path, revision: file.revision });
 	assert.equal(read.data.text, source);
+	await tool('ade_diagram_plan', { items: [{ id: 'overview', name: 'Checkout Overview', viewKind: 'structure', intent: 'Checkout responsibility', rationale: 'Understand the checkout entrypoint', dependsOn: [] }] });
+	await tool('ade_task_update', { id: 'overview', intent: 'Checkout responsibility', status: 'running', gaps: [] });
 	const proposalId = randomUUID(), evidenceId = read.data.evidence.id;
 	const proposal = await tool('ade_model_propose', {
 		proposalId, baseSemanticRevision: read.semanticRevision, readEvidenceIds: [evidenceId], readObjectIds: [], queryIds: [], commands: [
@@ -47,9 +49,12 @@ test('packaged engine starts its advertised MCP server and produces a reviewable
 		]
 	});
 	assert.equal(proposal.data.status, 'ready');
+	await tool('ade_task_update', { id: 'overview', intent: 'Checkout responsibility', status: 'ready', gaps: [], proposalId });
 	const preview = await tool('ade_view_preview', { proposalId });
 	assert.equal(preview.data.views[0].readiness.reviewable, true);
 	assert.match(await readFile(preview.data.images[0].path, 'utf8'), /<svg/);
 	assert.equal(await readFile(join(root, 'checkout.mjs'), 'utf8'), source);
 	assert.equal(await readFile(context.model, 'utf8'), publishedModel);
+	const review = await call({ operation: 'exploration', snapshot: context.snapshot, request: JSON.stringify({ action: 'review', sessionId: opened.sessionId }) });
+	assert.deepEqual([review.data.proposal.status, review.data.images.length, review.data.plan.items.length], ['ready', 1, 1]);
 });

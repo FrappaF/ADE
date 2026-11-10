@@ -14,7 +14,7 @@ import { importCode, type CodeImport } from '../code-import/importCode.ts';
 import { contentHash, sourceFile } from '../runtime/sourceChanges.ts';
 import { applyReconciliation, assertNoInterruptedOperation, operationHistory, recoverReconciliation } from '../code-import/reconciliationJournal.ts';
 import { ExplorationSourceRangeError, explorationCapabilities, explorationPage, refreshExplorationAnalysis, indexScopeRevision, readExplorationSource, searchExplorationSource, sourceRole, type ExplorationCapabilities, type IndexQuery } from '../code-import/explorationIndex.ts';
-import { diagramProposalExample, diagramSessionInstruction, diagramToolDefinitions } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
+import { diagramProposalExample, diagramSessionInstruction, diagramToolDefinitions, diagramViewCatalog } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
 import { applyDiagramProposal, diagramModelRevision, proposeDiagramModel, type DiagramProposal, type DiagramProposalRequest } from '../../src/vs/workbench/contrib/ade/common/modelProposals.ts';
 import { migrateSemanticModelToV5 } from '../../src/vs/workbench/contrib/ade/common/modelMigration.ts';
 import { canonicalJson } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';
@@ -24,21 +24,23 @@ import { projectDescriptiveActivity } from '../../src/vs/workbench/contrib/ade/c
 import { explorationReadiness } from '../../src/vs/workbench/contrib/ade/common/modelExploration.ts';
 import { inspectDiagramQuality, renderDiagramPreview } from '../../src/vs/workbench/contrib/ade/common/diagramPreview.ts';
 import { isDisclosableSource } from '../code-import/paths.ts';
+import { diagramProjectBlockers, diagramProjectProposal, projectDrafts, stageDiagramProject, validateDiagramPlan, type DiagramPlan, type DiagramPlanItem } from './diagramProject.ts';
 import { notationNodeSize } from '../../src/vs/workbench/contrib/ade/common/diagramLayout.ts';
 
 export interface ExplorationBudget { maxToolCalls: number; maxReadBytes: number; maxDurationMs: number; maxModelTurns: number }
+const defaultProjectBudget: ExplorationBudget = { maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 };
 const defaultExplorationBudget: ExplorationBudget = { maxToolCalls: 80, maxReadBytes: 1024 * 1024, maxDurationMs: 30 * 60 * 1000, maxModelTurns: 8 };
 type TaskState = 'queued' | 'running' | 'waitingContext' | 'waitingUser' | 'blocked' | 'ready' | 'applied' | 'cancelled';
 interface ExplorationTask { id: string; intent: string; status: TaskState; gaps: string[]; proposalId?: string }
 interface ToolReceipt { id: string; fingerprint: string; tool: string; status: 'running' | 'complete' | 'interrupted'; inputBytes: number; outputBytes: number; durationMs?: number; diagnostics?: string[] }
 export interface DiagramExplorationSession {
-	version: 2; id: string; root: string; projectId: string; created: number; model: string; runs?: { id: string; model: string; started: number }[];
+	version: 2; id: string; root: string; projectId: string; created: number; model: string; workflow?: 'project'; plan?: DiagramPlan; runs?: { id: string; model: string; started: number }[];
 	budget: ExplorationBudget; usage: { toolCalls: number; readBytes: number; modelTurns: string[]; inputTokens: null; outputTokens: null; turnsObservable: boolean };
 	evidence: EvidenceRecord[]; queries: IndexQuery[]; proposals: DiagramProposal[]; tasks: ExplorationTask[]; calls: ToolReceipt[];
-	publication?: { proposalId: string; destination: string; status: 'publishing' | 'applied' | 'rolledBack' };
+	publication?: { proposalIds?: string[]; proposalId: string; destination: string; status: 'publishing' | 'applied' | 'rolledBack' };
 }
 export interface ExplorationRequest {
-	action: 'open' | 'tool' | 'publish' | 'budget'; sessionId?: string; model?: string; budget?: ExplorationBudget;
+	action: 'open' | 'tool' | 'publish' | 'budget' | 'review' | 'publishAll'; sessionId?: string; model?: string; budget?: ExplorationBudget; workflow?: 'project'; reviewId?: string;
 	tool?: string; arguments?: object; callId?: string; turnId?: string; proposalId?: string;
 }
 export interface DiagramExplorationResult {
@@ -46,7 +48,7 @@ export interface DiagramExplorationResult {
 	capabilities: ExplorationCapabilities[]; data: object; diagnostics: object[];
 }
 const requestValidator = new Ajv2020().compile({ type: 'object', additionalProperties: false, required: ['action'], properties: {
-	action: { enum: ['open', 'tool', 'publish', 'budget'] }, sessionId: { type: 'string', maxLength: 100 }, model: { type: 'string', minLength: 1, maxLength: 200 }, budget: { type: 'object' }, tool: { type: 'string', maxLength: 120 }, arguments: { type: 'object' }, callId: { type: 'string', maxLength: 300 }, turnId: { type: 'string', maxLength: 300 }, proposalId: { type: 'string', maxLength: 100 }
+	workflow: { const: 'project' }, reviewId: { type: 'string', maxLength: 100 }, action: { enum: ['open', 'tool', 'publish', 'budget', 'review', 'publishAll'] }, sessionId: { type: 'string', maxLength: 100 }, model: { type: 'string', minLength: 1, maxLength: 200 }, budget: { type: 'object' }, tool: { type: 'string', maxLength: 120 }, arguments: { type: 'object' }, callId: { type: 'string', maxLength: 300 }, turnId: { type: 'string', maxLength: 300 }, proposalId: { type: 'string', maxLength: 100 }
 } });
 const toolValidator = new Ajv2020({ strict: false, allErrors: true });
 const validators = new Map(diagramToolDefinitions.map(tool => [tool.name, toolValidator.compile(tool.inputSchema)]));
@@ -124,6 +126,10 @@ function updateTask(session: DiagramExplorationSession, task: ExplorationTask): 
 	const old = session.tasks.find(entry => entry.id === task.id);
 	if (old && old.status !== task.status && !transitions[old.status].includes(task.status)) { throw new Error('invalidTaskTransition:' + old.status + ':' + task.status); }
 	if (task.proposalId && !session.proposals.some(entry => entry.id === task.proposalId)) { throw new Error('unknownProposal'); }
+	if (session.workflow === 'project') {
+		const proposal = session.proposals.find(proposal => proposal.id === (task.proposalId ?? old?.proposalId));
+		if (proposal) { if (task.status === 'cancelled') { proposal.excludedByPlan = task.id; } else { delete proposal.excludedByPlan; } }
+	}
 	if (old) { Object.assign(old, task); } else { if (session.tasks.length >= 100) { throw new Error('taskLimit'); } session.tasks.push(task); }
 }
 
@@ -142,17 +148,20 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		if (request.action === 'open' && !request.sessionId) {
 			session = { version: 2, id: randomUUID(), root, projectId: snapshot.state.projectId, model: request.model ?? 'user-selected', created: Date.now(), budget: budget(request.budget ?? defaultExplorationBudget), usage: { toolCalls: 0, readBytes: 0, modelTurns: [], inputTokens: null, outputTokens: null, turnsObservable: false }, evidence: [], queries: [], proposals: [], tasks: [{ id: 'overview', intent: 'Discover the main runtime responsibilities and integrations', status: 'queued', gaps: [] }], calls: [] };
 		} else { if (!request.sessionId) { throw new Error('sessionRequired'); } session = await readExplorationSession(root, request.sessionId); }
+		if (request.workflow === 'project' && session.workflow !== 'project') { session.workflow = 'project'; session.budget = budget(request.budget ?? defaultProjectBudget); session.created = Date.now(); }
 		if (session.projectId !== snapshot.state.projectId) { throw new Error('sessionProjectMismatch'); }
 		// Recover local publications through the existing shared journal, never re-invoke inference.
 		if (session.publication?.status === 'publishing') {
 			for (const operation of await operationHistory(root)) { if (operation.to === session.publication.destination && operation.status === 'reconciling') { await recoverReconciliation(root, operation.id); } }
 			const applied = await active(root) === basename(session.publication.destination);
 			session.publication.status = applied ? 'applied' : 'rolledBack';
-			if (applied) { const proposal = session.proposals.find(entry => entry.id === session.publication!.proposalId); if (proposal) { proposal.status = 'applied'; } }
+			if (applied) { for (const task of session.tasks.filter(task => (session.publication!.proposalIds ?? [session.publication!.proposalId]).includes(task.proposalId ?? ''))) { task.status = 'applied'; } for (const proposal of session.proposals.filter(entry => (session.publication!.proposalIds ?? [session.publication!.proposalId]).includes(entry.id))) { proposal.status = 'applied'; } }
 		}
 		for (const call of session.calls.filter(call => call.status === 'running')) { call.status = 'interrupted'; }
 		if (request.model && request.model !== session.model) { session.runs ??= []; session.runs.push({ id: randomUUID(), model: request.model, started: Date.now() }); session.model = request.model; }
-		const model = architecture(snapshot), semanticRevision = await diagramModelRevision(model);
+		const publishedModel = architecture(snapshot);
+		const staged = session.workflow === 'project' ? stageDiagramProject(publishedModel, session.proposals) : { model: publishedModel, blockers: [] };
+		const model = staged.model, semanticRevision = await diagramModelRevision(model);
 		for (const evidence of model.foundation.evidence ?? []) { if (!session.evidence.some(entry => entry.id === evidence.id)) { session.evidence.push(evidence); } }
 		const state = await refreshExplorationAnalysis(await importCode(root, snapshot.state.projectId, { previous: snapshot.state, signal }), snapshot.state, signal);
 		// A partial semantic index is declared, not upgraded into fabricated calls after a source change.
@@ -169,13 +178,42 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		for (const occurrence of model.foundation.occurrences) { if (occurrence.evidenceIds?.some(id => staleEvidence.has(id))) { affected.add(occurrence.id); } }
 		for (const scenario of model.foundation.interactions) { if (scenario.description?.evidenceIds.some(id => staleEvidence.has(id)) || scenario.occurrenceIds.some(id => affected.has(id))) { affected.add(scenario.id); } }
 		const invalidation = { evidenceIds: [...staleEvidence], objectIds: [...affected], viewIds: model.views.filter(view => view.nodes.some(node => affected.has(node.elementId)) || view.relationIds.some(id => affected.has(id)) || affected.has(view.interactionId ?? '')).map(view => view.id), queryIds: session.queries.filter(query => query.revision !== indexScopeRevision(queryState, query.filePrefix)).map(query => query.id) };
-		const summary = () => ({ sessionId: session.id, model: session.model, budget: session.budget, usage: session.usage, invalidation, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views').map(patch => patch.value) })), instruction: diagramSessionInstruction, sourceChanged: state.revision !== snapshot.state.revision });
+		const summary = () => ({ sessionId: session.id, model: session.model, workflow: session.workflow, plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...staged.blockers, ...diagramProjectBlockers(session.plan, session.tasks, session.proposals)] } : undefined, budget: session.budget, usage: session.usage, invalidation, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views').map(patch => patch.value) })), instruction: diagramSessionInstruction, sourceChanged: state.revision !== snapshot.state.revision });
 		if (request.action === 'budget') {
 			if (!request.budget) { throw new Error('budgetRequired'); }
 			session.budget = budget(request.budget); session.created = Date.now(); await save(session); return envelope(summary());
 		}
 		if (request.action === 'open') { await save(session); return envelope(summary()); }
+		if (request.action === 'review' || request.action === 'publishAll') {
+			if (session.workflow !== 'project') { throw new Error('projectWorkflowRequired'); }
+			if (request.action === 'publishAll' && session.publication?.status === 'applied' && session.publication.proposalId === request.reviewId) { return envelope({ applied: true, snapshot: snapshot.directory }); }
+			const drafts = projectDrafts(session.proposals);
+			const blockers = [...staged.blockers, ...diagramProjectBlockers(session.plan, session.tasks, session.proposals)];
+			if (!drafts.length) { blockers.push('noDiagramDrafts'); }
+			for (const draft of drafts) { try { await verifyProposal(queryState, session, draft); } catch (error) { blockers.push(error instanceof Error ? error.message : String(error)); } }
+			if (state.analysis.semanticInvalidated) { blockers.push('semanticIndexRefreshRequired'); }
+			for (const view of model.views.filter(view => drafts.some(draft => draft.patch.some(patch => patch.collection === 'views' && patch.id === view.id)))) { if (inspectDiagramQuality(model, view).some(diagnostic => diagnostic.severity === 'error')) { blockers.push('diagramGeometryInvalid:' + view.id); } }
+			const proposal = diagramProjectProposal(await diagramModelRevision(publishedModel), session.plan, session.tasks, session.proposals, blockers);
+			if (request.action === 'review') {
+				const preview = await previewDiagramProposal(queryState, model, session, proposal, {});
+				return envelope({ ...preview, reviewId: proposal.id, plan: session.plan, tasks: session.tasks, proposal: { id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: model.views.filter(view => proposal.patch.some(patch => patch.collection === 'views' && patch.id === view.id)) } });
+			}
+			if (!request.reviewId || request.reviewId !== proposal.id) { throw new Error('projectReviewChanged'); }
+			if (blockers.length) { throw new Error('projectNotReady:' + blockers.join(' · ')); }
+			await assertNoInterruptedOperation(root);
+			const destination = join(await managed(root), randomUUID());
+			session.publication = { proposalId: proposal.id, proposalIds: drafts.map(draft => draft.id), destination, status: 'publishing' }; await save(session);
+			await applyReconciliation(snapshot, destination, 'model', [], async () => {
+				for (const draft of drafts) { await verifyProposal(queryState, session, draft); }
+				await writeSnapshot(destination, state, model, undefined, snapshot, signal, true);
+			}, signal);
+			for (const draft of drafts) { draft.status = 'applied'; }
+			for (const task of session.tasks.filter(task => task.status === 'ready')) { task.status = 'applied'; }
+			session.publication.status = 'applied'; await save(session);
+			return envelope({ applied: true, snapshot: destination });
+		}
 		if (request.action === 'publish') {
+			if (session.workflow === 'project') { throw new Error('projectReviewRequired'); }
 			const proposal = session.proposals.find(entry => entry.id === request.proposalId);
 			if (!proposal) { throw new Error('unknownProposal'); }
 			if (proposal.supersededBy) { throw new Error('proposalSuperseded:' + proposal.supersededBy); }
@@ -203,15 +241,19 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 			session.usage.modelTurns.push(request.turnId); session.usage.turnsObservable = true;
 		}
 		if (session.usage.toolCalls >= session.budget.maxToolCalls || session.usage.readBytes >= session.budget.maxReadBytes || Date.now() - session.created > session.budget.maxDurationMs) { return envelope({}, [{ code: 'sessionBudgetExhausted', recoverable: true }]); }
-		const checkpoint = { evidence: [...session.evidence], queries: [...session.queries], proposals: session.proposals.map(proposal => ({ ...proposal })), tasks: structuredClone(session.tasks) };
+		const checkpoint = { evidence: [...session.evidence], queries: [...session.queries], proposals: session.proposals.map(proposal => ({ ...proposal })), tasks: structuredClone(session.tasks), plan: session.plan };
 		const call: ToolReceipt = { id: callId, fingerprint, tool, status: 'running', inputBytes: Buffer.byteLength(JSON.stringify(args)), outputBytes: 0 }, started = Date.now();
 		session.calls.push(call); session.usage.toolCalls++; await save(session);
 		let result: DiagramExplorationResult;
 		try {
 			const diagnostics = argumentDiagnostics(tool, args);
-			const data = diagnostics.length ? {} : await dispatchTool(tool, args, queryState, model, session, signal);
+			const beforeId = session.workflow === 'project' ? tool === 'ade_model_propose' ? (args as DiagramProposalRequest).supersedes : tool === 'ade_view_preview' ? (args as { proposalId: string }).proposalId : undefined : undefined;
+			const toolModel = beforeId ? stageDiagramProject(publishedModel, session.proposals, beforeId).model : model;
+			if (beforeId && tool === 'ade_model_propose' && (args as DiagramProposalRequest).baseSemanticRevision !== semanticRevision) { throw new Error('staleSemanticRevision'); }
+			const data = diagnostics.length ? {} : await dispatchTool(tool, args, queryState, toolModel, session, signal);
 			signal?.throwIfAborted();
 			result = structuredClone(envelope(data, diagnostics));
+			if (session.workflow === 'project') { result.semanticRevision = await diagramModelRevision(stageDiagramProject(publishedModel, session.proposals).model); }
 			const bytes = Buffer.byteLength(JSON.stringify(result));
 			if (bytes > 128 * 1024 || session.usage.readBytes + bytes > session.budget.maxReadBytes) { throw new Error('responseByteBudgetExhausted'); }
 			call.status = 'complete';
@@ -232,7 +274,7 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 		const input = value as { cursor?: string; limit?: number }, files = state.files.map(file => ({ path: file.file, revision: file.revision ?? null, language: file.language ?? 'text', role: sourceRole(file.file), status: file.status, symbols: file.declarations.length, exclusions: file.diagnostics.map(item => item.code) }));
 		const entrypoints = state.files.filter(file => sourceRole(file.file) === 'runtime' && /(^|\/)(main|index|app|server|cli|__main__)([.\/]|$)/i.test(file.file)).slice(0, 20).map(file => ({ file: file.file, revision: file.revision ?? null, classification: 'candidate' }));
 		const map = [...new Set(state.files.filter(file => file.status !== 'excluded').map(file => file.file.includes('/') ? file.file.split('/')[0] : '.'))].map(directory => ({ directory, files: state.files.filter(file => directory === '.' ? !file.file.includes('/') : file.file.startsWith(directory + '/')).length })).sort((a, b) => b.files - a.files).slice(0, 20);
-		return { projectId: state.projectId, proposalGuide: { example: diagramProposalExample, commandKinds: [...commandValidators.keys()] }, viewCapabilities: { behavior: ['sequence', 'activity'], descriptiveStates: 'unsupported', viewsPerProposal: 1 }, entrypoints, map, files: explorationPage(files, state.revision, {}, input.cursor, input.limit), coverage: { inventory: { total: files.length, excluded: files.filter(file => file.status === 'excluded').length }, analyzer: explorationCapabilities(state), understanding: { exploredEvidence: session.evidence.length, unexploredFiles: files.filter(file => !session.evidence.some(entry => entry.file === file.path)).length, complete: false } }, views: explorationPage(model.views.map(view => ({ id: view.id, name: view.name, kind: view.kind })), contentHash(canonicalJson(model.views)), { collection: 'views', id: null, relatedTo: null }, undefined, 20), budget: session.budget, usage: session.usage };
+		return { projectId: state.projectId, proposalGuide: { example: diagramProposalExample, commandKinds: [...commandValidators.keys()] }, viewCapabilities: { catalog: diagramViewCatalog, behavior: ['sequence', 'activity'], descriptiveStates: 'unsupported', viewsPerProposal: 1 }, entrypoints, map, files: explorationPage(files, state.revision, {}, input.cursor, input.limit), coverage: { inventory: { total: files.length, excluded: files.filter(file => file.status === 'excluded').length }, analyzer: explorationCapabilities(state), understanding: { exploredEvidence: session.evidence.length, unexploredFiles: files.filter(file => !session.evidence.some(entry => entry.file === file.path)).length, complete: false } }, views: explorationPage(model.views.map(view => ({ id: view.id, name: view.name, kind: view.kind })), contentHash(canonicalJson(model.views)), { collection: 'views', id: null, relatedTo: null }, undefined, 20), budget: session.budget, usage: session.usage };
 	}
 	if (tool === 'ade_source_search') {
 		const result = await searchExplorationSource(state, value as Parameters<typeof searchExplorationSource>[1], signal);
@@ -258,11 +300,12 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 	}
 	if (tool === 'ade_model_query') {
 		const input = value as { collection: string; id?: string; relatedTo?: string; cursor?: string; limit?: number };
-		const all: { id: string }[] = input.collection === 'elements' ? model.semantics.elements : input.collection === 'relations' ? model.semantics.relations : input.collection === 'views' ? model.views : input.collection === 'scenarios' ? model.foundation.interactions : input.collection === 'ownership' ? model.foundation.ownership : input.collection === 'memberships' ? model.foundation.memberships : input.collection === 'assertions' ? model.foundation.assertions : input.collection === 'evidence' ? session.evidence : input.collection === 'tasks' ? session.tasks : session.proposals.map(entry => ({ id: entry.id, status: entry.status, aliases: entry.aliases, supersededBy: entry.supersededBy ?? null, diagnostics: entry.diagnostics }));
+		const all: { id: string }[] = input.collection === 'elements' ? model.semantics.elements : input.collection === 'relations' ? model.semantics.relations : input.collection === 'views' ? model.views : input.collection === 'scenarios' ? model.foundation.interactions : input.collection === 'ownership' ? model.foundation.ownership : input.collection === 'memberships' ? model.foundation.memberships : input.collection === 'assertions' ? model.foundation.assertions : input.collection === 'evidence' ? session.evidence : input.collection === 'tasks' ? session.tasks : session.proposals.map(entry => ({ id: entry.id, status: entry.status, aliases: entry.aliases, supersededBy: entry.supersededBy ?? null, excludedByPlan: entry.excludedByPlan ?? null, diagnostics: entry.diagnostics }));
 		const items = all.filter(entry => (!input.id || entry.id === input.id) && (!input.relatedTo || JSON.stringify(entry).includes(JSON.stringify(input.relatedTo))));
 		return explorationPage(items, contentHash(canonicalJson(all)), { collection: input.collection, id: input.id ?? null, relatedTo: input.relatedTo ?? null }, input.cursor, input.limit);
 	}
 	if (tool === 'ade_model_propose') {
+		if (session.workflow === 'project' && !session.plan) { throw new Error('diagramPlanRequired'); }
 		const input = value as DiagramProposalRequest, fingerprint = contentHash(canonicalJson(input)), old = session.proposals.find(entry => entry.id === input.proposalId);
 		if (old) { if (old.fingerprint !== fingerprint) { throw new Error('proposalIdContentConflict'); } return { proposalId: old.id, status: old.status, aliases: old.aliases, diagnostics: old.diagnostics }; }
 		if (session.proposals.length >= 100) { throw new Error('proposalLimit'); }
@@ -270,7 +313,8 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 		await verifyProposal(state, session, probe);
 		const reserved = input.supersedes ? session.proposals.find(entry => entry.id === input.supersedes) : undefined;
 		if (input.supersedes && (!reserved || reserved.status === 'applied')) { throw new Error('supersededProposalUnavailable'); }
-		const proposal = await proposeDiagramModel(model, input, session.evidence, undefined, reserved);
+		const proposal = await proposeDiagramModel(model, session.workflow === 'project' && input.supersedes ? { ...input, baseSemanticRevision: await diagramModelRevision(model) } : input, session.evidence, undefined, reserved);
+		proposal.fingerprint = fingerprint;
 		for (const patch of proposal.patch.filter(entry => entry.collection === 'assertions')) { if (patch.value) { (patch.value as ModelAssertion).provenance.producer = session.model; } }
 		await verifyProposal(state, session, proposal); session.proposals.push(proposal);
 		if (reserved) { reserved.supersededBy = proposal.id; }
@@ -282,6 +326,28 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 		if (proposal.status === 'invalid') { return { proposalId: proposal.id, status: 'invalid', aliases: proposal.aliases, diagnostics: proposal.diagnostics, diff: explorationPage(proposal.patch.map(patch => ({ collection: patch.collection, id: patch.id, before: patch.before === null ? null : JSON.parse(patch.before), after: patch.value })), proposal.fingerprint, { proposalId: proposal.id }, input.cursor, input.limit ?? 12) }; }
 		await verifyProposal(state, session, proposal);
 		const candidate = proposal.status === 'applied' ? model : applyDiagramProposal(model, proposal);
+		return previewDiagramProposal(state, candidate, session, proposal, input);
+	}
+	if (tool === 'ade_diagram_plan') {
+		const plan = validateDiagramPlan((value as { items: DiagramPlanItem[] }).items);
+		session.plan = plan;
+		session.tasks = plan.items.map(item => ({ id: item.id, intent: item.intent, status: 'queued' as const, gaps: [], ...session.tasks.find(task => task.id === item.id) }));
+		return { plan, tasks: session.tasks };
+	}
+	if (tool === 'ade_task_update') {
+		const task = value as ExplorationTask;
+		if (session.workflow === 'project') {
+			if (!session.plan?.items.some(item => item.id === task.id)) { throw new Error('unknownPlannedDiagram'); }
+			const item = session.plan.items.find(item => item.id === task.id)!;
+			if (['running', 'ready'].includes(task.status) && [...item.dependsOn, ...(item.parentId ? [item.parentId] : [])].some(id => !session.tasks.some(task => task.id === id && ['ready', 'applied'].includes(task.status)))) { throw new Error('plannedDependencyNotReady'); }
+			if (task.status === 'cancelled' && !task.gaps.length) { throw new Error('diagramExclusionReasonRequired'); }
+		}
+		updateTask(session, task); return { tasks: session.tasks }; }
+	throw new Error('unsupportedTool');
+}
+
+/** Produce complete local review artifacts independently of publication. */
+async function previewDiagramProposal(state: CodeImport, candidate: SemanticModelV4, session: DiagramExplorationSession, proposal: DiagramProposal, input: { cursor?: string; limit?: number }): Promise<object> {
 		const selectedViews = candidate.views.filter(view => proposal.patch.some(patch => patch.collection === 'views' && patch.id === view.id));
 		const images = [];
 		for (const view of selectedViews) {
@@ -297,12 +363,9 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 			images.push({ path, viewId: view.id });
 		}
 		const changes = proposal.patch.map(patch => ({ collection: patch.collection, id: patch.id, before: patch.before === null ? null : JSON.parse(patch.before), after: patch.collection === 'views' ? candidate.views.find(view => view.id === patch.id) ?? null : patch.value }));
-		const review = { proposalId: proposal.id, baseSemanticRevision: proposal.baseSemanticRevision, readSet: proposal.readSet, queryIds: proposal.queryIds, changes, sourceAnchors: proposal.readEvidenceIds.map(id => session.evidence.find(entry => entry.id === id)), diagnostics: proposal.diagnostics, views: selectedViews.map(view => ({ view, quality: inspectDiagramQuality(candidate, view) })), images };
-		if (Buffer.byteLength(JSON.stringify(review)) > 1024 * 1024) { throw new Error('reviewArtifactLimit'); }
+		const review = { ...(session.workflow === 'project' ? { plan: session.plan ?? null, tasks: session.tasks, proposalIds: projectDrafts(session.proposals).map(proposal => proposal.id) } : {}), proposalId: proposal.id, baseSemanticRevision: proposal.baseSemanticRevision, readSet: proposal.readSet, queryIds: proposal.queryIds, changes, sourceAnchors: proposal.readEvidenceIds.map(id => session.evidence.find(entry => entry.id === id)), diagnostics: proposal.diagnostics, views: selectedViews.map(view => ({ view, quality: inspectDiagramQuality(candidate, view) })), images };
+		if (Buffer.byteLength(JSON.stringify(review)) > (session.workflow === 'project' ? 8 : 1) * 1024 * 1024) { throw new Error('reviewArtifactLimit'); }
 		const reviewFile = join(await managed(state.sourceRoot, 'exploration'), 'review-' + contentHash(canonicalJson(review)) + '.json');
 		await atomicJson(reviewFile, review);
 		return { proposalId: proposal.id, reviewFile, diff: explorationPage(changes, proposal.fingerprint, { proposalId: proposal.id }, input.cursor, input.limit ?? 12), images, views: candidate.views.filter(view => proposal.patch.some(patch => patch.collection === 'views' && patch.id === view.id)).map(view => ({ view, readiness: explorationReadiness(candidate, view.id), quality: inspectDiagramQuality(candidate, view), ...(view.kind === 'activity' && view.interactionId ? { projection: projectDescriptiveActivity(candidate, view.interactionId) } : {}), geometry: view.nodes.map(node => ({ ...node, ...notationNodeSize(candidate.semantics.elements.find(entry => entry.id === node.elementId)!) })) })), evidence: proposal.readEvidenceIds.map(id => session.evidence.find(entry => entry.id === id)), diagnostics: proposal.diagnostics };
-	}
-	if (tool === 'ade_task_update') { updateTask(session, value as ExplorationTask); return { tasks: session.tasks }; }
-	throw new Error('unsupportedTool');
 }

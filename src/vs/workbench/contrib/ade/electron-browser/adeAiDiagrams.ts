@@ -85,6 +85,7 @@ export class AdeAiDiagrams extends Disposable {
 			const native = this.codexAccount.account.status === 'signedIn' && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready') && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this.connection.config || this.connection.config.provider !== 'codex' || this.connection.config.executable === 'codex');
 			if (native) {
 				await this.configuration.updateValue(AgentHostCodexAgentEnabledSettingId, true, this.exploration ? ConfigurationTarget.WORKSPACE : ConfigurationTarget.USER);
+				const firstQuestion = !this.conversation?.resource && !this.exploration?.resource;
 				const resource = this.conversation?.resource ?? (this.exploration?.root === root && this.exploration.resource ? URI.parse(this.exploration.resource) : getNewChatSessionResource('agent-host-codex'));
 				if (this.exploration?.root === root) { this.bindExplorationTools(resource); }
 				const widget = await this.chatWidgets.openSession(resource, ChatViewPaneTarget);
@@ -107,7 +108,7 @@ export class AdeAiDiagrams extends Disposable {
 				}
 				widget.attachmentModel.updateContext(['ade:diagram-context'], [{ kind: 'generic', id: 'ade:diagram-context', name: localize('ade.ai.currentDiagramContext', "Current Diagram"), value: JSON.stringify({ ...(this.exploration?.root === root ? { sessionId: this.exploration.id } : { model: this.project.modelUri?.fsPath }), diagram: this.project.activeView ? { id: this.project.activeView.id, name: this.project.activeView.name } : null }) }]);
 				this.conversation = { root, resource, attachedModel: this.project.modelUri?.toString() };
-				if (this.exploration?.root === root && !this.conversation?.resource) { widget.setInput(localize('ade.explore.firstQuestion', "Explore this project and propose a concise overview of its main runtime responsibilities and integrations. Retrieve additional source evidence as needed and preview the proposal.")); }
+				if (this.exploration?.root === root && firstQuestion) { widget.setInput(localize('ade.explore.firstQuestion', "Plan the relevant project diagrams from overview to detail using the ADE tools, then create and preview every planned draft. Continue without intermediate approvals and finish with one complete project review.")); }
 				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
 			} else {
 				const executable = await this.connection.resolveCli('codex');
@@ -154,7 +155,7 @@ export class AdeAiDiagrams extends Disposable {
 		}
 	}
 
-	private async explorationRequest(request: object, token = CancellationToken.None, failOnDiagnostics = true): Promise<{ sessionId: string; data: CodeDiagramExploration & { reviewFile?: string; images?: { path: string; viewId: string }[]; snapshot?: string; mcp?: { command: string; args: string[] } }; diagnostics: { code: string }[] }> {
+	private async explorationRequest(request: object, token = CancellationToken.None, failOnDiagnostics = true): Promise<{ sessionId: string; data: CodeDiagramExploration & { reviewFile?: string; images?: { path: string; viewId: string }[]; snapshot?: string; reviewId?: string; proposal?: CodeDiagramExploration['proposals'][number]; mcp?: { command: string; args: string[] } }; diagnostics: { code: string }[] }> {
 		const context = this.code.context;
 		if (!context) { throw new Error(localize('ade.explore.importRequired', "Import a Project to Explore Its Architecture.")); }
 		const result = JSON.parse(await this.code.executeReconciliation({ operation: 'exploration', snapshot: context.snapshot, request: JSON.stringify(request) }, token));
@@ -202,7 +203,7 @@ export class AdeAiDiagrams extends Disposable {
 			const root = this.code.context!.sourceRoot;
 			if (this.exploration?.root !== root) { this.exploration = undefined; }
 			await this.discardMissingExploration();
-			const result = await this.explorationRequest({ action: 'open', ...(this.exploration ? { sessionId: this.exploration.id } : {}), ...(!this.exploration ? { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' } : {}) }, token);
+			const result = await this.explorationRequest({ action: 'open', workflow: 'project', ...(!this.exploration || this._diagramExploration?.workflow !== 'project' ? { budget: { maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 } } : {}), ...(this.exploration ? { sessionId: this.exploration.id } : {}), ...(!this.exploration ? { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' } : {}) }, token);
 			this.exploration = { ...this.exploration, root, id: result.sessionId, snapshot: this.code.context!.snapshot };
 			this._diagramExploration = result.data; this._diagramProgress = undefined; this.persistExploration();
 			opened = true;
@@ -233,17 +234,20 @@ export class AdeAiDiagrams extends Disposable {
 		if (!this.exploration || this.host.busy || this.operations.busy) { return; }
 		await this.host.run(async token => {
 			await this.refreshExploration();
-			const proposal = id ? this._diagramExploration?.proposals.find(entry => entry.id === id) : (await this.quick.pick(this._diagramExploration?.proposals.filter(entry => entry.status !== 'applied').map(entry => ({ label: entry.views.map(view => view.name).join(', ') || entry.id, description: entry.status, proposal: entry })) ?? [], { title: localize('ade.explore.review', "Review Diagram Draft") }))?.proposal;
-			if (!proposal || proposal.status === 'applied' || !await this.project.save()) { return; }
+			const projectReview = this._diagramExploration?.workflow === 'project';
+			let proposal = projectReview ? undefined : id ? this._diagramExploration?.proposals.find(entry => entry.id === id) : (await this.quick.pick(this._diagramExploration?.proposals.filter(entry => entry.status !== 'applied').map(entry => ({ label: entry.views.map(view => view.name).join(', ') || entry.id, description: entry.status, proposal: entry })) ?? [], { title: localize('ade.explore.review', "Review Diagram Draft") }))?.proposal;
+			if ((!projectReview && (!proposal || proposal.status === 'applied')) || !await this.project.save() || !this.exploration) { return; }
 			const modelUri = this.project.modelUri?.toString() ?? '';
 			const semanticRevision = canonicalJson(semanticContent(this.project.model));
 			const root = this.code.context!.sourceRoot;
-			const sessionId = this.exploration!.id;
-			const preview = await this.explorationRequest({ action: 'tool', sessionId, tool: 'ade_view_preview', arguments: { proposalId: proposal.id } }, token, false);
+			const sessionId = this.exploration.id;
+			const preview = await this.explorationRequest(projectReview ? { action: 'review', sessionId } : { action: 'tool', sessionId, tool: 'ade_view_preview', arguments: { proposalId: proposal!.id } }, token, false);
+			proposal = projectReview ? preview.data.proposal : proposal;
+			if (!proposal || projectReview && !preview.data.reviewId) { throw new Error(localize('ade.explore.reviewMissing', "The Project Review Could Not Be Prepared. Continue Generation and Retry.")); }
 			const contents = preview.data.reviewFile ? (await this.files.readFile(URI.file(preview.data.reviewFile))).value.toString() : JSON.stringify(preview.data, null, '\t');
 			const report: { changes?: AdeDiagramReview['changes']; diff?: { items: AdeDiagramReview['changes'] }; sourceAnchors?: AdeDiagramReview['sources'] } = JSON.parse(contents);
 			if (token.isCancellationRequested || this.code.context?.sourceRoot !== root || this.project.modelUri?.toString() !== modelUri || canonicalJson(semanticContent(this.project.model)) !== semanticRevision) { return; }
-			this._diagramReview = { id: proposal.id, sessionId, root, modelUri, semanticRevision, proposal: structuredClone(proposal), changes: report.changes ?? report.diff?.items ?? [], sources: report.sourceAnchors ?? [], images: preview.data.images ?? [], contents, ...(preview.diagnostics.length ? { problem: preview.diagnostics.map(entry => entry.code).join(' · ') } : {}) };
+			this._diagramReview = { id: proposal.id, sessionId, root, modelUri, semanticRevision, proposal: structuredClone(proposal), changes: report.changes ?? report.diff?.items ?? [], sources: report.sourceAnchors ?? [], images: preview.data.images ?? [], contents, ...(projectReview ? { projectReviewId: preview.data.reviewId, plan: preview.data.plan, tasks: preview.data.tasks } : {}), ...(preview.diagnostics.length ? { problem: preview.diagnostics.map(entry => entry.code).join(' · ') } : {}) };
 			await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 			this.host.changed();
 		}, { kind: 'local' });
@@ -264,10 +268,10 @@ export class AdeAiDiagrams extends Disposable {
 			try {
 				if (!await this.project.save()) { throw new Error(this.project.saveError ?? localize('ade.explore.saveRequired', "Save the Project Before Applying This Draft.")); }
 				if (!current()) { throw new Error(localize('ade.explore.reviewChanged', "The Project Changed. Review This Draft Again Before Applying It.")); }
-				if (!(await this.dialogs.confirm({ message: localize('ade.explore.apply', "Apply This Diagram Proposal?"), detail: localize('ade.explore.applyDetail', "{0}\nThis applies only this proposal and its dependencies to the local project. Other drafts remain available. Code files, Git commits and remotes are unchanged.", review.proposal.views.map(view => view.name).join(', ')), primaryButton: localize('ade.review.publish', "Apply to Project") })).confirmed) { return; }
+				if (!(await this.dialogs.confirm({ message: review.projectReviewId ? localize('ade.explore.applyAll', "Apply All Reviewed Diagram Changes?") : localize('ade.explore.apply', "Apply This Diagram Proposal?"), detail: localize('ade.explore.applyDetail', "{0}\nThe reviewed diagram changes are applied to the local project. Code files, Git commits and remotes are unchanged.", review.proposal.views.map(view => view.name).join(', ')), primaryButton: review.projectReviewId ? localize('ade.review.publishAll', "Apply All Changes") : localize('ade.review.publish', "Apply to Project") })).confirmed) { return; }
 				if (!await this.project.save()) { throw new Error(this.project.saveError ?? localize('ade.explore.saveRequired', "Save the Project Before Applying This Draft.")); }
 				if (!current() || token.isCancellationRequested) { throw new Error(localize('ade.explore.reviewChanged', "The Project Changed. Review This Draft Again Before Applying It.")); }
-				const result = await this.explorationRequest({ action: 'publish', sessionId: review.sessionId, proposalId: review.id }, token);
+				const result = await this.explorationRequest(review.projectReviewId ? { action: 'publishAll', sessionId: review.sessionId, reviewId: review.projectReviewId } : { action: 'publish', sessionId: review.sessionId, proposalId: review.id }, token);
 				this._diagramReview = undefined;
 				if (result.data.snapshot) { const context = JSON.parse(await this.code.executeReconciliation({ operation: 'inspect', snapshot: result.data.snapshot }, token)); await this.code.openContext(context); }
 				await this.refreshExploration();

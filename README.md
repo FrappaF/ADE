@@ -20,6 +20,10 @@ La [PR M5 #7](https://github.com/FrappaF/ADE/pull/7) è stata integrata in `main
 
 Le segnalazioni dei test manuali del 5 novembre sono raccolte nella [roadmap delle correzioni](ade/docs/manual-test-roadmap.md): account e feedback AI, cartella del progetto e terminale, Sync globale, relazioni, disposizione e menu dei diagrammi. Gli interventi sono implementati nel workbench desktop; capacità e limiti del collaudo sono nel [verbale di verifica](ade/docs/manual-test-verification.md).
 
+## Generare i diagrammi di una codebase
+
+Dopo **Import Codebase**, **Explore Architecture** avvia la [generazione completa dei diagrammi](ade/docs/diagram-workflow.md): Codex consulta il catalogo delle notazioni, pianifica le viste pertinenti dall'overview ai dettagli e prepara tutte le bozze senza approvazioni intermedie. **Review All Changes** riunisce piano, esclusioni, modifiche ed anteprime; **Apply All Changes** applica l'insieme revisionato in una sola operazione locale. **Continue Generation** riprende il lavoro se restano lacune o il budget è esaurito. Le viste di stato descrittive restano non supportate.
+
 ## Dopo il pull di main: preparazione del PC
 
 I comandi seguenti sono per macOS e Linux, dalla radice del clone A.D.E. Sostituire i percorsi di esempio con quelli del proprio computer. Chiudere l'istanza di sviluppo A.D.E prima di aggiornare dipendenze e build. Il clone contiene l'IDE; creare i propri progetti in cartelle separate dal clone.

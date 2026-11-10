@@ -19,21 +19,30 @@ interface DiagramReviewActions {
 export function renderAdeDiagramReview(parent: HTMLElement, review: AdeDiagramReview, controls: AdeControls, actions: DiagramReviewActions): HTMLElement {
 	const section = dom.append(parent, dom.$('section.ade-structural-review.ade-diagram-review'));
 	section.setAttribute('aria-label', localize('ade.explore.review', "Review Diagram Draft"));
-	dom.append(section, dom.$('h2')).textContent = review.proposal.views.map(view => view.name).join(', ') || localize('ade.explore.review', "Review Diagram Draft");
+	dom.append(section, dom.$('h2')).textContent = review.projectReviewId ? localize('ade.explore.projectReview', "Project Diagram Review") : review.proposal.views.map(view => view.name).join(', ') || localize('ade.explore.review', "Review Diagram Draft");
 	const ready = review.proposal.status === 'ready' && actions.current && !review.problem;
 	const status = dom.append(section, dom.$('p'));
 	status.setAttribute('role', ready ? 'status' : 'alert');
 	status.textContent = ready ? localize('ade.draft.ready', "Draft Ready · Review Before Applying") : localize('ade.draft.blocked', "Draft Needs Review · Application Blocked");
 	const toolbar = dom.append(section, dom.$('div.ade-review-actions'));
-	const apply = controls.button(toolbar, localize('ade.review.publish', "Apply to Project"), actions.apply, 'diagram-review-apply');
+	const apply = controls.button(toolbar, review.projectReviewId ? localize('ade.review.publishAll', "Apply All Changes") : localize('ade.review.publish', "Apply to Project"), actions.apply, 'diagram-review-apply');
 	apply.disabled = actions.busy || !ready;
 	if (ready) { apply.classList.add('ade-primary-action'); }
 	controls.button(toolbar, localize('ade.draft.refresh', "Refresh Review"), actions.refresh, 'diagram-review-refresh').disabled = actions.busy;
 	controls.button(toolbar, localize('ade.draft.close', "Return to Exploration"), actions.close, 'diagram-review-close').disabled = actions.busy;
 	const body = dom.append(section, dom.$('div.ade-review-body'));
-	dom.append(body, dom.$('p.ade-supporting-text')).textContent = localize('ade.draft.local', "Applies this diagram proposal and its dependencies locally. Other drafts remain available. This does not commit or push to Git.");
+	dom.append(body, dom.$('p.ade-supporting-text')).textContent = review.projectReviewId ? localize('ade.draft.projectLocal', "Applies all reviewed diagrams and their shared model changes together in one local operation. The source code is preserved. This does not commit or push to Git.") : localize('ade.draft.local', "Applies this diagram proposal and its dependencies locally. Other drafts remain available. This does not commit or push to Git.");
 	if (!ready) {
 		dom.append(body, dom.$('p')).textContent = actions.current ? localize('ade.draft.correct', "Continue the exploration to correct this draft, or refresh its review. Existing diagrams are preserved.") : localize('ade.draft.changed', "The model changed after this review was prepared. Refresh the review before applying it.");
+	}
+	if (review.plan) {
+		dom.append(body, dom.$('h3')).textContent = localize('ade.review.diagramPlan', "Diagram Plan and Exclusions");
+		const list = dom.append(body, dom.$('ul'));
+		for (const item of review.plan.items) {
+			const task = review.tasks?.find(task => task.id === item.id), row = dom.append(list, dom.$('li'));
+			row.textContent = item.name + ' · ' + item.rationale;
+			for (const gap of task?.gaps ?? []) { dom.append(row, dom.$('p')).textContent = gap; }
+		}
 	}
 	dom.append(body, dom.$('h3')).textContent = localize('ade.review.plan', "Planned Changes");
 	const changes = dom.append(body, dom.$('ul.ade-draft-changes'));

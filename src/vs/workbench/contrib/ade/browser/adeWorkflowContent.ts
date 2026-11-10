@@ -56,17 +56,33 @@ export class AdeWorkflowContent {
 			const panel = dom.append(parent, dom.$('section.ade-workflow'));
 			panel.setAttribute('aria-label', localize('ade.explore.title', "Architecture Exploration"));
 			dom.append(panel, dom.$('h2')).textContent = localize('ade.explore.title', "Architecture Exploration");
-			this.host.paragraph(panel, exploration ? localize('ade.explore.saved', "Explore, Refine and Apply One Diagram at a Time") : localize('ade.explore.inventoryReady', "Source Inventory Ready · Explore the Main Responsibilities with Codex"));
-			this.host.button(panel, exploration ? localize('ade.explore.continue', "Continue Exploration") : localize('ade.explore.start', "Explore Architecture"), () => { void this.ai.resumeDiagrams(); }).disabled = this.ai.busy || this.code.busy;
+			this.host.paragraph(panel, exploration ? localize('ade.explore.saved', "Plan and Generate the Project Diagrams, Then Review All Changes") : localize('ade.explore.inventoryReady', "Source Inventory Ready · Plan the Project Diagrams with Codex"));
+			this.host.button(panel, exploration ? exploration.workflow === 'project' ? localize('ade.explore.continueProject', "Continue Generation") : localize('ade.explore.continue', "Continue Exploration") : localize('ade.explore.start', "Explore Architecture"), () => { void this.ai.resumeDiagrams(); }).disabled = this.ai.busy || this.code.busy;
 			if (exploration) {
 				if (exploration.invalidation?.viewIds.length) { this.host.paragraph(panel, localize('ade.explore.staleViews', "{0} Diagrams Have Changed Source Evidence · Review the Affected Scenarios", exploration.invalidation.viewIds.length)); }
 				this.host.paragraph(this.controls.details(panel, localize('ade.explore.usageDetails', "Exploration Usage"), 'exploration-usage'), localize('ade.explore.usage', "{0}/{1} Local Tool Calls · {2}/{3} KiB Retrieved", exploration.usage.toolCalls, exploration.budget.maxToolCalls, Math.ceil(exploration.usage.readBytes / 1024), Math.ceil(exploration.budget.maxReadBytes / 1024)));
+				if (exploration.workflow === 'project') {
+					const review = this.host.button(panel, localize('ade.explore.reviewAll', "Review All Changes"), () => { void this.ai.reviewDiagramProposal(); }, 'project-review');
+					review.disabled = this.ai.busy || this.code.busy || !exploration.proposals.some(proposal => proposal.status !== 'applied');
+					if (exploration.plan) {
+						dom.append(panel, dom.$('h3')).textContent = localize('ade.explore.plan', "Diagram Plan");
+						const list = dom.append(panel, dom.$('ol'));
+						for (const item of exploration.plan.items) {
+							const task = exploration.tasks.find(task => task.id === item.id);
+							const status = task?.status === 'ready' ? localize('ade.explore.generated', "Draft Prepared") : task?.status === 'applied' ? localize('ade.explore.applied', "Applied") : task?.status === 'cancelled' ? localize('ade.explore.excluded', "Excluded") : task?.status === 'running' ? localize('ade.explore.running', "Generating") : localize('ade.explore.pending', "Pending");
+							const row = dom.append(list, dom.$('li'));
+							row.textContent = `${item.name} · ${viewLabels[item.viewKind]} · ${status}`;
+							for (const gap of task?.gaps ?? []) { this.host.paragraph(row, gap); }
+						}
+					} else { this.host.paragraph(panel, localize('ade.explore.planning', "The Agent Will Plan the Relevant Diagram Types Before Preparing the Drafts.")); }
+					if (exploration.batch?.blockers.length) { this.host.paragraph(panel, localize('ade.explore.incomplete', "Generation Is Incomplete. Continue to Resolve Pending Diagrams or Record Explicit Exclusions Before Applying All Changes.")); }
+				}
 				for (const proposal of exploration.proposals.filter(entry => entry.status !== 'applied')) {
 					const details = dom.append(panel, dom.$('section.ade-proposal-summary'));
 					dom.append(details, dom.$('h3')).textContent = proposal.views.map(view => view.name).join(', ') || localize('ade.explore.untitledDraft', "Diagram Draft");
 					this.host.paragraph(details, proposal.status === 'ready' ? localize('ade.explore.draftReady', "Draft Ready for Review") : localize('ade.explore.draftBlocked', "Draft Needs Correction · Other Diagrams Remain Available"));
 					for (const diagnostic of proposal.diagnostics) { this.host.paragraph(details, `${diagnostic.code} · ${diagnostic.path} · ${diagnostic.args.join(' · ')}`); }
-					this.host.button(details, localize('ade.explore.reviewDraft', "Review Draft"), () => { void this.ai.reviewDiagramProposal(proposal.id); }, `proposal-review:${proposal.id}`).disabled = this.ai.busy || this.code.busy;
+					if (exploration.workflow !== 'project') { this.host.button(details, localize('ade.explore.reviewDraft', "Review Draft"), () => { void this.ai.reviewDiagramProposal(proposal.id); }, `proposal-review:${proposal.id}`).disabled = this.ai.busy || this.code.busy; }
 				}
 				const tasks = this.controls.details(panel, localize('ade.explore.goals', "Exploration Goals and Gaps"), 'exploration-goals');
 				for (const task of exploration.tasks) { this.host.paragraph(tasks, task.intent); for (const gap of task.gaps) { this.host.paragraph(tasks, gap); } }

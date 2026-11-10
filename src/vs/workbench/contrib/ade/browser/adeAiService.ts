@@ -18,7 +18,7 @@ export interface AdeDiagramReview {
 	changes: { collection: string; id: string; before: { name?: string } | null; after: { name?: string } | null }[];
 	sources: { file: string; revision: string; start: number; end: number }[];
 	images: { path: string; viewId: string }[];
-	contents: string; problem?: string;
+	contents: string; problem?: string; projectReviewId?: string; plan?: CodeDiagramExploration['plan']; tasks?: CodeDiagramExploration['tasks'];
 }
 
 export interface IAdeAiService {

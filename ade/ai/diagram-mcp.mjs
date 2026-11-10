@@ -20,7 +20,7 @@ export async function createDiagramMcpServer(root, sessionId, options = {}) {
 	const pointer = await active(root);
 	if (!pointer) { throw new Error('Import this project in ADE before starting its MCP server.'); }
 	const snapshot = join(root, '.ade', 'imports', pointer);
-	const opened = await executeDiagramExploration(snapshot, { action: 'open', ...(sessionId ? { sessionId } : {}), ...options });
+	const opened = await executeDiagramExploration(snapshot, { action: 'open', ...(sessionId ? { sessionId } : { workflow: 'project' }), ...options });
 	sessionId = opened.sessionId;
 	const instance = randomUUID();
 	const server = new Server({ name: 'ade-diagrams', version: '2.0.0' }, { capabilities: { tools: {} }, instructions: diagramSessionInstruction });
