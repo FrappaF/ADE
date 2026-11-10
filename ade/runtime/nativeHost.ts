@@ -139,9 +139,14 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 				const root = await realpath(request.root);
 				result = await lock(root, async () => {
 					if (await active(root)) { throw new Error('This codebase already has an import. Open it and use Sync.'); }
-					const state = await analyze(await importCode(root, `code:${randomUUID()}`, { scope: request.scope, signal }), request.bundles ?? [], undefined, request.syntaxOnly ?? false, signal);
+					if (request.modelFile && (!isSourcePath(request.modelFile) || request.modelFile !== '.ade/model.json' && request.modelFile.split('/').some(part => part === '.git' || part === '.ade'))) { throw new Error('Invalid project model path'); }
+					const modelPath = request.modelFile ? join(root, request.modelFile) : undefined;
+					if (modelPath && await realpath(modelPath) !== modelPath) { throw new Error('Project model was redirected'); }
+					const model = modelPath ? readSemanticModel(await json(modelPath)) : undefined;
+					const state = await analyze(await importCode(root, model?.id ?? `code:${randomUUID()}`, { scope: request.scope, signal }), request.bundles ?? [], undefined, request.syntaxOnly ?? false, signal);
 					const destination = join(await managed(root), randomUUID());
-					await writeSnapshot(destination, state, state.model, undefined, undefined, signal, true);
+					await writeSnapshot(destination, state, model ?? state.model, undefined, undefined, signal, true);
+					if (modelPath && JSON.stringify(await json(modelPath)) !== JSON.stringify(model)) { throw new Error('The project model changed while reading the codebase. Retry the update.'); }
 					await activate(root, destination);
 					return context(destination, state, (await readSnapshot(destination)).model);
 				});

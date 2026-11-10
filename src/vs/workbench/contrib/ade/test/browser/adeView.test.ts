@@ -35,15 +35,14 @@ suite('A.D.E sidebar project shortcuts', () => {
 		const ai = Object.assign(new (mock<IAdeAiService>())(), { available: true, busy: false, onDidChange: aiChanged.event });
 		const code = Object.assign(new (mock<IAdeCodeService>())(), { available: true, busy: false, context: linked ? { sourceRoot: '/project' } : undefined, onDidChange: codeChanged.event });
 		const commands: string[] = [];
-		let importSucceeds = false;
 		instantiation.stub(IAdeProjectService, project); instantiation.stub(IAdeAiService, ai); instantiation.stub(IAdeCodeService, code);
-		instantiation.stub(ICommandService, { onWillExecuteCommand: Event.None, onDidExecuteCommand: Event.None, executeCommand: async (id: string) => { commands.push(id); if (id === 'ade.importCodebase' && importSucceeds) { Object.assign(code, { context: { sourceRoot: '/selected-project' } }); codeChanged.fire(); } } });
+		instantiation.stub(ICommandService, { onWillExecuteCommand: Event.None, onDidExecuteCommand: Event.None, executeCommand: async (id: string) => { commands.push(id); } });
 		const container = Object.assign(new (mock<ViewContainer>())(), { id: 'ade-shortcuts-test' });
 		instantiation.stub(IViewDescriptorService, { onDidChangeLocation: Event.None, onDidChangeContainer: Event.None, getViewLocationById: () => ViewContainerLocation.Sidebar, getViewDescriptorById: () => null, getViewContainerByViewId: () => container, getViewContainerModel: () => Object.assign(new (mock<IViewContainerModel>())(), { title: 'System and Features', onDidChangeContainerInfo: Event.None }), getDefaultContainerById: () => container });
 		const view = store.add(instantiation.createInstance(AdeView, { id: 'ade-shortcuts-test', title: 'System and Features' }));
 		view.render(); root.appendChild(view.element);
 		const buttons = () => [...root.querySelectorAll<HTMLButtonElement>('.ade-project-shortcuts > button')];
-		return { view, project, ai, code, changed, aiChanged, codeChanged, commands, configuration, buttons, completeImport: () => { importSucceeds = true; } };
+		return { view, project, ai, code, changed, aiChanged, codeChanged, commands, configuration, buttons };
 	}
 
 	test('empty projects expose both shortcuts under a single project title and dispatch the existing commands', async () => {
@@ -54,12 +53,11 @@ suite('A.D.E sidebar project shortcuts', () => {
 		assert.deepStrictEqual(f.commands, ['ade.addDiagram', 'ade.ai.updateDiagrams']);
 	});
 
-	test('codebase setup opens import first and canceling it never launches generation', async () => {
+	test('an unlinked open project delegates updates without opening a codebase picker', async () => {
 		const f = fixture(false);
 		f.buttons()[1].click(); await Promise.resolve(); await Promise.resolve();
-		assert.deepStrictEqual(f.commands, ['ade.importCodebase']);
-		f.completeImport(); f.buttons()[1].click(); await Promise.resolve(); await Promise.resolve();
-		assert.deepStrictEqual(f.commands, ['ade.importCodebase', 'ade.importCodebase', 'ade.ai.updateDiagrams']);
+		assert.deepStrictEqual(f.commands, ['ade.ai.updateDiagrams']);
+		assert.equal(root.textContent?.includes('Choose a Codebase'), false);
 	});
 
 	test('busy and readonly states update both shortcuts without losing the collapsed project', () => {

@@ -358,6 +358,7 @@ export class AdeAiDiagrams extends Disposable {
 	async resumeDiagrams(): Promise<void> { if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.exploreDiagrams(); } else { await this.generateDiagrams(true); } }
 
 	async updateDiagrams(): Promise<void> {
+		if (this.host.busy || this.operations.busy || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true || !await this.code.ensureProjectContext()) { return; }
 		if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') === false) { await this.generateDiagrams(true); return; }
 		await this.exploreDiagrams(localize('ade.explore.updatePrompt', "Update the project diagrams from the current codebase using the ADE tools. Inspect the saved project, diagram plan and drafts first. Identify code changes and preserve existing diagram and object IDs and manual layout where they still apply. Prepare the necessary additions, updates and removals, including any missing views from overview to detail. Read only the sources relevant to these diagrams and validate drafts with ADE. Do not run application test suites, linters or builds unless I ask for them. Reconcile the plan and task assignments, resolve validation errors and preview every proposed diagram. Continue without intermediate approvals and finish with a single complete project review. Do not publish changes: I will apply them from the review."));
 	}

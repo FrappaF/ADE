@@ -20,6 +20,8 @@ export interface IAdeCodeService {
 	readonly onDidChange: Event<void>;
 	readonly onDidAiProgress: Event<CodeAiProgress>;
 	importCodebase(): Promise<void>;
+	/** Use the open project's codebase, preserving its model; ask for a folder only without an open project. */
+	ensureProjectContext(): Promise<boolean>;
 	sync(direction?: 'model' | 'code'): Promise<void>;
 	openContext(context: CodeContext): Promise<void>;
 	inspect(elementId?: string): Promise<void>;
@@ -39,6 +41,7 @@ class UnavailableCodeService implements IAdeCodeService {
 	readonly onDidChange = Event.None;
 	readonly onDidAiProgress = Event.None;
 	async importCodebase(): Promise<void> { }
+	async ensureProjectContext(): Promise<boolean> { return false; }
 	async sync(): Promise<void> { }
 	async openContext(): Promise<void> { }
 	async inspect(): Promise<void> { }

@@ -6,7 +6,7 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 8;
+export const adeCodeProtocolVersion = 9;
 export interface CodeAiProgress { requestId: string; kind: 'connecting' | 'thinking' | 'waiting' | 'tool' | 'message'; itemId?: string; text?: string; tool?: string }
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
@@ -23,7 +23,7 @@ export type CodeRequest =
 	| { operation: 'collaboration'; request: string }
 	| { operation: 'exploration'; snapshot: string; request: string }
 	| { operation: 'diagramChat'; requestId?: string; root: string; snapshot?: string; sessionId?: string; config: string; messages: { role: 'user' | 'assistant'; text: string }[] }
-	| { operation: 'import'; root: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
+	| { operation: 'import'; root: string; modelFile?: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
 	| { operation: 'inspect' | 'preview' | 'history'; snapshot: string; scope?: CodeScope; renames?: CodeRename[]; resolutions?: CodeResolution[]; bundles?: string[] }
 	| { operation: 'undoSync' | 'recoverSync'; snapshot: string; id: string }
 	| { operation: 'apply'; token: string }

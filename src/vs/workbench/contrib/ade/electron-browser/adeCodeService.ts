@@ -8,7 +8,7 @@ import { Disposable, DisposableStore, MutableDisposable, type IDisposable } from
 import { Emitter } from '../../../../base/common/event.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { URI } from '../../../../base/common/uri.js';
-import { dirname, basename, isEqualOrParent } from '../../../../base/common/resources.js';
+import { dirname, basename, isEqualOrParent, relativePath } from '../../../../base/common/resources.js';
 import { getCaseInsensitive } from '../../../../base/common/objects.js';
 import { IChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -176,6 +176,21 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			await this.openContext(await this.request<CodeContext>({ operation: 'import', root: selected[0].fsPath, syntaxOnly: mode.syntaxOnly }, token));
 		});
 		if (this.context?.sourceRoot === selected[0].fsPath) { await this.workspace.align(); }
+	}
+	async ensureProjectContext(): Promise<boolean> {
+		await this.refreshing;
+		if (this.busy) { return false; }
+		if (this.context) { return true; }
+		const root = this.project.projectRoot, resource = this.project.modelUri;
+		if (!root || !resource) { await this.importCodebase(); return !!this.context; }
+		if (root.scheme !== 'file' || resource.scheme !== 'file' || !await this.project.save() || this.project.modelUri?.toString() !== resource.toString()) { return false; }
+		const modelFile = relativePath(root, resource);
+		if (!modelFile) { return false; }
+		await this.run(localize('ade.code.indexingProject', "Reading the Current Project Codebase"), async token => {
+			const context = await this.request<CodeContext>({ operation: 'import', root: root.fsPath, modelFile }, token);
+			if (this.project.modelUri?.toString() === resource.toString()) { await this.openContext(context); }
+		});
+		return !!this.context;
 	}
 	async sync(direction?: 'model' | 'code'): Promise<void> {
 		if (this.project.model.version === 5 && this.context && direction !== 'model' && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.commands.executeCommand('ade.ai.resumeDiagrams'); return; }

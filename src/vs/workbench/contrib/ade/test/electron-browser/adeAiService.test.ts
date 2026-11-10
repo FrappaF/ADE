@@ -68,7 +68,8 @@ suite('A.D.E native AI orchestration', () => {
 		let accountState: CliAccountState = { status: 'signedIn' };
 		let resolveExecutable: (executable: string) => Promise<string | undefined> = async executable => executable;
 		const opened: CodeContext[] = [];
-		const code = { changed: false, openContext: async (value: CodeContext) => { opened.push(value); }, context, onDidChange: changed.event, onDidAiProgress: aiProgress.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
+		let projectContext = Promise.resolve(true);
+		const code = { changed: false, ensureProjectContext: async () => projectContext, openContext: async (value: CodeContext) => { opened.push(value); }, context, onDidChange: changed.event, onDidAiProgress: aiProgress.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
 		const picks: ((items: readonly Choice[]) => Choice | Choice[] | undefined)[] = [];
 		const inputs: string[] = [];
 		const inputOptions: IInputOptions[] = [];
@@ -187,7 +188,7 @@ suite('A.D.E native AI orchestration', () => {
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
 		return { prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
-			holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
+			holdProjectContext: (pending: Promise<boolean>) => { projectContext = pending; }, holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
 	}
@@ -861,6 +862,15 @@ suite('A.D.E native AI orchestration', () => {
 		await f.service.chat();
 		assert.equal(f.dialogs.at(-1)!.prompt, '');
 		assert.equal(f.service.diagramExploration?.proposals[0].status, 'applied');
+	});
+
+	test('updating waits for the current project codebase and canceling setup never opens the assistant', async () => {
+		const f = fixture(); f.enableIncremental();
+		const prepared = new DeferredPromise<boolean>(); f.holdProjectContext(prepared.p);
+		const pending = f.service.updateDiagrams();
+		assert.deepStrictEqual([f.dialogs.length, f.requests], [0, []]);
+		await prepared.complete(false); await pending;
+		assert.deepStrictEqual([f.dialogs.length, f.requests], [0, []]);
 	});
 
 	for (const native of [false, true]) {
