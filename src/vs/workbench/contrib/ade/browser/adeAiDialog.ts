@@ -7,6 +7,7 @@ import { type CancellationToken } from '../../../../base/common/cancellation.js'
 import { type URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { type IChatWidget } from '../../chat/browser/chat.js';
+import { type CodeAiProgress } from '../common/codeBridge.js';
 
 export interface AdeAiMessage { role: 'user' | 'assistant'; text: string }
 export interface AdeAiDialogOptions {
@@ -22,5 +23,6 @@ export interface IAdeAiDialogService {
 	open(options: AdeAiDialogOptions): Promise<IChatWidget | undefined>;
 	close(): Promise<void>;
 	updateProgress(message: string): void;
+	updateConversation(event: CodeAiProgress): void;
 }
 

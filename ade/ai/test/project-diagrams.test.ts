@@ -137,3 +137,41 @@ test('changing stored draft content invalidates the final review even if its req
 	await assert.rejects(f.request({ action: 'publishAll', reviewId: review.data.reviewId }), /projectReviewChanged/);
 	assert.equal(await active(f.root), initial);
 });
+
+test('resuming exposes orphan invalid attempts and archives them without losing the valid planned diagrams', async t => {
+	const f = await fixture(t); await f.details();
+	const bad = await f.propose('obsolete-class-attempt', [{ kind: 'view', ref: '@bad', name: 'Unusable class view', viewKind: 'class', intent: 'Old attempt', elementIds: [f.overview.data.aliases['@api']], relationIds: [] }]);
+	assert.equal(bad.data.status, 'invalid');
+	const before = await f.request({ action: 'review' });
+	assert.equal(before.data.proposal.status, 'invalid');
+	const inspected = await f.tool('ade_project_inspect', {});
+	assert.ok(inspected.data.exploration.drafts.some(draft => draft.id === 'obsolete-class-attempt' && draft.status === 'invalid'));
+	await f.tool('ade_proposal_discard', { proposalId: 'obsolete-class-attempt', reason: 'Replaced by the valid diagrams already linked to the plan' });
+	const after = await f.request({ action: 'review' });
+	const journal = await readExplorationSession(f.root, f.opened.sessionId);
+	assert.deepEqual([after.data.proposal.status, after.data.images.length, journal.proposals.find(proposal => proposal.id === 'obsolete-class-attempt')?.discardedReason, await readFile(join(f.root, 'checkout.mjs'), 'utf8')], ['ready', 2, 'Replaced by the valid diagrams already linked to the plan', f.source]);
+	const refused = await f.request({ action: 'tool', tool: 'ade_proposal_discard', arguments: { proposalId: 'overview-1', reason: 'Must not discard a valid assigned diagram' } });
+	assert.equal(refused.diagnostics[0].code, 'proposalCannotBeDiscarded');
+});
+
+test('ready task updates reject nonexistent or invalid proposals instead of reporting false completion', async t => {
+	const f = await fixture(t);
+	await f.tool('ade_task_update', { id: 'save', intent: 'save', status: 'running', gaps: [] });
+	const result = await f.request({ action: 'tool', tool: 'ade_task_update', arguments: { id: 'save', intent: 'save', status: 'ready', gaps: [], proposalId: 'missing' } });
+	assert.equal(result.diagnostics[0].code, 'plannedProposalNotReady');
+	assert.equal((await f.request({ action: 'status' })).data.tasks.find(task => task.id === 'save')?.status, 'running');
+});
+
+test('expired saved exploration budgets stop before starting a provider and can be explicitly renewed', async t => {
+	const f = await fixture(t);
+	const file = join(f.root, '.ade', 'exploration', f.opened.sessionId + '.json');
+	const session = await readExplorationSession(f.root, f.opened.sessionId);
+	session.created = Date.now() - session.budget.maxDurationMs - 1000;
+	await writeFile(file, JSON.stringify(session));
+	const status = await f.request({ action: 'status' });
+	assert.deepEqual(status.data.budgetStatus.exhausted, ['duration']);
+	const config = { version: 1, provider: 'codex', connection: 'cli', executable: '/not-a-provider', model: 'test', timeoutMs: 10000, maxContextBytes: 262144, maxCalls: 1 };
+	await assert.rejects(createCodeEngine().execute(JSON.stringify({ operation: 'diagramChat', root: f.root, snapshot: f.context.snapshot, sessionId: f.opened.sessionId, config: JSON.stringify(config), messages: [{ role: 'user', text: 'Resume' }] })), /exploration budget is exhausted/);
+	const resumed = await f.request({ action: 'budget', budget: session.budget });
+	assert.deepEqual([resumed.data.budgetStatus.exhausted, resumed.data.usage.toolCalls, resumed.data.proposals.length], [[], session.usage.toolCalls, session.proposals.length]);
+});

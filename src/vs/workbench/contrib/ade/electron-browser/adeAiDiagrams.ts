@@ -12,6 +12,7 @@ import { localize } from '../../../../nls.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService, INotificationHandle, Severity } from '../../../../platform/notification/common/notification.js';
@@ -107,7 +108,7 @@ export class AdeAiDiagrams extends Disposable {
 				}
 				widget.attachmentModel.updateContext(['ade:diagram-context'], [{ kind: 'generic', id: 'ade:diagram-context', name: localize('ade.ai.currentDiagramContext', "Current Diagram"), value: JSON.stringify({ ...(this.exploration?.root === root ? { sessionId: this.exploration.id } : { model: this.project.modelUri?.fsPath }), diagram: this.project.activeView ? { id: this.project.activeView.id, name: this.project.activeView.name } : null }) }]);
 				this.conversation = { root, resource, attachedModel: this.project.modelUri?.toString() };
-				if (this.exploration?.root === root && firstQuestion) { widget.setInput(localize('ade.explore.firstQuestion', "Plan the relevant project diagrams from overview to detail using the ADE tools, then create and preview every planned draft. Continue without intermediate approvals and finish with one complete project review.")); }
+				if (this.exploration?.root === root && firstQuestion) { widget.setInput(this.conversationPrompt()); }
 				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
 			} else {
 				const provider = this.connection.config?.provider ?? 'codex';
@@ -119,12 +120,16 @@ export class AdeAiDiagrams extends Disposable {
 				if (!model) { model = await this.selectDiagramModel({ version: 1, provider, connection: 'cli', executable, model: '', timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 1 }); if (!model) { return; } }
 				const config: CliConfig = { version: 1, provider, connection: 'cli', executable, model, timeoutMs: 300000, maxContextBytes: 262144, maxCalls: this.connection.config?.maxCalls ?? 1 };
 				this.conversation = { root };
-				await this.aiDialog.open({ prompt: this.exploration?.root === root ? localize('ade.explore.firstQuestion', "Plan the relevant project diagrams from overview to detail using the ADE tools, then create and preview every planned draft. Continue without intermediate approvals and finish with one complete project review.") : '', onClose: () => this.closeConversation(root), send: (messages, token) => this.sendConversation(root, config, messages, token) });
+				await this.aiDialog.open({ prompt: this.exploration?.root === root ? this.conversationPrompt() : '', onClose: () => this.closeConversation(root), send: (messages, token) => this.sendConversation(root, config, messages, token) });
 			}
 			this.watchConversation();
 			this.host.report(localize('ade.ai.chatModalReady', "Assistant Is Open · Diagrams Update Automatically"));
 		} catch (error) { await this.aiDialog.close(); this.conversation = undefined; this.conversationWatch.clear(); const message = localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error)); this.host.report(message); this.notifications.error(message); }
 		finally { this.chatOpening = false; this.host.busy = false; opening.dispose(); this.host.changed(); }
+	}
+
+	private conversationPrompt(): string {
+		return this._diagramExploration?.plan ? localize('ade.explore.repairPrompt', "Continue the saved diagram plan. Inspect its existing drafts and final-review blockers first. Keep valid diagrams and shared IDs. Repair assigned invalid drafts with supersedes and relink their tasks. Archive obsolete unassigned invalid attempts with ade_proposal_discard and a reason. Complete missing diagrams without intermediate approvals, then report whether the complete project review is ready.") : localize('ade.explore.firstQuestion', "Plan the relevant project diagrams from overview to detail using the ADE tools, then create and preview every planned draft. Continue without intermediate approvals and finish with one complete project review.");
 	}
 
 	async returnToDiagrams(): Promise<void> { await this.aiDialog.close(); }
@@ -159,13 +164,16 @@ export class AdeAiDiagrams extends Disposable {
 		const operation = this.operations.acquire('ai');
 		if (!operation) { throw new Error(localize('ade.ai.busy', "Another A.D.E Operation Is Running. Wait for It to Finish.")); }
 		this.host.busy = true; this.host.changed();
+		const requestId = generateUuid(), conversation = this.conversation;
+		const progress = this.code.onDidAiProgress(event => { if (event.requestId === requestId && this.conversation === conversation && !token.isCancellationRequested) { this.aiDialog.updateConversation(event); } });
 		try {
 			const session = this.exploration?.root === root ? this.exploration : undefined;
-			const result: { text: string } = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', root, ...(session ? { snapshot: this.code.context!.snapshot, sessionId: session.id } : {}), config: JSON.stringify(config), messages: session ? messages : [{ role: 'user', text: `Project context: model file ${this.project.modelUri?.fsPath ?? 'not saved'}, active diagram ${this.project.activeView?.id ?? 'none'}. Preserve semantic IDs and valid references. Only edit files when the user requests a change.` }, ...messages] }, token));
+			const result: { text: string } = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', requestId, root, ...(session ? { snapshot: this.code.context!.snapshot, sessionId: session.id } : {}), config: JSON.stringify(config), messages: session ? messages : [{ role: 'user', text: `Project context: model file ${this.project.modelUri?.fsPath ?? 'not saved'}, active diagram ${this.project.activeView?.id ?? 'none'}. Preserve semantic IDs and valid references. Only edit files when the user requests a change.` }, ...messages] }, token));
 			return result.text;
 		} finally {
-			operation.dispose(); this.host.busy = false;
+			progress.dispose(); operation.dispose(); this.host.busy = false;
 			if (this.code.context?.sourceRoot === root) { try { await this.refreshExploration(true); } catch (error) { this.notifications.error(String(error)); } }
+			if (!token.isCancellationRequested && this._diagramReview?.root === root) { await this.reviewDiagramProposal(this._diagramReview.id); }
 			this.host.changed();
 		}
 	}
@@ -207,7 +215,8 @@ export class AdeAiDiagrams extends Disposable {
 		if (this.exploration !== session || this.code.context?.sourceRoot !== session.root) { return; }
 		this._diagramExploration = result.data; this.host.changed();
 		if (this.conversation) {
-			this.aiDialog.updateProgress(localize('ade.ai.dialog.progress', "{0} of {1} Planned Diagrams Prepared · {2} Source Tool Calls", result.data.tasks.filter(task => ['ready', 'applied', 'cancelled'].includes(task.status)).length, result.data.plan?.items.length ?? 0, result.data.usage.toolCalls));
+			const issues = result.data.batch?.blockers.length ?? 0;
+			this.aiDialog.updateProgress(issues ? localize('ade.ai.dialog.repairProgress', "{0} Planned Diagrams · Review Needs Correction · {1} Project Tool Calls", result.data.plan?.items.length ?? 0, result.data.usage.toolCalls) : localize('ade.ai.dialog.progress', "{0} of {1} Planned Diagrams Prepared · {2} Project Tool Calls", result.data.tasks.filter(task => ['ready', 'applied', 'cancelled'].includes(task.status)).length, result.data.plan?.items.length ?? 0, result.data.usage.toolCalls));
 		}
 	}
 
@@ -238,7 +247,7 @@ export class AdeAiDiagrams extends Disposable {
 
 	private async exploreDiagrams(): Promise<void> {
 		if (this.host.busy || this.operations.busy || !this.code.context) { return; }
-		let opened = false;
+		let opened = false, needsBudget = false;
 		await this.host.run(async token => {
 			if (!await this.project.save()) { return; }
 			const root = this.code.context!.sourceRoot;
@@ -246,9 +255,10 @@ export class AdeAiDiagrams extends Disposable {
 			await this.discardMissingExploration();
 			const result = await this.explorationRequest({ action: 'open', workflow: 'project', ...(!this.exploration || this._diagramExploration?.workflow !== 'project' ? { budget: { maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 } } : {}), ...(this.exploration ? { sessionId: this.exploration.id } : {}), ...(!this.exploration ? { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' } : {}) }, token);
 			this.exploration = { ...this.exploration, root, id: result.sessionId, snapshot: this.code.context!.snapshot };
-			this._diagramExploration = result.data; this._diagramProgress = undefined; this.persistExploration();
+			this._diagramExploration = result.data; needsBudget = !!result.data.budgetStatus?.exhausted.length; this._diagramProgress = undefined; this.persistExploration();
 			opened = true;
 		}, { kind: 'diagram' });
+		if (opened && needsBudget) { await this.configureDiagramBudget(); if (this._diagramExploration?.budgetStatus?.exhausted.length) { return; } }
 		if (opened) { await this.chat(); }
 	}
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable, type IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -31,7 +31,7 @@ import { AdeInput } from '../browser/adeInput.js';
 import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { IAdeProjectWorkspaceService, AdeProjectWorkspace } from '../browser/adeProjectWorkspace.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
-import { adeCodeChannel, adeCodeProtocolVersion, CliAccountState, CliRuntimeEnvironment, CodeBridgeProtocol, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeSource } from '../common/codeBridge.js';
+import { adeCodeChannel, adeCodeProtocolVersion, CliAccountState, CliRuntimeEnvironment, CodeBridgeProtocol, CodeAiProgress, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeSource } from '../common/codeBridge.js';
 
 /** Native orchestration: deterministic evidence, reviewed AI proposals and recoverable paired publication. */
 export class AdeCodeService extends Disposable implements IAdeCodeService {
@@ -39,6 +39,9 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 	readonly available = true;
 	private readonly changes = this._register(new Emitter<void>());
 	readonly onDidChange = this.changes.event;
+	private readonly aiProgress = this._register(new Emitter<CodeAiProgress>());
+	readonly onDidAiProgress = this.aiProgress.event;
+	private readonly progressSubscription = this._register(new MutableDisposable<IDisposable>());
 	private readonly watchers = this._register(new DisposableStore());
 	context: CodeContext | undefined;
 	get busy(): boolean { return this.operations.busy || this.contextLoading; }
@@ -82,6 +85,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 				worker.dispose();
 				throw new Error(localize('ade.code.incompatibleEngine', "The A.D.E analysis engine is out of date or incompatible with this interface. For a development build, run npm run build-fast -- --client-only in the ADE repository, then fully quit and reopen ADE. For an installed application, update or reinstall the complete application."));
 			}
+			this.progressSubscription.value = channel.listen<CodeAiProgress>('aiProgress')(event => this.aiProgress.fire(event));
 			return channel;
 		}).catch(error => { this.channel = undefined; throw error; });
 	}

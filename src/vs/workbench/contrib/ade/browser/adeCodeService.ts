@@ -7,7 +7,7 @@ import { Event } from '../../../../base/common/event.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
-import { CliAccountState, CodeContext, CodeRequest } from '../common/codeBridge.js';
+import { CliAccountState, CodeContext, CodeRequest, CodeAiProgress } from '../common/codeBridge.js';
 
 export const IAdeCodeService = createDecorator<IAdeCodeService>('adeCodeService');
 export interface IAdeCodeService {
@@ -18,6 +18,7 @@ export interface IAdeCodeService {
 	readonly status: string;
 	readonly context: CodeContext | undefined;
 	readonly onDidChange: Event<void>;
+	readonly onDidAiProgress: Event<CodeAiProgress>;
 	importCodebase(): Promise<void>;
 	sync(direction?: 'model' | 'code'): Promise<void>;
 	openContext(context: CodeContext): Promise<void>;
@@ -36,6 +37,7 @@ class UnavailableCodeService implements IAdeCodeService {
 	readonly available = false; readonly busy = false; readonly changed = false; readonly context = undefined;
 	readonly status = '';
 	readonly onDidChange = Event.None;
+	readonly onDidAiProgress = Event.None;
 	async importCodebase(): Promise<void> { }
 	async sync(): Promise<void> { }
 	async openContext(): Promise<void> { }

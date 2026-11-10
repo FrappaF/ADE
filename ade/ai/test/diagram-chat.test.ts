@@ -45,3 +45,22 @@ test('disabled requests or oversized conversations do not start a provider proce
 	await assert.rejects(runDiagramChat('/project', { ...config, maxCalls: 0 }, [{ role: 'user', text: 'Generate' }], undefined, undefined, runner), /disabled/);
 	await assert.rejects(runDiagramChat('/project', config, [{ role: 'user', text: 'x'.repeat(262144) }], undefined, undefined, runner), /context budget/);
 });
+
+test('CLI progress handles split JSON frames and strips inherited debugger injection', async () => {
+	const progress: { kind: string; text?: string; tool?: string }[] = [];
+	await runDiagramChat('/project', config, [{ role: 'user', text: 'Repair the saved plan' }], { command: 'node', args: ['adapter', '/project'] }, undefined, async (_executable, args, _cwd, options) => {
+		assert.deepEqual([options?.env?.NODE_OPTIONS, options?.env?.VSCODE_INSPECTOR_OPTIONS, options?.env?.ELECTRON_RUN_AS_NODE, args.includes('mcp_servers.ade.required=true')], [undefined, undefined, undefined, true]);
+		options!.onOutput!('{"type":"turn.star', 'stdout'); options!.onOutput!('ted"}\n', 'stdout');
+		options!.onOutput!('{"type":"item.started","item":{"type":"mcp_tool_call","tool":"ade_proposal_discard"}}\n', 'stdout');
+		options!.onOutput!('{"type":"item.completed","item":{"id":"response","type":"agent_message","text":"Repaired"}}\n', 'stdout');
+		await writeFile(args[args.indexOf('--output-last-message') + 1], 'Repaired');
+		return { code: 0, stdout: '{"type":"turn.completed"}\n', stderr: '' };
+	}, undefined, event => progress.push(event), { plan: { items: [{ id: 'overview' }] }, blockers: ['invalidDraft:old'] });
+	assert.deepEqual(progress.map(event => [event.kind, event.text ?? event.tool ?? null]), [['connecting', null], ['thinking', null], ['tool', 'ade_proposal_discard'], ['message', 'Repaired']]);
+});
+
+
+test('a CLI that produces no startup response has a bounded actionable failure', async () => {
+	const { runProcess } = await import('../process.ts');
+	await assert.rejects(runProcess(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], process.cwd(), { startupTimeoutMs: 50, timeoutMs: 2000, gracefulShutdownMs: 20 }), /provider CLI did not start responding/);
+});

@@ -3,19 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../../../../base/common/event.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
 import { Server } from '../../../../base/parts/ipc/node/ipc.mp.js';
 import { IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { adeCodeChannel, CliAccountRequest, CliExecutableRequest, CliRuntimeEnvironment, CodeBridgeProtocol, CodeEngine } from '../common/codeBridge.js';
+import { adeCodeChannel, CliAccountRequest, CliExecutableRequest, CliRuntimeEnvironment, CodeBridgeProtocol, CodeEngine, CodeAiProgress } from '../common/codeBridge.js';
 import { resolveCliExecutable } from './adeCliExecutable.js';
 import { checkCliAccount, cliEnvironment } from './adeCliAccount.js';
 
 // Bundled with its parser grammars and compiler libraries by the client build.
 const engineModule = './adeCodeEngine.js';
 const { engine, codeBridgeProtocol }: { engine: CodeEngine; codeBridgeProtocol?: CodeBridgeProtocol } = await import(engineModule);
+const progress = new Emitter<CodeAiProgress>();
 const channel: IServerChannel = {
-	listen: () => Event.None,
+	listen: (_context, event) => event === 'aiProgress' ? progress.event : Event.None,
 	async call<T>(_context: string, command: string, input: unknown, token = CancellationToken.None): Promise<T> {
 		if (command === 'protocol') { return codeBridgeProtocol as T; }
 		if (command === 'resolveCli') { return await resolveCliExecutable(input as CliExecutableRequest) as T; }
@@ -32,7 +33,7 @@ const channel: IServerChannel = {
 		if (command !== 'execute' || typeof input !== 'string') { throw new Error('Invalid analysis request'); }
 		const controller = new AbortController();
 		const listener = token.onCancellationRequested(() => controller.abort());
-		try { if (token.isCancellationRequested) { controller.abort(); } return await engine.execute(input, controller.signal) as T; }
+		try { if (token.isCancellationRequested) { controller.abort(); } return await engine.execute(input, controller.signal, event => progress.fire(event)) as T; }
 		finally { listener.dispose(); }
 	}
 };

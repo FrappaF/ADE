@@ -67,7 +67,7 @@ async function explorationLock<T>(root: string, task: () => Promise<T>): Promise
 }
 
 function sessionSummary(session: DiagramExplorationSession, blockers: string[]) {
-	return { sessionId: session.id, model: session.model, workflow: session.workflow, plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...blockers, ...diagramProjectBlockers(session.plan, session.tasks, session.proposals)] } : undefined, budget: session.budget, usage: session.usage, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views' && patch.value !== null).map(patch => patch.value) })), instruction: diagramSessionInstruction };
+	return { sessionId: session.id, model: session.model, workflow: session.workflow, plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...blockers, ...diagramProjectBlockers(session.plan, session.tasks, session.proposals)] } : undefined, budget: session.budget, usage: session.usage, budgetStatus: { exhausted: [session.usage.toolCalls >= session.budget.maxToolCalls ? 'calls' : '', session.usage.readBytes >= session.budget.maxReadBytes ? 'bytes' : '', Date.now() - session.created > session.budget.maxDurationMs ? 'duration' : '', session.usage.turnsObservable && session.usage.modelTurns.length >= session.budget.maxModelTurns ? 'turns' : ''].filter(Boolean) }, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan && !proposal.discardedReason).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views' && patch.value !== null).map(patch => patch.value) })), instruction: diagramSessionInstruction };
 }
 
 /** Select the command's actual union branch instead of reporting an unrelated merge schema. */
@@ -287,7 +287,8 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 		const input = value as { cursor?: string; limit?: number }, files = state.files.map(file => ({ path: file.file, revision: file.revision ?? null, language: file.language ?? 'text', role: sourceRole(file.file), status: file.status, symbols: file.declarations.length, exclusions: file.diagnostics.map(item => item.code) }));
 		const entrypoints = state.files.filter(file => sourceRole(file.file) === 'runtime' && /(^|\/)(main|index|app|server|cli|__main__)([.\/]|$)/i.test(file.file)).slice(0, 20).map(file => ({ file: file.file, revision: file.revision ?? null, classification: 'candidate' }));
 		const map = [...new Set(state.files.filter(file => file.status !== 'excluded').map(file => file.file.includes('/') ? file.file.split('/')[0] : '.'))].map(directory => ({ directory, files: state.files.filter(file => directory === '.' ? !file.file.includes('/') : file.file.startsWith(directory + '/')).length })).sort((a, b) => b.files - a.files).slice(0, 20);
-		return { projectId: state.projectId, proposalGuide: { example: diagramProposalExample, commandKinds: [...commandValidators.keys()] }, viewCapabilities: { catalog: diagramViewCatalog, behavior: ['sequence', 'activity'], descriptiveStates: 'unsupported', viewsPerProposal: 1 }, entrypoints, map, files: explorationPage(files, state.revision, {}, input.cursor, input.limit), coverage: { inventory: { total: files.length, excluded: files.filter(file => file.status === 'excluded').length }, analyzer: explorationCapabilities(state), understanding: { exploredEvidence: session.evidence.length, unexploredFiles: files.filter(file => !session.evidence.some(entry => entry.file === file.path)).length, complete: false } }, views: explorationPage(model.views.map(view => ({ id: view.id, name: view.name, kind: view.kind })), contentHash(canonicalJson(model.views)), { collection: 'views', id: null, relatedTo: null }, undefined, 20), budget: session.budget, usage: session.usage };
+		const resume = sessionSummary(session, []);
+		return { exploration: { plan: resume.plan, tasks: resume.tasks, blockers: resume.batch?.blockers ?? [], budgetStatus: resume.budgetStatus, drafts: resume.proposals.map(proposal => ({ ...proposal, views: proposal.views.map(view => { const value = view as { id: string; name: string; kind: string }; return { id: value.id, name: value.name, kind: value.kind }; }) })) }, projectId: state.projectId, proposalGuide: { example: diagramProposalExample, commandKinds: [...commandValidators.keys()] }, viewCapabilities: { catalog: diagramViewCatalog, behavior: ['sequence', 'activity'], descriptiveStates: 'unsupported', viewsPerProposal: 1 }, entrypoints, map, files: explorationPage(files, state.revision, {}, input.cursor, input.limit), coverage: { inventory: { total: files.length, excluded: files.filter(file => file.status === 'excluded').length }, analyzer: explorationCapabilities(state), understanding: { exploredEvidence: session.evidence.length, unexploredFiles: files.filter(file => !session.evidence.some(entry => entry.file === file.path)).length, complete: false } }, views: explorationPage(model.views.map(view => ({ id: view.id, name: view.name, kind: view.kind })), contentHash(canonicalJson(model.views)), { collection: 'views', id: null, relatedTo: null }, undefined, 20), budget: session.budget, usage: session.usage };
 	}
 	if (tool === 'ade_source_search') {
 		const result = await searchExplorationSource(state, value as Parameters<typeof searchExplorationSource>[1], signal);
@@ -313,7 +314,7 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 	}
 	if (tool === 'ade_model_query') {
 		const input = value as { collection: string; id?: string; relatedTo?: string; cursor?: string; limit?: number };
-		const all: { id: string }[] = input.collection === 'elements' ? model.semantics.elements : input.collection === 'relations' ? model.semantics.relations : input.collection === 'views' ? model.views : input.collection === 'scenarios' ? model.foundation.interactions : input.collection === 'ownership' ? model.foundation.ownership : input.collection === 'memberships' ? model.foundation.memberships : input.collection === 'assertions' ? model.foundation.assertions : input.collection === 'evidence' ? session.evidence : input.collection === 'tasks' ? session.tasks : session.proposals.map(entry => ({ id: entry.id, status: entry.status, aliases: entry.aliases, supersededBy: entry.supersededBy ?? null, excludedByPlan: entry.excludedByPlan ?? null, diagnostics: entry.diagnostics }));
+		const all: { id: string }[] = input.collection === 'elements' ? model.semantics.elements : input.collection === 'relations' ? model.semantics.relations : input.collection === 'views' ? model.views : input.collection === 'scenarios' ? model.foundation.interactions : input.collection === 'ownership' ? model.foundation.ownership : input.collection === 'memberships' ? model.foundation.memberships : input.collection === 'assertions' ? model.foundation.assertions : input.collection === 'evidence' ? session.evidence : input.collection === 'tasks' ? session.tasks : session.proposals.map(entry => ({ id: entry.id, status: entry.status, aliases: entry.aliases, supersededBy: entry.supersededBy ?? null, excludedByPlan: entry.excludedByPlan ?? null, discardedReason: entry.discardedReason ?? null, diagnostics: entry.diagnostics }));
 		const items = all.filter(entry => (!input.id || entry.id === input.id) && (!input.relatedTo || JSON.stringify(entry).includes(JSON.stringify(input.relatedTo))));
 		return explorationPage(items, contentHash(canonicalJson(all)), { collection: input.collection, id: input.id ?? null, relatedTo: input.relatedTo ?? null }, input.cursor, input.limit);
 	}
@@ -325,7 +326,7 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 		const probe: DiagramProposal = { version: 2, id: input.proposalId, fingerprint, baseSemanticRevision: input.baseSemanticRevision, aliases: {}, readSet: [], readEvidenceIds: input.readEvidenceIds, queryIds: input.queryIds, patch: [], status: 'ready', diagnostics: [] };
 		await verifyProposal(state, session, probe);
 		const reserved = input.supersedes ? session.proposals.find(entry => entry.id === input.supersedes) : undefined;
-		if (input.supersedes && (!reserved || reserved.status === 'applied')) { throw new Error('supersededProposalUnavailable'); }
+		if (input.supersedes && (!reserved || reserved.status === 'applied' || reserved.discardedReason)) { throw new Error('supersededProposalUnavailable'); }
 		const proposal = await proposeDiagramModel(model, session.workflow === 'project' && input.supersedes ? { ...input, baseSemanticRevision: await diagramModelRevision(model) } : input, session.evidence, undefined, reserved);
 		proposal.fingerprint = fingerprint;
 		for (const patch of proposal.patch.filter(entry => entry.collection === 'assertions')) { if (patch.value) { (patch.value as ModelAssertion).provenance.producer = session.model; } }
@@ -347,12 +348,24 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 		session.tasks = plan.items.map(item => ({ id: item.id, intent: item.intent, status: 'queued' as const, gaps: [], ...session.tasks.find(task => task.id === item.id) }));
 		return { plan, tasks: session.tasks };
 	}
+	if (tool === 'ade_proposal_discard') {
+		const input = value as { proposalId: string; reason: string };
+		const proposal = session.proposals.find(entry => entry.id === input.proposalId);
+		if (!proposal || proposal.status !== 'invalid' || proposal.supersededBy || proposal.excludedByPlan || session.tasks.some(task => task.proposalId === proposal.id && task.status !== 'cancelled')) { throw new Error('proposalCannotBeDiscarded'); }
+		if (!input.reason.trim()) { throw new Error('discardReasonRequired'); }
+		proposal.discardedReason = input.reason.trim();
+		return { proposalId: proposal.id, discarded: true, reason: proposal.discardedReason };
+	}
 	if (tool === 'ade_task_update') {
 		const task = value as ExplorationTask;
 		if (session.workflow === 'project') {
 			if (!session.plan?.items.some(item => item.id === task.id)) { throw new Error('unknownPlannedDiagram'); }
 			const item = session.plan.items.find(item => item.id === task.id)!;
 			if (['running', 'ready'].includes(task.status) && [...item.dependsOn, ...(item.parentId ? [item.parentId] : [])].some(id => !session.tasks.some(task => task.id === id && ['ready', 'applied'].includes(task.status)))) { throw new Error('plannedDependencyNotReady'); }
+			if (task.status === 'ready') {
+				const proposal = projectDrafts(session.proposals).find(entry => entry.id === task.proposalId);
+				if (!proposal || proposal.status !== 'ready' || !proposal.patch.some(patch => patch.collection === 'views' && (patch.value as { kind?: string; name?: string } | null)?.kind === item.viewKind && (patch.value as { name?: string }).name === item.name)) { throw new Error('plannedProposalNotReady'); }
+			}
 			if (task.status === 'cancelled' && !task.gaps.length) { throw new Error('diagramExclusionReasonRequired'); }
 		}
 		updateTask(session, task); return { tasks: session.tasks }; }

@@ -21,6 +21,7 @@ function blockedReasons(review: AdeDiagramReview, actions: DiagramReviewActions)
 	if (actions.busy) { reasons.push(localize('ade.review.busy', "An Operation Is Running. Wait for It to Finish Before Applying.")); }
 	if (!actions.current) { reasons.push(localize('ade.draft.changed', "The Model Changed After This Review. Refresh the Review Before Applying.")); }
 	const explain = (value: string): string => {
+		if (value.endsWith(': invalidProposal')) { return localize('ade.review.previousInvalid', "An Earlier Draft Is Invalid. Continue Generation to Repair It or Archive It If It Was Replaced."); }
 		const [code, ...parts] = value.split(':');
 		const id = parts.join(':');
 		const name = review.plan?.items.find(item => item.id === id)?.name ?? review.proposal.views.find(view => view.id === id)?.name ?? id;

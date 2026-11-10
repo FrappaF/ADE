@@ -29,7 +29,7 @@ test('packaged engine starts its advertised MCP server and produces a reviewable
 	let stderr = '';
 	transport.stderr?.on('data', chunk => { stderr += chunk; });
 	try { await client.connect(transport); } catch (error) { throw new Error(`Packaged MCP startup failed: ${stderr}`, { cause: error }); }
-	assert.equal((await client.listTools()).tools.length, 9);
+	assert.equal((await client.listTools()).tools.length, 10);
 	const tool = async (name, args) => {
 		const response = await client.callTool({ name, arguments: args });
 		assert.deepEqual(response.structuredContent.diagnostics, []);

@@ -88,7 +88,7 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 	const previews = new Map<string, Preview>();
 	const proposalCache = new Map<string, Awaited<ReturnType<typeof proposeAiReconciliation>>>();
 	return {
-		async execute(input, signal): Promise<string> {
+		async execute(input, signal, progress): Promise<string> {
 			if (Buffer.byteLength(input) > 1024 * 1024) { throw new Error('Request exceeds 1 MiB'); }
 			const request: unknown = JSON.parse(input);
 			const collaboration = request as { operation?: unknown; request?: unknown };
@@ -102,17 +102,25 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 				const root = await realpath(request.root);
 				let mcp: { command: string; args: string[] } | undefined;
 				let durationMs: number | undefined;
+				let resumeContext: object | undefined;
 				if (request.snapshot && request.sessionId) {
 					if (import.meta.url.endsWith('/nativeHost.ts')) { await import('../scripts/source-loader.mjs'); }
 					const snapshot = await readSnapshot(request.snapshot);
 					if (await realpath(snapshot.state.sourceRoot) !== root) { throw new Error('The assistant project changed. Open it again.'); }
 					const { executeDiagramExploration } = await import('../ai/diagramSession.ts');
 					const opened = await executeDiagramExploration(request.snapshot, { action: 'open', sessionId: request.sessionId }, signal);
-					durationMs = (opened.data as { budget: { maxDurationMs: number } }).budget.maxDurationMs;
+					const state = opened.data as import('../../src/vs/workbench/contrib/ade/common/codeBridge.ts').CodeDiagramExploration;
+					if (state.budgetStatus?.exhausted.length) { throw new Error('The exploration budget is exhausted (' + state.budgetStatus.exhausted.join(', ') + '). Close the assistant and choose Continue Generation to add budget. Prepared drafts are retained.'); }
+					durationMs = state.budget.maxDurationMs;
+					resumeContext = {
+						plan: state.plan ? { revision: state.plan.revision, items: state.plan.items.map(item => ({ id: item.id, name: item.name.slice(0, 240), kind: item.viewKind, parentId: item.parentId, dependsOn: item.dependsOn })) } : undefined,
+						tasks: state.tasks.map(task => ({ id: task.id, status: task.status, proposalId: task.proposalId })), blockers: state.batch?.blockers ?? [],
+						drafts: [...state.proposals].sort((a, b) => Number(b.status === 'invalid') - Number(a.status === 'invalid')).slice(0, 24).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics.slice(0, 4).map(diagnostic => ({ code: diagnostic.code, path: diagnostic.path, args: diagnostic.args.map(arg => arg.slice(0, 200)) })), views: proposal.views.map(view => ({ id: view.id, name: view.name.slice(0, 240), kind: view.kind })) }))
+					};
 					mcp = await diagramMcp(root, request.sessionId);
 				}
 				const { runDiagramChat } = await import('../ai/diagramChat.ts');
-				return JSON.stringify(await runDiagramChat(root, JSON.parse(request.config), request.messages, mcp, signal, undefined, durationMs));
+				return JSON.stringify(await runDiagramChat(root, JSON.parse(request.config), request.messages, mcp, signal, undefined, durationMs, event => progress?.({ ...event, requestId: request.requestId ?? '' }), resumeContext));
 			}
 			if (request.operation === 'exploration') {
 				if (import.meta.url.endsWith('/nativeHost.ts')) { await import('../scripts/source-loader.mjs'); }

@@ -18,7 +18,7 @@ export function projectDrafts(proposals: DiagramProposal[]): DiagramProposal[] {
 	return proposals.filter(proposal => !replacements.has(proposal.id)).map(proposal => {
 		for (let count = 0; proposal.supersededBy && count < proposals.length; count++) { proposal = proposals.find(entry => entry.id === proposal.supersededBy)!; }
 		return proposal;
-	}).filter(proposal => proposal.status !== 'applied' && !proposal.excludedByPlan);
+	}).filter(proposal => proposal.status !== 'applied' && !proposal.excludedByPlan && !proposal.discardedReason);
 }
 
 /** Rebuild the unpublished model while keeping invalid/dependent drafts available for repair. */

@@ -204,7 +204,7 @@ test('official MCP protocol uses the same services for a second source read, res
 	const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair(), client = new Client({ name: 'ade-protocol-test', version: '1' });
 	await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
 	t.after(() => client.close()); t.after(() => server.close());
-	assert.equal((await client.listTools()).tools.length, 9);
+	assert.equal((await client.listTools()).tools.length, 10);
 	const rejected = await client.callTool({ name: 'ade_model_propose', arguments: { commands: [] } });
 	assert.equal(rejected.isError, true);
 	assert.equal(rejected.structuredContent.diagnostics[0].code, 'invalidToolArguments');

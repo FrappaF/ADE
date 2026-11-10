@@ -6,7 +6,8 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 7;
+export const adeCodeProtocolVersion = 8;
+export interface CodeAiProgress { requestId: string; kind: 'connecting' | 'thinking' | 'waiting' | 'tool' | 'message'; itemId?: string; text?: string; tool?: string }
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
 export interface CliRuntimeEnvironment { path?: string; pathExt?: string; codexHome?: string }
@@ -21,7 +22,7 @@ export interface CodeResolution { path: string; choice: 'model' | 'code' }
 export type CodeRequest =
 	| { operation: 'collaboration'; request: string }
 	| { operation: 'exploration'; snapshot: string; request: string }
-	| { operation: 'diagramChat'; root: string; snapshot?: string; sessionId?: string; config: string; messages: { role: 'user' | 'assistant'; text: string }[] }
+	| { operation: 'diagramChat'; requestId?: string; root: string; snapshot?: string; sessionId?: string; config: string; messages: { role: 'user' | 'assistant'; text: string }[] }
 	| { operation: 'import'; root: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
 	| { operation: 'inspect' | 'preview' | 'history'; snapshot: string; scope?: CodeScope; renames?: CodeRename[]; resolutions?: CodeResolution[]; bundles?: string[] }
 	| { operation: 'undoSync' | 'recoverSync'; snapshot: string; id: string }
@@ -57,7 +58,7 @@ export interface CodeReconciliationContext { reviewId: string; contents: string;
 export interface CodeSource { path: string; stale: boolean; startLine: number; startColumn: number; endLine: number; endColumn: number }
 export interface CodeHistory { snapshots: { directory: string; revision: string }[]; operations?: { id: string; created: string; status: 'reconciling' | 'applied' | 'undoing' | 'undone' | 'rolledBack'; origin: string; fromRevision: string; toRevision: string; from: string; to: string }[] }
 export type CodeResponse = CodeContext | CodePreview | CodeSource | CodeHistory | CodeReconciliationContext | CodeDiagramProgress;
-export interface CodeEngine { execute(request: string, signal?: AbortSignal): Promise<string> }
+export interface CodeEngine { execute(request: string, signal?: AbortSignal, progress?: (event: CodeAiProgress) => void): Promise<string> }
 
 /** Compact product state; detailed receipts and proposals stay in the project journal. */
 export interface CodeDiagramExploration {
@@ -65,6 +66,7 @@ export interface CodeDiagramExploration {
 	workflow?: 'project';
 	plan?: { revision: string; items: { id: string; name: string; viewKind: import('./modelTypes.js').ModelView['kind']; intent: string; rationale: string; parentId?: string; dependsOn: string[] }[] };
 	batch?: { blockers: string[] };
+	budgetStatus?: { exhausted: string[] };
 	invalidation?: { evidenceIds: string[]; objectIds: string[]; viewIds: string[]; queryIds: string[] };
 	budget: { maxToolCalls: number; maxReadBytes: number; maxDurationMs: number; maxModelTurns: number };
 	usage: { toolCalls: number; readBytes: number; modelTurns: string[]; turnsObservable: boolean; inputTokens: null; outputTokens: null };

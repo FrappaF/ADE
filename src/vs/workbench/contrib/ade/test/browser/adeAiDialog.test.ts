@@ -59,4 +59,19 @@ suite('A.D.E transient assistant dialog', () => {
 		await dialog.close();
 		assert.deepStrictEqual([document.activeElement, root.querySelectorAll('button').length], [current!, 1]);
 	});
+
+	test('live CLI responses appear before completion and saved counters do not hide the current activity', async () => {
+		const response = new DeferredPromise<string>();
+		const dialog = store.add(new AdeAiDialog(root, { onClose: async () => {}, send: async () => response.p })); dialog.showConversation();
+		dialog.element.querySelector('textarea')!.value = 'Repair the saved drafts'; dialog.element.querySelector('form')!.requestSubmit();
+		dialog.updateConversation({ requestId: 'turn', kind: 'connecting' });
+		dialog.updateProgress('10 Planned Diagrams · 6 Review Issues · 69 Source Tool Calls');
+		assert.ok(dialog.element.textContent?.includes('Connecting to the Assistant'));
+		dialog.updateConversation({ requestId: 'turn', kind: 'message', itemId: 'repair', text: 'I found six obsolete invalid attempts.' });
+		assert.deepStrictEqual([dialog.element.querySelectorAll('article').length, dialog.element.querySelector('textarea')!.disabled], [2, true]);
+		dialog.updateConversation({ requestId: 'turn', kind: 'message', itemId: 'repair', text: 'The existing diagrams are ready for review.' });
+		await response.complete('The existing diagrams are ready for review.'); await timeout(0);
+		assert.deepStrictEqual([dialog.element.querySelectorAll('article').length, dialog.element.querySelector('textarea')!.disabled], [2, false]);
+		await dialog.close();
+	});
 });

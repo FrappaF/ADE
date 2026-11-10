@@ -21,6 +21,7 @@ import { ChatWidget } from '../../chat/browser/widget/chatWidget.js';
 import { type IChatWidget } from '../../chat/browser/chat.js';
 import { AdeAiDialog } from '../browser/adeAiDialogView.js';
 import { IAdeAiDialogService, type AdeAiDialogOptions } from '../browser/adeAiDialog.js';
+import { type CodeAiProgress } from '../common/codeBridge.js';
 
 /** Hosts native chat or the headless CLI inside the same temporary ADE modal. */
 class AdeAiDialogService extends Disposable implements IAdeAiDialogService {
@@ -73,6 +74,7 @@ class AdeAiDialogService extends Disposable implements IAdeAiDialogService {
 
 	async close(): Promise<void> { await this.dialog?.close(); }
 	updateProgress(message: string): void { this.dialog?.updateProgress(message); }
+	updateConversation(event: CodeAiProgress): void { this.dialog?.updateConversation(event); }
 
 	constructor(
 		@IInstantiationService private readonly instantiation: IInstantiationService,

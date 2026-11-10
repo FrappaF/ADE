@@ -56,8 +56,10 @@ fs.writeFileSync(${JSON.stringify(join(root, '.ade', 'chat-receipt.json'))}, JSO
 fs.writeFileSync(args[args.indexOf('--output-last-message') + 1], 'Prepared project diagrams');
 console.log(JSON.stringify({ type: 'turn.completed' }));
 `, { mode: 0o700 });
-	const request = { operation: 'diagramChat', root, snapshot: context.snapshot, sessionId: opened.sessionId, config: JSON.stringify({ ...config, executable }), messages: [{ role: 'user', text: 'Generate all project diagrams' }] };
-	assert.deepEqual(await call(request), { text: 'Prepared project diagrams' });
+	const request = { operation: 'diagramChat', requestId: 'chat-fixture', root, snapshot: context.snapshot, sessionId: opened.sessionId, config: JSON.stringify({ ...config, executable }), messages: [{ role: 'user', text: 'Generate all project diagrams' }] };
+	const updates = [];
+	assert.deepEqual(JSON.parse(await engine.execute(JSON.stringify(request), undefined, event => updates.push(event))), { text: 'Prepared project diagrams' });
+	assert.deepEqual(updates.map(event => [event.requestId, event.kind]), [['chat-fixture', 'connecting']]);
 	const receipt = JSON.parse(await readFile(join(root, '.ade', 'chat-receipt.json'), 'utf8'));
 	assert.deepEqual([receipt.mcpArgs.slice(1), receipt.cwd, receipt.ephemeral], [[root, opened.sessionId], root, true]);
 	assert.match(receipt.command, /^mcp_servers\.ade\.command=/);
