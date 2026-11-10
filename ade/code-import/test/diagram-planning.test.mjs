@@ -20,7 +20,7 @@ async function fixture(t) {
 	t.after(() => rm(root, { recursive: true, force: true }));
 	await writeFile(join(root, 'tasks.py'), source);
 	const requests = [];
-	let fail, change;
+	let fail, change, changeView;
 	const provider = { async complete(_config, prompt, schema) {
 		const context = JSON.parse(prompt.slice(prompt.indexOf('\n') + 1)); requests.push(context);
 		assert.ok(Buffer.byteLength(prompt) + Buffer.byteLength(JSON.stringify(schema)) <= config.maxContextBytes * 0.75);
@@ -28,7 +28,8 @@ async function fixture(t) {
 			if (fail === context.diagram.key) { throw new Error('Provider unavailable for ' + fail); }
 			const nodes = context.diagram.focus.filter(ref => context.graph.elements.some(item => item.ref === ref));
 			const keys = { overview: context.graph.relations.map(item => item.key), workflow: ['choose', 'create', 'save'], scenario: ['choose', 'create', 'save'], lifecycle: ['finish'] }[context.diagram.key];
-			return { value: { questions: [], nodes, relations: keys }, usage: { inputTokens: 100, outputTokens: 50 }, cost: null };
+			const value = { questions: [], nodes, relations: keys };
+			return { value: changeView ? changeView(context, value, schema) : value, usage: { inputTokens: 100, outputTokens: 50 }, cost: null };
 		}
 		const anchor = context.units[0][0];
 		const concept = (key, kind, name, parent = null) => ({ key, kind, name, parent, description: name, feature: 'tasks', source: anchor });
@@ -55,7 +56,7 @@ async function fixture(t) {
 	const prepare = extra => call({ operation: 'diagramPrepare', snapshot: initial.snapshot, config: JSON.stringify(config), ...extra });
 	const step = progress => call({ operation: 'diagramStep', snapshot: initial.snapshot, id: progress.id, reviewId: progress.reviewId });
 	const approve = progress => call({ operation: 'diagramApprovePlan', snapshot: initial.snapshot, id: progress.id, reviewId: progress.reviewId });
-	return { root, initial, requests, prepare, step, approve, call, setFail: key => { fail = key; }, change: fn => { change = fn; }, restart: () => { engine = createCodeEngine(provider); } };
+	return { root, initial, requests, prepare, step, approve, call, setFail: key => { fail = key; }, change: fn => { change = fn; }, changeView: fn => { changeView = fn; }, restart: () => { engine = createCodeEngine(provider); } };
 }
 
 test('proposal requires a separate approval and every planned type is published with shared identities', async t => {
@@ -141,4 +142,90 @@ test('initial user diagram instructions reach the first analysis context', async
 	const f = await fixture(t);
 	await f.step(await f.prepare({ clarification: 'Prefer architecture boundaries for review' }));
 	assert.equal(f.requests[0].clarification, 'Prefer architecture boundaries for review');
+});
+
+test('batched synthesis can reuse prior objects when a typed first view needs a shared overview', async t => {
+	const root = await mkdtemp(join(tmpdir(), 'ade-plan-batches-'));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	await writeFile(join(root, 'tasks.py'), Array.from({ length: 170 }, (_, index) => `def task_${index}():\n    return ${index}\n`).join('\n'));
+	const requests = [];
+	const provider = { async complete(_config, prompt) {
+		const context = JSON.parse(prompt.slice(prompt.indexOf('\n') + 1)); requests.push(context);
+		if (context.step === 'diagram') { return { value: { questions: [], nodes: ['c:user', 'c:system'], relations: ['uses'], connections: [] }, usage: {}, cost: null }; }
+		const overview = context.step === 'overview';
+		const anchor = context.units?.[0]?.[0];
+		return { value: {
+			summary: 'Task system', questions: [], features: [{ key: 'tasks', name: 'Tasks', description: 'Manage tasks' }], elements: [],
+			concepts: overview ? [] : [
+				{ key: 'user', kind: 'actor', name: 'User', description: 'Uses tasks', feature: 'tasks', parent: null, source: anchor },
+				{ key: 'system', kind: 'system', name: 'Task System', description: 'Manages tasks', feature: 'tasks', parent: null, source: anchor }
+			],
+			relations: overview ? [] : [{ key: 'uses', kind: 'communication', from: 'c:user', to: 'c:system', name: 'Uses tasks', condition: null, evidence: [anchor], classification: 'inferred' }],
+			notation: { elements: [], relations: [] }, diagrams: [], overview: { key: 'context', name: 'Task Context', intent: 'Explain task boundaries' },
+			plan: overview ? [{ key: 'context', name: 'Task Context', kind: 'c4Context', feature: 'tasks', intent: 'Explain task boundaries', focus: ['c:user', 'c:system'] }] : [],
+			coverage: { targets: Object.fromEntries((overview ? context.catalog : context.units).map(row => [row[0], 'c:system'])) }
+		}, usage: {}, cost: null };
+	} };
+	let engine = createCodeEngine(provider);
+	const call = async request => JSON.parse(await engine.execute(JSON.stringify(request)));
+	const initial = await call({ operation: 'import', root, syntaxOnly: true });
+	let progress = await call({ operation: 'diagramPrepare', snapshot: initial.snapshot, config: JSON.stringify(config) });
+	assert.ok(progress.total > 1);
+	while (progress.phase === 'analysis') {
+		engine = createCodeEngine(provider);
+		progress = await call({ operation: 'diagramStep', snapshot: initial.snapshot, id: progress.id, reviewId: progress.reviewId });
+	}
+	assert.deepEqual(progress.plan.map(({ kind, focus }) => ({ kind, focus })), [{ kind: 'structure', focus: ['c:user', 'c:system'] }, { kind: 'c4Context', focus: ['c:user', 'c:system'] }]);
+	while (progress.status !== 'complete') { progress = await call({ operation: progress.status === 'plan' ? 'diagramApprovePlan' : 'diagramStep', snapshot: initial.snapshot, id: progress.id, reviewId: progress.reviewId }); }
+	const { model } = await readSnapshot(progress.context.snapshot);
+	assert.deepEqual(model.views.map(view => ({ kind: view.kind, nodes: view.nodes.length, relations: view.relationIds.length })), [{ kind: 'structure', nodes: 2, relations: 1 }, { kind: 'c4Context', nodes: 2, relations: 1 }]);
+	assert.equal(requests.filter(context => context.step === 'overview').length, 1);
+});
+
+
+test('activity and sequence steps can connect existing actions using disclosed source evidence', async t => {
+	const f = await fixture(t);
+	f.change(value => { value.relations = value.relations.filter(relation => relation.key !== 'create'); });
+	f.changeView((context, value, schema) => {
+		if (context.diagram.kind === 'activity') {
+			assert.ok(schema.properties.connections, 'activity must disclose a way to request the missing evidenced interaction');
+			return { ...value, relations: ['choose', 'save'], connections: [{ kind: 'invocation', from: 'c:list', to: 'c:create', name: 'create', evidence: [context.evidence.units[0][0]], details: null }] };
+		}
+		if (context.diagram.kind === 'sequence') { return { ...value, relations: ['choose', context.graph.relations.find(relation => relation.name === 'create').key, 'save'], connections: [] }; }
+		return value;
+	});
+	let progress = await f.approve(await f.step(await f.prepare()));
+	while (progress.status !== 'complete') { progress = await f.step(progress); }
+	const { model } = await readSnapshot(progress.context.snapshot);
+	const added = model.semantics.relations.find(relation => relation.name === 'create');
+	assert.deepEqual(model.views.filter(view => ['structure', 'activity', 'sequence'].includes(view.kind)).map(view => ({ kind: view.kind, hasConnection: view.relationIds.includes(added.id) })), [{ kind: 'structure', hasConnection: true }, { kind: 'activity', hasConnection: true }, { kind: 'sequence', hasConnection: true }]);
+});
+
+test('behavior connections reject invented source anchors and unsupported sequence relation types', async t => {
+	for (const failure of ['source', 'kind']) {
+		const f = await fixture(t);
+		f.changeView((context, value) => context.diagram.kind === 'sequence' ? { ...value, connections: [{ kind: failure === 'kind' ? 'dependency' : 'invocation', from: 'c:list', to: 'c:create', name: 'create', evidence: [failure === 'source' ? 'u99999' : context.evidence.units[0][0]], details: null }] } : value);
+		let progress = await f.approve(await f.step(await f.prepare()));
+		progress = await f.step(progress); progress = await f.step(progress);
+		await assert.rejects(f.step(progress), /Invalid planned diagram output/);
+		assert.equal((await f.call({ operation: 'inspect', snapshot: f.initial.snapshot })).diagramState, 'index');
+	}
+});
+
+test('sequence focus retains a declared participant that needs its first evidenced message', async t => {
+	const f = await fixture(t);
+	f.change(value => {
+		value.concepts.push({ ...value.concepts[0], key: 'gateway', kind: 'system', name: 'Task Gateway' });
+		value.plan[2].focus.push('c:gateway');
+	});
+	f.changeView((context, value, schema) => {
+		if (context.diagram.kind !== 'sequence') { return value; }
+		assert.ok(schema.properties.nodes.items.enum.includes('c:gateway'), 'the approved participant must be available before its first message is added');
+		return { ...value, connections: [{ kind: 'invocation', from: 'c:create', to: 'c:gateway', name: 'Publish task', evidence: [context.evidence.units[0][0]], details: null }] };
+	});
+	let progress = await f.approve(await f.step(await f.prepare()));
+	while (progress.status !== 'complete') { progress = await f.step(progress); }
+	const { model } = await readSnapshot(progress.context.snapshot);
+	const sequence = getSequenceDiagram(model, model.views.find(view => view.kind === 'sequence'));
+	assert.deepEqual({ participants: sequence.participants.map(item => item.name), messages: sequence.messages.map(item => item.name) }, { participants: ['User', 'Task List', 'Create Task', 'Task', 'Task Gateway'], messages: ['choose', 'create', 'save', 'Publish task'] });
 });

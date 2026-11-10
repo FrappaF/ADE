@@ -29,7 +29,7 @@ function interpretation(context) {
 	result.diagrams = Array.from({ length: Math.ceil(diagram.nodes.length / 24) || 1 }, (_, i) => ({ ...diagram, key: i ? diagram.key + '-' + i : diagram.key, nodes: diagram.nodes.slice(i * 24, (i + 1) * 24) }));
 	return result;
 }
-async function fixture(t, file = 'purchase.py', source = 'def purchase(amount):\n    return amount > 0\n', extras = {}) {
+async function fixture(t, file = 'purchase.py', source = 'def purchase(amount):\n    return amount > 0\n', extras = {}, syntaxOnly = true) {
 	const root = await mkdtemp(join(tmpdir(), 'ade-diagrams-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	await mkdir(dirname(join(root, file)), { recursive: true });
@@ -48,7 +48,7 @@ async function fixture(t, file = 'purchase.py', source = 'def purchase(amount):\
 	} };
 	let engine = createCodeEngine(provider);
 	const call = async request => JSON.parse(await engine.execute(JSON.stringify(request)));
-	const initial = await call({ operation: 'import', root, syntaxOnly: true });
+	const initial = await call({ operation: 'import', root, syntaxOnly });
 	const prepare = (snapshot = initial.snapshot, extra = {}) => call({ operation: 'diagramPrepare', snapshot, config: JSON.stringify(config), ...extra });
 	const step = job => call({ operation: job.status === 'plan' ? 'diagramApprovePlan' : 'diagramStep', snapshot: initial.snapshot, id: job.id, reviewId: job.reviewId });
 	const finish = async job => { while (job.status !== 'complete') { job = await step(job); } return job; };
@@ -254,6 +254,92 @@ test('missing symbol coverage and invalid references never replace the active mo
 	}
 });
 
+test('later analysis batches receive the shared endpoint roles and relationship identities', async t => {
+	const f = await fixture(t, 'requests.py', Array.from({ length: 161 }, (_, index) => `def request_${index}():\n    return ${index}\n`).join('\n'));
+	const reply = context => {
+		const source = context.required[0].ref;
+		if (context.batch) {
+			assert.deepEqual({
+				objects: context.responsibilities.map(({ ref, kind, parent }) => ({ ref, kind, parent })),
+				links: context.interactions.map(({ key, kind, from, to }) => ({ key, kind, from, to }))
+			}, {
+				objects: [{ ref: 'c:handler', kind: 'action', parent: null }, { ref: 'c:request', kind: 'resource', parent: null }],
+				links: [{ key: 'reads-request', kind: 'read', from: 'c:handler', to: 'c:request' }]
+			});
+		}
+		return { summary: 'Request handling', questions: [], features: [feature], elements: [],
+			concepts: [{ key: 'handler', kind: 'action', name: 'Handle Request', description: 'Process requests', feature: 'checkout', parent: null, source }, { key: 'request', kind: 'resource', name: 'Request', description: 'Request input', feature: 'checkout', parent: null, source }],
+			relations: [{ key: 'reads-request', kind: 'read', from: 'c:handler', to: 'c:request', name: 'Reads input', condition: null, evidence: [source], classification: 'inferred' }],
+			diagrams: [{ key: 'overview', name: 'Request Handling', kind: 'structure', feature: null, nodes: ['c:handler', 'c:request'], relations: ['reads-request'], intent: 'Shared request handling' }],
+			coverage: { targets: Object.fromEntries(context.required.map(row => [row.ref, 'c:handler'])) }
+		};
+	};
+	f.setReply(reply);
+	let job = await f.prepare();
+	job = await f.step(job);
+	f.restart();
+	job = await f.prepare(f.initial.snapshot, { resume: job.id });
+	job = await f.step(job);
+	assert.equal(job.completed, 2);
+	f.setReply(context => {
+		const value = reply(context);
+		value.concepts.push({ key: 'session', kind: 'resource', name: 'Session', description: 'Session input', feature: 'checkout', parent: null, source: context.required[0].ref });
+		value.relations[0].to = 'c:session';
+		return value;
+	});
+	await assert.rejects(f.step(job), /Conflicting semantic relationship key "reads-request".*new key/);
+	const checkpoint = JSON.parse(await readFile(join(f.root, '.ade', 'diagram-imports', job.id + '.json'), 'utf8'));
+	assert.equal(checkpoint.completed, 2);
+	assert.equal((await f.call({ operation: 'inspect', snapshot: f.initial.snapshot })).diagramState, 'index');
+});
+
+test('invalid endpoint roles identify the relationship for bounded resume feedback', async t => {
+	const f = await fixture(t);
+	f.setReply(context => {
+		const source = context.required[0].ref;
+		return { summary: 'Session persistence', questions: [], features: [feature], elements: [],
+			concepts: [{ key: 'session', kind: 'resource', name: 'Session', description: 'Session state', feature: 'checkout', parent: null, source }, { key: 'store', kind: 'dataStore', name: 'Session Store', description: 'Persisted sessions', feature: 'checkout', parent: null, source }],
+			relations: [{ key: 'persist-session', kind: 'write', from: 'c:session', to: 'c:store', name: 'Persists state', condition: null, evidence: [source], classification: 'inferred' }],
+			diagrams: [{ key: 'overview', name: 'Sessions', kind: 'structure', feature: null, nodes: ['c:session', 'c:store'], relations: ['persist-session'], intent: 'Session persistence' }]
+		};
+	});
+	let job = await f.prepare();
+	await assert.rejects(f.step(job), /Invalid diagram structure: relationship "persist-session".*write from resource to dataStore/);
+	job = await f.prepare(f.initial.snapshot, { resume: job.id });
+	const checkpoint = JSON.parse(await readFile(join(f.root, '.ade', 'diagram-imports', job.id + '.json'), 'utf8'));
+	assert.match(checkpoint.feedback, /persist-session.*write from resource to dataStore/);
+	assert.equal(job.completed, 0);
+	assert.equal((await f.call({ operation: 'inspect', snapshot: f.initial.snapshot })).diagramState, 'index');
+});
+
+test('supporting-only batches remain resumable and recover historical empty analysis projections', async t => {
+	const f = await fixture(t, 'support.py', Array.from({ length: 161 }, (_, index) => `def helper_${index}():\n    return ${index}\n`).join('\n'));
+	f.setReply(context => ({ summary: 'Shared capability with supporting tests', questions: [], features: [feature], elements: [],
+		concepts: context.batch ? [] : [{ key: 'processing', kind: 'action', name: 'Process Requests', description: 'Shared capability', feature: 'checkout', parent: null, source: context.required[0].ref }],
+		relations: [], diagrams: [], coverage: { targets: Object.fromEntries(context.required.map(row => [row.ref, context.batch ? 'x:test' : 'c:processing'])) }
+	}));
+	let job = await f.prepare();
+	job = await f.step(job);
+	job = await f.step(job);
+	const path = join(f.root, '.ade', 'diagram-imports', job.id + '.json');
+	const checkpoint = JSON.parse(await readFile(path, 'utf8'));
+	assert.deepEqual(checkpoint.results[1].diagrams, []);
+	// Earlier engines persisted this derived empty view, then rejected it on the next read.
+	checkpoint.results[1].diagrams = [{ key: 'overview', name: 'Supporting Tests', intent: 'Verification evidence', kind: 'structure', feature: null, nodes: [], relations: [] }];
+	checkpoint.results[1].diagrams[0].unexpected = true;
+	await writeFile(path, JSON.stringify(checkpoint));
+	await assert.rejects(f.prepare(f.initial.snapshot, { resume: job.id }), /Inconsistent diagram checkpoint/);
+	delete checkpoint.results[1].diagrams[0].unexpected;
+	await writeFile(path, JSON.stringify(checkpoint));
+	f.restart();
+	job = await f.prepare(f.initial.snapshot, { resume: job.id });
+	assert.equal(job.completed, 2);
+	assert.equal(f.prompts.length, 2, 'recovering an empty projection makes no provider request');
+	job = await f.step(job);
+	assert.equal(job.completed, 3);
+	assert.equal((await f.call({ operation: 'inspect', snapshot: f.initial.snapshot })).diagramState, 'index');
+});
+
 test('zero budget, source changes and concurrent model edits block publication', async t => {
 	const f = await fixture(t);
 	const zero = await f.prepare(f.initial.snapshot, { config: JSON.stringify({ ...config, maxCalls: 0 }) });
@@ -299,6 +385,75 @@ test('deterministic interactions must be visible in a diagram, not just classifi
 	assert.ok(state.semantic.dependencies.length);
 	const job = await prepareDiagramImport(before, state, config);
 	await assert.rejects(advanceDiagramImport(job, before, state, diagramProgress(job).reviewId, undefined, { async complete(_config, prompt) { const context = expandDiagramContext(JSON.parse(prompt.slice(prompt.indexOf('\n') + 1))); return { value: compactDiagramReply(context, interpretation(context)), usage: { inputTokens: 100, outputTokens: 100 }, cost: null }; } }), /omitted an evidenced interaction/);
+});
+
+test('feature-level supporting coverage does not invent an operational feature endpoint', async t => {
+	const f = await fixture(t, 'purchase.ts', 'export function charge(amount: number) { return amount > 0; }\nexport function purchase(amount: number) { return charge(amount); }', {}, false);
+	f.setReply(context => {
+		const charge = context.symbols.find(item => item.name === 'charge').ref;
+		return { summary: 'Charging with feature-level support', questions: [], features: [feature],
+			elements: [{ symbol: charge, kind: 'action', name: 'Charge', description: 'Evaluate the amount', feature: 'checkout', parent: null }], concepts: [], relations: [],
+			diagrams: [{ key: 'overview', name: 'Charging', kind: 'structure', feature: null, nodes: [charge], relations: [], intent: 'Charging capability' }],
+			coverage: { targets: Object.fromEntries(context.required.map(row => [row.ref, row.ref === charge ? charge : 'f:checkout'])) }
+		};
+	});
+	const done = await f.finish(await f.prepare());
+	assert.equal(done.status, 'complete');
+});
+
+test('whole-project synthesis receives static dependencies disclosed by its source catalog', async t => {
+	const source = 'export function base() { return true; }\n' + Array.from({ length: 161 }, (_, index) => `export function step_${index}() { return base(); }\n`).join('');
+	const f = await fixture(t, 'pipeline.ts', source, {}, false);
+	f.setReply(context => {
+		const rows = context.step === 'overview' ? context.sourceCatalog : context.required;
+		if (context.step === 'overview') {
+			assert.ok(context.dependencies.length > 0, 'synthesis must see the dependencies enforced at publication');
+			assert.ok(context.dependencies.every(edge => rows.some(row => row.ref === edge.from) && rows.some(row => row.ref === edge.to)));
+		}
+		return { summary: 'Aggregate pipeline', questions: [], features: [feature], elements: [],
+			concepts: [{ key: 'pipeline', kind: 'action', name: 'Process Pipeline', description: 'Shared processing operation', feature: 'checkout', parent: null, source: rows[0].ref }], relations: [],
+			diagrams: [{ key: 'overview', name: 'Pipeline', kind: 'structure', feature: null, nodes: ['c:pipeline'], relations: [], intent: 'Shared pipeline operation' }],
+			coverage: { targets: Object.fromEntries(rows.map(row => [row.ref, 'c:pipeline'])) }
+		};
+	});
+	assert.equal((await f.finish(await f.prepare())).status, 'complete');
+});
+
+test('a synthesized plan retains earlier declarations even when final coverage groups their evidence', async t => {
+	const f = await fixture(t, 'pipeline.py', Array.from({ length: 161 }, (_, index) => `def step_${index}():\n    return ${index}\n`).join('\n'));
+	f.setReply(context => {
+		const rows = context.step === 'overview' ? context.sourceCatalog : context.required;
+		return { summary: 'Processing and review', questions: [], features: [feature], elements: [],
+			concepts: context.batch ? [] : ['processing', 'review'].map(key => ({ key, kind: 'action', name: key === 'processing' ? 'Process Requests' : 'Review Requests', description: 'Declared responsibility', feature: 'checkout', parent: null, source: rows[0].ref })),
+			relations: [], diagrams: [],
+			coverage: { targets: Object.fromEntries(rows.map(row => [row.ref, context.step === 'overview' ? 'f:checkout' : context.batch ? 'x:test' : 'c:processing'])) }
+		};
+	});
+	const done = await f.finish(await f.prepare());
+	const model = (await readSnapshot(done.context.snapshot)).model;
+	assert.deepEqual(model.views[0].nodes.map(node => model.semantics.elements.find(element => element.id === node.elementId).name).sort(), ['Process Requests', 'Review Requests']);
+	const checkpoint = JSON.parse(await readFile(join(f.root, '.ade', 'diagram-imports', done.id + '.json'), 'utf8'));
+	const { validateDiagramPlan } = await import('../../ai/diagramPlanning.ts');
+	const unknown = structuredClone(checkpoint.plan); unknown[0].focus.push('c:undeclared');
+	assert.throws(() => validateDiagramPlan(unknown, unknown[0].key, checkpoint.results), /undeclared responsibility/);
+});
+
+test('final publication retains diagram owners and feature-level source coverage outside containment', async t => {
+	const f = await fixture(t);
+	f.setReply(context => {
+		const source = context.required[0].ref;
+		return { summary: 'Runtime with cross-cutting groups', questions: [], features: [feature, { key: 'operations', name: 'Operations', description: 'Owns the operational diagram' }, { key: 'support', name: 'Supporting Evidence', description: 'Groups source evidence' }], elements: [],
+			concepts: [{ key: 'runtime', kind: 'component', name: 'Runtime', description: 'Runtime component', feature: 'checkout', parent: null, source }, { key: 'handler', kind: 'action', name: 'Handle Request', description: 'Runtime operation', feature: 'checkout', parent: 'c:runtime', source }],
+			relations: [{ key: 'handles', kind: 'invocation', from: 'c:runtime', to: 'c:handler', name: 'Handles request', condition: null, evidence: [source], classification: 'inferred' }],
+			diagrams: [{ key: 'overview', name: 'Runtime', kind: 'structure', feature: null, nodes: ['c:runtime', 'c:handler'], relations: ['handles'], intent: 'Shared runtime' }, { key: 'workflow', name: 'Request Handling', kind: 'activity', feature: 'operations', nodes: ['c:runtime', 'c:handler'], relations: ['handles'], intent: 'Operational flow' }],
+			coverage: { targets: Object.fromEntries(context.required.map(row => [row.ref, 'f:support'])) }
+		};
+	});
+	const done = await f.finish(await f.prepare());
+	const model = (await readSnapshot(done.context.snapshot)).model;
+	const owner = model.semantics.elements.find(item => item.name === 'Operations'), support = model.semantics.elements.find(item => item.name === 'Supporting Evidence');
+	assert.ok(owner && model.views.some(view => view.featureId === owner.id));
+	assert.ok(support && model.codeMappings.some(mapping => mapping.elementId === support.id));
 });
 
 
