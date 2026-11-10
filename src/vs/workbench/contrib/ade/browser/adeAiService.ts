@@ -33,7 +33,7 @@ export interface IAdeAiService {
 	readonly onDidChange: Event<void>;
 	readonly generatingDiagrams: boolean;
 	readonly workflowStatus: string | undefined;
-	readonly chatLocation: 'chat' | 'terminal' | undefined;
+	readonly chatLocation: 'modal' | undefined;
 	returnToDiagrams(): Promise<void>;
 	readonly diagramProgress: CodeDiagramProgress | undefined;
 	readonly diagramExploration: CodeDiagramExploration | undefined;

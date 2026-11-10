@@ -10,6 +10,7 @@ import { IAgentHostActiveClientService } from '../../chat/browser/agentSessions/
 import { type IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { localize } from '../../../../nls.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
@@ -24,8 +25,7 @@ import { ICodexAccountService } from '../../../services/agentHost/browser/codexA
 import { parseCodexModelSelection } from '../../../../platform/agentHost/common/codexModelSelection.js';
 import { IAgentSdkSetupService } from '../../../services/agentHost/browser/agentSdkSetupService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { ITerminalService, ITerminalGroupService, ITerminalInstance } from '../../terminal/browser/terminal.js';
-import { IChatWidgetService, ChatViewPaneTarget } from '../../chat/browser/chat.js';
+import { IAdeAiDialogService, type AdeAiMessage } from '../browser/adeAiDialog.js';
 import { getNewChatSessionResource } from '../../chat/common/model/chatUri.js';
 import { IAdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
@@ -33,7 +33,7 @@ import { type AdeDiagramReview } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { AdeInput } from '../browser/adeInput.js';
 import { viewLabels } from '../browser/adeLabels.js';
-import { openAdeTerminal } from '../browser/adeTerminal.js';
+import { ThrottledDelayer } from '../../../../base/common/async.js';
 import { canonicalJson, semanticContent } from '../common/modelSerialization.js';
 import { CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
 import { type CliConfig, type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
@@ -51,9 +51,11 @@ export class AdeAiDiagrams extends Disposable {
 
 	get generatingDiagrams(): boolean { return this.diagramRunning; }
 
-	private conversation: { root: string; resource?: URI; terminal?: ITerminalInstance; attachedModel?: string } | undefined;
+	private conversation: { root: string; resource?: URI; attachedModel?: string } | undefined;
 
-	get chatLocation(): 'chat' | 'terminal' | undefined { return this.conversation?.terminal ? 'terminal' : this.conversation?.resource ? 'chat' : undefined; }
+	private readonly conversationWatch = this._register(new DisposableStore());
+
+	get chatLocation(): 'modal' | undefined { return this.conversation ? 'modal' : undefined; }
 
 	private _diagramProgress: CodeDiagramProgress | undefined;
 
@@ -77,22 +79,19 @@ export class AdeAiDiagrams extends Disposable {
 		this.host.report(localize('ade.ai.chatOpening', "Opening Codex…"));
 		try {
 			if (!await this.trust.requestWorkspaceTrust() || this.project.modelUri && !await this.project.save()) { this.host.report(localize('ade.ai.chatNotOpened', "Codex Was Not Opened")); return; }
-			const root = this.code.context?.sourceRoot ?? this.project.projectRoot?.toString() ?? this.project.model.id;
+			const root = this.code.context?.sourceRoot ?? this.project.projectRoot?.fsPath ?? this.project.model.id;
 			if (this.conversation?.root !== root) { this.conversation = undefined; }
-			const terminal = this.conversation?.terminal;
-			if (terminal && !terminal.isDisposed) { this.terminals.setActiveInstance(terminal); await this.terminalGroups.showPanel(true); await terminal.focusWhenReady(); this.host.report(localize('ade.ai.chatTerminalReady', "Codex Is Open in the Terminal · Back to Diagrams to Continue")); return; }
-			if (terminal) { this.conversation = undefined; }
 			const native = this.codexAccount.account.status === 'signedIn' && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready') && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this.connection.config || this.connection.config.provider !== 'codex' || this.connection.config.executable === 'codex');
 			if (native) {
 				await this.configuration.updateValue(AgentHostCodexAgentEnabledSettingId, true, this.exploration ? ConfigurationTarget.WORKSPACE : ConfigurationTarget.USER);
-				const firstQuestion = !this.conversation?.resource && !this.exploration?.resource;
-				const resource = this.conversation?.resource ?? (this.exploration?.root === root && this.exploration.resource ? URI.parse(this.exploration.resource) : getNewChatSessionResource('agent-host-codex'));
+				const firstQuestion = !this.conversation?.resource;
+				const resource = this.conversation?.resource ?? getNewChatSessionResource('agent-host-codex');
 				if (this.exploration?.root === root) { this.bindExplorationTools(resource); }
-				const widget = await this.chatWidgets.openSession(resource, ChatViewPaneTarget);
-				if (!widget) { throw new Error(localize('ade.ai.chatUnavailable', "Codex Chat Could Not Be Opened. Use AI Settings to Check the Connection.")); }
+				const widget = await this.aiDialog.open({ resource, onClose: () => this.closeConversation(root) });
+				if (!widget) { this.host.report(localize('ade.ai.dialog.closed', "Assistant Closed")); return; }
 				if (this.exploration?.root === root) {
 					const chosen = this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE);
-					if (chosen && this.exploration.selectedModel !== chosen) {
+					if (chosen && (firstQuestion || this.exploration.selectedModel !== chosen)) {
 						const selected = this.languageModels.getLanguageModelIds().map(identifier => ({ identifier, metadata: this.languageModels.lookupLanguageModel(identifier) })).find(entry => entry.metadata?.targetChatSessionType === 'agent-host-codex' && parseCodexModelSelection({ id: entry.metadata.id })?.modelId === chosen && parseCodexModelSelection({ id: entry.metadata.id })?.modelProvider === 'openai');
 						if (!selected?.metadata) { throw new Error(localize('ade.explore.modelUnavailable', "The Selected Diagram Model Is Not Available in Codex Chat: {0}. Choose an Available Model and Retry.", chosen)); }
 						widget.input.setCurrentLanguageModel({ identifier: selected.identifier, metadata: selected.metadata }, false, false);
@@ -111,27 +110,64 @@ export class AdeAiDiagrams extends Disposable {
 				if (this.exploration?.root === root && firstQuestion) { widget.setInput(localize('ade.explore.firstQuestion', "Plan the relevant project diagrams from overview to detail using the ADE tools, then create and preview every planned draft. Continue without intermediate approvals and finish with one complete project review.")); }
 				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
 			} else {
-				const executable = await this.connection.resolveCli('codex');
+				const provider = this.connection.config?.provider ?? 'codex';
+				const executable = await this.connection.resolveCli(provider);
 				if (!executable) { return; }
-				const account = await this.code.checkCliAccount('codex', executable);
-				if (account.status !== 'signedIn') { if (account.status === 'signedOut') { await this.connection.signIn('codex', true); } else { await this.connection.checkAccount('codex', executable); } return; }
-				let model = this.exploration?.root === root ? this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? (this.connection.config?.provider === 'codex' ? this.connection.config.model : undefined) : this.connection.config?.provider === 'codex' ? this.connection.config.model : undefined;
-				if (this.exploration?.root === root && !model) { model = await this.selectDiagramModel({ version: 1, provider: 'codex', connection: 'cli', executable, model: '', timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 8 }); if (!model) { return; } }
-				const prompt = localize('ade.ai.chatContext', "Help me work on this project's A.D.E diagrams and implementation. The model is {0}, active diagram: {1}. Preserve semantic IDs and valid model v3 references. Resolve the current model from .ade/code-project.json before editing because snapshot paths can change. Model edits appear in the visual editor; after code changes I will use Update Diagrams to reconcile them. I will describe the requested change next; do not edit files until I do.", this.project.modelUri?.fsPath ?? localize('ade.ai.noModelContext', "not created yet"), this.project.activeView?.name ?? this.project.model.name);
-				const terminal = await openAdeTerminal(this.terminals, this.terminalGroups, { name: localize('ade.ai.codexChat', "Codex Chat · Your Account"), executable, args: [...(model ? ['--model', model] : []), ...(this.exploration?.root === root ? await this.explorationCliArguments() : []), this.exploration?.root === root ? diagramSessionInstruction : prompt], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
-				this.conversation = { root, terminal };
-				this._register(terminal.onExit(() => { if (this.conversation?.terminal === terminal) { this.conversation = undefined; this.host.changed(); } }));
+				const account = await this.code.checkCliAccount(provider, executable);
+				if (account.status !== 'signedIn') { if (account.status === 'signedOut') { await this.connection.signIn(provider, true); } else { await this.connection.checkAccount(provider, executable); } return; }
+				let model = this.storage.get(`ade.ai.diagramModel.${provider}`, StorageScope.PROFILE) ?? this.connection.config?.model;
+				if (!model) { model = await this.selectDiagramModel({ version: 1, provider, connection: 'cli', executable, model: '', timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 1 }); if (!model) { return; } }
+				const config: CliConfig = { version: 1, provider, connection: 'cli', executable, model, timeoutMs: 300000, maxContextBytes: 262144, maxCalls: this.connection.config?.maxCalls ?? 1 };
+				this.conversation = { root };
+				await this.aiDialog.open({ prompt: this.exploration?.root === root ? localize('ade.explore.firstQuestion', "Plan the relevant project diagrams from overview to detail using the ADE tools, then create and preview every planned draft. Continue without intermediate approvals and finish with one complete project review.") : '', onClose: () => this.closeConversation(root), send: (messages, token) => this.sendConversation(root, config, messages, token) });
 			}
-			this.host.report(this.chatLocation === 'terminal' ? localize('ade.ai.chatTerminalReady', "Codex Is Open in the Terminal · Back to Diagrams to Continue") : localize('ade.ai.chatPaneReady', "Codex Chat Is Open · Your Diagram Is Attached"));
-		} catch (error) { this.conversation = undefined; const message = localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error)); this.host.report(message); this.notifications.error(message); }
+			this.watchConversation();
+			this.host.report(localize('ade.ai.chatModalReady', "Assistant Is Open · Diagrams Update Automatically"));
+		} catch (error) { await this.aiDialog.close(); this.conversation = undefined; this.conversationWatch.clear(); const message = localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error)); this.host.report(message); this.notifications.error(message); }
 		finally { this.chatOpening = false; this.host.busy = false; opening.dispose(); this.host.changed(); }
 	}
 
-	async returnToDiagrams(): Promise<void> {
-		this.terminalGroups.hidePanel();
-		try { await this.refreshExploration(); } catch (error) { this.notifications.error(String(error)); }
-		await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
-		if (this.code.changed) { this.host.report(localize('ade.ai.reviewAfterChat', "Code Changed · Update Diagrams to Review the Result")); }
+	async returnToDiagrams(): Promise<void> { await this.aiDialog.close(); }
+
+	private async closeConversation(root: string): Promise<void> {
+		if (this.conversation?.root !== root) { return; }
+		this.conversation = undefined; this.conversationWatch.clear();
+		this.explorationTools.clear(); this.explorationBinding = undefined;
+		if (this.exploration?.root === root) { this.exploration.resource = undefined; this.persistExploration(); }
+		try { await this.refreshExploration(true); } catch (error) { this.notifications.error(String(error)); }
+		this.host.changed();
+	}
+
+	private watchConversation(): void {
+		this.conversationWatch.clear();
+		const session = this.exploration;
+		if (!session) { return; }
+		const directory = URI.joinPath(URI.file(session.root), '.ade', 'exploration');
+		const resource = URI.joinPath(directory, `${session.id}.json`);
+		const refresh = this.conversationWatch.add(new ThrottledDelayer<void>(300));
+		const watcher = this.conversationWatch.add(this.files.createWatcher(directory, { recursive: false, excludes: [] }));
+		this.conversationWatch.add(watcher.onDidChange(event => {
+			if (!event.contains(resource)) { return; }
+			void refresh.trigger(async () => {
+				if (this.exploration?.id === session.id) { await this.refreshExploration(true); }
+			}).catch(error => { if (this.conversation && !isCancellationError(error)) { this.notifications.error(String(error)); } });
+		}));
+	}
+
+	private async sendConversation(root: string, config: CliConfig, messages: AdeAiMessage[], token: CancellationToken): Promise<string> {
+		if (!this.conversation || this.conversation.root !== root || !await this.trust.requestWorkspaceTrust()) { throw new Error(localize('ade.explore.scopeChanged', "The Exploration Project Is No Longer Active.")); }
+		const operation = this.operations.acquire('ai');
+		if (!operation) { throw new Error(localize('ade.ai.busy', "Another A.D.E Operation Is Running. Wait for It to Finish.")); }
+		this.host.busy = true; this.host.changed();
+		try {
+			const session = this.exploration?.root === root ? this.exploration : undefined;
+			const result: { text: string } = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', root, ...(session ? { snapshot: this.code.context!.snapshot, sessionId: session.id } : {}), config: JSON.stringify(config), messages: session ? messages : [{ role: 'user', text: `Project context: model file ${this.project.modelUri?.fsPath ?? 'not saved'}, active diagram ${this.project.activeView?.id ?? 'none'}. Preserve semantic IDs and valid references. Only edit files when the user requests a change.` }, ...messages] }, token));
+			return result.text;
+		} finally {
+			operation.dispose(); this.host.busy = false;
+			if (this.code.context?.sourceRoot === root) { try { await this.refreshExploration(true); } catch (error) { this.notifications.error(String(error)); } }
+			this.host.changed();
+		}
 	}
 
 	private persistExploration(): void {
@@ -163,11 +199,16 @@ export class AdeAiDiagrams extends Disposable {
 		return result;
 	}
 
-	private async refreshExploration(): Promise<void> {
+	private async refreshExploration(live = false): Promise<void> {
 		await this.discardMissingExploration();
 		if (!this.exploration || this.exploration.root !== this.code.context?.sourceRoot) { return; }
-		const result = await this.explorationRequest({ action: 'open', sessionId: this.exploration.id });
+		const session = this.exploration;
+		const result = await this.explorationRequest({ action: live ? 'status' : 'open', sessionId: session.id });
+		if (this.exploration !== session || this.code.context?.sourceRoot !== session.root) { return; }
 		this._diagramExploration = result.data; this.host.changed();
+		if (this.conversation) {
+			this.aiDialog.updateProgress(localize('ade.ai.dialog.progress', "{0} of {1} Planned Diagrams Prepared · {2} Source Tool Calls", result.data.tasks.filter(task => ['ready', 'applied', 'cancelled'].includes(task.status)).length, result.data.plan?.items.length ?? 0, result.data.usage.toolCalls));
+		}
 	}
 
 	private bindExplorationTools(resource: URI): void {
@@ -209,14 +250,6 @@ export class AdeAiDiagrams extends Disposable {
 			opened = true;
 		}, { kind: 'diagram' });
 		if (opened) { await this.chat(); }
-	}
-
-	private async explorationCliArguments(): Promise<string[]> {
-		const session = this.exploration!;
-		const result = await this.explorationRequest({ action: 'open', sessionId: session.id });
-		const mcp = result.data.mcp;
-		if (!mcp) { throw new Error(localize('ade.explore.mcpMissing', "Rebuild ADE to Install the Local Diagram Tools.")); }
-		return ['--sandbox', 'read-only', '-c', `mcp_servers.ade.command=${JSON.stringify(mcp.command)}`, '-c', `mcp_servers.ade.args=${JSON.stringify(mcp.args)}`];
 	}
 
 	async configureDiagramBudget(): Promise<void> {
@@ -378,9 +411,7 @@ export class AdeAiDiagrams extends Disposable {
 		@IDialogService private readonly dialogs: IDialogService,
 		@IFileService private readonly files: IFileService,
 		@IEditorService private readonly editors: IEditorService,
-		@ITerminalService private readonly terminals: ITerminalService,
-		@ITerminalGroupService private readonly terminalGroups: ITerminalGroupService,
-		@IChatWidgetService private readonly chatWidgets: IChatWidgetService,
+		@IAdeAiDialogService private readonly aiDialog: IAdeAiDialogService,
 		@ICodexAccountService private readonly codexAccount: ICodexAccountService,
 		@IAgentSdkSetupService private readonly setup: IAgentSdkSetupService,
 		@IConfigurationService private readonly configuration: IConfigurationService,
@@ -404,13 +435,14 @@ export class AdeAiDiagrams extends Disposable {
 	failGeneration(message: string): void { this.diagramError = this.notifications.notify({ severity: Severity.Error, message }); }
 	finishOperation(): void { this.diagramRunning = false; }
 	resetProject(): void {
-		this.conversation = undefined;
+		void this.aiDialog.close();
+		this.conversation = undefined; this.conversationWatch.clear();
 		this.explorationTools.clear(); this.explorationBinding = undefined;
 		this._diagramExploration = undefined; this._diagramReview = undefined;
 	}
 	followCodeContext(): void {
 		const context = this.code.context;
-		if (this.conversation && context && this.conversation.root !== context.sourceRoot) { this.conversation = undefined; this.host.activityStatus = undefined; this.host.changed(); }
+		if (this.conversation && context && this.conversation.root !== context.sourceRoot) { void this.aiDialog.close(); this.conversation = undefined; this.conversationWatch.clear(); this.host.activityStatus = undefined; this.host.changed(); }
 		if (this.exploration && context && this.exploration.root !== context.sourceRoot) { this.explorationTools.clear(); this.explorationBinding = undefined; this._diagramExploration = undefined; }
 		if (this._diagramProgress && context && this._diagramProgress.sourceRoot !== context.sourceRoot) { this._diagramProgress = undefined; this.host.changed(); }
 	}

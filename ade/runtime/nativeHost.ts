@@ -46,6 +46,12 @@ function context(snapshot: string, state: CodeImport, model = state.model): Code
 		diagnostics: [...(state.semantic?.diagnostics.map(item => `${item.file}: ${item.code}`) ?? []), ...(state.analysis.compilerDiagnostics ?? [])]
 	};
 }
+
+async function diagramMcp(root: string, sessionId: string): Promise<{ command: string; args: string[] }> {
+	const mcpPath = fileURLToPath(new URL(import.meta.url.endsWith('/adeCodeEngine.js') ? './adeDiagramMcp.js' : '../ai/diagram-mcp.mjs', import.meta.url));
+	if (!(await stat(mcpPath).catch(() => undefined))?.isFile()) { throw new Error(`Diagram tools are missing at ${mcpPath}. Rebuild ADE and restart before continuing exploration.`); }
+	return { command: process.env.ADE_NODE_EXECUTABLE || 'node', args: [mcpPath, root, sessionId] };
+}
 function previewResponse(token: string, preview: Preview): CodePreview {
 	const { next, previous, result: prepared } = preview;
 	return { token, context: context(previous.directory, next), files: prepared.report.files, declarations: prepared.report.declarations, dependencies: prepared.report.dependencies, conflicts: prepared.report.conflicts, impact: prepared.report.impact, parsed: next.analysis.parsed, reused: next.analysis.reused, semanticAnalyzed: next.analysis.semanticWork?.analyzed ?? [], semanticReused: next.analysis.semanticWork?.reused ?? [], reconciliation: { status: prepared.status, origin: prepared.origin, commonRevision: previous.state.revision, sourceEdits: prepared.mutations.map(edit => ({ file: edit.file, beforeRevision: contentHash(edit.before), afterRevision: contentHash(edit.after) })), diagnostics: prepared.diagnostics }, ai: preview.ai };
@@ -85,12 +91,29 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 		async execute(input, signal): Promise<string> {
 			if (Buffer.byteLength(input) > 1024 * 1024) { throw new Error('Request exceeds 1 MiB'); }
 			const request: unknown = JSON.parse(input);
-			if (request && typeof request === 'object' && 'operation' in request && request.operation === 'collaboration' && 'request' in request && typeof request.request === 'string' && Object.keys(request).length === 2) {
-				if (needsExternalStructuralNode(request.request, runtime.electron)) { return verifyWithExternalNode(request.request, import.meta.url, signal); }
-				return executeCollaboration(request.request, signal);
+			const collaboration = request as { operation?: unknown; request?: unknown };
+			if (request && typeof request === 'object' && collaboration.operation === 'collaboration' && typeof collaboration.request === 'string' && Object.keys(request).length === 2) {
+				if (needsExternalStructuralNode(collaboration.request, runtime.electron)) { return verifyWithExternalNode(collaboration.request, import.meta.url, signal); }
+				return executeCollaboration(collaboration.request, signal);
 			}
 			validateCodeRequest(request);
 			signal?.throwIfAborted();
+			if (request.operation === 'diagramChat') {
+				const root = await realpath(request.root);
+				let mcp: { command: string; args: string[] } | undefined;
+				let durationMs: number | undefined;
+				if (request.snapshot && request.sessionId) {
+					if (import.meta.url.endsWith('/nativeHost.ts')) { await import('../scripts/source-loader.mjs'); }
+					const snapshot = await readSnapshot(request.snapshot);
+					if (await realpath(snapshot.state.sourceRoot) !== root) { throw new Error('The assistant project changed. Open it again.'); }
+					const { executeDiagramExploration } = await import('../ai/diagramSession.ts');
+					const opened = await executeDiagramExploration(request.snapshot, { action: 'open', sessionId: request.sessionId }, signal);
+					durationMs = (opened.data as { budget: { maxDurationMs: number } }).budget.maxDurationMs;
+					mcp = await diagramMcp(root, request.sessionId);
+				}
+				const { runDiagramChat } = await import('../ai/diagramChat.ts');
+				return JSON.stringify(await runDiagramChat(root, JSON.parse(request.config), request.messages, mcp, signal, undefined, durationMs));
+			}
 			if (request.operation === 'exploration') {
 				if (import.meta.url.endsWith('/nativeHost.ts')) { await import('../scripts/source-loader.mjs'); }
 				const { executeDiagramExploration } = await import('../ai/diagramSession.ts');
@@ -98,14 +121,11 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 				const result = await executeDiagramExploration(request.snapshot, explorationRequest, signal);
 				if (explorationRequest.action === 'open' || explorationRequest.action === 'budget') {
 					const snapshot = await readSnapshot(request.snapshot);
-					const bundled = import.meta.url.endsWith('/adeCodeEngine.js');
-					const mcpPath = fileURLToPath(new URL(bundled ? './adeDiagramMcp.js' : '../ai/diagram-mcp.mjs', import.meta.url));
-					if (!(await stat(mcpPath).catch(() => undefined))?.isFile()) { throw new Error(`Diagram tools are missing at ${mcpPath}. Rebuild ADE and restart before continuing exploration.`); }
-					Object.assign(result.data, { mcp: { command: process.env.ADE_NODE_EXECUTABLE || 'node', args: [mcpPath, snapshot.state.sourceRoot, result.sessionId] } });
+					Object.assign(result.data, { mcp: await diagramMcp(snapshot.state.sourceRoot, result.sessionId) });
 				}
 				return JSON.stringify(result);
 			}
-			if ('scope' in request && request.scope) { readSourceScope(request.scope); }
+			if ((request.operation === 'import' || request.operation === 'inspect' || request.operation === 'preview' || request.operation === 'history') && request.scope) { readSourceScope(request.scope); }
 			let result: CodeResponse;
 			if (request.operation === 'import') {
 				const root = await realpath(request.root);
@@ -209,7 +229,7 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 						if (previous.state.files.find(item => item.file === file)?.status === 'parsed') { continue; }
 						let changed = false;
 						try { changed = contentHash((await sourceFile(next.sourceRoot, file)).content) !== source.revision; }
-						catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) { throw error; } changed = true; }
+						catch (error) { if (!(error instanceof Error && Object.hasOwn(error, 'code') && (error as NodeJS.ErrnoException).code === 'ENOENT')) { throw error; } changed = true; }
 						if (changed) { prepared.origin = prepared.origin === 'model' || prepared.origin === 'both' ? 'both' : 'code'; prepared.status = prepared.report.conflicts.length ? 'conflict' : 'pending'; if (!prepared.report.files.changed.includes(file)) { prepared.report.files.changed.push(file); } }
 					}
 					const token = randomUUID();

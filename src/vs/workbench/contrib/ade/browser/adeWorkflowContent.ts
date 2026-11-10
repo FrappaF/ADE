@@ -25,22 +25,32 @@ interface AdeWorkflowContentHost {
 
 /** Renders AI workflow, settings and secondary tools for the ADE editor. */
 export class AdeWorkflowContent {
+	private group(parent: HTMLElement, title: string, description?: string): HTMLElement {
+		const section = dom.append(parent, dom.$('section.ade-action-group'));
+		dom.append(section, dom.$('h2')).textContent = title;
+		if (description) { this.host.paragraph(section, description); }
+		return dom.append(section, dom.$('div.ade-action-list'));
+	}
+
 	renderAiSettings(parent: HTMLElement): void {
-		if (!this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
-		const settings = this.controls.details(parent, localize('ade.ai.settings', "AI Settings"), 'ai-settings');
-		this.host.paragraph(settings, this.ai.connectionStatus);
+		dom.append(parent, dom.$('h1')).textContent = localize('ade.ai.settings', "AI Settings");
+		if (!this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true) {
+			this.host.paragraph(parent, localize('ade.ai.disabled', "AI Features Are Disabled in Settings.")); return;
+		}
+		const account = this.group(parent, localize('ade.ai.account', "Account and Model"), this.ai.connectionStatus);
 		for (const [label, action] of [
 			[localize('ade.ai.diagramModel', "Choose Diagram Model"), () => this.ai.chooseDiagramModel()],
-			[localize('ade.ai.refresh', "Refresh Account and Models"), () => this.ai.refreshConnection()],
 			[localize('ade.ai.connectButton', "Connect Claude Code or Codex"), () => this.ai.connect()],
-			[localize('ade.ai.cliButton', "Open AI CLI"), () => this.ai.openCli()],
-			[localize('ade.explore.adjustBudget', "Adjust Exploration Budget"), () => this.ai.configureDiagramBudget()],
+			[localize('ade.ai.refresh', "Refresh Account and Models"), () => this.ai.refreshConnection()]
+		] as const) { this.host.button(account, label, () => { void action().catch(error => this.notifications.error(String(error.message ?? error))); }).disabled = this.ai.busy || this.code.busy; }
+		const budget = this.group(parent, localize('ade.ai.generationSettings', "Diagram Generation"), localize('ade.ai.generationSettingsHint', "Control How Much Source the Assistant Can Explore While Preparing Diagrams."));
+		this.host.button(budget, localize('ade.explore.adjustBudget', "Adjust Exploration Budget"), () => { void this.ai.configureDiagramBudget(); }).disabled = this.ai.busy || !this.ai.diagramExploration;
+		const advanced = this.controls.details(parent, localize('ade.ai.advancedSettings', "Advanced · Model Benchmarks"), 'ai-benchmarks');
+		for (const [label, action] of [
 			[localize('ade.ai.benchmarkButton', "Compare AI Models"), () => this.ai.benchmark()],
 			[localize('ade.ai.reconciliationBenchmarkButton', "Compare Reconciliation Models"), () => this.ai.benchmarkReconciliation()],
 			[localize('ade.ai.exportButton', "Export Model Benchmark Results"), () => this.ai.exportBenchmark()]
-		] as const) {
-			this.host.button(settings, label, () => { void action().catch(error => this.notifications.error(String(error.message ?? error))); }).disabled = this.ai.busy || this.code.busy;
-		}
+		] as const) { this.host.button(advanced, label, () => { void action().catch(error => this.notifications.error(String(error.message ?? error))); }).disabled = this.ai.busy || this.code.busy; }
 	}
 
 	renderWorkflow(parent: HTMLElement): void {
@@ -136,69 +146,64 @@ export class AdeWorkflowContent {
 	}
 
 	renderTools(toolbar: HTMLElement): void {
-		toolbar.setAttribute('aria-label', localize('ade.tools', "Technical Tools"));
+		toolbar.setAttribute('aria-label', localize('ade.documentStatus', "Document Status"));
 		const status = dom.append(toolbar, dom.$('span.ade-sync-status'));
-		status.setAttribute('role', 'status');
-		status.textContent = this.host.documentStatus();
-		if (this.ai.chatLocation && !this.host.root.classList.contains('ade-canvas-mode')) {
-			const back = this.host.button(toolbar, localize('ade.backToDiagrams', "Back to Diagrams"), () => { void this.ai.returnToDiagrams(); });
-			back.setAttribute('aria-description', this.ai.chatLocation === 'terminal' ? localize('ade.codexInTerminal', "Codex Is Open in the Terminal") : localize('ade.codexInChat', "Codex Is Open in Chat"));
+		status.setAttribute('role', 'status'); status.textContent = this.host.documentStatus();
+	}
+
+	renderProjectActions(parent: HTMLElement): void {
+		dom.append(parent, dom.$('h1')).textContent = localize('ade.projectSettings', "Project");
+		const files = this.group(parent, localize('ade.project.files', "Open and Save"));
+		const commands = (container: HTMLElement, entries: readonly (readonly [string, string])[]) => {
+			for (const [label, command] of entries) { this.host.button(container, label, () => { void this.commandService.executeCommand(command); }); }
+		};
+		commands(files, [
+			[localize('ade.openProject', "Open Project"), 'ade.openProject'],
+			[localize('ade.importCode', "Import Codebase"), 'ade.importCodebase'],
+			[localize('ade.openModel', "Open Model"), 'ade.openModel'],
+			[localize('ade.saveCopy', "Save Project Copy"), 'ade.saveCopy'],
+			[localize('ade.reload', "Reload Project"), 'ade.reload']
+		]);
+		if (this.project.error || this.project.loading) { return; }
+		const exploration = this.group(parent, localize('ade.project.explore', "Explore and Review"));
+		this.host.button(exploration, localize('ade.systemMap', "System Map"), () => this.project.showSystemMap());
+		commands(exploration, [[localize('ade.search.button', "Search System"), 'ade.search'], [localize('ade.diagramNavigation', "Diagram Navigation"), 'ade.showNavigation']]);
+		this.host.button(exploration, localize('ade.code.inspectButton', "Code Evidence"), () => { void this.code.inspect(this.project.selectedId || undefined); }).disabled = this.code.busy || !this.code.context;
+		if (this.ai.structuralReview) { this.host.button(exploration, localize('ade.ai.reviewButton', "Review Changes"), () => this.host.showReview()); }
+		if (this.ai.structuralProblem) { this.host.paragraph(exploration, this.ai.structuralProblem); }
+		if ((this.project.model.version === 4 || this.project.model.version === 5) && this.project.editable) {
+			const model = this.group(parent, localize('ade.project.design', "Model and Architecture"));
+			commands(model, [
+				[localize('ade.blueprint.edit', "Edit Blueprint"), 'ade.blueprint'],
+				[localize('ade.blueprint.decisions', "Project Architecture Decisions"), 'ade.projectDecisions'],
+				[localize('ade.task.edit', "Tasks and Clarifications"), 'ade.taskIntent'],
+				[localize('ade.task.profile', "Choose Runtime and Review Stack Plan"), 'ade.selectStructuralProfile']
+			]);
+			const behavior = this.controls.details(parent, localize('ade.project.behavior', "Advanced · Executable Behavior"), 'project-behavior');
+			commands(behavior, [
+				[localize('ade.states.edit', "Edit Executable State Machine"), 'ade.stateMachine'],
+				[localize('ade.interaction.edit', "Edit Executable Interaction"), 'ade.interaction'],
+				[localize('ade.predicate.edit', "Edit Pure Predicate"), 'ade.predicate'],
+				[localize('ade.messaging.edit', "Edit Messaging Topology"), 'ade.messaging'],
+				[localize('ade.messaging.simulate', "Simulate Messaging"), 'ade.simulateMessaging'],
+				[localize('ade.states.simulate', "Simulate State Machine"), 'ade.ai.simulateStates'],
+				[localize('ade.task.preview', "Structural AI Context Preview"), 'ade.prepareStructuralContext']
+			]);
+			this.host.button(behavior, localize('ade.pure.expectations', "Independent Business Expectations"), () => { void this.ai.editPureCriteria(); });
+			this.host.button(behavior, localize('ade.pure.reverse', "Reverse Model Behavior from Code"), () => { void this.ai.structuralReverse(); });
+			const implementation = this.group(parent, localize('ade.project.implementation', "Implementation"), this.ai.continuityStatus);
+			this.host.button(implementation, localize('ade.review.prepare', "Prepare Model to Code Review"), () => { void this.ai.implement(); }).disabled = this.ai.busy || this.code.busy;
+			this.host.button(implementation, localize('ade.continuity.toggle', "Start or Stop Continuous Preparation"), () => { void this.ai.configureContinuity(); }).disabled = this.ai.busy || this.code.busy;
 		}
-		const moreTools = this.controls.details(toolbar, localize('ade.moreTools', "Project Actions"), 'technical-tools');
-		if (this.project.error || this.project.loading) {
-			this.host.button(moreTools, localize('ade.reload', "Reload Project"), () => { void this.project.retry(); });
-			this.host.button(moreTools, localize('ade.openProject', "Open Project"), () => { void this.commandService.executeCommand('ade.openProject'); });
-			return;
-		}
-		if (this.ai.structuralReview) { this.host.button(moreTools, localize('ade.ai.reviewButton', "Review Changes"), () => this.host.showReview()); }
-		if (this.ai.structuralProblem) { this.host.paragraph(moreTools, this.ai.structuralProblem); }
-		if (this.project.model.version === 4 || this.project.model.version === 5) {
-			this.host.paragraph(moreTools, localize('ade.sync.capability', "This model uses reviewed changes. Imported diagrams are updated through exploration; legacy bidirectional Sync is unavailable for this format."));
-		}
+		const recovery = this.controls.details(parent, localize('ade.project.recovery', "Recovery and Synchronization"), 'project-recovery');
 		for (const [label, action] of [
 			[localize('ade.ai.resumeButton', "Resume Implementation"), () => this.ai.resume()],
 			[localize('ade.ai.recoverButton', "Recover Interrupted Implementation"), () => this.ai.recover()]
-		] as const) { this.host.button(moreTools, label, () => { void action(); }).disabled = this.ai.busy || this.code.busy; }
-		if ((this.project.model.version === 4 || this.project.model.version === 5) && this.project.editable) {
-			this.host.paragraph(moreTools, this.ai.continuityStatus);
-			this.host.button(moreTools, localize('ade.continuity.toggle', "Start or Stop Continuous Preparation"), () => { void this.ai.configureContinuity(); });
-			this.host.button(moreTools, localize('ade.task.edit', "Tasks and Clarifications"), () => { void this.commandService.executeCommand('ade.taskIntent'); });
-			this.host.button(moreTools, localize('ade.review.prepare', "Prepare Model to Code Review"), () => { void this.ai.implement(); }).disabled = this.ai.busy || this.code.busy;
-			this.host.button(moreTools, localize('ade.task.profile', "Choose Runtime and Review Stack Plan"), () => { void this.commandService.executeCommand('ade.selectStructuralProfile'); });
-			this.host.button(moreTools, localize('ade.states.simulate', "Simulate State Machine"), () => { void this.commandService.executeCommand('ade.ai.simulateStates'); });
-			this.host.button(moreTools, localize('ade.messaging.edit', "Edit Messaging Topology"), () => { void this.commandService.executeCommand('ade.messaging'); });
-			this.host.button(moreTools, localize('ade.messaging.simulate', "Simulate Messaging"), () => { void this.commandService.executeCommand('ade.simulateMessaging'); });
-			this.host.button(moreTools, localize('ade.states.edit', "Edit Executable State Machine"), () => { void this.commandService.executeCommand('ade.stateMachine'); });
-			this.host.button(moreTools, localize('ade.interaction.edit', "Edit Executable Interaction"), () => { void this.commandService.executeCommand('ade.interaction'); });
-			this.host.button(moreTools, localize('ade.predicate.edit', "Edit Pure Predicate"), () => { void this.commandService.executeCommand('ade.predicate'); });
-			if ((this.project.model.version === 4 || this.project.model.version === 5)) {
-				this.host.button(moreTools, localize('ade.pure.expectations', "Independent Business Expectations"), () => { void this.ai.editPureCriteria(); });
-				this.host.button(moreTools, localize('ade.pure.reverse', "Reverse Model Behavior from Code"), () => { void this.ai.structuralReverse(); });
-			}
-			this.host.button(moreTools, localize('ade.task.preview', "Structural AI Context Preview"), () => { void this.commandService.executeCommand('ade.prepareStructuralContext'); });
-			this.host.button(moreTools, localize('ade.blueprint.edit', "Edit Blueprint"), () => { void this.commandService.executeCommand('ade.blueprint'); });
-			this.host.button(moreTools, localize('ade.blueprint.decisions', "Project Architecture Decisions"), () => { void this.commandService.executeCommand('ade.projectDecisions'); });
-		}
-		this.host.button(moreTools, localize('ade.systemMap', "System Map"), () => this.project.showSystemMap());
-		this.host.button(moreTools, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search'); });
-		if (this.project.model.version !== 4 && this.project.model.version !== 5 && !isSourceEvidenceModel(this.project.model)) { this.host.button(moreTools, localize('ade.syncProject', "Sync Project"), () => { void this.code.sync(); }).disabled = this.code.busy || this.ai.busy || !this.code.context; }
-		this.host.button(moreTools, localize('ade.code.inspectButton', "Code Evidence"), () => { void this.code.inspect(this.project.selectedId || undefined); }).disabled = this.code.busy || !this.code.context;
-		for (const [label, command] of [
-			[localize('ade.reload', "Reload Project"), 'ade.reload'],
-			[localize('ade.saveCopy', "Save Project Copy"), 'ade.saveCopy'],
-			[localize('ade.openProject', "Open Project"), 'ade.openProject'],
-			[localize('ade.openModel', "Open Model"), 'ade.openModel'],
-			[localize('ade.importCode', "Import Codebase"), 'ade.importCodebase'],
-			[localize('ade.diagramNavigation', "Diagram Navigation"), 'ade.showNavigation'],
-			[localize('ade.files', "Files"), 'ade.openFiles'],
-			[localize('ade.terminal', "Terminal"), 'ade.openTerminal'],
-			[localize('ade.debug', "Debug"), 'workbench.view.debug'],
-			[localize('ade.git', "Git"), 'workbench.view.scm'],
-			[localize('ade.undoSync', "Undo Last Sync"), 'ade.undoSync'],
-			[localize('ade.recoverSync', "Recover Sync"), 'ade.restoreCodeSnapshot'],
-			[localize('ade.return', "Return to Model"), 'ade.showDiagram']
-		]) { this.host.button(moreTools, label, () => { void this.commandService.executeCommand(command); }); }
-		this.renderAiSettings(toolbar);
+		] as const) { this.host.button(recovery, label, () => { void action(); }).disabled = this.ai.busy || this.code.busy; }
+		if (this.project.model.version !== 4 && this.project.model.version !== 5 && !isSourceEvidenceModel(this.project.model)) { this.host.button(recovery, localize('ade.syncProject', "Sync Project"), () => { void this.code.sync(); }).disabled = this.code.busy || this.ai.busy || !this.code.context; }
+		commands(recovery, [[localize('ade.undoSync', "Undo Last Sync"), 'ade.undoSync'], [localize('ade.recoverSync', "Recover Sync"), 'ade.restoreCodeSnapshot']]);
+		const developer = this.controls.details(parent, localize('ade.project.developerTools', "Developer Tools"), 'project-developer-tools');
+		commands(developer, [[localize('ade.files', "Files"), 'ade.openFiles'], [localize('ade.terminal', "Terminal"), 'ade.openTerminal'], [localize('ade.debug', "Debug"), 'workbench.view.debug'], [localize('ade.git', "Git"), 'workbench.view.scm']]);
 	}
 
 	constructor(

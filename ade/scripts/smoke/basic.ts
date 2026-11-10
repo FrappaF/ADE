@@ -23,14 +23,10 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await sidebar.locator('section[aria-label="Conferma acquisto"]')
 				.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
 			const collaboration = await openAiSettings(window);
-			const implementation = collaboration.locator('details').filter({ has: window.locator('summary', { hasText: /^Guided Feature Implementation$/ }) });
-			await implementation.locator(':scope > summary').click();
-			await collaboration.locator('details').filter({ has: window.locator('summary', { hasText: /^Review, Recovery and Other AI Actions$/ }) }).locator(':scope > summary').click();
-			assert.equal(await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).isEnabled(), true);
-			assert.equal(await collaboration.getByRole('button', { name: 'Open AI CLI', exact: true }).isEnabled(), true);
-			for (const name of ['Implement Feature', 'Run Tests', 'Apply Verified Changes', 'Undo Implementation']) {
-				assert.equal(await collaboration.getByRole('button', { name, exact: true }).isEnabled(), false);
+			for (const name of ['Choose Diagram Model', 'Connect Claude Code or Codex', 'Refresh Account and Models']) {
+				assert.equal(await collaboration.getByRole('button', { name, exact: true }).isEnabled(), true);
 			}
+			assert.equal(await collaboration.getByRole('button', { name: 'Open AI CLI', exact: true }).count(), 0);
 			await collaboration.getByRole('button', { name: 'Connect Claude Code or Codex', exact: true }).click();
 			await window.locator('.quick-input-widget').getByText('Choose AI CLI', { exact: true }).waitFor();
 			await window.locator('.quick-input-widget').getByText('Codex', { exact: true }).waitFor();
@@ -38,7 +34,7 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await window.keyboard.press('Escape');
 			await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
 			await window.screenshot({ path: path.join(evidence, 'ai-collaboration.png') });
-			await collaboration.locator(':scope > summary').click();
+			await shell.getByRole('tab', { name: 'Diagrams', exact: true }).click();
 			console.log('PASS: native AI controls and provider chooser render without inference; implementation, tests, apply and undo require an imported project or reviewed session.');
 			await shell.locator('.ade-canvas').getByRole('button', { name: 'Richiedi pagamento', exact: true }).click();
 			await shell.locator('.ade-properties').getByRole('heading', { name: 'Richiedi pagamento', exact: true }).waitFor();
@@ -59,10 +55,8 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await clickAdeButton(window, 'Return to Model');
 			await sidebar.waitFor();
 			await shell.locator('.ade-properties').getByRole('heading', { name: 'Pagamento rifiutato', exact: true }).waitFor();
-			const tools = shell.locator('details').filter({ has: window.locator('summary', { hasText: /^More Tools$/ }) });
-			if (!await tools.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await tools.locator(':scope > summary').click(); }
 			for (const [name, selector] of [['Debug', '.debug-viewlet'], ['Git', '.scm-viewlet']]) {
-				await shell.getByRole('button', { name, exact: true }).click();
+				await clickAdeButton(window, name);
 				await window.locator(selector).waitFor();
 				await clickAdeButton(window, 'Return to Model');
 				await sidebar.waitFor();

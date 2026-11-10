@@ -6,7 +6,7 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 6;
+export const adeCodeProtocolVersion = 7;
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
 export interface CliRuntimeEnvironment { path?: string; pathExt?: string; codexHome?: string }
@@ -21,6 +21,7 @@ export interface CodeResolution { path: string; choice: 'model' | 'code' }
 export type CodeRequest =
 	| { operation: 'collaboration'; request: string }
 	| { operation: 'exploration'; snapshot: string; request: string }
+	| { operation: 'diagramChat'; root: string; snapshot?: string; sessionId?: string; config: string; messages: { role: 'user' | 'assistant'; text: string }[] }
 	| { operation: 'import'; root: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
 	| { operation: 'inspect' | 'preview' | 'history'; snapshot: string; scope?: CodeScope; renames?: CodeRename[]; resolutions?: CodeResolution[]; bundles?: string[] }
 	| { operation: 'undoSync' | 'recoverSync'; snapshot: string; id: string }

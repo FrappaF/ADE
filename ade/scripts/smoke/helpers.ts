@@ -7,14 +7,19 @@ import type { Page } from 'playwright-core';
 import path from 'node:path';
 
 export async function revealAdeButton(window: Page, name: string) {
-	const button = window.locator('.ade-shell').getByRole('button', { name, exact: true, includeHidden: true });
+	const shell = window.locator('.ade-shell');
+	let button = shell.getByRole('button', { name, exact: true, includeHidden: true });
+	if (!await button.count()) { await shell.getByRole('tab', { name: 'Project', exact: true }).click(); button = shell.getByRole('button', { name, exact: true, includeHidden: true }); }
 	for (const disclosure of await button.locator('xpath=ancestor::details').all()) {
 		if (!await disclosure.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await disclosure.locator(':scope > summary').click(); }
 	}
 	return button;
 }
 
-export async function clickAdeButton(window: Page, name: string) { await (await revealAdeButton(window, name)).click(); }
+export async function clickAdeButton(window: Page, name: string) {
+	if (name === 'Return to Model') { await runCommand(window, 'A.D.E: Return to Model'); return; }
+	await (await revealAdeButton(window, name)).click();
+}
 
 export async function closeCanvasActions(window: Page) {
 	const menu = window.locator('.ade-floating-menu > details');
@@ -45,13 +50,8 @@ export async function openProperties(window: Page) {
 }
 
 export async function openAiSettings(window: Page) {
-	const menu = window.locator('.ade-floating-menu > details');
-	if (await menu.count() && !await menu.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await menu.locator(':scope > summary').click(); }
-	const tools = window.locator('.ade-shell details').filter({ has: window.locator('summary', { hasText: /^More Tools$/ }) });
-	if (!await tools.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await tools.locator(':scope > summary').click(); }
-	const settings = tools.locator('details').filter({ has: window.locator('summary', { hasText: /^AI Settings and Advanced Actions$/ }) });
-	if (!await settings.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await settings.locator(':scope > summary').click(); }
-	return settings;
+	await window.locator('.ade-shell').getByRole('tab', { name: 'AI Settings', exact: true }).click();
+	return window.locator('.ade-content');
 }
 
 export async function openModelFile(window: Page, file: string) {

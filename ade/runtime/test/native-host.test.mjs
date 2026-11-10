@@ -38,7 +38,32 @@ async function workspace(t, files) {
 	return root;
 }
 test('native boundary advertises the semantic diagram protocol', () => {
-	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'exploration', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'restore', 'source'] });
+	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'diagramChat', 'exploration', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'restore', 'source'] });
+});
+test('the modal request runs the CLI headlessly with the verified project MCP binding', async t => {
+	const root = await workspace(t, { 'app.py': 'def start():\n    return 1\n' });
+	const context = await call({ operation: 'import', root, syntaxOnly: true });
+	const opened = await call({ operation: 'exploration', snapshot: context.snapshot, request: JSON.stringify({ action: 'open', workflow: 'project' }) });
+	const executable = join(root, '.ade', 'fixture codex');
+	await writeFile(executable, `#!${process.execPath}
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+const config = args.filter((arg, index) => args[index - 1] === '-c');
+const command = config.find(arg => arg.startsWith('mcp_servers.ade.command='));
+const mcpArgs = JSON.parse(config.find(arg => arg.startsWith('mcp_servers.ade.args=')).slice('mcp_servers.ade.args='.length));
+fs.accessSync(mcpArgs[0]);
+fs.writeFileSync(${JSON.stringify(join(root, '.ade', 'chat-receipt.json'))}, JSON.stringify({ command, mcpArgs, cwd: process.cwd(), ephemeral: args.includes('--ephemeral') }));
+fs.writeFileSync(args[args.indexOf('--output-last-message') + 1], 'Prepared project diagrams');
+console.log(JSON.stringify({ type: 'turn.completed' }));
+`, { mode: 0o700 });
+	const request = { operation: 'diagramChat', root, snapshot: context.snapshot, sessionId: opened.sessionId, config: JSON.stringify({ ...config, executable }), messages: [{ role: 'user', text: 'Generate all project diagrams' }] };
+	assert.deepEqual(await call(request), { text: 'Prepared project diagrams' });
+	const receipt = JSON.parse(await readFile(join(root, '.ade', 'chat-receipt.json'), 'utf8'));
+	assert.deepEqual([receipt.mcpArgs.slice(1), receipt.cwd, receipt.ephemeral], [[root, opened.sessionId], root, true]);
+	assert.match(receipt.command, /^mcp_servers\.ade\.command=/);
+	await assert.rejects(call({ ...request, root: await workspace(t, {}) }), /project changed/);
+	const missingSession = { ...request }; delete missingSession.sessionId;
+	await assert.rejects(call(missingSession), /diagramChat.*sessionId/);
 });
 test('independent engines cannot consume each other\'s reconciliation previews', async t => {
 	const root = await workspace(t, { 'task.py': 'def task():\n    return 1\n' });

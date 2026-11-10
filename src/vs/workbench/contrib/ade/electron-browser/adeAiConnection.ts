@@ -17,7 +17,7 @@ import { parseCodexModelSelection } from '../../../../platform/agentHost/common/
 import { readAgentModelPricingMeta } from '../../../../platform/agentHost/common/meta/agentModelMeta.js';
 import { IAgentSdkSetupService } from '../../../services/agentHost/browser/agentSdkSetupService.js';
 import { ITerminalService, ITerminalGroupService } from '../../terminal/browser/terminal.js';
-import { IChatWidgetService } from '../../chat/browser/chat.js';
+import { IAdeAiDialogService } from '../browser/adeAiDialog.js';
 import { getNewChatSessionResource } from '../../chat/common/model/chatUri.js';
 import { IAdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
@@ -215,7 +215,7 @@ export class AdeAiConnection extends Disposable {
 			return;
 		}
 		if (action.id === 'reload') { this.setup.requestReload(provider); await this.checkAccount(provider, this._config?.provider === provider ? this._config.executable : provider); return; }
-		if (action.id === 'chat') { await this.chatWidgets.openSession(getNewChatSessionResource('agent-host-' + provider)); return; }
+		if (action.id === 'chat') { await this.aiDialog.open({ resource: getNewChatSessionResource('agent-host-' + provider), onClose: async () => this.host.changed() }); return; }
 		const choices = this.nativeModels(provider);
 		let preferred: string | null = null;
 		try {
@@ -269,7 +269,7 @@ export class AdeAiConnection extends Disposable {
 		@INotificationService private readonly notifications: INotificationService,
 		@ITerminalService private readonly terminals: ITerminalService,
 		@ITerminalGroupService private readonly terminalGroups: ITerminalGroupService,
-		@IChatWidgetService private readonly chatWidgets: IChatWidgetService,
+		@IAdeAiDialogService private readonly aiDialog: IAdeAiDialogService,
 		@ICodexAccountService private readonly codexAccount: ICodexAccountService,
 		@IAgentSdkSetupService private readonly setup: IAgentSdkSetupService,
 		@IAgentHostService private readonly agents: IAgentHostService,

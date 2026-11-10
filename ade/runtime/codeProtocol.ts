@@ -8,6 +8,7 @@ import { adeCodeProtocolVersion, type CodeBridgeProtocol, type CodeRequest } fro
 const nonempty = { type: 'string', minLength: 1 };
 
 const requestSchemas = [
+	{ type: 'object', additionalProperties: false, required: ['operation', 'root', 'config', 'messages'], dependentRequired: { snapshot: ['sessionId'], sessionId: ['snapshot'] }, properties: { operation: { const: 'diagramChat' }, root: nonempty, snapshot: nonempty, sessionId: nonempty, config: nonempty, messages: { type: 'array', minItems: 1, maxItems: 60, items: { type: 'object', additionalProperties: false, required: ['role', 'text'], properties: { role: { enum: ['user', 'assistant'] }, text: nonempty } } } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'request'], properties: { operation: { const: 'exploration' }, snapshot: nonempty, request: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'root'], properties: { operation: { const: 'import' }, root: nonempty, scope: { type: 'object' }, syntaxOnly: { type: 'boolean' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot'], properties: { operation: { enum: ['inspect', 'preview', 'history'] }, snapshot: nonempty, scope: { type: 'object' }, renames: { type: 'array' }, resolutions: { type: 'array', maxItems: 1000, items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
@@ -30,7 +31,7 @@ const requestValidators = requestSchemas.map(schema => ({ operations: schema.pro
 export const codeBridgeProtocol: CodeBridgeProtocol = { version: adeCodeProtocolVersion, operations: ['collaboration', ...requestValidators.flatMap(item => item.operations)] };
 
 function invalidRequest(request: unknown): Error {
-	const operation = request && typeof request === 'object' && 'operation' in request ? request.operation : undefined;
+	const operation = request && typeof request === 'object' && Object.hasOwn(request, 'operation') ? (request as { operation?: unknown }).operation : undefined;
 	const validator = requestValidators.find(item => item.operations.includes(operation as string));
 	if (!validator) { return new Error('Invalid code bridge request: missing or unsupported operation. Rebuild ADE and restart the application if it was updated.'); }
 	validator.validate(request);

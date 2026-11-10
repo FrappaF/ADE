@@ -1112,3 +1112,239 @@
 		padding: var(--vscode-spacing-size80);
 	}
 }
+
+/* One workspace, three clear destinations. Project controls do not compete with diagrams. */
+.ade-workspace-tabs {
+	display: flex;
+	flex-shrink: 0;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size160);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	background: var(--vscode-editor-background);
+}
+
+.ade-workspace-tabs button[role="tab"] {
+	margin: 0;
+	background: transparent;
+	border-radius: 0;
+	border-bottom: 2px solid transparent;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-workspace-tabs button[aria-selected="true"] {
+	color: var(--vscode-editor-foreground);
+	border-bottom-color: var(--vscode-tab-activeBorderTop, var(--vscode-focusBorder));
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-canvas-mode > .ade-workspace-tabs {
+	position: relative;
+	z-index: 6;
+}
+
+.ade-shell.ade-canvas-mode {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+}
+
+.ade-shell.ade-canvas-mode > .ade-content {
+	position: relative;
+	inset: auto;
+}
+
+.ade-action-group {
+	max-width: 880px;
+	margin-block: var(--vscode-spacing-size240);
+}
+
+.ade-action-group > h2,
+.ade-menu-group > h3 {
+	margin-block: 0 var(--vscode-spacing-size80);
+}
+
+.ade-action-group > p {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-action-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-action-list > button {
+	margin: 0;
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+	text-align: start;
+}
+
+.ade-menu-group {
+	padding-block: var(--vscode-spacing-size120);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-menu-group > h3 {
+	font-size: var(--vscode-fontSize-label1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-menu-items,
+.ade-menu-items .ade-editing,
+.ade-menu-items .ade-navigation {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.ade-review-blockers {
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+	margin-block: var(--vscode-spacing-size80);
+	border-inline-start: 2px solid var(--vscode-editorWarning-foreground);
+	background: var(--vscode-inputValidation-warningBackground);
+	max-height: 25vh;
+	overflow: auto;
+	flex-shrink: 0;
+}
+
+.ade-review-blockers ul {
+	padding-inline-start: var(--vscode-spacing-size200);
+	margin-block: var(--vscode-spacing-size80);
+}
+
+.ade-ai-dialog {
+	color: var(--vscode-editor-foreground);
+	background: var(--vscode-editor-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-large);
+	box-shadow: 0 8px 32px var(--vscode-widget-shadow);
+	width: min(960px, calc(100vw - 48px));
+	height: min(800px, calc(100vh - 48px));
+	max-width: none;
+	max-height: none;
+	padding: 0;
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-fontSize-body1);
+}
+
+.ade-ai-dialog[open] {
+	display: flex;
+	flex-direction: column;
+}
+
+.ade-ai-dialog::backdrop {
+	background: var(--vscode-widget-shadow);
+}
+
+.ade-ai-dialog-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--vscode-spacing-size160);
+	padding: var(--vscode-spacing-size160) var(--vscode-spacing-size240);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-ai-dialog-header h2 {
+	font-size: var(--vscode-fontSize-heading2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	margin: 0;
+}
+
+.ade-ai-dialog-header button,
+.ade-ai-composer button {
+	font: inherit;
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size160);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, transparent);
+	border-radius: var(--vscode-cornerRadius-small);
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-background);
+	cursor: pointer;
+}
+
+.ade-ai-dialog-header button {
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+}
+
+.ade-ai-dialog button:focus-visible,
+.ade-ai-composer textarea:focus-visible {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.ade-ai-dialog-hint {
+	color: var(--vscode-descriptionForeground);
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size240);
+	margin: 0;
+}
+
+.ade-ai-dialog-content {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.ade-ai-dialog-content > .interactive-session {
+	flex: 1;
+	min-height: 0;
+}
+
+.ade-ai-transcript {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: var(--vscode-spacing-size160) var(--vscode-spacing-size240);
+}
+
+.ade-ai-message {
+	margin-block-end: var(--vscode-spacing-size240);
+	line-height: 1.6;
+	overflow-wrap: anywhere;
+}
+
+.ade-ai-message strong {
+	font-weight: var(--vscode-fontWeight-semiBold);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-ai-message > div {
+	white-space: pre-wrap;
+}
+
+.ade-ai-dialog-status {
+	margin: 0;
+	padding-inline: var(--vscode-spacing-size240);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-ai-dialog-status[role="alert"] {
+	color: var(--vscode-errorForeground);
+}
+
+.ade-ai-composer {
+	display: flex;
+	align-items: flex-end;
+	gap: var(--vscode-spacing-size120);
+	padding: var(--vscode-spacing-size160) var(--vscode-spacing-size240);
+}
+
+.ade-ai-composer textarea {
+	flex: 1;
+	min-width: 0;
+	resize: vertical;
+	max-height: 200px;
+	font: inherit;
+	padding: var(--vscode-spacing-size120);
+	color: var(--vscode-input-foreground);
+	background: var(--vscode-input-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.ade-ai-composer button:disabled {
+	color: var(--vscode-disabledForeground);
+	cursor: default;
+}

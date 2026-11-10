@@ -13,6 +13,7 @@ import { ITelemetryService } from '../../../../platform/telemetry/common/telemet
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
+import { type ModelView } from '../common/modelTypes.js';
 import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { IAdeCodeService } from './adeCodeService.js';
 import { IAdeAiService } from './adeAiService.js';
@@ -39,7 +40,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, type IQuickPickItem, type IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { getDefaultHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegateFactory.js';
@@ -55,6 +56,8 @@ export class AdeEditor extends EditorPane {
 	private root!: HTMLElement;
 
 	private reviewOpen = false;
+
+	private activeTab: 'workspace' | 'project' | 'ai' = 'workspace';
 
 	private reviewContext: string | undefined;
 
@@ -102,6 +105,8 @@ export class AdeEditor extends EditorPane {
 
 	override focus(): void { this.root?.focus(); }
 
+	showWorkspace(): void { this.activeTab = 'workspace'; if (this.root) { this.render(); } }
+
 	captureAccessibilityFocus(): () => void { return this.controls.captureFocus(this.root); }
 
 	describeCurrentContext(): string {
@@ -143,11 +148,11 @@ export class AdeEditor extends EditorPane {
 		this.activeReview = undefined;
 		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
 		const reviewContext = this.ai.structuralReview ? `${this.ai.structuralReview.root}:${this.ai.structuralReview.id}` : undefined;
-		if (reviewContext !== this.reviewContext) { this.reviewOpen = !!reviewContext; this.reviewContext = reviewContext; }
-		const reviewMode = (!!this.ai.diagramReview || this.reviewOpen && !!this.ai.structuralReview && this.project.section !== 'home') && !this.project.error && !this.project.loading;
+		if (reviewContext !== this.reviewContext) { this.reviewOpen = !!reviewContext; this.reviewContext = reviewContext; if (reviewContext) { this.activeTab = 'workspace'; } }
+		const reviewMode = this.activeTab === 'workspace' && (!!this.ai.diagramReview || this.reviewOpen && !!this.ai.structuralReview && this.project.section !== 'home') && !this.project.error && !this.project.loading;
 		this.root.classList.toggle('ade-review-mode', reviewMode);
 		const sourceEvidence = isSourceEvidenceModel(this.project.model);
-		const canvasMode = !reviewMode && !sourceEvidence && this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error && !this.project.hasStructuralErrors;
+		const canvasMode = this.activeTab === 'workspace' && !reviewMode && !sourceEvidence && this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error && !this.project.hasStructuralErrors;
 		this.root.classList.toggle('ade-canvas-mode', canvasMode);
 		if (this.canvas.cameraKey) { this.canvas.cameras.set(this.canvas.cameraKey, { ...this.canvas.camera }); }
 		const cameraKey = canvasMode ? `${this.project.projectRoot?.toString() ?? 'demo'}:${this.project.model.id}:${this.project.activeView!.id}` : undefined;
@@ -155,11 +160,17 @@ export class AdeEditor extends EditorPane {
 		this.canvas.interactions.clear();
 		this.controls.render(this.root, () => {
 			dom.clearNode(this.root);
+			this.renderTabs(this.root);
 			if (!canvasMode) { this.renderNavigation(this.root); }
 			const content = dom.append(this.root, dom.$('main.ade-content'));
 			this.content = content;
-			if (!reviewMode && !canvasMode && !sourceEvidence && this.project.section !== 'home' && !this.project.error && !this.project.loading) { this.workflow.renderWorkflow(content); }
-			if (reviewMode) {
+			content.setAttribute('role', 'tabpanel'); content.setAttribute('aria-labelledby', `ade-tab-${this.activeTab}`);
+			if (this.activeTab === 'workspace' && !reviewMode && !canvasMode && !sourceEvidence && this.project.section !== 'home' && !this.project.error && !this.project.loading) { this.workflow.renderWorkflow(content); }
+			if (this.activeTab === 'project') {
+				this.workflow.renderProjectActions(content);
+			} else if (this.activeTab === 'ai') {
+				this.workflow.renderAiSettings(content);
+			} else if (reviewMode) {
 				this.renderReview(content);
 			} else if (this.project.hasStructuralErrors && !this.project.error && !this.project.loading) {
 				dom.append(content, dom.$('h1')).textContent = localize('ade.draft.title', "Draft Needs Correction");
@@ -169,7 +180,7 @@ export class AdeEditor extends EditorPane {
 				this.button(content, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); });
 			} else if (sourceEvidence && !this.project.loading && !this.project.error) {
 				dom.append(content, dom.$('h1')).textContent = localize('ade.import.interpretTitle', "Explore Your Codebase");
-				this.paragraph(content, localize('ade.import.interpretDescription', "Your local source inventory is ready. Explore responsibilities and flows with AI, review each draft, then apply the diagrams you choose. An inventory alone does not verify the architecture."));
+				this.paragraph(content, localize('ade.import.interpretDescription', "Your local source inventory is ready. Plan and generate the project diagrams with AI, then review and apply them together."));
 				if (this.code.context) { this.workflow.renderWorkflow(content); }
 				else { this.paragraph(content, localize('ade.import.readingEvidence', "Preparing source evidence…")); }
 				if (!this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true) { this.paragraph(content, localize('ade.import.aiRequired', "Enable AI features to interpret the source into diagrams. The technical index stays available as code evidence.")); }
@@ -201,12 +212,27 @@ export class AdeEditor extends EditorPane {
 		this.readingChanged.fire();
 	}
 
+	private renderTabs(parent: HTMLElement): void {
+		const tabs = dom.append(parent, dom.$('nav.ade-workspace-tabs'));
+		tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', localize('ade.workspaceSections', "Workspace Sections"));
+		const entries = [['workspace', localize('ade.workspaceTab', "Diagrams")], ['project', localize('ade.projectTab', "Project")], ['ai', localize('ade.ai.settings', "AI Settings")]] as const;
+		for (const [id, label] of entries) {
+			const button = this.button(tabs, label, () => { this.activeTab = id; this.render(); }, `workspace-tab:${id}`);
+			button.id = `ade-tab-${id}`; button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(this.activeTab === id)); button.tabIndex = this.activeTab === id ? 0 : -1;
+		}
+		this.canvas.interactions.add(dom.addDisposableListener(tabs, 'keydown', (event: KeyboardEvent) => {
+			const index = entries.findIndex(([id]) => id === this.activeTab);
+			const next = event.key === 'ArrowRight' ? (index + 1) % entries.length : event.key === 'ArrowLeft' ? (index + entries.length - 1) % entries.length : event.key === 'Home' ? 0 : event.key === 'End' ? entries.length - 1 : undefined;
+			if (next !== undefined) { event.preventDefault(); this.activeTab = entries[next][0]; this.render(); this.controls.focusTarget(`workspace-tab:${this.activeTab}`); }
+		}));
+	}
+
 	private renderNavigation(parent: HTMLElement, canvas = false): void {
 		const navigation = dom.append(parent, dom.$('nav.ade-navigation'));
 		navigation.setAttribute('aria-label', localize('ade.navigation', "Project Navigation"));
-		this.iconButton(navigation, localize('ade.back', "Back"), Codicon.arrowLeft, () => this.project.goBack()).disabled = !this.project.canGoBack;
-		this.iconButton(navigation, localize('ade.forward', "Forward"), Codicon.arrowRight, () => this.project.goForward()).disabled = !this.project.canGoForward;
-		this.iconButton(navigation, localize('ade.home', "Home"), Codicon.home, () => this.project.showHome());
+		this.iconButton(navigation, localize('ade.back', "Back"), Codicon.arrowLeft, () => { this.activeTab = 'workspace'; this.project.goBack(); }).disabled = !this.project.canGoBack;
+		this.iconButton(navigation, localize('ade.forward', "Forward"), Codicon.arrowRight, () => { this.activeTab = 'workspace'; this.project.goForward(); }).disabled = !this.project.canGoForward;
+		this.iconButton(navigation, localize('ade.home', "Home"), Codicon.home, () => { this.activeTab = 'workspace'; this.project.showHome(); });
 		if (!canvas && this.project.section !== 'home' && !this.project.error && !this.project.loading) {
 			dom.append(navigation, dom.$('span.ade-project-name')).textContent = this.project.model.name;
 			this.button(navigation, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); }).disabled = isSourceEvidenceModel(this.project.model);
@@ -240,6 +266,7 @@ export class AdeEditor extends EditorPane {
 	}
 
 	private showReview(): void {
+		this.activeTab = 'workspace';
 		this.reviewOpen = true;
 		this.render();
 		this.controls.focusTarget(this.ai.canApply ? 'review-publish' : 'review-verify');
@@ -252,6 +279,7 @@ export class AdeEditor extends EditorPane {
 				busy: this.ai.busy || this.code.busy,
 				current: this.project.modelUri?.toString() === diagramReview.modelUri && canonicalJson(semanticContent(this.project.model)) === diagramReview.semanticRevision,
 				apply: () => { void this.ai.applyDiagramReview(); }, refresh: () => { void this.ai.reviewDiagramProposal(diagramReview.id); },
+				continue: () => { void this.ai.resumeDiagrams(); },
 				close: () => { this.ai.closeDiagramReview(); this.controls.focusTarget(`proposal-review:${diagramReview.id}`); },
 				technical: () => { void this.ai.inspectDiagramReview(); }
 			});
@@ -486,8 +514,14 @@ export class AdeEditor extends EditorPane {
 
 	private async chooseDiagram(): Promise<void> {
 		if (isSourceEvidenceModel(this.project.model)) { this.project.showHome(); return; }
-		const choice = await this.quick.pick(this.project.model.views.map(view => ({ label: view.name, description: viewLabels[view.kind], view })), { title: localize('ade.chooseDiagram', "Choose Diagram") });
-		if (choice) { this.project.showDiagram(choice.view.id); }
+		const items: ((IQuickPickItem & { view?: ModelView }) | IQuickPickSeparator)[] = [];
+		for (const group of getDiagramGroups(this.project.model)) {
+			if (!group.views.length) { continue; }
+			items.push({ type: 'separator', label: group.name });
+			for (const view of group.views) { items.push({ label: view.name, description: viewLabels[view.kind], detail: view.subjectId ? this.project.model.semantics.elements.find(element => element.id === view.subjectId)?.name : undefined, view }); }
+		}
+		const choice = await this.quick.pick<IQuickPickItem & { view?: ModelView }>(items, { title: localize('ade.chooseDiagram', "Choose Diagram"), matchOnDescription: true });
+		if (choice?.view) { this.project.showDiagram(choice.view.id); }
 	}
 
 	private documentStatus(): string {
@@ -527,8 +561,10 @@ export class AdeEditor extends EditorPane {
 		this.workflow = new AdeWorkflowContent({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), documentStatus: () => this.documentStatus(), get root() { return self.root; }, showReview: () => this.showReview() }, this.controls, this.project, this.ai, this.configurationService, this.notifications, this.code, this.commandService);
 
 		this._register(code.onDidChange(() => { if (this.root) { this.render(); } }));
-		this._register(ai.onDidChange(() => { if (this.root) { this.render(); } }));
-		this._register(project.onDidChange(() => { if (this.root) { this.render(); } }));
+		let reviewId = ai.diagramReview?.id;
+		this._register(ai.onDidChange(() => { if (ai.diagramReview?.id !== reviewId) { reviewId = ai.diagramReview?.id; if (reviewId) { this.activeTab = 'workspace'; } } if (this.root) { this.render(); } }));
+		let navigationContext = `${project.section}:${project.activeView?.id}`;
+		this._register(project.onDidChange(() => { const context = `${project.section}:${project.activeView?.id}`; if (context !== navigationContext) { this.activeTab = 'workspace'; navigationContext = context; } if (this.root) { this.render(); } }));
 		this._register(configurationService.onDidChangeConfiguration(event => {
 			if (this.root && (event.affectsConfiguration(AccessibilityVerbositySettingId.Ade) || event.affectsConfiguration('chat.disableAIFeatures'))) { this.render(); }
 		}));

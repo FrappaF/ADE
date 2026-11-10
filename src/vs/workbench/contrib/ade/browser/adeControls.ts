@@ -8,6 +8,17 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 
 /** Native actions with stable focus identities across presentation updates. */
 export class AdeControls extends Disposable {
+	private static readonly owners = new WeakMap<Element, AdeControls>();
+
+	/** Resolve the original control after the assistant refreshes its underlying page. */
+	static captureActiveFocus(): () => void {
+		const active = dom.getActiveElement();
+		const owner = active ? AdeControls.owners.get(active) : undefined;
+		const root = active?.closest<HTMLElement>('.ade-shell');
+		if (owner && root) { return owner.captureFocus(root); }
+		return () => { if (dom.isHTMLElement(active) && active.isConnected) { active.focus(); } };
+	}
+
 	private readonly listeners = this._register(new DisposableStore());
 	private readonly targets = new Map<string, HTMLElement | SVGElement>();
 	private readonly disclosures = new Map<string, HTMLDetailsElement>();
@@ -16,6 +27,7 @@ export class AdeControls extends Disposable {
 
 	trackFocus(id: string, element: HTMLElement | SVGElement): void {
 		this.targets.set(id, element);
+		AdeControls.owners.set(element, this);
 	}
 
 	focusTarget(id: string): boolean {
@@ -44,7 +56,7 @@ export class AdeControls extends Disposable {
 		const button = dom.append(parent, dom.$<HTMLButtonElement>('button'));
 		button.type = 'button';
 		button.textContent = label;
-		this.targets.set(id, button);
+		this.trackFocus(id, button);
 		this.listeners.add(dom.addDisposableListener(button, 'click', action));
 		return button;
 	}
@@ -55,7 +67,7 @@ export class AdeControls extends Disposable {
 		details.open = this.expanded.has(id);
 		const summary = dom.append(details, dom.$('summary'));
 		summary.textContent = label;
-		this.targets.set(id, summary);
+		this.trackFocus(id, summary);
 		this.disclosures.set(id, details);
 		return dom.append(details, dom.$('.ade-options-content'));
 	}

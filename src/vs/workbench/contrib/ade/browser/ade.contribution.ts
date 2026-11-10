@@ -129,7 +129,8 @@ registerAction2(class extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		accessor.get(IAdeProjectService).showHome();
 		const editorService = accessor.get(IEditorService);
-		await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		const pane = await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		if (pane instanceof AdeEditor) { pane.showWorkspace(); }
 	}
 });
 
@@ -143,7 +144,8 @@ registerAction2(class extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		await project.restore();
 		if (project.activeView) { project.showDiagram(project.activeView.id); }
-		await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		const pane = await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		if (pane instanceof AdeEditor) { pane.showWorkspace(); }
 	}
 });
 registerAction2(class extends Action2 {

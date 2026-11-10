@@ -113,14 +113,16 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 const {expandDiagramContext,compactDiagramReply,plannedDiagramReply}=await import(${JSON.stringify(path.join(root, 'ade/code-import/test/compact-diagram-fixture.mjs'))});
 const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
-if(args[0]!=='exec'){
+if(args[0]!=='exec'){process.exit(2);}
+const input=readFileSync(0,'utf8');
+if(!args.includes('--output-schema')){
 const counter=${JSON.stringify(path.join(directory, 'codex-chat-starts.txt'))};
 writeFileSync(counter,String((existsSync(counter)?Number(readFileSync(counter,'utf8')):0)+1));
-writeSync(1,'SIMULATED_CODEX_CHAT_READY\\n');
-process.stdin.on('data',data=>{if(data.toString().includes('change-code')){const file=process.cwd()+'/gateway.ts';writeFileSync(file,readFileSync(file,'utf8').replace('amount > 0','amount >= 0'));writeSync(1,'SIMULATED_CODEX_CHANGE_COMPLETE\\n');}});
-process.stdin.resume();setInterval(()=>{},1000);await new Promise(()=>{});
+const messages=JSON.parse(input.slice(input.indexOf('Conversation:')+'Conversation:'.length));
+if(messages.some(message=>message.role==='user'&&message.text.includes('change-code'))){const file=process.cwd()+'/gateway.ts';writeFileSync(file,readFileSync(file,'utf8').replace('amount > 0','amount >= 0'));}
+writeFileSync(args[args.indexOf('--output-last-message')+1],'SIMULATED_CODEX_CHANGE_COMPLETE');
+writeSync(1,JSON.stringify({type:'turn.completed'})+'\\n');process.exit(0);
 }
-const input=readFileSync(0,'utf8');
 const rawContext=JSON.parse(input.slice(input.indexOf('\\n')+1));
 const context=expandDiagramContext(rawContext);
 if(context.step&&existsSync(${JSON.stringify(path.join(directory, 'fail-diagrams'))})){writeSync(2,'Simulated provider unavailable');process.exit(1);}
@@ -220,19 +222,21 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 			await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 			assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function reviewedPurchase('));
 			await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).click();
-			await window.waitForFunction(() => [...document.querySelectorAll('.terminal .xterm-rows > div')].map(row => row.textContent).join('').includes('SIMULATED_CODEX_CHAT_READY'));
+			const assistant = window.getByRole('dialog', { name: 'A.D.E Assistant', exact: true });
+			await assistant.waitFor();
 			await window.screenshot({ path: path.join(evidence, 'ux-codex-chat.png') });
-			const terminal = window.locator('.terminal .xterm-helper-textarea');
-			await terminal.focus(); await window.keyboard.type('change-code\n');
-			await window.waitForFunction(() => [...document.querySelectorAll('.terminal .xterm-rows > div')].map(row => row.textContent).join('').includes('SIMULATED_CODEX_CHANGE_COMPLETE'));
-			await shell.getByRole('button', { name: 'Back to Diagrams', exact: true }).click();
+			await assistant.getByRole('textbox', { name: 'Message the Assistant', exact: true }).fill('change-code');
+			await assistant.getByRole('button', { name: 'Send', exact: true }).click();
+			await assistant.getByText('SIMULATED_CODEX_CHANGE_COMPLETE', { exact: true }).waitFor();
+			await assistant.getByRole('button', { name: 'Close', exact: true }).click();
 			await shell.getByText('Code Has Changed. Choose Update Diagrams to Reflect the Changes Here.', { exact: true }).waitFor();
 			assert.match(await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).getAttribute('class') ?? '', /ade-primary-action/);
 			await window.screenshot({ path: path.join(evidence, 'ux-code-changes.png') });
 			await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).click();
-			await terminal.waitFor({ state: 'attached' });
+			await assistant.waitFor();
+			assert.equal(await assistant.locator('article').count(), 0, 'closing the assistant resets its conversation');
 			assert.equal(await readFile(path.join(directory, 'codex-chat-starts.txt'), 'utf8'), '1');
-			await shell.getByRole('button', { name: 'Back to Diagrams', exact: true }).click();
+			await assistant.getByRole('button', { name: 'Close', exact: true }).click();
 			await writeFile(path.join(directory, 'fail-diagrams'), 'offline');
 			await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).click();
 			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click(); await shell.getByRole('button', { name: 'Resume Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
@@ -254,7 +258,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 			assert.equal(final.model.views.length, 2);
 			assert.equal(validateSemanticModel(final.model).filter(item => item.severity === 'error').length, 0);
 			assert.ok(final.model.semantics.elements.some((item: SemanticElement) => item.name === 'reviewedPurchase'));
-			await writeFile(path.join(evidence, 'diagram-workflow-results.json'), JSON.stringify({ importSteps: 2, diagrams: final.model.views.length, primaryActions: ['Diagrams', 'Update Code', 'Chat with Codex', 'Update Diagrams'], inspectorInitiallyHidden: true, directFirstSetup: true, codexTerminalReused: true, returnToDiagrams: true, activeDiagramPreserved: true, cancelledBeforeInference: true, failedGenerationResumed: true, modelToCode: true, codeToModel: true, codeToModelVisibleChange: true, provider: 'simulated-original-cli' }, null, 2));
+			await writeFile(path.join(evidence, 'diagram-workflow-results.json'), JSON.stringify({ importSteps: 2, diagrams: final.model.views.length, primaryActions: ['Diagrams', 'Update Code', 'Chat with Codex', 'Update Diagrams'], inspectorInitiallyHidden: true, directFirstSetup: true, codexModalReset: true, automaticRefresh: true, activeDiagramPreserved: true, cancelledBeforeInference: true, failedGenerationResumed: true, modelToCode: true, codeToModel: true, codeToModelVisibleChange: true, provider: 'simulated-original-cli' }, null, 2));
 			await harness.app.close(); harness.app = undefined;
 			window = await launch(); shell = window.locator('.ade-shell');
 			await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });

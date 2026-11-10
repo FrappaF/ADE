@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './adeAiDialogService.js';
 import { type StructuralProjectSession as StructuralSession } from '../common/modelProject.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -46,7 +47,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	get workflowStatus(): string | undefined { return this.activityStatus; }
 
-	get chatLocation(): 'chat' | 'terminal' | undefined { return this.diagrams.chatLocation; }
+	get chatLocation(): 'modal' | undefined { return this.diagrams.chatLocation; }
 
 	get connectionStatus(): string { return this.connection.connectionStatus; }
 

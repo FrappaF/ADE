@@ -40,7 +40,7 @@ export interface DiagramExplorationSession {
 	publication?: { proposalIds?: string[]; proposalId: string; destination: string; status: 'publishing' | 'applied' | 'rolledBack' };
 }
 export interface ExplorationRequest {
-	action: 'open' | 'tool' | 'publish' | 'budget' | 'review' | 'publishAll'; sessionId?: string; model?: string; budget?: ExplorationBudget; workflow?: 'project'; reviewId?: string;
+	action: 'open' | 'status' | 'tool' | 'publish' | 'budget' | 'review' | 'publishAll'; sessionId?: string; model?: string; budget?: ExplorationBudget; workflow?: 'project'; reviewId?: string;
 	tool?: string; arguments?: object; callId?: string; turnId?: string; proposalId?: string;
 }
 export interface DiagramExplorationResult {
@@ -48,7 +48,7 @@ export interface DiagramExplorationResult {
 	capabilities: ExplorationCapabilities[]; data: object; diagnostics: object[];
 }
 const requestValidator = new Ajv2020().compile({ type: 'object', additionalProperties: false, required: ['action'], properties: {
-	workflow: { const: 'project' }, reviewId: { type: 'string', maxLength: 100 }, action: { enum: ['open', 'tool', 'publish', 'budget', 'review', 'publishAll'] }, sessionId: { type: 'string', maxLength: 100 }, model: { type: 'string', minLength: 1, maxLength: 200 }, budget: { type: 'object' }, tool: { type: 'string', maxLength: 120 }, arguments: { type: 'object' }, callId: { type: 'string', maxLength: 300 }, turnId: { type: 'string', maxLength: 300 }, proposalId: { type: 'string', maxLength: 100 }
+	workflow: { const: 'project' }, reviewId: { type: 'string', maxLength: 100 }, action: { enum: ['open', 'status', 'tool', 'publish', 'budget', 'review', 'publishAll'] }, sessionId: { type: 'string', maxLength: 100 }, model: { type: 'string', minLength: 1, maxLength: 200 }, budget: { type: 'object' }, tool: { type: 'string', maxLength: 120 }, arguments: { type: 'object' }, callId: { type: 'string', maxLength: 300 }, turnId: { type: 'string', maxLength: 300 }, proposalId: { type: 'string', maxLength: 100 }
 } });
 const toolValidator = new Ajv2020({ strict: false, allErrors: true });
 const validators = new Map(diagramToolDefinitions.map(tool => [tool.name, toolValidator.compile(tool.inputSchema)]));
@@ -64,6 +64,10 @@ async function explorationLock<T>(root: string, task: () => Promise<T>): Promise
 	await previous;
 	try { return await lock(root, task); }
 	finally { release(); if (projectQueues.get(root) === current) { projectQueues.delete(root); } }
+}
+
+function sessionSummary(session: DiagramExplorationSession, blockers: string[]) {
+	return { sessionId: session.id, model: session.model, workflow: session.workflow, plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...blockers, ...diagramProjectBlockers(session.plan, session.tasks, session.proposals)] } : undefined, budget: session.budget, usage: session.usage, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views' && patch.value !== null).map(patch => patch.value) })), instruction: diagramSessionInstruction };
 }
 
 /** Select the command's actual union branch instead of reporting an unrelated merge schema. */
@@ -139,6 +143,15 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 	if (!requestValidator(request)) { throw new Error('invalidExplorationRequest'); }
 	const initial = await readSnapshot(snapshotDirectory), root = initial.state.sourceRoot;
 	if (snapshotDirectory !== initial.directory || initial.directory !== join(root, '.ade', 'imports', basename(initial.directory))) { throw new Error('snapshotOutsideProjectScope'); }
+	// UI progress reads must neither contend with the MCP writer nor rewrite its session file.
+	if (request.action === 'status') {
+		if (!request.sessionId) { throw new Error('sessionRequired'); }
+		const session = await readExplorationSession(root, request.sessionId);
+		if (session.projectId !== initial.state.projectId) { throw new Error('sessionProjectMismatch'); }
+		const staged = session.workflow === 'project' ? stageDiagramProject(architecture(initial), session.proposals) : { model: architecture(initial), blockers: [] };
+		return { version: 2, sessionId: session.id, sourceRevision: initial.state.revision, indexRevision: initial.state.revision, semanticRevision: await diagramModelRevision(staged.model), capabilities: explorationCapabilities(initial.state), data: sessionSummary(session, staged.blockers), diagnostics: [] };
+	}
+
 	return explorationLock(root, async () => {
 		signal?.throwIfAborted();
 		const pointer = await active(root);
@@ -178,7 +191,7 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		for (const occurrence of model.foundation.occurrences) { if (occurrence.evidenceIds?.some(id => staleEvidence.has(id))) { affected.add(occurrence.id); } }
 		for (const scenario of model.foundation.interactions) { if (scenario.description?.evidenceIds.some(id => staleEvidence.has(id)) || scenario.occurrenceIds.some(id => affected.has(id))) { affected.add(scenario.id); } }
 		const invalidation = { evidenceIds: [...staleEvidence], objectIds: [...affected], viewIds: model.views.filter(view => view.nodes.some(node => affected.has(node.elementId)) || view.relationIds.some(id => affected.has(id)) || affected.has(view.interactionId ?? '')).map(view => view.id), queryIds: session.queries.filter(query => query.revision !== indexScopeRevision(queryState, query.filePrefix)).map(query => query.id) };
-		const summary = () => ({ sessionId: session.id, model: session.model, workflow: session.workflow, plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...staged.blockers, ...diagramProjectBlockers(session.plan, session.tasks, session.proposals)] } : undefined, budget: session.budget, usage: session.usage, invalidation, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views').map(patch => patch.value) })), instruction: diagramSessionInstruction, sourceChanged: state.revision !== snapshot.state.revision });
+		const summary = () => ({ ...sessionSummary(session, staged.blockers), invalidation, sourceChanged: state.revision !== snapshot.state.revision });
 		if (request.action === 'budget') {
 			if (!request.budget) { throw new Error('budgetRequired'); }
 			session.budget = budget(request.budget); session.created = Date.now(); await save(session); return envelope(summary());

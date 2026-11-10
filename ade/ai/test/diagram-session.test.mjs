@@ -6,7 +6,7 @@
 import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -358,4 +358,16 @@ test('feature membership and view grouping stay separate from architectural owne
 	assert.deepEqual(proposal.diagnostics, []);
 	const result = applyDiagramProposal(model, proposal);
 	assert.deepEqual([result.views[0].featureId, result.views[0].nodes, result.foundation.ownership, result.foundation.memberships.map(entry => ({ elementId: entry.elementId, featureId: entry.featureId }))], ['feature', model.views[0].nodes, [], [{ elementId: 'api', featureId: 'feature' }]]);
+});
+
+
+test('live progress reads leave the session and in-flight tool receipts untouched', async t => {
+	const f = await fixture(t);
+	const path = join(f.root, '.ade', 'exploration', f.opened.sessionId + '.json');
+	const session = JSON.parse(await readFile(path, 'utf8'));
+	session.calls.push({ id: 'active-call', fingerprint: 'test', tool: 'ade_project_inspect', status: 'running', inputBytes: 2, outputBytes: 0 });
+	await writeFile(path, JSON.stringify(session));
+	const before = await stat(path), contents = await readFile(path, 'utf8');
+	const result = await executeDiagramExploration(f.context.snapshot, { action: 'status', sessionId: f.opened.sessionId });
+	assert.deepEqual([result.data.sessionId, await readFile(path, 'utf8'), (await stat(path)).mtimeMs], [f.opened.sessionId, contents, before.mtimeMs]);
 });

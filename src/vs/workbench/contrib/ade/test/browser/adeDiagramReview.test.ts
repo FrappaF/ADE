@@ -38,6 +38,7 @@ suite('A.D.E imported diagram review', () => {
 	test('one surface explains local effects, evidence and limits before explicit application', () => {
 		const f = fixture(); f.render();
 		assert.deepStrictEqual(f.called, []);
+		assert.deepStrictEqual([root.querySelector('details')!.open, !!root.querySelector('details .ade-draft-changes'), root.querySelector('figure')!.parentElement?.className], [false, true, 'ade-review-body']);
 		for (const text of ['HTTP API', 'src/api.ts', 'complete coverage', 'Git', 'Other drafts remain available']) { assert.ok(root.textContent?.includes(text), text); }
 		root.querySelector('button')!.click();
 		assert.deepStrictEqual(f.called, ['apply']);
@@ -76,12 +77,20 @@ suite('A.D.E imported diagram review', () => {
 		assert.ok(root.querySelector('.ade-review-mode'), 'the ready review must replace the import landing page');
 		assert.equal(button(applyLabel).disabled, false);
 		assert.equal(root.querySelectorAll('figure.ade-review-preview').length, projectWorkflow ? 2 : 1);
-		assert.ok(editor.describeCurrentContext().includes('Source Evidence'));
+		assert.ok(editor.describeCurrentContext().includes('Overview'));
 		assert.deepStrictEqual(f.called, []);
 		button(applyLabel).click();
 		assert.deepStrictEqual(f.called, ['apply']);
 		button('Return to Exploration').click();
 		assert.deepStrictEqual([!!button(reviewLabel), project.section, project.model], [true, 'home', model]);
+		button('Project').click();
+		assert.deepStrictEqual([...root.querySelectorAll('.ade-action-group h2')].map(node => node.textContent), ['Open and Save', 'Explore and Review']);
+		assert.equal(root.querySelector('.ade-tools details'), null, 'project actions no longer occupy the footer');
+		editor.showWorkspace(); assert.ok(button(reviewLabel), 'explicit diagram navigation returns from the settings tabs');
+		button('AI Settings').click();
+		assert.deepStrictEqual([...root.querySelectorAll('.ade-action-group h2')].map(node => node.textContent), ['Account and Model', 'Diagram Generation']);
+		root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+		assert.ok(button(reviewLabel), 'the first tab returns to the existing diagram workflow');
 	});
 
 	}
@@ -99,5 +108,15 @@ suite('A.D.E imported diagram review', () => {
 	test('hostile review labels remain text; busy operations disable mutation and refresh', () => {
 		const f = fixture(); f.review.changes[0].after!.name = '<script>bad()</script>'; f.actions.busy = true; f.render();
 		assert.deepStrictEqual([root.querySelector('script'), [...root.querySelectorAll('button')].every(button => button.disabled)], [null, true]);
+	});
+
+	test('application blockers name the incomplete planned diagram beside the disabled button', () => {
+		const f = fixture();
+		f.review.projectReviewId = 'batch';
+		f.review.plan = { revision: 'plan', items: [{ id: 'data', name: 'Todo Data Model', viewKind: 'structure', rationale: 'Persistence responsibilities', intent: 'Storage', dependsOn: [] }] };
+		f.review.proposal.status = 'invalid'; f.review.proposal.diagnostics = [{ code: 'contract', path: '/project', args: ['plannedDiagramIncomplete:data'] }];
+		f.render();
+		const reason = root.querySelector('.ade-review-blockers')!;
+		assert.deepStrictEqual([root.querySelector('button')!.disabled, reason.closest('details'), reason.textContent?.includes('Todo Data Model Is Not Ready'), root.querySelector('button')!.getAttribute('aria-describedby')], [true, null, true, reason.id]);
 	});
 });

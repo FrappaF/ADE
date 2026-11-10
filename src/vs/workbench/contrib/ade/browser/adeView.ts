@@ -19,6 +19,7 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
+import { viewLabels } from './adeLabels.js';
 import { getDiagramGroups, getFeatureViews } from '../common/visualNavigation.js';
 import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { ModelView } from '../common/modelTypes.js';
@@ -165,7 +166,7 @@ export class AdeView extends ViewPane {
 				return;
 			}
 			if (isSourceEvidenceModel(model)) {
-				dom.append(body, dom.$('p')).textContent = localize('ade.import.pendingSidebar', "Local source inventory ready. Explore the architecture, review a draft, then apply the diagrams you choose.");
+				dom.append(body, dom.$('p')).textContent = localize('ade.import.pendingSidebar', "Source inventory ready. Generate the project diagrams, then review and apply all changes together.");
 				if (this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) { this.controls.button(body, localize('ade.explore.start', "Explore Architecture"), () => { void this.commandService.executeCommand('ade.ai.resumeDiagrams'); }); }
 				else { dom.append(body, dom.$('p')).textContent = localize('ade.import.aiDisabled', "AI features are disabled. Your local source inventory is preserved."); }
 				return;
@@ -190,8 +191,11 @@ export class AdeView extends ViewPane {
 				if (!group.views.length && !related.length) {
 					dom.append(context, dom.$('p')).textContent = localize('ade.noGroupDiagrams', "No diagrams in this context.");
 				}
-				for (const view of group.views) {
-					this.diagramButton(context, view);
+				for (const [kind, views] of Map.groupBy(group.views, view => view.kind)) {
+					const category = this.group(context, `${group.featureId ?? 'system'}:${kind}`, viewLabels[kind]);
+					for (const view of views) {
+						this.diagramButton(category, view);
+					}
 				}
 				if (related.length) {
 					dom.append(context, dom.$('p')).textContent = localize('ade.relatedDiagrams', "Related Diagrams");

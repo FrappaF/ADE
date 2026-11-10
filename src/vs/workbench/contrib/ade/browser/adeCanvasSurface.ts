@@ -58,19 +58,22 @@ export class AdeCanvasSurface {
 	renderCanvasMenus(parent: HTMLElement, view: ModelView): void {
 		const menu = this.canvas.floatingMenu = dom.append(parent, dom.$('nav.ade-floating-menu'));
 		menu.setAttribute('aria-label', localize('ade.canvasActions', "Canvas Actions"));
-		this.host.button(menu, localize('ade.openProject', "Open Project"), () => { void this.commandService.executeCommand('ade.openProject'); }, 'canvas-open-project');
 		this.host.button(menu, localize('ade.diagrams', "Diagrams"), () => { void this.host.chooseDiagram(); });
 		const title = dom.append(menu, dom.$('h1.ade-canvas-title')); title.textContent = view.name; title.title = localize('ade.canvas.context', "{0} · {1}", this.project.model.name, view.name);
 		const actions = this.controls.details(menu, localize('ade.canvasMenu', "More Actions"), 'canvas-actions');
-		const spread = this.host.button(actions, localize('ade.spreadOut', "Spread Out"), () => { this.project.edit({ kind: 'layout', viewId: view.id, density: 'spacious' }); this.host.focusSelection(); });
+		const group = (label: string) => { const section = dom.append(actions, dom.$('section.ade-menu-group')); dom.append(section, dom.$('h3')).textContent = label; return dom.append(section, dom.$('div.ade-menu-items')); };
+		const navigation = group(localize('ade.canvas.navigation', "Navigation"));
+		this.host.renderNavigation(navigation, true);
+		const editing = group(localize('ade.canvas.editing', "Edit Diagram"));
+		this.renderEditingToolbar(editing);
+		const display = group(localize('ade.canvas.display', "Layout and Display"));
+		const spread = this.host.button(display, localize('ade.spreadOut', "Spread Out"), () => { this.project.edit({ kind: 'layout', viewId: view.id, density: 'spacious' }); this.host.focusSelection(); });
 		spread.disabled = !this.project.editable || view.kind === 'sequence' || view.kind === 'activity' && !!view.interactionId;
 		if (view.subjectId) { this.host.renderBreadcrumbs(menu); }
-		this.host.renderNavigation(actions, true);
 		this.host.renderPrimaryActions(menu);
 		const state = dom.append(menu, dom.$('span.ade-document-state'));
 		state.setAttribute('role', 'status'); state.textContent = this.host.documentStatus();
-		this.renderEditingToolbar(actions);
-		const labels = this.host.button(actions, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !(this.showRelationshipLabels ?? !!notationRules[view.kind]); this.host.render(); });
+		const labels = this.host.button(display, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !(this.showRelationshipLabels ?? !!notationRules[view.kind]); this.host.render(); });
 		labels.setAttribute('aria-pressed', String(this.showRelationshipLabels ?? !!notationRules[view.kind]));
 		this.host.renderTools(dom.append(actions, dom.$('nav.ade-tools')));
 		const zoom = dom.append(parent, dom.$('nav.ade-floating-zoom'));
