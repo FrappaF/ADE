@@ -120,6 +120,19 @@ test('separate projects and same-named declarations cannot share identities', as
 	assert.deepEqual(validateSemanticModel(first.model), []);
 });
 
+test('large source inventories retain every entry and source declaration beyond the old 10000-entry cutoff', async t => {
+	const root = await workspace(t, [['src/checkout.rb', 'class Checkout\n  def pay\n    true\n  end\nend\n'], ['node_modules/external.rb', 'class External; end\n']]);
+	const assets = join(root, 'assets'), count = 10025;
+	await mkdir(assets);
+	for (let offset = 0; offset < count; offset += 64) {
+		await Promise.all(Array.from({ length: Math.min(64, count - offset) }, (_, index) => writeFile(join(assets, `asset-${String(offset + index).padStart(5, '0')}.txt`), 'asset')));
+	}
+	const result = await importCode(root, 'large-project');
+	assert.deepEqual({ files: result.files.length, assets: result.files.filter(file => file.file.startsWith('assets/')).length, parsed: result.analysis.parsed, declarations: result.files.find(file => file.file === 'src/checkout.rb').declarations.map(item => item.name), excluded: result.files.filter(file => file.status === 'excluded').map(file => file.file), validation: validateSemanticModel(result.model) }, { files: count + 2, assets: count, parsed: ['src/checkout.rb'], declarations: ['Checkout', 'pay'], excluded: ['node_modules'], validation: [] });
+	assert.equal(result.files.some(file => file.file === 'assets/asset-10024.txt'), true);
+	assert.equal(result.files.some(file => file.file.startsWith('node_modules/')), false);
+});
+
 test('CLI writes an openable model and index, refuses overwrites and source destinations', async t => {
 	const directory = await workspace(t, [['source/pay.py', 'def pay(amount: float) -> bool:\n    return True\n']]);
 	const source = join(directory, 'source');

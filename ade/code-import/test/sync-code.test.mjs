@@ -7,12 +7,13 @@ import '../../scripts/source-loader.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rename, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rename, rm, truncate } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 const { importCode } = await import('../importCode.ts');
 const { prepareSync } = await import('../syncCode.ts');
 const { readImportState, readSnapshot, writeSnapshot } = await import('../snapshot.ts');
@@ -180,6 +181,39 @@ test('snapshots validate input, detect tampering and leave the previous version 
 	assert.ok(!(await readdir(directory)).includes('stale'));
 	await writeFile(join(output, 'import-state.json'), JSON.stringify({ ...state, adapter: 'corrupted' }));
 	await assert.rejects(readSnapshot(output), /inconsistent import snapshot/);
+});
+
+test('compact machine indexes and legacy formatted indexes both reopen with intact seals', async t => {
+	const { directory, root } = await workspace(t, [['work.rb', 'class Checkout; end\n']]);
+	const state = await importCode(root, 'index-formats'), output = join(directory, 'snapshot');
+	await writeSnapshot(output, state, state.model);
+	const snapshot = await readSnapshot(output);
+	assert.deepEqual(snapshot.state, state);
+	const artifacts = await Promise.all(['snapshot.json', 'import-state.json', 'code-index.json', 'model.ade.json', 'common-model.json', 'common-code.json'].map(name => readFile(join(output, name), 'utf8')));
+	assert.equal(snapshot.inputHash, createHash('sha256').update(JSON.stringify(artifacts)).digest('hex'), 'streaming preserves the seal used by existing snapshots');
+	const marker = JSON.parse(await readFile(join(output, 'snapshot.json'), 'utf8'));
+	for (const [name, field] of [['import-state.json', 'state'], ['code-index.json', 'index']]) {
+		const formatted = JSON.stringify(JSON.parse(await readFile(join(output, name), 'utf8')), null, '\t') + '\n';
+		await writeFile(join(output, name), formatted);
+		marker[field] = createHash('sha256').update(formatted).digest('hex');
+	}
+	await writeFile(join(output, 'snapshot.json'), JSON.stringify(marker));
+	assert.deepEqual((await readSnapshot(output)).state, state);
+	await writeFile(join(output, 'code-index.json'), '{}');
+	await assert.rejects(readSnapshot(output), /inconsistent import snapshot/);
+});
+
+test('larger machine indexes retain bounded reads while editable model limits stay unchanged', async t => {
+	const { directory, root } = await workspace(t, [['work.rb', 'class Checkout; end\n']]);
+	const state = await importCode(root, 'index-bounds'), output = join(directory, 'snapshot');
+	await writeSnapshot(output, state, state.model);
+	for (const [name, limit] of [['import-state.json', 256], ['code-index.json', 256], ['model.ade.json', 64]]) {
+		const path = join(output, name), original = await readFile(path);
+		await truncate(path, limit * 1024 * 1024 + 1);
+		await assert.rejects(readSnapshot(output), { message: `Snapshot artifact exceeds ${limit} MiB: ${name}` });
+		await writeFile(path, original);
+	}
+	assert.deepEqual((await readSnapshot(output)).state, state);
 });
 
 test('stale source, cancellation and incomplete snapshots never publish a successful version', async t => {

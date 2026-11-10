@@ -93,7 +93,7 @@ const loadedLanguages = new Map<string, Promise<Language>>();
 let parserInitialization: Promise<void> | undefined;
 const knownSourceExtensions = new Set(['.kt', '.kts', '.scala', '.sc', '.vb', '.sql', '.sh', '.bash', '.ps1', '.r', '.lua', '.ex', '.exs', '.vue', '.svelte', '.html', '.css', '.m', '.mm']);
 const maxFileBytes = 2 * 1024 * 1024;
-const maxEntries = 10000;
+const maxEntries = 100000;
 
 /** Configuration consumed by common indexers participates in semantic invalidation. */
 function isConfiguration(name: string): boolean {
@@ -270,9 +270,9 @@ function relocateFile(projectId: string, previous: IndexedFile, path: string): I
 	}
 	for (const item of [...file.declarations, ...file.imports, ...file.diagnostics]) {
 		if (item.evidence) { item.evidence.file = path; }
-		if ('nameEvidence' in item && item.nameEvidence) { item.nameEvidence.file = path; }
-		if ('file' in item) { item.file = path; }
 	}
+	for (const declaration of file.declarations) { if (declaration.nameEvidence) { declaration.nameEvidence.file = path; } }
+	for (const diagnostic of file.diagnostics) { diagnostic.file = path; }
 	return file;
 }
 
@@ -321,7 +321,7 @@ export async function importCode(root: string, projectId: string, options: Impor
 		const contexts = await directoryIgnores(directory, relative(root, directory).split(sep).join('/'), scope, inherited);
 		for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
 			options.signal?.throwIfAborted();
-			if (++entries > maxEntries) { throw new Error(`Source inventory exceeds ${maxEntries} entries`); }
+			if (++entries > maxEntries) { throw new Error(`Source inventory exceeds ${maxEntries} entries. Narrow the import with .adeignore or the source scope exclusions.`); }
 			const path = join(directory, entry.name);
 			const file = relative(root, path).split(sep).join('/');
 			const empty = (status: IndexedFile['status'], diagnostics: ImportDiagnostic[] = []): IndexedFile => ({ file, status, declarations: [], syntaxKinds: {}, imports: [], diagnostics });
