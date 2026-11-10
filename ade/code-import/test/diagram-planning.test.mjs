@@ -3,15 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCodeEngine } from '../nativeHost.ts';
-import { readSnapshot } from '../snapshot.ts';
-import { getSequenceDiagram } from '../../../src/vs/workbench/contrib/ade/common/sequenceDiagram.ts';
-import { getStateDiagram } from '../../../src/vs/workbench/contrib/ade/common/stateDiagram.ts';
+const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
+const { readSnapshot } = await import('../snapshot.ts');
+const { getSequenceDiagram } = await import('../../../src/vs/workbench/contrib/ade/common/sequenceDiagram.ts');
+const { getStateDiagram } = await import('../../../src/vs/workbench/contrib/ade/common/stateDiagram.ts');
 
 const config = { version: 1, provider: 'codex', connection: 'cli', model: 'planning-test', executable: 'codex', timeoutMs: 10000, maxContextBytes: 262144, maxCalls: 1 };
 const source = 'def create_task(title):\n    return {"title": title, "completed": False}\n\ndef complete_task(task):\n    task["completed"] = True\n';

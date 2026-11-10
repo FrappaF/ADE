@@ -5,9 +5,9 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import type { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
-import type { ProjectCriteria, StateCase } from '../common/modelProject.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
+import { type ProjectCriteria, type StateCase } from '../common/modelProject.js';
 import { compileModelStateMachine, type StateScenario, type StateReplies, type StateObservation } from '../common/modelStates.js';
 import { adeCriteriaData, readAdeInteractionReplies } from './adeInteractionCriteria.js';
 

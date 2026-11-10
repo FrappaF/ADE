@@ -3,11 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './source-loader.mjs';
+import '../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getSystemMap } from '../../src/vs/workbench/contrib/ade/common/systemMap.ts';
-import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
+const { getSystemMap } = await import('../../src/vs/workbench/contrib/ade/common/systemMap.ts');
+const { checkoutModel } = await import('../../src/vs/workbench/contrib/ade/common/checkoutModel.ts');
 
 test('system map covers every identity and relationship exactly once, independently of diagrams', () => {
 	const before = JSON.stringify(checkoutModel);

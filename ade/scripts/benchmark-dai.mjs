@@ -6,12 +6,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { cpus, platform, arch, release, totalmem, availableParallelism } from 'node:os';
 import { performance } from 'node:perf_hooks';
 import { resolve } from 'node:path';
-import '../test/source-loader.mjs';
-import { packDiagramEvidence } from '../ai/diagramEvidence.ts';
+import './source-loader.mjs';
+const { packDiagramEvidence } = await import('../ai/diagramEvidence.ts');
 import { createDaiGraph, createDaiEvidence } from '../benchmarks/dai-fixtures.mjs';
 
 // Load domain dependencies after the same source-resolution hook used by the standalone tests.
@@ -88,15 +88,10 @@ for (const graph of policy.graphs) {
 	});
 }
 
+const domainDirectory = 'src/vs/workbench/contrib/ade/common/';
 const trackedSources = [
-	'ade/scripts/benchmark-dai.mjs', 'ade/scripts/source-loader.mjs', 'ade/benchmarks/dai-fixtures.mjs', 'ade/test/source-loader.mjs',
-	'src/vs/workbench/contrib/ade/common/semanticModel.ts', 'src/vs/workbench/contrib/ade/common/visualEditing.ts',
-	'src/vs/workbench/contrib/ade/common/modelMigration.ts', 'src/vs/workbench/contrib/ade/common/modelReadiness.ts',
-	'src/vs/workbench/contrib/ade/common/modelContext.ts', 'src/vs/workbench/contrib/ade/common/modelSerialization.ts',
-	'src/vs/workbench/contrib/ade/common/modelKnowledge.ts', 'src/vs/workbench/contrib/ade/common/modelBlueprint.ts', 'src/vs/workbench/contrib/ade/common/visualNavigation.ts',
-	'src/vs/workbench/contrib/ade/common/modelImpact.ts', 'ade/ai/diagramEvidence.ts', 'src/vs/workbench/contrib/ade/common/contextTransport.ts',
-	'src/vs/workbench/contrib/ade/common/modelExpressions.ts', 'src/vs/workbench/contrib/ade/common/modelProfiles.ts',
-	'src/vs/workbench/contrib/ade/common/modelTaskContext.ts'
+	'ade/scripts/benchmark-dai.mjs', 'ade/scripts/source-loader.mjs', 'ade/benchmarks/dai-fixtures.mjs', 'ade/ai/diagramEvidence.ts',
+	...(await readdir(new URL(domainDirectory, root))).filter(file => file.endsWith('.ts')).sort().map(file => domainDirectory + file)
 ];
 const peakRssMiB = process.resourceUsage().maxRSS / 1024;
 const report = {

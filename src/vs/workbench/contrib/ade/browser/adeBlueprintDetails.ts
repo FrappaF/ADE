@@ -9,7 +9,7 @@ import { describeModelPredicate, validateModelPredicate } from '../common/modelE
 import { localize } from '../../../../nls.js';
 import { getC4DrillDown, getContractImpact, getContractProjection } from '../common/modelBlueprint.js';
 import { getGenerationScope } from '../common/modelReadiness.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
 import { blueprintFieldLabel, blueprintPlatformLabels } from './adeBlueprintContent.js';
 import { AdeControls } from './adeControls.js';
 

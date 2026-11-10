@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expressionSchema, checkShape, type ModelDiagnostic, type ModelExpression, type ModelField, type ModelType, type SemanticModelV4 } from './semanticModel.js';
+import { expressionSchema, checkShape } from './modelSchema.js';
+import { type ModelDiagnostic, type ModelExpression, type ModelField, type ModelType, type SemanticModelV4 } from './modelTypes.js';
 
 export type ModelValue = string | number | boolean | null | ModelValue[] | { [id: string]: ModelValue };
 export interface ExpressionValueType { typeId: string; nullable: boolean; optional: boolean }

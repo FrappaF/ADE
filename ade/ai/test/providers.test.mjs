@@ -2,12 +2,14 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { createCliProvider } from '../providers.ts';
-import { runProcess } from '../process.ts';
+const { createCliProvider } = await import('../providers.ts');
+const { runProcess } = await import('../process.ts');
 import { config } from './fixtures.mjs';
 
 test('Codex uses the original CLI, stdin, read-only workspace and structured final output', async () => {

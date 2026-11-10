@@ -13,10 +13,10 @@ import { checkoutStates, stateCriteria } from '../../test/fixtures/dai-states.mj
 import { checkoutMessaging, messagingCriteria } from '../../test/fixtures/dai-messaging.mjs';
 const { prepareStructuralProject: prepare, verifyStructuralProject: verify, publishStructuralProject: apply, recoverStructuralProject: recover } = await import('../structuralProject.ts');
 const { switchModelStack } = await import('../../../src/vs/workbench/contrib/ade/common/modelStack.ts');
-const { physicalImage, replacePhysicalImage } = await import('../../code-import/sourceChanges.ts');
-const { stateMachineRegion } = await import('../../../src/vs/workbench/contrib/ade/common/modelStates.ts');
+const { physicalImage, replacePhysicalImage } = await import('../../runtime/sourceChanges.ts');
+const { stateMachineRegion } = await import('../../../src/vs/workbench/contrib/ade/common/stateRuntime.ts');
 const { messagingRegion } = await import('../../../src/vs/workbench/contrib/ade/common/modelMessaging.ts');
-const { interactionRegion } = await import('../../../src/vs/workbench/contrib/ade/common/modelInteractions.ts');
+const { interactionRegion } = await import('../../../src/vs/workbench/contrib/ade/common/interactionRuntime.ts');
 async function fixture(t, kind = 'messaging') {
 	const root = await mkdtemp(join(tmpdir(), 'ade-dai09-')); t.after(() => rm(root, { recursive: true, force: true }));
 	const authored = structuredClone(['state', 'interaction'].includes(kind) ? checkoutStates : checkoutMessaging);

@@ -7,7 +7,7 @@ import assert from 'assert';
 import * as dom from '../../../../../base/browser/dom.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { AdeControls } from '../../browser/adeControls.js';
-import type { AdeDiagramReview } from '../../browser/adeAiService.js';
+import { type AdeDiagramReview } from '../../browser/adeAiService.js';
 import { renderAdeDiagramReview } from '../../browser/adeDiagramReview.js';
 
 suite('A.D.E imported diagram review', () => {

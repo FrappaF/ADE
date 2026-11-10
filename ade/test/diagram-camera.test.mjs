@@ -2,9 +2,11 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { zoomDiagram, fitDiagramCamera } from '../../src/vs/workbench/contrib/ade/common/diagramCamera.ts';
+const { zoomDiagram, fitDiagramCamera } = await import('../../src/vs/workbench/contrib/ade/common/diagramCamera.ts');
 
 test('zoom preserves the world point under the pointer, including negative world coordinates', () => {
 	const camera = { x: 900, y: -300, zoom: .8 }, point = { x: 240, y: 180 };

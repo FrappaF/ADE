@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import './source-loader.mjs';
+import '../scripts/source-loader.mjs';
 import { nodeOrders, taskRequest } from './fixtures/dai-task.mjs';
 const { validateSemanticShape } = await import('../../src/vs/workbench/contrib/ade/common/semanticModel.ts');
 const { getModelReadiness } = await import('../../src/vs/workbench/contrib/ade/common/modelReadiness.ts');

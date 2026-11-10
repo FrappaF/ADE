@@ -1,0 +1,22 @@
+{
+	"extends": "../tsconfig.tools.json",
+	"compilerOptions": {
+		"lib": [
+			"ESNext",
+			"DOM",
+			"DOM.Iterable"
+		],
+		"types": [
+			"node"
+		],
+		"typeRoots": [
+			"../../node_modules/@types"
+		],
+		"noImplicitAny": true,
+		"allowJs": true,
+		"checkJs": false
+	},
+	"include": [
+		"smoke/**/*.ts"
+	]
+}

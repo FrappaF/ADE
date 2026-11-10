@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModel } from './semanticModel.js';
+import { type SemanticModel } from './modelTypes.js';
 
 /** JSON boundary type; undefined, non-finite numbers and sparse arrays are rejected, never normalized. */
 export type ModelJson = null | boolean | number | string | ModelJson[] | { [key: string]: ModelJson };

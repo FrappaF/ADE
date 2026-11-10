@@ -1,0 +1,291 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { localize } from '../../../../nls.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { RunOnceScheduler } from '../../../../base/common/async.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
+import { IAgentHostService, AgentHostCodexAgentEnabledSettingId, AgentHostClaudeAgentEnabledSettingId, AgentHostCodexAgentCodexHomeSettingId, CodexPreferAgentHostEditorSettingId } from '../../../../platform/agentHost/common/agentService.js';
+import { ICodexAccountService } from '../../../services/agentHost/browser/codexAccountService.js';
+import { parseCodexModelSelection } from '../../../../platform/agentHost/common/codexModelSelection.js';
+import { readAgentModelPricingMeta } from '../../../../platform/agentHost/common/meta/agentModelMeta.js';
+import { IAgentSdkSetupService } from '../../../services/agentHost/browser/agentSdkSetupService.js';
+import { ITerminalService, ITerminalGroupService } from '../../terminal/browser/terminal.js';
+import { IChatWidgetService } from '../../chat/browser/chat.js';
+import { getNewChatSessionResource } from '../../chat/common/model/chatUri.js';
+import { IAdeProjectService } from '../browser/adeProjectService.js';
+import { IAdeCodeService } from '../browser/adeCodeService.js';
+import { openAdeTerminal } from '../browser/adeTerminal.js';
+import { type CliConfig, type ModelRates, type ModelBenchmark, type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
+
+/** Original provider account, executable and model configuration; lifecycle belongs to this component. */
+export class AdeAiConnection extends Disposable {
+	private readonly loginWatch = this._register(new DisposableStore());
+
+	private _connectionStatus: string | undefined;
+
+	private accountGeneration = 0;
+
+	get connectionStatus(): string { return this._connectionStatus ?? localize('ade.ai.unchecked', "CLI Account Not Checked Yet"); }
+
+	private _config: CliConfig | undefined;
+
+	async ensureConfigured(): Promise<boolean> {
+		if (!this._config) { this.host.info(localize('ade.ai.configurationNeeded', "Choose an AI Model, CLI and Budget to Continue. An Existing CLI Login Does Not Need to Be Repeated.")); await this.connect(); }
+		return !!this._config;
+	}
+
+	async checkAccount(provider: CliConfig['provider'], executable: string): Promise<boolean> {
+		const generation = ++this.accountGeneration;
+		this.setConnectionStatus(localize('ade.ai.checkingAccount', "Checking the Original CLI Account…"));
+		try {
+			const state = await this.code.checkCliAccount(provider, executable);
+			if (generation !== this.accountGeneration) { return false; }
+			if (state.status === 'signedIn') {
+				this.setConnectionStatus(localize('ade.ai.cliConnected', "{0} CLI Account Connected · {1}", provider === 'codex' ? 'Codex' : 'Claude Code', this._config?.provider === provider ? this._config!.model : localize('ade.ai.chooseModelNext', "Choose a Model to Continue")));
+				return true;
+			}
+			if (state.reason === 'notFound') { await this.resolveCli(provider); return false; }
+			const message = state.status === 'signedOut'
+				? localize('ade.ai.cliSignedOut', "{0} CLI Requires Sign-In. Choose Sign In with CLI, Then Refresh Account and Models.", provider === 'codex' ? 'Codex' : 'Claude Code')
+				: localize('ade.ai.cliCheckFailed', "Could Not Verify the CLI Account ({0}). Open the AI CLI to Inspect Login, CLI Version and Configuration; Then Refresh Account and Models.", state.reason ?? 'failed');
+			this.setConnectionStatus(message); this.notifications.info(message);
+			return false;
+		} catch (error) { const message = localize('ade.ai.accountCheckError', "CLI Account Check Failed: {0}", error instanceof Error ? error.message : String(error)); this.setConnectionStatus(message); this.notifications.error(message); return false; }
+	}
+
+	async refreshConnection(): Promise<void> {
+		if (this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
+		if (this.host.busy) { this.notifications.info(localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.")); return; }
+		if (!this._config) { this.setConnectionStatus(localize('ade.ai.configureConnection', "Connect an Original AI CLI and Choose a Model. Its Existing Login Will Be Checked.")); return; }
+		const provider = this._config?.provider ?? 'codex';
+		await this.checkAccount(provider, this._config?.executable ?? provider);
+	}
+
+	async readyConfig(): Promise<CliConfig | undefined> {
+		if (!await this.ensureConfigured()) { return undefined; }
+		if (this._config!.maxCalls === 0) { return { ...this._config! }; }
+		const executable = await this.resolveCli(this._config!.provider);
+		if (!executable || !await this.checkAccount(this._config!.provider, executable)) { return undefined; }
+		return { ...this._config!, executable };
+	}
+
+	nativeModels(provider: CliConfig['provider']): { label: string; id: string; rates?: ModelRates }[] {
+		if (provider === 'codex' && (this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) || this._config?.provider === provider && this._config.executable !== 'codex')) { return []; }
+		const root = this.agents.rootState.value;
+		const models = root && !(root instanceof Error) ? root.agents.find(agent => agent.provider === provider)?.models ?? [] : [];
+		return models.flatMap(model => {
+			const native = provider === 'codex' ? parseCodexModelSelection({ id: model.id }) : undefined;
+			if (provider === 'codex' ? native?.modelProvider !== 'openai' : model.provider !== 'anthropic') { return []; }
+			const price = readAgentModelPricingMeta(model);
+			const rates = typeof price.inputCost === 'number' && typeof price.outputCost === 'number' && [price.inputCost, price.outputCost].every(value => Number.isFinite(value) && value >= 0)
+				? { input: price.inputCost, output: price.outputCost, unit: 'account-credits', source: 'Agent Host native account catalog', asOf: new Date().toISOString() } : undefined;
+			return [{ label: model.name, id: native?.modelId ?? model.id, rates }];
+		});
+	}
+
+	private setConnectionStatus(message: string): void {
+		this._connectionStatus = message;
+		this.host.activityStatus = undefined;
+		this.host.changed();
+	}
+
+	async chooseCliExecutable(provider: CliConfig['provider'], value: string, model?: string): Promise<string | undefined> {
+		const hint = localize('ade.ai.executableHint', "Enter the CLI program name ({0}) or its absolute path, not a model ID. The selected model ({1}) is configured separately.", provider, model ?? localize('ade.ai.modelNext', "chosen separately"));
+		const validate = async (input: string): Promise<string | undefined> => {
+			try { if (input.trim() && await this.code.resolveCli(input.trim())) { return undefined; } } catch { /* Show a field error without persisting an unusable command. */ }
+			return localize('ade.ai.invalidExecutable', "Executable not found. Enter {0} or the full path to the installed CLI. A model ID belongs in the Model field.", provider);
+		};
+		const executable = await this.quick.input({ title: localize('ade.ai.executable', "Original CLI Executable"), value, prompt: hint, validateInput: validate, ignoreFocusLost: true });
+		if (!executable) { return undefined; }
+		const error = await validate(executable);
+		if (error) { this.setConnectionStatus(error); this.notifications.error(error); return undefined; }
+		return executable.trim();
+	}
+
+	async resolveCli(provider: CliConfig['provider']): Promise<string | undefined> {
+		const executable = this._config?.provider === provider ? this._config.executable : provider;
+		const resolved = await this.code.resolveCli(executable);
+		if (!resolved && executable !== provider && this._config?.provider === provider) {
+			const installed = await this.code.resolveCli(provider);
+			if (installed) {
+				const choice = await this.quick.pick([
+					{ label: localize('ade.ai.useInstalledCli', "Use Installed {0} CLI", provider === 'codex' ? 'Codex' : 'Claude Code'), description: installed, id: 'installed' },
+					{ label: localize('ade.ai.chooseExecutable', "Choose Executable Path"), id: 'choose' }
+				], { title: localize('ade.ai.repairExecutable', "Repair CLI Executable"), placeHolder: localize('ade.ai.executableMismatch', "Cannot find program {0}. The executable and model ({1}) are separate settings.", executable, this._config.model) });
+				const replacement = choice?.id === 'installed' ? provider : choice?.id === 'choose' ? await this.chooseCliExecutable(provider, executable, this._config.model) : undefined;
+				if (!replacement) { this.setConnectionStatus(localize('ade.ai.executableUnchanged', "CLI Configuration Unchanged. Choose an Installed Executable to Continue.")); return undefined; }
+				this._config = { ...this._config, executable: replacement };
+				this.storage.store('ade.ai.cliConfig', JSON.stringify(this._config), StorageScope.PROFILE, StorageTarget.MACHINE);
+				this.setConnectionStatus(localize('ade.ai.executableRepaired', "CLI Executable Updated · Model Kept: {0}", this._config.model));
+				return this.code.resolveCli(replacement);
+			}
+		}
+		if (!resolved) {
+			const installation = provider === 'codex'
+				? localize('ade.ai.installCodex', "Install the official CLI in a terminal with: npm install -g @openai/codex.")
+				: localize('ade.ai.installClaude', "Install the official Claude Code CLI using https://code.claude.com/docs/en/setup.");
+			const message = localize('ade.ai.cliMissing', "Cannot find or execute {0}: {1}. {2} If it is already installed, use Choose Model and CLI to set its absolute executable path. On macOS/Linux, run command -v {3} in your terminal to find it, then retry Sign In.", provider === 'codex' ? 'Codex' : 'Claude Code', executable, installation, provider);
+			this.setConnectionStatus(message);
+			this.notifications.error(message);
+		}
+		return resolved;
+	}
+
+	private nativeSignIn(): void {
+		const finish = (message: string, error = false) => {
+			this.loginWatch.clear();
+			this.setConnectionStatus(message);
+			if (error) { this.notifications.error(message); } else { this.notifications.info(message); }
+		};
+		if (this.codexAccount.account.status === 'signedIn') {
+			finish(localize('ade.ai.alreadySignedIn', "Codex is already signed in to ChatGPT. Choose Model and CLI to continue."));
+			return;
+		}
+		const waiting = localize('ade.ai.nativeLoginStarting', "Starting Codex sign-in. Waiting for the ChatGPT authorization page…");
+		this.setConnectionStatus(waiting);
+		this.notifications.info(waiting);
+		const timeout = this.loginWatch.add(new RunOnceScheduler(() => finish(localize('ade.ai.nativeLoginTimeout', "Codex did not provide a sign-in page. Choose Sign In with CLI to open codex login in the terminal, or Refresh Account and Models to retry the native connection."), true), 15000));
+		let browserRequested = false;
+		this.loginWatch.add(this.codexAccount.onDidChangeAccount(account => {
+			if (account.status === 'signedIn') {
+				finish(localize('ade.ai.signedIn', "Codex is signed in to ChatGPT. Choose Model and CLI to continue."));
+			} else if (account.status === 'error' || account.status === 'unavailable') {
+				finish(localize('ade.ai.nativeLoginFailed', "Native Codex sign-in failed. Choose Sign In with CLI to run codex login and see the provider's output in the terminal."), true);
+			} else if (account.authUrl && !browserRequested) {
+				browserRequested = true;
+				timeout.cancel();
+				const message = localize('ade.ai.nativeLoginBrowser', "Complete Codex sign-in in your browser. If no browser opens, choose Sign In with CLI to use the terminal instead.");
+				this.setConnectionStatus(message);
+				this.notifications.info(message);
+			} else if (account.status === 'downloading') {
+				this.setConnectionStatus(localize('ade.ai.nativeLoginDownload', "Downloading the Codex agent for sign-in… You can also choose Sign In with CLI."));
+			}
+		}));
+		timeout.schedule();
+		this.codexAccount.signIn();
+	}
+
+	async signIn(provider: CliConfig['provider'], useCli: boolean): Promise<void> {
+		this.loginWatch.clear();
+		try {
+			this.setConnectionStatus(localize('ade.ai.checkingCli', "Checking the {0} CLI…", provider === 'codex' ? 'Codex' : 'Claude Code'));
+			const executable = await this.resolveCli(provider);
+			if (!executable) { return; }
+			const nativeCodexLogin = !useCli && provider === 'codex' && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this._config || this._config!.provider !== 'codex' || this._config.executable === 'codex') && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready');
+			if (nativeCodexLogin) { this.nativeSignIn(); return; }
+			let exited = false;
+			await openAdeTerminal(this.terminals, this.terminalGroups, { name: provider === 'codex' ? 'Codex Login' : 'Claude Code', executable, args: provider === 'codex' ? ['login'] : ['auth', 'login'], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) }, terminal => { this.loginWatch.add(terminal.onExit(() => { exited = true; void this.checkAccount(provider, executable); })); });
+			if (exited) { return; }
+			const message = localize('ade.ai.terminalLogin', "Complete {0} sign-in in the integrated terminal, then choose Refresh Account and Models.", provider === 'codex' ? 'Codex' : 'Claude Code');
+			this.setConnectionStatus(message);
+			this.notifications.info(message);
+		} catch (error) {
+			this.loginWatch.clear();
+			const message = localize('ade.ai.connectionError', "Could not start {0}: {1}. Check the CLI executable in Choose Model and CLI.", provider === 'codex' ? 'Codex' : 'Claude Code', error instanceof Error ? error.message : String(error));
+			this.setConnectionStatus(message);
+			this.notifications.error(message);
+		}
+	}
+
+	async connect(): Promise<void> {
+		if (this.host.busy || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { this.notifications.info(localize('ade.ai.connectionBlocked', "AI Setup Is Unavailable While an Operation Is Running or AI Features Are Disabled.")); return; }
+		const selected = await this.quick.pick([{ label: 'Codex', provider: 'codex' as const }, { label: 'Claude Code', provider: 'claude' as const }], { title: localize('ade.ai.provider', "Choose AI CLI") });
+		if (!selected) { return; }
+		const provider = selected.provider;
+		const connected = await this.checkAccount(provider, this._config?.provider === provider ? this._config.executable : provider);
+		await this.configuration.updateValue(provider === 'codex' ? AgentHostCodexAgentEnabledSettingId : AgentHostClaudeAgentEnabledSettingId, true, ConfigurationTarget.USER);
+		if (provider === 'codex') { await this.configuration.updateValue(CodexPreferAgentHostEditorSettingId, true, ConfigurationTarget.USER); }
+		const action = await this.quick.pick([
+			{ label: localize('ade.ai.configure', "Choose Model and CLI"), description: connected ? localize('ade.ai.configure.connected', "CLI Account Already Connected · No New Login Required") : localize('ade.ai.configure.executable', "Select the Original CLI Executable, Model and Budget"), id: 'configure' },
+			{ label: localize('ade.ai.login', "Sign In"), id: 'login' },
+			...(provider === 'codex' ? [{ label: localize('ade.ai.cliLogin', "Sign In with CLI"), id: 'cliLogin' }] : []),
+			{ label: localize('ade.ai.nativeChat', "Open Native Agent Chat"), id: 'chat' },
+			{ label: localize('ade.ai.reload', "Refresh Account and Models"), id: 'reload' }
+		], { title: selected.label });
+		if (!action) { this.host.info(localize('ade.ai.setupCancelled', "AI Setup Cancelled. The Existing CLI Account Is Unchanged.")); return; }
+		if (action.id === 'login' || action.id === 'cliLogin') {
+			await this.signIn(provider, action.id === 'cliLogin');
+			return;
+		}
+		if (action.id === 'reload') { this.setup.requestReload(provider); await this.checkAccount(provider, this._config?.provider === provider ? this._config.executable : provider); return; }
+		if (action.id === 'chat') { await this.chatWidgets.openSession(getNewChatSessionResource('agent-host-' + provider)); return; }
+		const choices = this.nativeModels(provider);
+		let preferred: string | null = null;
+		try {
+			for (const [key, kind] of [['ade.ai.benchmark', 'live-provider-benchmark']]) {
+				const measured: ModelBenchmark = JSON.parse(this.storage.get(key, StorageScope.PROFILE) ?? '{}');
+				const result = measured.models?.find(model => model.candidate.config.provider === provider && model.candidate.config.model === measured.defaultModel);
+				const current = choices.find(model => model.id === measured.defaultModel);
+				if (measured.kind === kind && result?.eligible && current?.rates && result.candidate.rates?.input === current.rates.input && result.candidate.rates.output === current.rates.output && result.candidate.rates.unit === current.rates.unit && Date.now() - Date.parse(measured.recordedAt) < 30 * 86400000) { preferred = measured.defaultModel; break; }
+			}
+		} catch { /* no measured account default */ }
+		choices.sort((left, right) => Number(right.id === preferred) - Number(left.id === preferred));
+		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.model', "Choose a Model Available to Your Account") }))?.id
+			: await this.quick.input({ title: localize('ade.ai.modelManual', "Model ID from Your CLI"), value: this._config?.provider === provider ? this._config.model : undefined, prompt: localize('ade.ai.noCatalog', "No account catalog is available yet. Sign in and refresh, or enter an exact model ID. Access is checked by the provider."), ignoreFocusLost: true });
+		if (!model) { this.host.info(localize('ade.ai.noModel', "No Model Selected. Choose Model and CLI Before Implementing a Feature.")); return; }
+		const executable = await this.chooseCliExecutable(provider, this._config?.provider === provider ? this._config.executable : provider, model);
+		if (!executable) { return; }
+		const budget = await this.quick.pick([
+			{ label: localize('ade.ai.budgetTwo', "Plan and Implementation · At Most Two Agent Runs"), maxCalls: 2 },
+			{ label: localize('ade.ai.budgetOne', "Plan or Reconciliation Proposal · At Most One Agent Run"), maxCalls: 1 },
+			{ label: localize('ade.ai.budgetZero', "Prepare Context Only · No AI Requests"), maxCalls: 0 }
+		], { title: localize('ade.ai.budget', "Agent Run Budget · Provider Usage Is Managed by Its CLI") });
+		if (!budget) { this.host.info(localize('ade.ai.noBudget', "No Budget Selected. AI Configuration Was Not Saved.")); return; }
+		this._config = { version: 1, provider, connection: 'cli', model, executable, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: budget.maxCalls };
+		this.loginWatch.clear(); this.accountGeneration++;
+		this._connectionStatus = undefined;
+		this.host.info(localize('ade.ai.configured', "AI Settings Saved. Build Diagrams or Update Code to Continue."));
+		this.storage.store('ade.ai.cliConfig', JSON.stringify(this._config), StorageScope.PROFILE, StorageTarget.MACHINE);
+		this.host.changed();
+	}
+
+	async openCli(): Promise<void> {
+		if (this.host.busy) { this.notifications.info(localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.")); return; }
+		if (!await this.ensureConfigured()) { return; }
+		if (this.configuration.getValue<boolean>('chat.disableAIFeatures') === true || !await this.trust.requestWorkspaceTrust()) { this.host.info(localize('ade.ai.cliBlocked', "Opening the AI CLI Requires Enabled AI Features and Workspace Trust.")); return; }
+		const staged = this.host.reviewSession && ['staged', 'passed', 'failed'].includes(this.host.reviewSession.status) ? this.host.reviewSession.worktree : undefined;
+		try {
+			const executable = await this.resolveCli(this._config!.provider);
+			if (!executable) { return; }
+			await openAdeTerminal(this.terminals, this.terminalGroups, { name: staged ? localize('ade.ai.worktreeTerminal', "AI Review Worktree") : this._config!.provider === 'codex' ? 'Codex' : 'Claude Code', executable, args: ['--model', this._config!.model], cwd: staged ?? this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
+			this.host.info(localize('ade.ai.cliOpened', "AI CLI Opened in the Integrated Terminal · {0}", staged ?? this.code.context?.sourceRoot ?? this.project.projectRoot?.fsPath ?? localize('ade.ai.workspaceDirectory', "Current Workspace")));
+		} catch (error) {
+			this.notifications.error(localize('ade.ai.openCliFailed', "Could not open the AI CLI: {0}", error instanceof Error ? error.message : String(error)));
+		}
+	}
+
+	constructor(
+		private readonly host: Pick<AdeAiWorkflow, 'info' | 'busy' | 'activityStatus' | 'changed' | 'reviewSession'>,
+		@IAdeProjectService private readonly project: AdeAiProject,
+		@IAdeCodeService private readonly code: IAdeCodeService,
+		@IQuickInputService private readonly quick: IQuickInputService,
+		@INotificationService private readonly notifications: INotificationService,
+		@ITerminalService private readonly terminals: ITerminalService,
+		@ITerminalGroupService private readonly terminalGroups: ITerminalGroupService,
+		@IChatWidgetService private readonly chatWidgets: IChatWidgetService,
+		@ICodexAccountService private readonly codexAccount: ICodexAccountService,
+		@IAgentSdkSetupService private readonly setup: IAgentSdkSetupService,
+		@IAgentHostService private readonly agents: IAgentHostService,
+		@IConfigurationService private readonly configuration: IConfigurationService,
+		@IStorageService private readonly storage: IStorageService,
+		@IWorkspaceTrustRequestService private readonly trust: IWorkspaceTrustRequestService
+	) {
+		super();
+		const saved = this.storage.get('ade.ai.cliConfig', StorageScope.PROFILE);
+		if (saved) { try { this._config = JSON.parse(saved); } catch { /* Choose a connection again. */ } }
+	}
+	configure(config: CliConfig): void {
+		this._config = config;
+		this.storage.store('ade.ai.cliConfig', JSON.stringify(config), StorageScope.PROFILE, StorageTarget.MACHINE);
+	}
+
+	get config(): CliConfig | undefined { return this._config; }
+	get status(): string { return this._connectionStatus ?? (this._config ? localize('ade.ai.selected', "{0} · {1}", this._config.provider === 'codex' ? 'Codex' : 'Claude Code', this._config.model) : localize('ade.ai.setup', "Choose an AI Model in AI Settings")); }
+}

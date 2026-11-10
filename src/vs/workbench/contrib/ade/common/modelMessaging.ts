@@ -3,11 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { checkShape, semanticModelV4Schema, readSemanticDraft, emptyFoundation, type ModelDiagnostic, type ModelMessaging, type ModelType, type SemanticModelV4 } from './semanticModel.js';
+import { checkShape, semanticModelV4Schema } from './modelSchema.js';
+import { readSemanticDraft } from './modelValidation.js';
+import { emptyFoundation } from './modelFoundation.js';
+import { type ModelDiagnostic, type ModelMessaging, type ModelType, type SemanticModelV4, type ModelStateMachine } from './modelTypes.js';
 import { canonicalJson } from './modelSerialization.js';
 import { isModelValue, valueRuntime, type ModelValue } from './modelValues.js';
-import type { StateInstance, StateResult } from './modelStates.js';
-import type { ModelStateMachine } from './semanticModel.js';
+import { type StateInstance, type StateResult } from './modelStates.js';
 import { messagingInterpreterSource } from './messagingRuntime.generated.js';
 
 export const messagingRules = { version: 1, broker: 'nats-jetstream', brokerVersion: '2.11.9', clientVersion: '2.29.3', envelope: 1, compatibility: 'exact', maxSteps: 1000, maxBytes: 2097152, maxTrace: 10000, maxTopologyEntries: 100, effectAtomicity: 'none', producerDeduplication: 'broker-window', deadLetter: 'publish-ack-before-source-ack', maxDeliver: 'unlimited-for-crash-recovery' } as const;

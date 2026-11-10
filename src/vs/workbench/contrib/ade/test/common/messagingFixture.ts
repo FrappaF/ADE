@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModelV4 } from '../../common/semanticModel.js';
-import type { ProjectCriteria } from '../../common/modelProject.js';
+import { type SemanticModelV4 } from '../../common/modelTypes.js';
+import { type ProjectCriteria } from '../../common/modelProject.js';
 export const messagingFixture: SemanticModelV4 = {
 	"version": 4,
 	"id": "async.1",

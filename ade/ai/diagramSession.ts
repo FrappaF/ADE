@@ -8,17 +8,18 @@ import { lstat, readFile, realpath, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import type { ErrorObject } from 'ajv';
-import { active, atomicJson, lock, managed, snapshotId } from '../code-import/projectStore.ts';
+import { active, atomicJson, lock, managed, snapshotId } from '../runtime/projectStore.ts';
 import { readSnapshot, writeSnapshot, type ImportSnapshot } from '../code-import/snapshot.ts';
 import { importCode, type CodeImport } from '../code-import/importCode.ts';
-import { contentHash, sourceFile } from '../code-import/sourceChanges.ts';
+import { contentHash, sourceFile } from '../runtime/sourceChanges.ts';
 import { applyReconciliation, assertNoInterruptedOperation, operationHistory, recoverReconciliation } from '../code-import/reconciliationJournal.ts';
 import { ExplorationSourceRangeError, explorationCapabilities, explorationPage, refreshExplorationAnalysis, indexScopeRevision, readExplorationSource, searchExplorationSource, sourceRole, type ExplorationCapabilities, type IndexQuery } from '../code-import/explorationIndex.ts';
 import { diagramProposalExample, diagramSessionInstruction, diagramToolDefinitions } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
 import { applyDiagramProposal, diagramModelRevision, proposeDiagramModel, type DiagramProposal, type DiagramProposalRequest } from '../../src/vs/workbench/contrib/ade/common/modelProposals.ts';
 import { migrateSemanticModelToV5 } from '../../src/vs/workbench/contrib/ade/common/modelMigration.ts';
 import { canonicalJson } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';
-import { emptyFoundation, isSourceEvidenceModel, type EvidenceRecord, type ModelAssertion, type SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { emptyFoundation, isSourceEvidenceModel } from '../../src/vs/workbench/contrib/ade/common/modelFoundation.ts';
+import { type EvidenceRecord, type ModelAssertion, type SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import { projectDescriptiveActivity } from '../../src/vs/workbench/contrib/ade/common/descriptiveActivity.ts';
 import { explorationReadiness } from '../../src/vs/workbench/contrib/ade/common/modelExploration.ts';
 import { inspectDiagramQuality, renderDiagramPreview } from '../../src/vs/workbench/contrib/ade/common/diagramPreview.ts';
@@ -26,7 +27,7 @@ import { isDisclosableSource } from '../code-import/paths.ts';
 import { notationNodeSize } from '../../src/vs/workbench/contrib/ade/common/diagramLayout.ts';
 
 export interface ExplorationBudget { maxToolCalls: number; maxReadBytes: number; maxDurationMs: number; maxModelTurns: number }
-export const defaultExplorationBudget: ExplorationBudget = { maxToolCalls: 80, maxReadBytes: 1024 * 1024, maxDurationMs: 30 * 60 * 1000, maxModelTurns: 8 };
+const defaultExplorationBudget: ExplorationBudget = { maxToolCalls: 80, maxReadBytes: 1024 * 1024, maxDurationMs: 30 * 60 * 1000, maxModelTurns: 8 };
 type TaskState = 'queued' | 'running' | 'waitingContext' | 'waitingUser' | 'blocked' | 'ready' | 'applied' | 'cancelled';
 interface ExplorationTask { id: string; intent: string; status: TaskState; gaps: string[]; proposalId?: string }
 interface ToolReceipt { id: string; fingerprint: string; tool: string; status: 'running' | 'complete' | 'interrupted'; inputBytes: number; outputBytes: number; durationMs?: number; diagnostics?: string[] }

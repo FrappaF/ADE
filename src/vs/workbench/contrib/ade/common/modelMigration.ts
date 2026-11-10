@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { emptyFoundation, InvalidSemanticModelError, readSemanticDraft, readSemanticModel, validateSemanticModel, type SemanticModelV4 } from './semanticModel.js';
+import { emptyFoundation } from './modelFoundation.js';
+import { InvalidSemanticModelError, readSemanticDraft, readSemanticModel, validateSemanticModel } from './modelValidation.js';
+import { type SemanticModelV4 } from './modelTypes.js';
 
 /** Identity is allocated once by the tool, then persisted; never derived from labels, paths or positions. */
 export type ModelIdFactory = () => string;

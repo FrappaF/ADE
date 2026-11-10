@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModel, SemanticRelation } from './semanticModel.js';
+import { type SemanticElement, type SemanticModel, type SemanticRelation } from './modelTypes.js';
 
 type ImpactReference =
 	| { kind: 'relationship'; sourceId: string; targetId: string; relation: SemanticRelation }
@@ -17,8 +17,13 @@ export function getElementEvidence(model: SemanticModel, id: string) {
 	if (!element) { throw new Error(`Unknown element: ${id}`); }
 	const mappings = model.codeMappings.filter(mapping => mapping.elementId === id);
 	const verifications = model.verifications.filter(verification => verification.elementId === id);
+	return elementEvidence(element, mappings, verifications);
+}
+
+function elementEvidence(element: SemanticElement, mappings: SemanticModel['codeMappings'], verifications: SemanticModel['verifications']) {
+	const byCriterion = Map.groupBy(verifications, record => record.criterionId);
 	const criteria = (element.behavior?.acceptanceCriteria ?? []).map(criterion => {
-		const records = verifications.filter(record => record.criterionId === criterion.id);
+		const records = byCriterion.get(criterion.id) ?? [];
 		return { criterion, records, mixedOutcomes: new Set(records.map(record => record.outcome)).size > 1 };
 	});
 	return {
@@ -70,10 +75,34 @@ export function getModelImpact(model: SemanticModel, id: string) {
 	}
 	if ((model.version === 4 || model.version === 5) && model.foundation.blueprint) {
 		const b = model.foundation.blueprint;
-		for (const topology of model.foundation.messaging ?? []) { for (const binding of [...topology.publishers, ...topology.subscriptions]) { const broker = topology.brokers.find(broker => broker.id === topology.channels.find(channel => channel.id === binding.channelId)?.brokerId); if (broker) { addReference({ kind: 'contract', sourceId: binding.ownerId, targetId: broker.elementId }); } } }
-		for (const machine of model.foundation.stateMachines ?? []) { for (const state of machine.states) { addReference({ kind: 'contract', sourceId: machine.ownerId, targetId: state.elementId }); } for (const action of machine.actions) { const interaction = model.foundation.interactions.find(entry => entry.id === action.interactionId); if (interaction?.ownerId) { addReference({ kind: 'contract', sourceId: machine.ownerId, targetId: interaction.ownerId }); } } }
-		for (const port of b.ports) { const contract = b.interfaces.find(contract => contract.id === port.interfaceId); if (contract) { addReference({ kind: 'contract', sourceId: port.elementId, targetId: contract.elementId }); } }
-		for (const connection of b.connections) { const consumer = b.ports.find(port => port.id === connection.requiredPortId); const provider = b.ports.find(port => port.id === connection.providedPortId); if (consumer && provider) { addReference({ kind: 'contract', sourceId: consumer.elementId, targetId: provider.elementId }); } }
+		const interactions = new Map(model.foundation.interactions.map(entry => [entry.id, entry]));
+		const interfaces = new Map(b.interfaces.map(entry => [entry.id, entry]));
+		const ports = new Map(b.ports.map(entry => [entry.id, entry]));
+		for (const topology of model.foundation.messaging ?? []) {
+			const channels = new Map(topology.channels.map(entry => [entry.id, entry]));
+			const brokers = new Map(topology.brokers.map(entry => [entry.id, entry]));
+			for (const binding of [...topology.publishers, ...topology.subscriptions]) {
+				const channel = channels.get(binding.channelId);
+				const broker = channel && brokers.get(channel.brokerId);
+				if (broker) { addReference({ kind: 'contract', sourceId: binding.ownerId, targetId: broker.elementId }); }
+			}
+		}
+		for (const machine of model.foundation.stateMachines ?? []) {
+			for (const state of machine.states) { addReference({ kind: 'contract', sourceId: machine.ownerId, targetId: state.elementId }); }
+			for (const action of machine.actions) {
+				const interaction = interactions.get(action.interactionId);
+				if (interaction?.ownerId) { addReference({ kind: 'contract', sourceId: machine.ownerId, targetId: interaction.ownerId }); }
+			}
+		}
+		for (const port of b.ports) {
+			const contract = interfaces.get(port.interfaceId);
+			if (contract) { addReference({ kind: 'contract', sourceId: port.elementId, targetId: contract.elementId }); }
+		}
+		for (const connection of b.connections) {
+			const consumer = ports.get(connection.requiredPortId);
+			const provider = ports.get(connection.providedPortId);
+			if (consumer && provider) { addReference({ kind: 'contract', sourceId: consumer.elementId, targetId: provider.elementId }); }
+		}
 		for (const module of b.modules) { for (const consumerId of module.consumerIds) { addReference({ kind: 'module', sourceId: consumerId, targetId: module.elementId }); } }
 		for (const operation of b.operations) { for (const permission of operation.permissions) { addReference({ kind: 'authorization', sourceId: operation.ownerId, targetId: permission.actorId, capability: permission.capability }); } }
 	}
@@ -91,7 +120,8 @@ export function getModelImpact(model: SemanticModel, id: string) {
 			}
 		}
 	}
-	const parentOf = (id: string) => (model.version === 4 || model.version === 5) ? model.foundation.ownership.find(entry => entry.elementId === id)?.ownerId : elements.get(id)?.parentId;
+	const parents = new Map((model.version === 4 || model.version === 5) ? model.foundation.ownership.map(entry => [entry.elementId, entry.ownerId]) : []);
+	const parentOf = (id: string) => (model.version === 4 || model.version === 5) ? parents.get(id) : elements.get(id)?.parentId;
 	const ownershipIds = new Set<string>();
 	for (const elementId of visited) {
 		const seen = new Set<string>();
@@ -104,6 +134,8 @@ export function getModelImpact(model: SemanticModel, id: string) {
 	}
 	const relationships = model.semantics.relations.filter(relation => visited.has(relation.from) || visited.has(relation.to));
 	const relationshipIds = new Set(relationships.map(relation => relation.id));
+	const mappings = Map.groupBy(model.codeMappings, mapping => mapping.elementId);
+	const verifications = Map.groupBy(model.verifications, verification => verification.elementId);
 	return {
 		subject,
 		scope: scopeQueue.map(id => elements.get(id)!),
@@ -112,6 +144,6 @@ export function getModelImpact(model: SemanticModel, id: string) {
 		relationships,
 		unclassified: relationships.filter(relation => !!relation.classification),
 		views: model.views.filter(view => (view.featureId && visited.has(view.featureId)) || view.nodes.some(node => visited.has(node.elementId)) || view.relationIds.some(id => relationshipIds.has(id))),
-		evidence: [...visited].map(id => getElementEvidence(model, id))
+		evidence: [...visited].map(id => elementEvidence(elements.get(id)!, mappings.get(id) ?? [], verifications.get(id) ?? []))
 	};
 }

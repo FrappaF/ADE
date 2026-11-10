@@ -9,7 +9,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { ElementKind } from '../common/semanticModel.js';
+import { ElementKind } from '../common/modelTypes.js';
 import { getDiagramGroups, getElementPath } from '../common/visualNavigation.js';
 import { AdeInput } from './adeInput.js';
 import { elementLabels } from './adeLabels.js';

@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
 import { modelProjectProfile } from '../common/modelProfiles.js';
 import { getGenerationScope, getModelReadiness } from '../common/modelReadiness.js';
-import type { BlueprintEditMode } from './adeBlueprintEditing.js';
+import { type BlueprintEditMode } from './adeBlueprintEditing.js';
 
 /** Metadata shared by visual Properties and Read Diagram; unknown facts retain their reason. */
 export function specificationRows(model: SemanticModelV4, elementId: string): string[] {

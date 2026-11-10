@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
 import { describeModelExpression } from '../common/modelValues.js';
-import type { StateObservation } from '../common/modelStates.js';
+import { type StateObservation } from '../common/modelStates.js';
 
 /** One shared, localized projection for native table and accessible reading. */
 export function adeStateRows(model: SemanticModelV4, id: string): { id: string; label: string; text: string }[] {

@@ -2,9 +2,11 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selectBenchmarkDefault, benchmarkThresholds } from '../benchmark.ts';
+const { selectBenchmarkDefault, benchmarkThresholds } = await import('../benchmark.ts');
 import { config } from './fixtures.mjs';
 
 const candidate = (model, cost) => ({ candidate: { config: { ...config, model }, rates: { input: cost, output: cost, unit: 'fixture-credits', source: 'fixture catalog', asOf: '2026-10-30' } }, eligible: true, estimatedConsumption: cost, cases: ['checkout', 'inventory', 'authorization'].map(repository => ({ repository, passed: true, traceability: 1, featureAttribution: 1, criterionCoverage: 1, durationMs: 1000, inputTokens: 20, outputTokens: 30, actualCost: null })) });

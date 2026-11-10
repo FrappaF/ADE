@@ -16,7 +16,8 @@ import { languageAdapters, type LanguageAdapter } from './languages.ts';
 import { validateSemanticGraph, type SemanticGraph } from './semanticGraph.ts';
 import { defaultScope, readSourceScope, directoryIgnores, excludedPath, type SourceScope, type IgnoreContext } from './sourceScope.ts';
 import { applyRenameHints, type RenameHint } from './identity.ts';
-import { validateSemanticModel, type SemanticElement, type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { validateSemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelValidation.ts';
+import { type SemanticElement, type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 
 export interface SourceEvidence {
 	file: string;

@@ -3,9 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { packDiagramEvidence } from '../../ai/diagramEvidence.ts';
+const { packDiagramEvidence } = await import('../../ai/diagramEvidence.ts');
 
 const unit = (ref, start, text, file = 'source.custom') => ({ ref, id: ref, file, language: 'custom', name: ref, start, end: start + text.length, text });
 

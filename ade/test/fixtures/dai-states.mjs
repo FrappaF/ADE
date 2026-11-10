@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import '../source-loader.mjs';
+import '../../scripts/source-loader.mjs';
 const { createPureProject } = await import('../../../src/vs/workbench/contrib/ade/common/modelProject.ts');
 const { literal, reference, argument, compare } = await import('./dai-interactions.mjs');
 let serial = 0;

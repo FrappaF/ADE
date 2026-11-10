@@ -19,6 +19,7 @@
     "ade:ai:diagram-live": "node ade/scripts/test-diagram-live.mjs",
     "ade:diagrams:browser": "node ade/scripts/test-diagram-exploration-browser.mjs",
     "ade:diagrams:live": "node ade/scripts/test-diagram-exploration-live.mjs",
+    "ade:smoke:check": "tsc6 --project ade/scripts/tsconfig.smoke.json --noEmit",
     "ade:check": "tsc6 --project ade/tsconfig.json --noEmit",
     "ade:test": "node --test ade/test/*.test.mjs",
     "ade:dai:model": "node ade/scripts/dai-model.mjs",

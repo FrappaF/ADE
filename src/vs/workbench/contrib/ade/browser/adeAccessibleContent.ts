@@ -5,7 +5,9 @@
 
 import { adeInteractionRows } from './adeInteractionContent.js';
 import { localize } from '../../../../nls.js';
-import { isSourceEvidenceModel, notationRelationLabel, ModelView, SemanticModel, SemanticRelation } from '../common/semanticModel.js';
+import { isSourceEvidenceModel } from '../common/modelFoundation.js';
+import { notationRelationLabel } from '../common/modelNotation.js';
+import { ModelView, SemanticModel, SemanticRelation } from '../common/modelTypes.js';
 import { describeBlueprint } from './adeBlueprintContent.js';
 import { notationLines } from '../common/diagramLayout.js';
 import { getDiagramGroups } from '../common/visualNavigation.js';

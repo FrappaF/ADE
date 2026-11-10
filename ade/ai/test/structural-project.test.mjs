@@ -11,8 +11,8 @@ import { join } from 'node:path';
 import '../../scripts/source-loader.mjs';
 const { createPureProject, reversePredicate, migrationArtifact } = await import('../../../src/vs/workbench/contrib/ade/common/modelProject.ts');
 const { prepareStructuralProject, verifyStructuralProject, publishStructuralProject, recoverStructuralProject, readStructuralSession } = await import('../structuralProject.ts');
-import { assertNoInterruptedOperation } from '../../code-import/reconciliationJournal.ts';
-import { physicalImage, replacePhysicalImage } from '../../code-import/sourceChanges.ts';
+const { assertNoInterruptedOperation } = await import('../../code-import/reconciliationJournal.ts');
+const { physicalImage, replacePhysicalImage } = await import('../../runtime/sourceChanges.ts');
 
 async function fixture(t) {
 	const root = await mkdtemp(join(tmpdir(), 'ade-dai05-')); t.after(() => rm(root, { recursive: true, force: true }));

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModel, ModelView, SemanticElement } from './semanticModel.js';
+import { type SemanticModel, type ModelView, type SemanticElement } from './modelTypes.js';
 
 export type DiagramDensity = 'compact' | 'balanced' | 'spacious';
 

@@ -6,11 +6,11 @@
 import { readdir, lstat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import ts from '../code-import/typescriptRuntime.ts';
-import { managed, atomicJson } from '../code-import/projectStore.ts';
-import { physicalImage, contentHash } from '../code-import/sourceChanges.ts';
+import { managed, atomicJson } from '../runtime/projectStore.ts';
+import { physicalImage, contentHash } from '../runtime/sourceChanges.ts';
 import { readPredicateRegion } from '../../src/vs/workbench/contrib/ade/common/modelProject.ts';
-import { readInteractionRegion } from '../../src/vs/workbench/contrib/ade/common/modelInteractions.ts';
-import { readStateMachineRegion } from '../../src/vs/workbench/contrib/ade/common/modelStates.ts';
+import { readInteractionRegion } from '../../src/vs/workbench/contrib/ade/common/interactionRuntime.ts';
+import { readStateMachineRegion } from '../../src/vs/workbench/contrib/ade/common/stateRuntime.ts';
 import { readMessagingRegion } from '../../src/vs/workbench/contrib/ade/common/modelMessaging.ts';
 
 export interface StructuralSourceIndex {

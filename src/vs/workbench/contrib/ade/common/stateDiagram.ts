@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ModelView, SemanticElement, SemanticModel, SemanticRelation } from './semanticModel.js';
+import { type ModelView, type SemanticElement, type SemanticModel, type SemanticRelation } from './modelTypes.js';
 
 /** Authored transitions connect states of the same explicitly declared resource. */
 export function isResourceTransition(model: SemanticModel, relation: SemanticRelation): boolean {

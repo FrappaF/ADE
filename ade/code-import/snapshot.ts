@@ -7,12 +7,15 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, dirname, basename } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { readSemanticModel, semanticModelV3Schema, type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelValidation.ts';
+import { semanticModelV3Schema } from '../../src/vs/workbench/contrib/ade/common/modelSchema.ts';
+import { type SemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import { importCode, validateProjection, type CodeImport } from './importCode.ts';
 import type { SyncReport } from './syncCode.ts';
-import { array, object, text, identifier, digest, evidence, semanticGraphSchema } from './schemas.ts';
+import { array, object, text, identifier, digest } from '../runtime/schemas.ts';
+import { evidence, semanticGraphSchema } from './schemas.ts';
 import { isSourcePath, outputOutsideSource, isDisclosableSource } from './paths.ts';
-import { sourceFile } from './sourceChanges.ts';
+import { sourceFile } from '../runtime/sourceChanges.ts';
 import { readSourceScope } from './sourceScope.ts';
 
 const hash = (text: string): string => createHash('sha256').update(text).digest('hex');

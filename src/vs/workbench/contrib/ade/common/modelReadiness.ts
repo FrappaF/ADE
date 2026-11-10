@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { modelObjects, validateSemanticModel, validateSemanticShape, type ElementKind, type ModelDiagnostic, type ModelFoundation, type ModelReference, type SemanticModel, type SemanticModelV4 } from './semanticModel.js';
+import { modelObjects } from './modelFoundation.js';
+import { validateSemanticModel, validateSemanticShape } from './modelValidation.js';
+import { type ElementKind, type ModelDiagnostic, type ModelFoundation, type ModelReference, type SemanticModel, type SemanticModelV4 } from './modelTypes.js';
 import { validateModelMessaging } from './modelMessaging.js';
 import { validateModelStateMachine } from './modelStates.js';
 import { validateModelInteraction } from './modelInteractions.js';
@@ -71,7 +73,7 @@ export const generationRules = {
 } as const;
 
 /** Syntax errors are distinguished from identity/reference and domain errors before target selection. */
-export function validateModelLayers(value: unknown): { syntax: ReadinessDiagnostic[]; reference: ReadinessDiagnostic[]; domain: ReadinessDiagnostic[] } {
+function validateModelLayers(value: unknown): { syntax: ReadinessDiagnostic[]; reference: ReadinessDiagnostic[]; domain: ReadinessDiagnostic[] } {
 	const syntax: ReadinessDiagnostic[] = validateSemanticShape(value).map(item => ({ code: item.code, severity: item.severity, phase: 'syntax', field: item.path, args: item.args, action: 'repairShape' }));
 	if (syntax.length) { return { syntax, reference: [], domain: [] }; }
 	const diagnostics = validateSemanticModel(value).map(item => adaptDiagnostic(value as SemanticModel, item));

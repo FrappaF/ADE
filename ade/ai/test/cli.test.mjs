@@ -2,13 +2,15 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixture, config } from './fixtures.mjs';
-import { runProcess } from '../process.ts';
+const { runProcess } = await import('../process.ts');
 
 test('CLI prepares offline, refuses source destinations and overwrites, and removes failed reserved artifacts', async t => {
 	const f = await fixture(t);

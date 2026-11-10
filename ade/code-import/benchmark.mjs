@@ -2,13 +2,15 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../scripts/source-loader.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { importCode } from './importCode.ts';
-import { defaultScope } from './sourceScope.ts';
-import { createTypeScriptBundle } from './typescriptSemantic.ts';
-import { applyScipBundles } from './scip.ts';
+const { importCode } = await import('./importCode.ts');
+const { defaultScope } = await import('./sourceScope.ts');
+const { createTypeScriptBundle } = await import('./typescriptSemantic.ts');
+const { applyScipBundles } = await import('./scip.ts');
 
 const [root, label, ...include] = process.argv.slice(2);
 if (!root || !label) { throw new Error('Usage: node ade/code-import/benchmark.mjs ROOT LABEL [INCLUDE_GLOB ...]'); }

@@ -6,7 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { describeModelInteraction } from '../common/modelInteractions.js';
 import { describeModelExpression, describeModelVariable } from '../common/modelValues.js';
-import type { SemanticModelV4 } from '../common/semanticModel.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
 
 /** Shared visual and accessible reading. Data labels are plain text and all UI prose is localized. */
 export function adeInteractionRows(model: SemanticModelV4, id: string): { id: string; depth: number; kind: string; text: string; label: string }[] {

@@ -5,10 +5,10 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import type { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import type { ModelMessaging, SemanticModelV4 } from '../common/semanticModel.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { type ModelMessaging, type SemanticModelV4 } from '../common/modelTypes.js';
 import { setModelMessaging, validateModelMessaging } from '../common/modelMessaging.js';
-import type { VisualEdit } from '../common/visualEditing.js';
+import { type VisualEdit } from '../common/visualEditing.js';
 
 type Dialogs = Pick<IQuickInputService, 'pick' | 'input'>;
 /** Native detached topology editor. Every policy is chosen explicitly before atomic save. */

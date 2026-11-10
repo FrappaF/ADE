@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModelV4 } from '../../common/semanticModel.js';
+import { type SemanticModelV4 } from '../../common/modelTypes.js';
 
 /** Authored structural fixture for portable workbench tests; no Node filesystem dependency. */
 export const blueprintFixture: SemanticModelV4 = {

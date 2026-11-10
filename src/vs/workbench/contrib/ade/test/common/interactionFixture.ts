@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModelV4 } from '../../common/semanticModel.js';
+import { type SemanticModelV4 } from '../../common/modelTypes.js';
 
 /** Authored checkout fixture shared with the standalone DAI-06 example. */
 export const interactionFixture: SemanticModelV4 = {

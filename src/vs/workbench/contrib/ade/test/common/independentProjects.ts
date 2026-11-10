@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticModel } from '../../common/semanticModel.js';
+import { type SemanticModel } from '../../common/modelTypes.js';
 
 /** Independently authored domains: no checkout data, migrated copies or renamed demo graphs. */
 export const libraryModel: SemanticModel = {

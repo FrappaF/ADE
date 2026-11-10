@@ -6,9 +6,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import './source-loader.mjs';
-import { libraryModel, observatoryModel } from '../../src/vs/workbench/contrib/ade/test/common/independentProjects.ts';
-import { readSemanticModel, validateSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import '../scripts/source-loader.mjs';
+const { libraryModel, observatoryModel } = await import('../../src/vs/workbench/contrib/ade/test/common/independentProjects.ts');
+const { readSemanticModel, validateSemanticModel } = await import('../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
 
 const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');
 const { getStateDiagram } = await import('../../src/vs/workbench/contrib/ade/common/stateDiagram.ts');

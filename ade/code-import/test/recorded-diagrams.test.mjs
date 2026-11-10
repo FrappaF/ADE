@@ -3,14 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createCodeEngine } from '../nativeHost.ts';
-import { readSnapshot } from '../snapshot.ts';
-import { prepareDiagramImport, advanceDiagramImport, diagramProgress } from '../../ai/diagramImport.ts';
+const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
+const { readSnapshot } = await import('../snapshot.ts');
+const { prepareDiagramImport, advanceDiagramImport, diagramProgress } = await import('../../ai/diagramImport.ts');
 
 const records = JSON.parse(await readFile(new URL('./fixtures/real-diagrams/todo-terra.json', import.meta.url), 'utf8'));
 for (const record of records) {

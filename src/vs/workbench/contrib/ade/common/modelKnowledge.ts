@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { checkShape, knowledgeSchema, type Knowledge, type ModelDiagnostic } from './semanticModel.js';
+import { checkShape, knowledgeSchema } from './modelSchema.js';
+import { type Knowledge, type ModelDiagnostic } from './modelTypes.js';
 
 /** Null placeholders from structured output require a declared meaning; truthiness is never used. */
 export interface ProviderKnowledgePolicy { nullMeans: 'known-null' | 'unknown' | 'omitted'; unknownReason: string }

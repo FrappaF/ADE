@@ -8,7 +8,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import '../../scripts/source-loader.mjs';
-const { lock } = await import('../../code-import/projectStore.ts');
+const { lock } = await import('../../runtime/projectStore.ts');
 const { refreshStructuralSourceIndex } = await import('../structuralSourceIndex.ts');
 
 test('DAI09 I01 oversized derived parser index leaves the previous cache and every source intact', async t => {

@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import '../../scripts/source-loader.mjs';
 import { checkoutInteractions, interactionCriteria } from '../../test/fixtures/dai-interactions.mjs';
 const { prepareStructuralProject, verifyStructuralProject, publishStructuralProject } = await import('../structuralProject.ts');
-const { interactionRegion } = await import('../../../src/vs/workbench/contrib/ade/common/modelInteractions.ts');
+const { interactionRegion } = await import('../../../src/vs/workbench/contrib/ade/common/interactionRuntime.ts');
 async function fixture(t) {
 	const root = await mkdtemp(join(tmpdir(), 'ade-dai06-')); t.after(() => rm(root, { recursive: true, force: true }));
 	await mkdir(join(root, '.ade')); await writeFile(join(root, '.ade/model.json'), JSON.stringify(checkoutInteractions, null, '\t') + '\n'); await writeFile(join(root, '.ade/criteria.json'), JSON.stringify(interactionCriteria)); return root;
@@ -56,7 +56,7 @@ test('DAI06 P02 supported reverse timeout edit verifies and publishes while arbi
 });
 for (const phase of ['partial', 'committed']) {
 	test('DAI06 P01 shared recovery restores interaction source/model pair after ' + phase + ' publication', async t => {
-		const { recoverStructuralProject } = await import('../structuralProject.ts'); const { replacePhysicalImage } = await import('../../code-import/sourceChanges.ts');
+		const { recoverStructuralProject } = await import('../structuralProject.ts'); const { replacePhysicalImage } = await import('../../runtime/sourceChanges.ts');
 		const root = await fixture(t), staged = await prepareStructuralProject(root), s = staged.session; await verifyStructuralProject(root, s.id, s.reviewId);
 		if (phase === 'committed') { await publishStructuralProject(root, s.id, s.reviewId); }
 		else { const edit = s.mutations.find(edit => edit.file.startsWith('src/')); await replacePhysicalImage(root, edit.file, edit.before, edit.after); }

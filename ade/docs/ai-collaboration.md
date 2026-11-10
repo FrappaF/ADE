@@ -79,6 +79,7 @@ I test locali simulati verificano questi criteri, ma non stabiliscono quale mode
 La UI usa lo stesso motore delle verifiche Node. Per eseguirlo separatamente, usare Node da `.nvmrc` e installare i due pacchetti con i relativi lockfile:
 
 ```sh
+npm --prefix ade/runtime ci --ignore-scripts
 npm --prefix ade/code-import ci --ignore-scripts
 npm --prefix ade/ai ci --ignore-scripts
 npm --prefix ade/ai run check

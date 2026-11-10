@@ -3,9 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diagramColumnConstraints, validateDiagramColumnConstraints } from '../../ai/diagramConstraints.ts';
+const { diagramColumnConstraints, validateDiagramColumnConstraints } = await import('../../ai/diagramConstraints.ts');
 
 const unit = text => ({ ref: 'u0', file: 'db/schema.sql', text, start: 0, end: text.length, language: 'text', name: 'db/schema.sql' });
 test('complete simple DDL exposes explicit constraints, ignoring nested type arguments and check-expression keywords', () => {

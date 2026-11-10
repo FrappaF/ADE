@@ -12,7 +12,7 @@ import { adeMessagingRows } from '../../browser/adeMessagingContent.js';
 import { describeAdeDiagram } from '../../browser/adeAccessibleContent.js';
 import { applyVisualEdit } from '../../common/visualEditing.js';
 import { compileModelMessaging, simulateMessaging, validateModelMessaging } from '../../common/modelMessaging.js';
-import type { SemanticModelV4 } from '../../common/semanticModel.js';
+import { type SemanticModelV4 } from '../../common/modelTypes.js';
 
 suite('A.D.E messaging native editing', () => {
 	test('nested cancel preserves contracts, policies and source model', async () => { const model = structuredClone(messagingFixture), before = structuredClone(model), dialogs = new ScriptedDialogs(['checkout.messaging', 'Declare or Edit Subscription', 'workers', undefined]); assert.strictEqual(await editAdeMessaging(dialogs, model), undefined); dialogs.assertComplete(); assert.deepStrictEqual(model, before); });

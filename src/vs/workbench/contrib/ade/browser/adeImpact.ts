@@ -5,7 +5,7 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
-import { SemanticModel } from '../common/semanticModel.js';
+import { SemanticModel } from '../common/modelTypes.js';
 import { getElementEvidence, getModelImpact } from '../common/modelImpact.js';
 import { AdeControls } from './adeControls.js';
 import { describeRecordedEvidence, evidenceSummary, impactReason } from './adeImpactContent.js';

@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { contentHash, sourceFile } from './sourceChanges.ts';
+import { contentHash, sourceFile } from '../runtime/sourceChanges.ts';
 import { isDisclosableSource } from './paths.ts';
 import type { CodeImport, IndexedFile } from './importCode.ts';
-import type { EvidenceRecord } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { type EvidenceRecord } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import { canonicalJson } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';
 
 export interface ExplorationCapabilities { language: string; syntax: boolean; definitions: boolean; references: boolean; calls: false; controlFlow: false; runtimeObservations: false; indexedFiles: number; totalFiles: number }

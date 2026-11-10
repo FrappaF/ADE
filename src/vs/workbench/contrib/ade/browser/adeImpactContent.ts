@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { SemanticModel, Verification } from '../common/semanticModel.js';
+import { SemanticModel, Verification } from '../common/modelTypes.js';
 import { getElementEvidence, getModelImpact } from '../common/modelImpact.js';
 import { relationLabels } from './adeLabels.js';
 

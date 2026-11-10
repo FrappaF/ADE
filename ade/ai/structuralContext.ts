@@ -7,7 +7,7 @@ import { validateModelTaskProposal } from '../../src/vs/workbench/contrib/ade/co
 import { readSource } from './context.ts';
 import { modelDigest } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';
 import { compileModelTaskContext, type ModelTaskRequest } from '../../src/vs/workbench/contrib/ade/common/modelTaskContext.ts';
-import type { SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { type SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 
 /** Reuse M5's bounded canonical/no-symlink reader. Ranges/revisions are explicit trusted M4 selections. */
 export async function prepareStructuralSourceContext(root: string, model: SemanticModelV4, request: ModelTaskRequest, signal?: AbortSignal) {

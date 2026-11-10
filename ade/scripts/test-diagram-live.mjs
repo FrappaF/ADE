@@ -3,13 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './source-loader.mjs';
+
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { resolve, join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
-import { createCodeEngine } from '../code-import/nativeHost.ts';
-import { createCliProvider } from '../ai/providers.ts';
-import { runProcess } from '../ai/process.ts';
+const { createCodeEngine } = await import('../runtime/nativeHost.ts');
+const { createCliProvider } = await import('../ai/providers.ts');
+const { runProcess } = await import('../ai/process.ts');
 import { architectureFiles } from '../code-import/test/notation-fixture.mjs';
 import { todoFile, todoSource, todoFiles } from '../code-import/test/todo-semantic-fixture.mjs';
 

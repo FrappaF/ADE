@@ -1,60 +1,110 @@
-# Architettura
+# Architettura A.D.E
 
-A.D.E è un fork dei sorgenti Code OSS: il workbench e l’applicazione desktop sono modificabili direttamente nella radice. Vedi [ADR 0001](decisions/0001-code-oss-fork.md) e [guida di sviluppo](fork-development.md). L’estensione iniziale è conservata come prototipo separato.
+A.D.E è un fork di Code OSS con un contributo nativo dedicato. Questa pagina descrive la struttura attuale del codice A.D.E; gli ADR e i verbali delle milestone documentano le decisioni e le verifiche storiche. Le scelte iniziali sono in [ADR 0001](decisions/0001-code-oss-fork.md), [ADR 0002](decisions/0002-visual-workbench.md) e nella [guida di sviluppo](fork-development.md).
 
-L'[ADR 0002](decisions/0002-visual-workbench.md) definisce la trasformazione del workbench in un IDE centrato su diagrammi e flussi: sidebar sistema → feature → diagrammi, canvas principale, proprietà contestuali e strumenti tecnici come viste secondarie su richiesta. L'interfaccia definitiva viene implementata nei contributi e servizi nativi del fork. L'esecuzione del prodotto non richiede il caricamento di `ade/prototype/`.
+## Confini e dipendenze
 
-## Obiettivo
+Il dominio vive in `src/vs/workbench/contrib/ade/common/`: è TypeScript puro, senza dipendenze da filesystem, Node, browser o servizi del workbench. Il contributo nativo aggiunge gli adattatori UI e desktop. I tool in `ade/` consumano lo stesso dominio.
 
-Usare un modello del software per navigare struttura, comportamenti e interazioni e, progressivamente, trasformare modifiche visuali in modifiche implementative verificabili.
+```mermaid
+flowchart TD
+    UI[Contributo nativo ADE] --> Bridge[Contratto JSON codeBridge]
+    Bridge --> Engine[ade/runtime/nativeHost]
+    Engine --> AI[ade/ai]
+    Engine --> Import[ade/code-import]
+    AI --> Import
+    Engine --> Storage[ade/runtime: persistenza e modifiche ai file]
+    AI --> Storage
+    Import --> Storage
+    UI --> Domain[common: dominio puro]
+    AI --> Domain
+    Import --> Domain
+    Messaging[ade/messaging] --> Domain
+```
 
-## Moduli del prototipo (`ade/prototype/`)
+`ade/runtime/nativeHost.ts` è il punto di composizione del processo di analisi: valida il protocollo, coordina importazione e IA e conserva cache proprie per ciascuna istanza del motore. L'importatore non dipende dall'IA o dal dispatcher. I moduli infrastrutturali `projectStore.ts`, `sourceChanges.ts` e `schemas.ts` sono condivisi, ma non dipendono dai workflow applicativi.
 
-- `src/model.js`: validazione e rendering del modello versione 1, separati dalle API VS Code.
-- `src/extension.js`: comando e ciclo di vita della vista, lettura dei documenti e aggiornamenti.
-- `examples/`: modelli di esempio versionabili.
-- `test/`: controlli del modello e della gestione dei contenuti.
+Il contratto JSON in `common/codeBridge.ts` separa il renderer dal processo Node. `ade/runtime/codeProtocol.ts` valida le richieste in ingresso; il bundle mantiene il nome pubblico `adeCodeEngine.js`. Il formato dei progetti e il protocollo non dipendono dall'organizzazione dei file sorgenti.
 
-## Modello semantico e shell nativa (M1)
+## Dominio semantico
 
-Il [contratto v2](semantic-model.md) separa semantica, proiezioni visuali, mappature al codice e record di verifica. `src/vs/workbench/contrib/ade/common/semanticModel.ts` implementa tipi, schema, validatore, migrazione e `SemanticModelService` senza dipendenze da Electron, Node o browser. I test in `ade/test/` lo eseguono direttamente con Node. Gli identificatori sono indipendenti da nomi, contenitori e coordinate.
+Il modello supporta i formati storici v2/v3 e i contratti v4/v5. Identità semantiche, proiezioni visuali, evidenze del codice e verifiche restano distinte. Un layout non determina la proprietà architetturale e un'evidenza sintattica non certifica un comportamento eseguito.
 
-`browser/ade.contribution.ts` registra editor, sidebar, comandi, resolver e percorso di avvio. `browser/adeInput.ts` definisce l'identità dell'editor visuale ed espone stato modificato, salvataggio e ripristino. `browser/adeProjectService.ts` mantiene un riferimento al documento tramite `ITextFileService`/`ITextModelService`, valida il modello, registra transazioni nella cronologia nativa e condivide il contesto fra sidebar, canvas e proprietà. Le operazioni pure in `common/visualEditing.ts` non dipendono da browser o filesystem. Navigazione e selezione sono conservate tramite `IStorageService`; backup, conflitti e file restano responsabilità dei servizi documentali upstream. I collaudi storici del MacBook sono nel [verbale M0](m0-verification.md); l'editor persistente Linux è registrato nel [verbale M2.2](m2-2-verification.md).
+| Modulo in `common/` | Responsabilità |
+| --- | --- |
+| `modelTypes.ts` | Tipi del documento, identificatori di categoria e capacità dichiarate. |
+| `modelSchema.ts` | Schemi JSON versionati e controllo della forma. |
+| `modelFoundation.ts` | Fondazioni vuote, inventario degli oggetti e riconoscimento dei modelli di evidenza. |
+| `modelValidation.ts` | Riferimenti, proprietà, diagnostiche e lettura di snapshot validati o bozze ispezionabili. |
+| `modelContractValidation.ts` | Compatibilità dei contratti e vincoli del blueprint. |
+| `modelNotation.ts`, `modelScenario.ts` | Regole delle notazioni e ordinamento parziale degli scenari. |
+| `modelLegacyMigration.ts`, `modelMigration.ts` | Migrazioni esplicite dai formati storici e verso la fondazione v4. |
+| `semanticModelService.ts` | Modello in memoria; la persistenza appartiene agli adattatori documentali. |
+| `semanticModel.ts` | Ingresso compatibile dell'API pubblica; le implementazioni importano direttamente dai moduli proprietari. |
 
-M2.1 introduce avvio, sidebar e layout visuali; M2.2 integra il primo canvas strutturale e di flusso persistente, partendo dalla creazione del progetto e delle feature. Il formato v3 aggiunge l'appartenenza esplicita dei diagrammi alle feature, anche per diagrammi vuoti o contenenti elementi condivisi. L'aggiornamento da v2 avviene alla prima modifica visuale ed è annullabile, conservando identificatori e contenuto. La [specifica dell'editor](visual-editing.md) dichiara il perimetro supportato.
+Gli schemi pubblicati in `ade/schema/` sono artefatti verificati rispetto alla sorgente. Un cambiamento di struttura del codice non deve alterare la grammatica dei documenti.
 
-[M3.1](semantic-explorer.md) aggiunge ricerca e schede di dettaglio, comprese identità senza proiezione visuale. La risoluzione delle destinazioni e la cronologia limitata restano funzioni pure del dominio di navigazione; comandi, picker e focus appartengono a `browser`. Il contesto ispezionato viene conservato nello storage del workspace, senza aggiungere campi al documento. Il servizio mantiene un watcher correlato del file del modello e delega la rilettura al backend testuale nativo, ignorando notifiche superate e documenti modificati.
+## Modifiche atomiche e runtime
 
-L'accesso a un simbolo sorgente, quando esiste una mappatura, avviene tramite i servizi editor come vista secondaria e conserva feature, diagramma e selezione al ritorno. Terminale e debugger mantengono i servizi upstream, con visibilità su richiesta. Un nuovo progetto può esistere come intento progettuale senza codice generato.
+`visualEditTypes.ts` dichiara l'unione discriminata delle operazioni. `visualEditing.ts` prepara un solo candidato e smista ogni operazione in modo esaustivo ai gestori `visualEditFoundation.ts`, `visualEditElements.ts`, `visualEditViews.ts` e `visualEditBehavior.ts`. La gestione delle identità, delle revisioni e della validazione resta al confine della transazione. `visualEditSupport.ts` raccoglie aggiornamento conservativo e calcolo delle dipendenze per la cancellazione.
 
-Per la generazione iniziale limitarsi a un sottoinsieme dichiarato di TypeScript e mostrare un diff prima di applicare cambiamenti. La sincronizzazione bidirezionale arbitraria resta un problema aperto: il codice non rappresentabile nel modello deve essere conservato, con conflitti espliciti.
+Interazioni, macchine a stati e messaggistica mantengono compilazione, interpretazione e verifica nel dominio. I generatori `interactionRuntime.ts` e `stateRuntime.ts` sono consumati direttamente: i moduli che essi utilizzano non li riesportano, evitando dipendenze circolari.
 
-Il prototipo attuale non esegue codice del workspace, non carica risorse remote e non abilita script nella webview.
+Gli script `build-interaction-runtime.mjs`, `build-state-runtime.mjs` e `build-messaging-runtime.mjs` condividono `ade/runtime/runtimeSource.ts`. Quest'ultimo seleziona dichiarazioni TypeScript per nome tramite il parser, segnala dichiarazioni mancanti o ambigue e genera il JavaScript. La generazione non dipende dai titoli dei commenti o dalla posizione di una funzione. Gli artefatti `*.generated.ts` non si modificano manualmente. Un test di compatibilità conserva gli hash dei tre interpreti emessi, perché le regioni gestite nei progetti richiedono corrispondenza esatta del runtime.
 
-## Architettura obiettivo A.D.E
+## Contributo nativo
 
-Il riferimento di prodotto è [la visione](vision.md). Il modello condiviso deve rappresentare feature, attori, componenti, risorse, viste, controller, contratti, flussi e vincoli con identificatori stabili. Il layout appartiene alle singole viste, mentre la semantica è condivisa.
+`browser/ade.contribution.ts` registra editor, viste e comandi. `AdeProjectService` mantiene il documento tramite i servizi testuali nativi: salvataggio, backup, conflitti e cronologia restano responsabilità di quegli adattatori. Navigazione, layout, selezione e analisi del modello consumano funzioni pure del dominio.
 
-Stato dei componenti:
+L'editor è composto da componenti con responsabilità esplicite:
 
-- Grafo semantico M1 implementato: elementi, relazioni, comportamenti, layout separato e record di implementazione/verifica. Analisi effettiva del codice e test appartengono alle milestone successive.
-- Shell ed esplorazione iniziale implementate: home, selezione elementi, relazioni, proprietà, ricerca per tipo, schede, breadcrumb, cronologia e prospettive coordinate. Mappa del sistema e routing ortogonale implementati in M3.2; contratti estesi e impatto delle modifiche proseguono in M3.
-- Adattatori tecnologici: analisi della codebase e trasformazioni verso linguaggi e framework supportati.
-- Coordinatore IA: pianificazione, modifica e verifica a partire dagli intenti del developer.
-- Motore di riconciliazione: confronto fra versione comune, modello modificato e codice modificato.
-- Verifica e tracciabilità: test, diagnostica, provenienza delle modifiche e ripristino.
+| Componente | Responsabilità |
+| --- | --- |
+| `AdeEditor` | Ciclo di vita dell'editor, composizione delle superfici e navigazione. |
+| `AdeCanvasController` | Camera, zoom, pan, movimento dei nodi e listener della singola renderizzazione. |
+| `AdeCanvasSurface` | Rendering del canvas, menu e creazione delle connessioni. |
+| `AdeInspector` | Proprietà contestuali di elementi e relazioni. |
+| `AdeWorkflowContent` | Pannelli del workflow, impostazioni IA e strumenti secondari. |
 
-### Ciclo di riconciliazione
+Il controller registra i listener nel proprio `DisposableStore`, svuotato alla successiva renderizzazione e smaltito con l'editor. I renderer delle singole notazioni restano moduli dedicati. I componenti ricevono servizi e callback espliciti, senza dipendere dalla classe dell'editor.
 
-1. Rilevare una modifica e registrarne origine, revisione e ambito.
-2. Calcolare l'impatto sul grafo e confrontare modello e codice con la revisione comune.
-3. Derivare una trasformazione tramite adattatore; usare l'IA quando serve interpretazione.
-4. Rilevare cambiamenti concorrenti, conflitti e costrutti non rappresentabili.
-5. Applicare la modifica in modo recuperabile ed eseguire le verifiche pertinenti.
-6. Aggiornare le viste e la revisione comune soltanto dopo riconciliazione riuscita.
+`adeEditingCommands.ts` è il catalogo unico dei comandi di modifica. `adeEditing.ts` conserva la revisione del documento e il confine di applicazione; i gestori `adeEditingProject.ts`, `adeEditingSpecification.ts`, `adeEditingStructure.ts` e `adeEditingDiagram.ts` raccolgono l'intento tramite dialoghi. L'aggiunta di un comando richiede di completare lo smistamento tipizzato.
 
-Gli stati esposti saranno almeno: allineato, modifica in attesa, riconciliazione in corso, conflitto e verifica fallita. Identificatori di operazione e revisioni impediranno che gli aggiornamenti generati riattivino cicli infiniti. Una modifica a un commento o al layout non deve produrre una riscrittura semantica del sistema.
+## Workflow IA
 
-L'indipendenza dai framework è un obiettivo dell'interfaccia e del modello: ogni adattatore deve dichiarare le capacità supportate. Non si presume che sia possibile convertire automaticamente qualsiasi programma in qualsiasi tecnologia.
+`electron-browser/adeAiService.ts` coordina componenti indipendenti:
 
-M3.2 deriva la panoramica da `common/systemMap.ts`, senza aggiungere viste al modello. `common/diagramRouting.ts` calcola i percorsi ortogonali e colloca i rettangoli delle etichette; il browser misura il testo tramite SVG e conserva i layout manuali. Le connessioni bloccate da sovrapposizioni sono segnalate anziché attraversare i nodi.
+- `AdeAiConnection`: account del provider, CLI originale, modelli e configurazione.
+- `AdeAiDiagrams`: conversazione, esplorazione, generazione e revisione dei diagrammi.
+- `AdeAiStructural`: preparazione continua, revisione strutturale, simulazione e pubblicazione.
+- `AdeAiImplementation`: proposte implementative, riconciliazione, verifiche e confronti dei modelli.
+
+Ogni componente possiede sessioni e risorse del proprio workflow. Il coordinatore condivide il blocco delle operazioni, cancellazione, avanzamento e notifiche tramite un contesto limitato alle capacità richieste. Le opzioni di esecuzione nominano la modalità IA, diagrammi o locale. I servizi necessari vengono iniettati nei costruttori; l'istanziatore è usato solo durante la composizione iniziale.
+
+Le modifiche sono preparate per la revisione e applicate attraverso i workflow esistenti. Budget, consenso alla condivisione, verifica, recupero e annullamento restano parte dei rispettivi contratti. I dettagli applicativi sono nella [guida IA](ai-collaboration.md), nella [guida di importazione](code-import.md) e negli ADR successivi.
+
+## Test e manutenzione
+
+I pacchetti Node indipendenti sono `ade/runtime`, `ade/code-import`, `ade/ai` e `ade/messaging`, ciascuno con dipendenze fissate e controlli TypeScript. `ade/tsconfig.tools.json` definisce le opzioni comuni senza far dipendere la configurazione IA dall'importatore. I test del dominio sono in `ade/test/`; i test del contributo nativo sono sotto `src/vs/workbench/contrib/ade/test/`.
+
+Per preparare i soli tool, usare la versione Node fissata in `.nvmrc` e installare i pacchetti interessati:
+
+```sh
+npm --prefix ade/runtime ci --ignore-scripts
+npm --prefix ade/code-import ci --ignore-scripts
+npm --prefix ade/ai ci --ignore-scripts
+npm --prefix ade/messaging ci --ignore-scripts
+npm run ade:test
+npm --prefix ade/runtime run check
+npm --prefix ade/runtime test
+npm --prefix ade/code-import run check
+npm --prefix ade/code-import test
+npm --prefix ade/ai run check
+npm --prefix ade/ai test
+```
+
+I test architetturali del runtime controllano l'assenza di cicli a runtime, l'indipendenza del dominio e dell'importatore e la risoluzione dei nomi condivisi dagli scenari desktop. La suite verifica anche che la generazione dei runtime sia indipendente da commenti e ordine delle dichiarazioni.
+
+Per il contributo nativo, dopo la preparazione descritta nella [guida di sviluppo](fork-development.md), usare `npm run ade:check`, `npm run ade:smoke:check`, la build client necessaria ai test e `npm run ade:ai:service-test`. Lo smoke desktop mantiene l'ingresso e i flag di `ade/scripts/smoke-desktop.mjs`: avvio, isolamento e raccolta degli errori vivono in `ade/scripts/smoke/harness.ts`, le interazioni comuni in `helpers.ts` e gli scenari nei moduli dedicati. I test con provider reali o broker richiedono la configurazione documentata nelle rispettive guide.
+
+`ade/prototype/` conserva il prototipo iniziale e la sua copertura di compatibilità. Non è richiesto dall'avvio del prodotto nativo. I verbali e i benchmark storici mantengono percorsi e hash della revisione in cui sono stati prodotti.

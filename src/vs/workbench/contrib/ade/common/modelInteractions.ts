@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readSemanticDraft, validateSemanticShape, scenarioLayers, scenarioUnorderedOccurrences, type InteractionArgument, type ModelExpression, type ModelField, type ModelFrame, type ModelInteraction, type SemanticModelV4 } from './semanticModel.js';
+import { readSemanticDraft, validateSemanticShape } from './modelValidation.js';
+import { scenarioLayers, scenarioUnorderedOccurrences } from './modelScenario.js';
+import { type InteractionArgument, type ModelExpression, type ModelField, type ModelFrame, type ModelInteraction, type SemanticModelV4 } from './modelTypes.js';
 import { checkModelExpression, evaluateModelExpression, fieldValueType, isModelValue, resolveValueType, type ExpressionScope, type ModelValue } from './modelValues.js';
 import { canonicalJson } from './modelSerialization.js';
 
@@ -32,7 +34,7 @@ export function interactionValueModel(model: SemanticModelV4): SemanticModelV4 {
 	}
 	return { ...model, foundation: { ...model.foundation, types } };
 }
-export function interactionFrameSteps(frame: ModelFrame): string[][] {
+function interactionFrameSteps(frame: ModelFrame): string[][] {
 	return 'steps' in frame ? [frame.steps] : 'operands' in frame ? frame.operands.map(operand => operand.steps) : [];
 }
 function operationScope(fields: ModelField[]): ExpressionScope { return Object.fromEntries(fields.map(field => [field.id!, fieldValueType(field)])); }
@@ -267,9 +269,6 @@ export function describeModelInteraction(model: SemanticModelV4, id: string): { 
 	} };
 	walk(interaction?.execution?.steps ?? [], 0); return rows;
 }
-
-// The emitted runtime is fixed text, deliberately independent of transpiler output. See interactionRuntime.ts.
-export { emitModelInteraction, interactionRegion, readInteractionRegion, reverseModelInteraction } from './interactionRuntime.js';
 
 export interface InteractionEdit { interaction: ModelInteraction; occurrences: SemanticModelV4['foundation']['occurrences']; frames: ModelFrame[]; expectedRevision?: string }
 /** Replace one owned hierarchy atomically; unrelated interactions and all structural intent are retained. */

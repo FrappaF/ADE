@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readSemanticModel, validateSemanticModel, type CodeMapping, type EvidenceRecord, type Knowledge, type ModelAssertion, type ModelDiagnostic, type ModelFrame, type ModelInteraction, type ModelOccurrence, type ModelView, type SemanticElement, type SemanticModelV4, type SemanticRelation } from './semanticModel.js';
+import { readSemanticModel, validateSemanticModel } from './modelValidation.js';
+import { type CodeMapping, type EvidenceRecord, type Knowledge, type ModelAssertion, type ModelDiagnostic, type ModelFrame, type ModelInteraction, type ModelOccurrence, type ModelView, type SemanticElement, type SemanticModelV4, type SemanticRelation } from './modelTypes.js';
 import { canonicalJson, modelDigest, semanticContent } from './modelSerialization.js';
 import { arrangeExplorationView, inspectDiagramQuality } from './diagramPreview.js';
 

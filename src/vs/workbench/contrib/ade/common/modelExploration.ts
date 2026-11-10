@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { scenarioLayers, validateExploration, type ModelDiagnostic, type SemanticModelV4 } from './semanticModel.js';
+import { scenarioLayers } from './modelScenario.js';
+import { validateExploration } from './modelValidation.js';
+import { type ModelDiagnostic, type SemanticModelV4 } from './modelTypes.js';
 import { validateModelInteraction } from './modelInteractions.js';
 
 export { scenarioLayers, validateExploration };

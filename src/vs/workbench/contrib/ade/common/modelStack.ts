@@ -6,7 +6,7 @@
 import { compileModelStateMachine, executeStateProgram, type StateSnapshot } from './modelStates.js';
 import { getModelArchetype, modelProjectProfile } from './modelProfiles.js';
 import { canonicalJson, modelDigest } from './modelSerialization.js';
-import type { SemanticModelV4 } from './semanticModel.js';
+import { type SemanticModelV4 } from './modelTypes.js';
 
 export interface ModelStackPlan {
 	version: 1; from: string; to: string; pimRevision: string;

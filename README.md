@@ -49,7 +49,7 @@ npm run ade:setup
 ./ade/scripts/dev.sh
 ```
 
-**`npm run ade:setup` è il comando unico di preparazione:** controlla la versione esatta in `.nvmrc`, imposta `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` e `FOUNDRY_LOCAL_SKIP_INSTALL=1` per i processi figli, prepara gli header nativi, esegue `npm ci`, compila client/motore A.D.E, estensioni e Copilot, quindi prepara Electron. Mostra il passaggio corrente e si ferma al primo errore, conservandone il codice di uscita. `npm ci` usa i lockfile e installa anche `ade/code-import` e `ade/ai` tramite gli script del repository; lasciare abilitati gli script npm.
+**`npm run ade:setup` è il comando unico di preparazione:** controlla la versione esatta in `.nvmrc`, imposta `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` e `FOUNDRY_LOCAL_SKIP_INSTALL=1` per i processi figli, prepara gli header nativi, esegue `npm ci`, compila client/motore A.D.E, estensioni e Copilot, quindi prepara Electron. Mostra il passaggio corrente e si ferma al primo errore, conservandone il codice di uscita. `npm ci` usa i lockfile e installa anche `ade/runtime`, `ade/code-import` e `ade/ai` tramite gli script del repository; lasciare abilitati gli script npm.
 
 Se servono soltanto **preinstallazione e installazione**, senza la build desktop:
 

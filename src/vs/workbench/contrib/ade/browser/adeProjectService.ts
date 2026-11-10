@@ -16,9 +16,11 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { checkoutModel } from '../common/checkoutModel.js';
-import { InvalidSemanticModelError, migrateSemanticModel, readSemanticDraft, validateSemanticModel, emptyFoundation, SemanticModelService } from '../common/semanticModel.js';
+import { InvalidSemanticModelError, readSemanticDraft, validateSemanticModel } from '../common/modelValidation.js';
+import { migrateSemanticModel } from '../common/modelLegacyMigration.js';
+import { emptyFoundation } from '../common/modelFoundation.js';
+import { SemanticModelService } from '../common/semanticModelService.js';
 import { DiagramContext, normalizeDiagramContext, resolveElementLocation, SemanticLocation, SemanticNavigationHistory } from '../common/visualNavigation.js';
-
 import { modelProjectProfile } from '../common/modelProfiles.js';
 import { modelTaskIntent } from '../common/modelWorkflow.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';

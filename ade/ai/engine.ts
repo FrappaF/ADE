@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { object, text } from '../code-import/schemas.ts';
+import { object, text } from '../runtime/schemas.ts';
 import { prepareImplementation, type PreparedImplementation } from './context.ts';
 import { proposeImplementation } from './collaboration.ts';
 import { interpretResiduals } from './interpretation.ts';

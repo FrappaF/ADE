@@ -9,7 +9,7 @@ import { describeModelPredicate, validateModelPredicate } from '../common/modelE
 import { localize } from '../../../../nls.js';
 import { getContractProjection } from '../common/modelBlueprint.js';
 import { getGenerationScope } from '../common/modelReadiness.js';
-import type { ModelField, SemanticModelV4 } from '../common/semanticModel.js';
+import { type ModelField, type SemanticModelV4 } from '../common/modelTypes.js';
 
 /** Presence and nullability are separate in both visual and accessible contract projections. */
 export function blueprintFieldLabel(model: SemanticModelV4, field: ModelField): string {

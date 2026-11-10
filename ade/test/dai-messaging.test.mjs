@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import './source-loader.mjs';
+import '../scripts/source-loader.mjs';
 import { checkoutMessaging, messagingCriteria, envelope } from './fixtures/dai-messaging.mjs';
 const { validateModelMessaging, compileModelMessaging, simulateMessaging, emitModelMessaging, messagingRegion, reverseModelMessaging, setModelMessaging } = await import('../../src/vs/workbench/contrib/ade/common/modelMessaging.ts');
 const { getModelReadiness } = await import('../../src/vs/workbench/contrib/ade/common/modelReadiness.ts');

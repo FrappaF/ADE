@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { checkShape, semanticModelV4Schema, readSemanticDraft, type ModelDiagnostic, type ModelField, type ModelStateMachine, type SemanticModelV4 } from './semanticModel.js';
+import { checkShape, semanticModelV4Schema } from './modelSchema.js';
+import { readSemanticDraft } from './modelValidation.js';
+import { type ModelDiagnostic, type ModelField, type ModelStateMachine, type SemanticModelV4 } from './modelTypes.js';
 import { checkModelExpression, evaluateModelExpression, fieldValueType, isModelValue, resolveValueType, type ExpressionScope, type ModelValue } from './modelValues.js';
 import { compileModelInteraction, executeInteractionProgram, validateModelInteraction, type InteractionProgram, type InteractionReplies } from './modelInteractions.js';
 
@@ -172,4 +174,3 @@ export function setModelStateMachine(model: SemanticModelV4, machine: ModelState
 	if (index < 0) { next.foundation.stateMachines.push(structuredClone(machine)); } else { next.foundation.stateMachines[index] = structuredClone(machine); }
 	return readSemanticDraft(next) as SemanticModelV4;
 }
-export { emitModelStateMachine, stateMachineRegion, readStateMachineRegion, reverseModelStateMachine } from './stateRuntime.js';

@@ -6,10 +6,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
-import { readSemanticModel, semanticModelV3Schema, validateSemanticModel, migrateSemanticModel } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
-import './source-loader.mjs';
-import { getDiagramGroups } from '../../src/vs/workbench/contrib/ade/common/visualNavigation.ts';
+const { checkoutModel } = await import('../../src/vs/workbench/contrib/ade/common/checkoutModel.ts');
+const { readSemanticModel, validateSemanticModel } = await import('../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
+const { semanticModelV3Schema } = await import('../../src/vs/workbench/contrib/ade/common/modelSchema.ts');
+const { migrateSemanticModel } = await import('../../src/vs/workbench/contrib/ade/common/modelLegacyMigration.ts');
+import '../scripts/source-loader.mjs';
+const { getDiagramGroups } = await import('../../src/vs/workbench/contrib/ade/common/visualNavigation.ts');
 
 const { applyVisualEdit, getDeletionImpact, upgradeVisualModel } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');
 

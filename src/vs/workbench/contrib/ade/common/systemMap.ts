@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { SemanticElement, SemanticModel, SemanticRelation } from './semanticModel.js';
+import { type SemanticElement, type SemanticModel, type SemanticRelation } from './modelTypes.js';
 
 export interface SystemBranch {
 	root: SemanticElement;
@@ -19,8 +19,9 @@ export interface SystemConnection {
 /** Derived overview, independent of diagram placement; every semantic identity appears once. */
 export function getSystemMap(model: SemanticModel): { branches: SystemBranch[]; connections: SystemConnection[] } {
 	const children = new Map<string | undefined, SemanticElement[]>();
+	const parents = new Map((model.version === 4 || model.version === 5) ? model.foundation.ownership.map(entry => [entry.elementId, entry.ownerId]) : []);
 	for (const element of model.semantics.elements) {
-		const parentId = (model.version === 4 || model.version === 5) ? model.foundation.ownership.find(entry => entry.elementId === element.id)?.ownerId : element.parentId;
+		const parentId = (model.version === 4 || model.version === 5) ? parents.get(element.id) : element.parentId;
 		const siblings = children.get(parentId) ?? [];
 		siblings.push(element);
 		children.set(parentId, siblings);

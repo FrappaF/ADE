@@ -5,10 +5,10 @@
 
 import assert from 'assert';
 import { blueprintFixture } from '../common/blueprintFixture.js';
-import type { IInputOptions, IPickOptions, IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../../platform/quickinput/common/quickInput.js';
+import { type IInputOptions, type IPickOptions, type IQuickInputService, type IQuickPickItem, type QuickPickInput } from '../../../../../platform/quickinput/common/quickInput.js';
 import { editAdeBlueprint } from '../../browser/adeBlueprintEditing.js';
 import { applyVisualEdit } from '../../common/visualEditing.js';
-import type { SemanticModelV4 } from '../../common/semanticModel.js';
+import { type SemanticModelV4 } from '../../common/modelTypes.js';
 
 /** Scripted native dialog boundary: all semantic editing still uses the production implementation. */
 export class ScriptedDialogs implements Pick<IQuickInputService, 'pick' | 'input'> {

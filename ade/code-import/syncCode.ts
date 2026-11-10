@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { isDeepStrictEqual } from 'node:util';
-import { readSemanticModel, type SemanticModel, type ModelView } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelValidation.ts';
+import { type SemanticModel, type ModelView } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import { getModelImpact } from '../../src/vs/workbench/contrib/ade/common/modelImpact.ts';
 import { validateProjection, type CodeImport } from './importCode.ts';
 

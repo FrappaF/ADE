@@ -3,9 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import '../../scripts/source-loader.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { benchmarkReconciliation } from '../reconciliationBenchmark.ts';
+const { benchmarkReconciliation } = await import('../reconciliationBenchmark.ts');
 
 const config = { version: 1, provider: 'codex', connection: 'cli', model: 'economical', executable: 'codex', maxCalls: 1, timeoutMs: 10000, maxContextBytes: 262144 };
 const empty = () => ({ summary: 'Reconciliation', questions: [], modelEdits: [], sourceEdits: [], bindings: [] });

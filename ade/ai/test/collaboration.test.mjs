@@ -2,17 +2,19 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, access, symlink, chmod, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fixture, config, original } from './fixtures.mjs';
-import { assertPreparedCurrent, prepareImplementation } from '../context.ts';
-import { readImplementationPlan } from '../plan.ts';
-import { proposeImplementation } from '../collaboration.ts';
-import { stageImplementation, verifyImplementation, applyImplementation, planReviewId, readSession, readGeneratedImplementation } from '../implementation.ts';
-import { readProviderConfig } from '../contracts.ts';
-import { executeCollaboration } from '../engine.ts';
+const { assertPreparedCurrent, prepareImplementation } = await import('../context.ts');
+const { readImplementationPlan } = await import('../plan.ts');
+const { proposeImplementation } = await import('../collaboration.ts');
+const { stageImplementation, verifyImplementation, applyImplementation, planReviewId, readSession, readGeneratedImplementation } = await import('../implementation.ts');
+const { readProviderConfig } = await import('../contracts.ts');
+const { executeCollaboration } = await import('../engine.ts');
 
 test('payment refusal: model → reviewed plan → isolated implementation → real tests → apply → undo after restart', async t => {
 	const f = await fixture(t);

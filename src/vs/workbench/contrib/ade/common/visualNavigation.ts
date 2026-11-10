@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ModelView, SemanticElement, SemanticModel } from './semanticModel.js';
+import { type ModelView, type SemanticElement, type SemanticModel } from './modelTypes.js';
 
 export interface DiagramGroup {
 	featureId?: string;
@@ -15,8 +15,13 @@ export interface DiagramGroup {
 export function getFeatureViews(model: SemanticModel, feature: SemanticElement): ModelView[] {
 	if ((model.version === 4 || model.version === 5)) {
 		const ids = new Set([feature.id]);
-		for (const entry of model.foundation.memberships.filter(entry => entry.featureId === feature.id)) { ids.add(entry.elementId); }
-		for (const id of ids) { for (const entry of model.foundation.ownership.filter(entry => entry.ownerId === id)) { ids.add(entry.elementId); } }
+		for (const entry of model.foundation.memberships) {
+			if (entry.featureId === feature.id) { ids.add(entry.elementId); }
+		}
+		const children = Map.groupBy(model.foundation.ownership, entry => entry.ownerId);
+		for (const id of ids) {
+			for (const entry of children.get(id) ?? []) { ids.add(entry.elementId); }
+		}
 		return model.views.filter(view => view.featureId === feature.id || view.nodes.some(node => ids.has(node.elementId)));
 	}
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
@@ -86,13 +91,14 @@ export type SemanticLocation = { section: 'home' } | { section: 'map' } | { sect
 /** Semantic ancestry is independent of file names and diagram placement. */
 export function getElementPath(model: SemanticModel, id: string): SemanticElement[] {
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
+	const parents = new Map((model.version === 4 || model.version === 5) ? model.foundation.ownership.map(entry => [entry.elementId, entry.ownerId]) : []);
 	const result: SemanticElement[] = [];
 	const visited = new Set<string>();
 	let element = elements.get(id);
 	while (element && !visited.has(element.id)) {
 		result.unshift(element);
 		visited.add(element.id);
-		const parentId = (model.version === 4 || model.version === 5) ? model.foundation.ownership.find(entry => entry.elementId === element!.id)?.ownerId : element.parentId;
+		const parentId = (model.version === 4 || model.version === 5) ? parents.get(element.id) : element.parentId;
 		element = parentId ? elements.get(parentId) : undefined;
 	}
 	return result;

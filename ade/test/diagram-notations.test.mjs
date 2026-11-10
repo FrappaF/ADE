@@ -5,9 +5,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import './source-loader.mjs';
-import { readSemanticModel, validateSemanticModel, viewKinds, notationRules, InvalidSemanticModelError } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
-import { notationNodeSize, notationBoundaries, notationGroupMembers, arrangeDiagram } from '../../src/vs/workbench/contrib/ade/common/diagramLayout.ts';
+import '../scripts/source-loader.mjs';
+const { readSemanticModel, validateSemanticModel, InvalidSemanticModelError } = await import('../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
+const { viewKinds } = await import('../../src/vs/workbench/contrib/ade/common/modelTypes.ts');
+const { notationRules } = await import('../../src/vs/workbench/contrib/ade/common/modelNotation.ts');
+const { notationNodeSize, notationBoundaries, notationGroupMembers, arrangeDiagram } = await import('../../src/vs/workbench/contrib/ade/common/diagramLayout.ts');
 import { notationAnalysis } from '../code-import/test/notation-fixture.mjs';
 
 const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');

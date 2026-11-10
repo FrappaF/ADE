@@ -9,9 +9,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
-import { semanticModelSchema, validateSemanticModel, readSemanticModel, migrateSemanticModel, SemanticModelService, InvalidSemanticModelError } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
-import { migrateSemanticModelToV4, migrateSemanticModelToV5 } from '../../src/vs/workbench/contrib/ade/common/modelMigration.ts';
+import '../scripts/source-loader.mjs';
+const { checkoutModel } = await import('../../src/vs/workbench/contrib/ade/common/checkoutModel.ts');
+const { semanticModelSchema } = await import('../../src/vs/workbench/contrib/ade/common/modelSchema.ts');
+const { validateSemanticModel, readSemanticModel, InvalidSemanticModelError } = await import('../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
+const { migrateSemanticModel } = await import('../../src/vs/workbench/contrib/ade/common/modelLegacyMigration.ts');
+const { SemanticModelService } = await import('../../src/vs/workbench/contrib/ade/common/semanticModelService.ts');
+const { migrateSemanticModelToV4, migrateSemanticModelToV5 } = await import('../../src/vs/workbench/contrib/ade/common/modelMigration.ts');
 
 const readJson = async path => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
 const codes = model => validateSemanticModel(model).map(({ code }) => code);
