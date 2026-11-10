@@ -250,6 +250,12 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.ade-editing-history {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+}
+
 .ade-shell .ade-canvas svg {
 	position: absolute;
 	inset: 0;
@@ -428,6 +434,20 @@
 .ade-shell .ade-canvas .ade-sequence-lifeline {
 	stroke: var(--vscode-descriptionForeground);
 	stroke-dasharray: 4 4;
+}
+
+.ade-shell .ade-canvas .ade-sequence-operand-separator {
+	stroke: var(--vscode-descriptionForeground);
+	stroke-dasharray: 6 4;
+}
+
+.ade-shell .ade-sequence-frame-label,
+.ade-shell .ade-sequence-operand {
+	text-align: start;
+}
+
+.ade-shell .ade-sequence-frame-label {
+	font-weight: var(--vscode-fontWeight-semiBold);
 }
 
 .ade-shell .ade-sequence-message:hover {
@@ -617,8 +637,9 @@
 	position: static;
 }
 
-.ade-floating-menu > .ade-options > .ade-options-content {
+.ade-shell .ade-floating-menu > .ade-options > .ade-options-content {
 	position: absolute;
+	background: var(--vscode-editorWidget-background);
 	top: calc(100% + 8px);
 	left: 0;
 	width: min(360px, calc(100vw - 72px));
@@ -1170,11 +1191,24 @@
 }
 
 .ade-menu-items,
-.ade-menu-items .ade-editing,
-.ade-menu-items .ade-navigation {
+.ade-menu-items .ade-editing {
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
+}
+
+.ade-menu-items .ade-navigation {
+	flex-direction: row;
+	align-items: center;
+	max-height: none;
+}
+
+.ade-menu-items .ade-editing {
+	margin-block: 0;
+}
+
+.ade-menu-items .ade-editing-history {
+	align-self: flex-start;
 }
 
 .ade-review-blockers {

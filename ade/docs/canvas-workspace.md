@@ -1,8 +1,8 @@
 # Canvas e cambio progetto
 
-Il diagramma occupa tutta l’area dell’editor. La sidebar non si apre automaticamente: **Diagrams** sceglie la vista con un selettore; **Actions → More Tools → Diagram Navigation** riapre la navigazione laterale quando serve.
+Il diagramma occupa tutta l’area dell’editor. La sidebar non si apre automaticamente: **Diagrams** sceglie la vista con un selettore; **Project → Explore and Review → Diagram Navigation** riapre la navigazione laterale quando serve.
 
-Il piccolo menu in alto contiene **Open Project**, **Diagrams**, **Spread Out** e **Actions**. Nei progetti importati restano direttamente accessibili **Update Code**, **Chat with Codex** e **Update Diagrams**. Salvataggio, aggiunta di elementi, opzioni del diagramma, configurazione IA e strumenti tecnici si trovano in **Actions**. Le proprietà sono un pannello sovrapposto compatto, aperto selezionando un elemento o una relazione (anche un messaggio di sequenza); **Esc** o la croce lo chiudono senza ridimensionare il canvas.
+La barra in alto contiene **Diagrams**, il nome della vista e **More Actions**. Il menu separa navigazione, modifica e visualizzazione: Indietro/Avanti/Home condividono una riga, così come Salva/Annulla/Ripeti. Le altre azioni hanno righe testuali. Nei progetti importati l'azione principale segue il lavoro in corso; **Chat with Codex** rimane facoltativa. Apertura del progetto e strumenti tecnici sono nella scheda **Project**, la configurazione IA in **AI Settings**. Le proprietà sono un pannello sovrapposto compatto, aperto selezionando un elemento o una relazione (anche un messaggio di sequenza); **Esc** o la croce lo chiudono senza ridimensionare il canvas.
 
 ## Navigazione
 
@@ -12,11 +12,13 @@ Il piccolo menu in alto contiene **Open Project**, **Diagrams**, **Spread Out** 
 - Con lo sfondo focalizzato, le frecce spostano la vista e Home inquadra il diagramma. Con un elemento focalizzato, le frecce spostano l’elemento, anche a coordinate negative; queste modifiche usano l’undo del documento.
 - Pan e zoom non modificano il modello. La posizione della vista viene ricordata per progetto e diagramma.
 
-**Spread Out** distribuisce gli elementi in modo più arioso, raggruppando anche i cicli su più righe e colonne. È una modifica annullabile. Le nuove viste generate dall’IA usano una spaziatura bilanciata e vanno a capo nei flussi lunghi; gli aggiornamenti preservano le posizioni esistenti. Le relazioni restano presenti, ma le etichette compaiono quando si passa sopra una connessione o si seleziona un elemento/relazione. **Actions → Show Relationship Labels** mostra tutte le etichette.
+**More Actions → Layout and Display → Spread Out** distribuisce gli elementi in modo più arioso, raggruppando anche i cicli su più righe e colonne. È una modifica annullabile. Le nuove viste generate dall’IA usano una spaziatura bilanciata e vanno a capo nei flussi lunghi; gli aggiornamenti preservano le posizioni esistenti. Le relazioni restano presenti, ma le etichette compaiono quando si passa sopra una connessione o si seleziona un elemento/relazione. **Show Relationship Labels**, nello stesso gruppo, mostra tutte le etichette.
+
+Le sequenze allineano i partecipanti alle rispettive linee di vita tratteggiate. I messaggi degli scenari descrittivi mostrano il nome sopra la freccia; la lettura accessibile conserva mittente, destinatario e condizioni. I frammenti `alt`, `opt`, `par` e `loop` mantengono la gerarchia e separano i rami con linee tratteggiate. L'ordine sconosciuto resta dichiarato; il rendering non aggiunge esecuzioni o risposte implicite. Sequenze e attività basate su scenari derivano il layout dal modello e non mostrano i controlli di disposizione ed etichette dei diagrammi strutturali.
 
 ## Aprire un altro progetto
 
-**Open Project** è sempre visibile sul canvas. Anche **File → Open Folder** segue la cartella appena aperta: ripristina `.ade/model.json` o lo snapshot attivo di `.ade/code-project.json`. Una cartella senza progetto mostra Home con il percorso corrente e le azioni per aprire, creare o importare, senza conservare i diagrammi del progetto precedente.
+**Open Project** si trova nella scheda **Project**, nel gruppo **Open and Save**. Anche **File → Open Folder** segue la cartella appena aperta: ripristina `.ade/model.json` o lo snapshot attivo di `.ade/code-project.json`. Una cartella senza progetto mostra Home con il percorso corrente e le azioni per aprire, creare o importare, senza conservare i diagrammi del progetto precedente.
 
 L’aggiunta di una cartella a un workspace con più root conserva il progetto attivo se è ancora presente. Se viene rimossa la root del progetto, ADE chiede di salvare o scartare le modifiche prima del passaggio. Annullando, mantiene il documento non salvato e mostra uno stato di recupero; **Retry** ripropone il passaggio. Lo stato copiato da un altro workspace non ripristina un modello estraneo alla cartella corrente.
 

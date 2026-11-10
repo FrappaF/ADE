@@ -112,6 +112,15 @@ suite('A.D.E imported diagram review', () => {
 			assert.ok(button('Chat with Codex'), 'further AI changes remain optional');
 		};
 		assertAppliedCanvas();
+		const menu = [...root.querySelectorAll('details')].find(details => details.querySelector('summary')?.textContent === 'More Actions')!;
+		root.style.setProperty('--vscode-editorWidget-background', '#252526'); root.style.setProperty('--vscode-sideBar-background', '#181818');
+		menu.open = true;
+		const iconRows = ['.ade-menu-items .ade-navigation', '.ade-menu-items .ade-editing-history'].map(selector => {
+			const buttons = [...root.querySelectorAll<HTMLButtonElement>(`${selector} > button`)];
+			return { labels: buttons.map(button => button.getAttribute('aria-label')), aligned: buttons.every(button => Math.abs(button.getBoundingClientRect().top - buttons[0].getBoundingClientRect().top) < 1) };
+		});
+		assert.deepStrictEqual({ iconRows, background: dom.getWindow(menu).getComputedStyle(menu.querySelector<HTMLElement>(':scope > .ade-options-content')!).backgroundColor }, { iconRows: [{ labels: ['Back', 'Forward', 'Home'], aligned: true }, { labels: ['Save', 'Undo', 'Redo'], aligned: true }], background: 'rgb(37, 37, 38)' }, 'compact icon rows sit on an opaque floating menu');
+		menu.open = false;
 		button('Project').click();
 		assert.ok(root.textContent?.includes('All Diagram Changes Applied'));
 		assert.equal(button('Review All Changes'), undefined, 'a completed review does not leave a disabled review action');

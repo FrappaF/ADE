@@ -10,10 +10,12 @@ import { AdeControls } from '../../browser/adeControls.js';
 import { renderAdeInteractionSequence } from '../../browser/adeInteractionSequence.js';
 import { adeInteractionRows } from '../../browser/adeInteractionContent.js';
 import { interactionFixture } from '../common/interactionFixture.js';
+import '../../browser/media/ade.css';
+import { renderAdeSequence } from '../../browser/adeSequence.js';
 
-suite('A.D.E executable sequence renderer', () => {
+suite('A.D.E sequence renderer', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite(); let root: HTMLElement;
-	setup(() => { root = dom.append(document.body, dom.$('section')); }); teardown(() => root.remove());
+	setup(() => { root = dom.append(dom.append(dom.append(document.body, dom.$('section.ade-shell')), dom.$('div.ade-canvas')), dom.$('div.ade-canvas-content.ade-sequence')); }); teardown(() => root.closest('.ade-shell')!.remove());
 	test('nested frames and operands render in semantic order with measured, focusable labels', () => {
 		const model = structuredClone(interactionFixture), before = structuredClone(model), controls = disposables.add(new AdeControls());
 		const size = renderAdeInteractionSequence(root, model, 'interaction.checkout', controls, () => {}), buttons = [...root.querySelectorAll<HTMLButtonElement>('[data-interaction-step-id]')];
@@ -26,5 +28,36 @@ suite('A.D.E executable sequence renderer', () => {
 		const model = structuredClone(interactionFixture); model.foundation.blueprint!.operations.find(operation => operation.id === 'charge')!.name = '<img src=x onerror=alert(1)>';
 		renderAdeInteractionSequence(root, model, 'interaction.checkout', disposables.add(new AdeControls()), () => {});
 		assert.strictEqual(root.querySelector('img'), null); for (const row of adeInteractionRows(model, 'interaction.checkout')) { assert.ok(root.textContent?.includes(row.label)); assert.ok([...root.querySelectorAll('[data-interaction-step-id]')].some(label => label.getAttribute('aria-label') === row.text)); }
+	});
+
+	test('imported scenarios show aligned lifelines, concise messages and separate alternative operands without changing the model', () => {
+		const model = structuredClone(interactionFixture);
+		model.semantics.elements = [{ id: 'user', kind: 'actor', name: 'Todo user' }, { id: 'controller', kind: 'component', name: 'TodosController' }, { id: 'todo', kind: 'component', name: 'Todo model' }];
+		model.foundation.occurrences = [
+			{ id: 'submit', profile: 'descriptive', name: 'Submit new Todo form', from: 'user', to: 'controller' },
+			{ id: 'build', profile: 'descriptive', name: 'Build Todo from permitted parameters', from: 'controller', to: 'todo' },
+			{ id: 'save', profile: 'descriptive', name: 'Save Todo', from: 'controller', to: 'todo' },
+			{ id: 'success', profile: 'descriptive', name: 'Redirect to Todo list', from: 'controller', to: 'user' },
+			{ id: 'failure', profile: 'descriptive', name: 'Render index with unprocessable-entity status', from: 'controller', to: 'user' }
+		];
+		model.foundation.frames = [{ id: 'outcome', kind: 'unspecified', occurrenceIds: ['success', 'failure'], description: { operator: 'alt', operands: [{ id: 'saved', condition: { state: 'known', value: 'Todo save succeeds' }, steps: ['success'], evidenceIds: [] }, { id: 'invalid', condition: { state: 'known', value: 'Todo save fails validation' }, steps: ['failure'], evidenceIds: [] }] } }];
+		model.foundation.interactions = [{ id: 'create-todo', profile: 'descriptive', occurrenceIds: model.foundation.occurrences.map(call => call.id), frameIds: ['outcome'], description: { trigger: 'Create Todo', scope: 'Todo creation', participantIds: ['user', 'controller', 'todo'], evidenceIds: [], order: [['submit', 'build'], ['build', 'save'], ['save', 'success'], ['save', 'failure']].map(([before, after]) => ({ before, after, evidenceIds: [], basis: 'authored' as const })) } }];
+		const before = structuredClone(model), selected: string[] = [];
+		const view = { id: 'create-sequence', name: 'Create Todo', kind: 'sequence' as const, interactionId: 'create-todo', nodes: [], relationIds: [] };
+		const size = renderAdeSequence(root, model, view, disposables.add(new AdeControls()), '', id => selected.push(id));
+		const headers = [...root.querySelectorAll<HTMLButtonElement>('.ade-sequence-participant')];
+		const lines = [...root.querySelectorAll<SVGPathElement>('.ade-sequence-lifeline')];
+		assert.deepStrictEqual({ participants: headers.map(header => header.textContent), lifelines: lines.map(line => line.dataset.elementId), messages: root.querySelectorAll('[data-occurrence-id]').length, separators: root.querySelectorAll('.ade-sequence-operand-separator').length, operator: root.querySelector('.ade-sequence-frame-label')?.textContent, guards: [...root.querySelectorAll('.ade-sequence-operand')].map(label => label.textContent) }, { participants: ['Todo user', 'TodosController', 'Todo model'], lifelines: ['todo', 'controller', 'user'], messages: 5, separators: 1, operator: 'alt', guards: ['[Todo save succeeds]', '[Todo save fails validation]'] });
+		for (const line of lines) {
+			const header = headers.find(header => header.dataset.elementId === line.dataset.elementId)!;
+			const [x, start, end] = line.getAttribute('d')!.match(/\d+/g)!.map(Number);
+			assert.deepStrictEqual([x, start, end, dom.getWindow(line).getComputedStyle(line).strokeDasharray], [header.offsetLeft + header.offsetWidth / 2, header.offsetTop + header.offsetHeight, size.height - 16, '4px, 4px']);
+		}
+		const messages = [...root.querySelectorAll<HTMLButtonElement>('[data-sequence-kind="message"]')];
+		assert.deepStrictEqual(messages.map(message => message.textContent), model.foundation.occurrences.map(call => call.name));
+		const frame = root.querySelector<SVGRectElement>('[data-frame-id="outcome"]')!.getBBox();
+		for (const arrow of root.querySelectorAll<SVGPathElement>('[data-occurrence-id="success"], [data-occurrence-id="failure"]')) { assert.ok(arrow.getBBox().y + arrow.getBBox().height < frame.y + frame.height, 'the alternative frame encloses its message arrows'); }
+		messages[1].focus(); messages[1].click();
+		assert.deepStrictEqual([document.activeElement === messages[1], selected, model], [true, ['todo'], before]);
 	});
 });

@@ -37,7 +37,6 @@ interface AdeCanvasSurfaceHost {
 	renderPrimaryActions(parent: HTMLElement): void;
 	documentStatus(): string;
 	render(): void;
-	renderTools(toolbar: HTMLElement): void;
 	iconButton(parent: HTMLElement, label: string, icon: ThemeIcon, action: () => void, id?: string): HTMLButtonElement;
 	paragraph(parent: HTMLElement, content: string): void;
 	readonly root: HTMLElement;
@@ -65,16 +64,17 @@ export class AdeCanvasSurface {
 		this.host.renderNavigation(navigation, true);
 		const editing = group(localize('ade.canvas.editing', "Edit Diagram"));
 		this.renderEditingToolbar(editing);
-		const display = group(localize('ade.canvas.display', "Layout and Display"));
-		const spread = this.host.button(display, localize('ade.spreadOut', "Spread Out"), () => { this.project.edit({ kind: 'layout', viewId: view.id, density: 'spacious' }); this.host.focusSelection(); });
-		spread.disabled = !this.project.editable || view.kind === 'sequence' || view.kind === 'activity' && !!view.interactionId;
+		if (view.kind !== 'sequence' && !(view.kind === 'activity' && view.interactionId)) {
+			const display = group(localize('ade.canvas.display', "Layout and Display"));
+			const spread = this.host.button(display, localize('ade.spreadOut', "Spread Out"), () => { this.project.edit({ kind: 'layout', viewId: view.id, density: 'spacious' }); this.host.focusSelection(); });
+			spread.disabled = !this.project.editable;
+			const labels = this.host.button(display, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !(this.showRelationshipLabels ?? !!notationRules[view.kind]); this.host.render(); });
+			labels.setAttribute('aria-pressed', String(this.showRelationshipLabels ?? !!notationRules[view.kind]));
+		}
 		if (view.subjectId) { this.host.renderBreadcrumbs(menu); }
 		this.host.renderPrimaryActions(menu);
 		const state = dom.append(menu, dom.$('span.ade-document-state'));
 		state.setAttribute('role', 'status'); state.textContent = this.host.documentStatus();
-		const labels = this.host.button(display, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !(this.showRelationshipLabels ?? !!notationRules[view.kind]); this.host.render(); });
-		labels.setAttribute('aria-pressed', String(this.showRelationshipLabels ?? !!notationRules[view.kind]));
-		this.host.renderTools(dom.append(actions, dom.$('nav.ade-tools')));
 		const zoom = dom.append(parent, dom.$('nav.ade-floating-zoom'));
 		zoom.setAttribute('aria-label', localize('ade.canvasZoom', "Canvas Zoom"));
 		this.host.iconButton(zoom, localize('ade.zoomOut', "Zoom Out"), Codicon.remove, () => { this.canvas.zoom /= 1.2; this.canvas.applyCamera(); }, 'canvas-zoom-out');
@@ -308,10 +308,11 @@ export class AdeCanvasSurface {
 		const toolbar = dom.append(parent, dom.$('nav.ade-editing'));
 		toolbar.setAttribute('aria-label', localize('ade.editing', "Diagram Editing"));
 		if (this.project.modelUri) {
-			this.host.iconButton(toolbar, localize('ade.save', "Save"), Codicon.save, () => { void this.project.save(); }).disabled = !this.project.dirty;
-			this.host.iconButton(toolbar, localize('ade.undo', "Undo"), Codicon.discard, () => { void this.project.undo(); }).disabled = !this.project.canUndo;
-			this.host.iconButton(toolbar, localize('ade.redo', "Redo"), Codicon.redo, () => { void this.project.redo(); }).disabled = !this.project.canRedo;
-
+			const history = dom.append(toolbar, dom.$('div.ade-editing-history'));
+			history.setAttribute('role', 'group'); history.setAttribute('aria-label', localize('ade.editing.history', "Save and History"));
+			this.host.iconButton(history, localize('ade.save', "Save"), Codicon.save, () => { void this.project.save(); }).disabled = !this.project.dirty;
+			this.host.iconButton(history, localize('ade.undo', "Undo"), Codicon.discard, () => { void this.project.undo(); }).disabled = !this.project.canUndo;
+			this.host.iconButton(history, localize('ade.redo', "Redo"), Codicon.redo, () => { void this.project.redo(); }).disabled = !this.project.canRedo;
 		}
 		let diagramActions: HTMLElement | undefined;
 		if (this.project.editable && this.project.section !== 'element' && this.project.section !== 'impact') {
