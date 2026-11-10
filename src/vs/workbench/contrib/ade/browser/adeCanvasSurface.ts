@@ -39,7 +39,6 @@ interface AdeCanvasSurfaceHost {
 	render(): void;
 	renderTools(toolbar: HTMLElement): void;
 	iconButton(parent: HTMLElement, label: string, icon: ThemeIcon, action: () => void, id?: string): HTMLButtonElement;
-	renderWorkflow(parent: HTMLElement): void;
 	paragraph(parent: HTMLElement, content: string): void;
 	readonly root: HTMLElement;
 	revealElement(id: string, viewId?: string): void;
@@ -82,7 +81,6 @@ export class AdeCanvasSurface {
 		this.canvas.zoomReadout = dom.append(zoom, dom.$('span.ade-zoom-readout'));
 		this.host.iconButton(zoom, localize('ade.zoomIn', "Zoom In"), Codicon.add, () => { this.canvas.zoom *= 1.2; this.canvas.applyCamera(); }, 'canvas-zoom-in');
 		this.host.button(zoom, localize('ade.fitDiagram', "Fit Diagram"), () => this.canvas.fitDiagram(), 'canvas-fit');
-		const workflow = dom.append(parent, dom.$('section.ade-floating-workflow')); this.host.renderWorkflow(workflow);
 		if ((this.project.model.version === 4 || this.project.model.version === 5) && view.messagingId) { renderAdeMessaging(this.controls.details(actions, localize('ade.messaging.details', "Messaging Details"), 'canvas-messaging'), this.project.model, view.messagingId, this.controls, id => this.project.inspectElement(id)); }
 		if (view.kind === 'state') { renderAdeState(this.controls.details(actions, localize('ade.state.lifecycle', "Lifecycle Details"), 'canvas-lifecycle'), this.project.model, view, this.controls, id => this.project.inspectElement(id), id => { this.inspectorOpen = true; this.project.selectElement(id); this.host.render(); this.host.focusSelection(); }); }
 		if (this.project.model.version === 5 && view.interactionId) { this.host.paragraph(this.controls.details(actions, localize('ade.scenario.details', "Scenario Details"), 'canvas-scenario'), localize('ade.scenario.editHelp', "This View Projects an Explicit Scenario. Revise Its Occurrences, Branches and Known Order in the Conversation; Layout Is Derived from That Scenario.")); }

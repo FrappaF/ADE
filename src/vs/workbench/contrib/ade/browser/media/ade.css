@@ -686,26 +686,6 @@
 	margin-block: var(--vscode-spacing-size80);
 }
 
-.ade-floating-workflow {
-	position: absolute;
-	z-index: 4;
-	left: var(--vscode-spacing-size120);
-	bottom: 68px;
-	width: min(400px, calc(100% - 24px));
-	max-height: 45%;
-	overflow: auto;
-}
-
-.ade-floating-workflow:empty {
-	display: none;
-}
-
-.ade-floating-workflow .ade-workflow {
-	margin: 0;
-	border-radius: var(--vscode-cornerRadius-large);
-	box-shadow: 0 4px 16px var(--vscode-widget-shadow);
-}
-
 .ade-canvas-mode .ade-canvas-help {
 	position: absolute;
 	width: 1px;

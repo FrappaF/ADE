@@ -49,6 +49,7 @@ import { AdeCanvasController } from './adeCanvasController.js';
 import { AdeCanvasSurface } from './adeCanvasSurface.js';
 import { AdeInspector } from './adeInspector.js';
 import { AdeWorkflowContent } from './adeWorkflowContent.js';
+import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
 
 export class AdeEditor extends EditorPane {
 	static readonly ID = AdeInput.ID;
@@ -258,9 +259,14 @@ export class AdeEditor extends EditorPane {
 			this.explainDisabled(sync, !this.code.available || busy || isSourceEvidenceModel(model), localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
 		}
 		if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true && this.code.context?.diagramState === 'diagrams') {
-			const update = this.button(parent, localize('ade.explore.continue', "Continue Exploration"), () => { void this.ai.resumeDiagrams(); });
-			update.disabled = busy;
-			if (!this.ai.structuralReview) { update.classList.add('ade-primary-action'); }
+			const exploration = this.ai.diagramExploration, phase = getDiagramExplorationPhase(exploration);
+			if (phase === 'review' || phase === 'incomplete' || this.code.changed || exploration?.invalidation?.viewIds.length) {
+				const review = phase === 'review';
+				const label = review ? exploration?.workflow === 'project' ? localize('ade.explore.reviewAll', "Review All Changes") : localize('ade.explore.reviewDraft', "Review Draft") : phase === 'incomplete' ? exploration?.workflow === 'project' ? localize('ade.explore.continueProject', "Continue Generation") : localize('ade.explore.continue', "Continue Exploration") : localize('ade.updateDiagrams', "Update Diagrams");
+				const action = this.button(parent, label, () => { void (review ? this.ai.reviewDiagramProposal(exploration?.workflow === 'project' ? undefined : exploration?.proposals.find(proposal => proposal.status === 'ready')?.id) : this.ai.resumeDiagrams()); });
+				action.disabled = busy;
+				if (!this.ai.structuralReview) { action.classList.add('ade-primary-action'); }
+			}
 			this.button(parent, localize('ade.ai.chat', "Chat with Codex"), () => { void this.ai.chat(); }).disabled = busy;
 		}
 	}
@@ -556,7 +562,7 @@ export class AdeEditor extends EditorPane {
 		super(AdeEditor.ID, group, telemetryService, themeService, storageService);
 		const self = this;
 		this.canvas = this._register(new AdeCanvasController({ get root() { return self.root; } }, this.controls, this.project, storageService));
-		this.surface = new AdeCanvasSurface({ button: (parent, label, action, id) => this.button(parent, label, action, id), chooseDiagram: () => this.chooseDiagram(), focusSelection: () => this.focusSelection(), renderBreadcrumbs: (parent) => this.renderBreadcrumbs(parent), renderNavigation: (parent, canvas) => this.renderNavigation(parent, canvas), renderPrimaryActions: (parent) => this.renderPrimaryActions(parent), documentStatus: () => this.documentStatus(), render: () => this.render(), renderTools: (toolbar) => this.workflow.renderTools(toolbar), iconButton: (parent, label, icon, action, id) => this.iconButton(parent, label, icon, action, id), renderWorkflow: (parent) => this.workflow.renderWorkflow(parent), paragraph: (parent, content) => this.paragraph(parent, content), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId) }, this.canvas, this.controls, this.project, this.commandService, this.quick, this.contextMenus, this.notifications);
+		this.surface = new AdeCanvasSurface({ button: (parent, label, action, id) => this.button(parent, label, action, id), chooseDiagram: () => this.chooseDiagram(), focusSelection: () => this.focusSelection(), renderBreadcrumbs: (parent) => this.renderBreadcrumbs(parent), renderNavigation: (parent, canvas) => this.renderNavigation(parent, canvas), renderPrimaryActions: (parent) => this.renderPrimaryActions(parent), documentStatus: () => this.documentStatus(), render: () => this.render(), renderTools: (toolbar) => this.workflow.renderTools(toolbar), iconButton: (parent, label, icon, action, id) => this.iconButton(parent, label, icon, action, id), paragraph: (parent, content) => this.paragraph(parent, content), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId) }, this.canvas, this.controls, this.project, this.commandService, this.quick, this.contextMenus, this.notifications);
 		this.inspector = new AdeInspector({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId), relationMenu: (id, x, y) => this.surface.relationMenu(id, x, y) }, this.controls, this.project, this.code, this.commandService);
 		this.workflow = new AdeWorkflowContent({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), documentStatus: () => this.documentStatus(), get root() { return self.root; }, showReview: () => this.showReview() }, this.controls, this.project, this.ai, this.configurationService, this.notifications, this.code, this.commandService);
 

@@ -19,6 +19,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { type SemanticModel } from '../../common/modelTypes.js';
 import { canonicalJson, semanticContent } from '../../common/modelSerialization.js';
+import type { CodeDiagramExploration } from '../../common/codeBridge.js';
 
 suite('A.D.E imported diagram review', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -56,10 +57,10 @@ suite('A.D.E imported diagram review', () => {
 			f.review.tasks = f.review.plan.items.map(item => ({ id: item.id, intent: item.intent, status: 'ready', gaps: [] }));
 		}
 		f.review.semanticRevision = canonicalJson(semanticContent(model));
-		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.parse(f.review.modelUri), section: 'home', selectedId: '', onDidChange: Event.None, restore: async () => {} });
+		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.parse(f.review.modelUri), section: 'home', selectedId: '', diagnostics: [], onDidChange: Event.None, restore: async () => {} });
 		const ai = Object.assign(new (mock<IAdeAiService>())(), {
 			available: true, onDidChange: changed.event, diagramReview: undefined as AdeDiagramReview | undefined,
-			diagramExploration: { ...(projectWorkflow ? { workflow: 'project' as const, batch: { blockers: [] } } : {}), sessionId: 'session', model: 'test', proposals: [f.review.proposal], plan: f.review.plan, tasks: f.review.tasks ?? [], usage: { toolCalls: 1, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, budget: { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 } },
+			diagramExploration: { ...(projectWorkflow ? { workflow: 'project' as const, batch: { blockers: [] } } : {}), sessionId: 'session', model: 'test', proposals: [f.review.proposal], plan: f.review.plan, tasks: f.review.tasks ?? [], usage: { toolCalls: 1, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, budget: { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 } } as CodeDiagramExploration,
 			refreshConnection: async () => {},
 			reviewDiagramProposal: async () => { ai.diagramReview = f.review; changed.fire(); },
 			applyDiagramReview: async () => { f.called.push('apply'); },
@@ -67,7 +68,8 @@ suite('A.D.E imported diagram review', () => {
 		});
 		instantiation.stub(IAdeProjectService, project);
 		instantiation.stub(IAdeAiService, ai);
-		instantiation.stub(IAdeCodeService, Object.assign(new (mock<IAdeCodeService>())(), { onDidChange: Event.None, context: { diagramState: 'index' } }));
+		const code = Object.assign(new (mock<IAdeCodeService>())(), { onDidChange: Event.None, context: { diagramState: 'index' } });
+		instantiation.stub(IAdeCodeService, code);
 		const editor = store.add(instantiation.createInstance(AdeEditor, Object.assign(new (mock<IEditorGroup>())(), { id: 1, windowId: 1 })));
 		editor.create(root);
 		const button = (name: string) => [...root.querySelectorAll('button')].find(button => button.textContent === name)!;
@@ -91,6 +93,49 @@ suite('A.D.E imported diagram review', () => {
 		assert.deepStrictEqual([...root.querySelectorAll('.ade-action-group h2')].map(node => node.textContent), ['Account and Model', 'Diagram Generation']);
 		root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
 		assert.ok(button(reviewLabel), 'the first tab returns to the existing diagram workflow');
+
+		// Applying the saved review must leave the diagram usable, including after reopening the editor.
+		model.id = 'semantic:imported';
+		model.semantics.elements.push({ id: 'api', name: 'HTTP API', kind: 'component' });
+		const view = { ...f.review.proposal.views[0], nodes: [{ elementId: 'api', x: 0, y: 0 }] };
+		model.views.push(view);
+		Object.assign(project, { section: 'diagram', activeView: view });
+		code.context.diagramState = 'diagrams';
+		const exploration = ai.diagramExploration;
+		const apply = () => { for (const proposal of exploration.proposals) { proposal.status = 'applied'; } for (const task of exploration.tasks) { task.status = 'applied'; } };
+		apply(); changed.fire();
+		const assertAppliedCanvas = () => {
+			assert.ok(root.querySelector('.ade-canvas-mode .ade-node'), 'the applied diagram remains on the canvas');
+			assert.equal(root.querySelector('.ade-workflow, .ade-floating-workflow'), null, 'generation history never overlays the diagram');
+			assert.equal(root.querySelector('.ade-floating-menu .ade-primary-action'), null, 'applied work does not request more generation');
+			assert.equal(button('Continue Exploration'), undefined); assert.equal(button('Continue Generation'), undefined);
+			assert.ok(button('Chat with Codex'), 'further AI changes remain optional');
+		};
+		assertAppliedCanvas();
+		button('Project').click();
+		assert.ok(root.textContent?.includes('All Diagram Changes Applied'));
+		assert.equal(button('Review All Changes'), undefined, 'a completed review does not leave a disabled review action');
+		if (projectWorkflow) {
+			const plan = [...root.querySelectorAll('details')].find(details => details.querySelector('summary')?.textContent === 'Diagram Plan')!;
+			assert.equal(plan.open, false); plan.open = true;
+			assert.ok(plan.textContent?.includes('Overview · Structure · Applied'));
+		}
+		editor.showWorkspace(); assertAppliedCanvas();
+		Object.assign(code, { changed: true }); changed.fire();
+		assert.ok(button('Update Diagrams').classList.contains('ade-primary-action'), 'source changes have a specific action');
+		Object.assign(code, { changed: false });
+		exploration.proposals[0].status = 'invalid';
+		if (projectWorkflow) { exploration.batch!.blockers = ['invalidDraft:draft']; exploration.tasks[0].status = 'running'; }
+		changed.fire();
+		assert.ok(button(projectWorkflow ? 'Continue Generation' : 'Continue Exploration').classList.contains('ade-primary-action'));
+		assert.equal(root.querySelector('.ade-workflow'), null, 'unfinished work also keeps the canvas clear');
+		exploration.proposals[0].status = 'ready';
+		if (projectWorkflow) { exploration.batch!.blockers = []; exploration.tasks[0].status = 'ready'; }
+		changed.fire();
+		assert.ok(button(reviewLabel).classList.contains('ade-primary-action'), 'prepared drafts lead directly to review');
+		apply(); editor.dispose(); root.textContent = '';
+		const restored = store.add(instantiation.createInstance(AdeEditor, Object.assign(new (mock<IEditorGroup>())(), { id: 1, windowId: 1 })));
+		restored.create(root); assertAppliedCanvas();
 	});
 
 	}

@@ -854,6 +854,14 @@ suite('A.D.E native AI orchestration', () => {
 		assert.deepStrictEqual([f.explorationActions.filter(action => action === 'publishAll').length, f.explorationActions.includes('publish'), f.opened.length, f.service.diagramReview], [1, false, 1, undefined]);
 	});
 
+	test('chat after applying diagrams opens without a prompt to repeat the completed generation', async () => {
+		const f = fixture(); f.prepareExploratoryDraft();
+		await f.service.buildDiagrams(); await f.service.reviewDiagramProposal('draft-review'); await f.service.applyDiagramReview();
+		await f.service.chat();
+		assert.equal(f.dialogs.at(-1)!.prompt, '');
+		assert.equal(f.service.diagramExploration?.proposals[0].status, 'applied');
+	});
+
 	test('declining a reviewed diagram preserves both the draft and its decision surface', async () => {
 		const f = fixture(); f.prepareExploratoryDraft(); f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' });
 		await f.service.buildDiagrams(); f.setConfirmed(false); await f.service.reviewDiagramProposal('draft-review'); await f.service.applyDiagramReview();

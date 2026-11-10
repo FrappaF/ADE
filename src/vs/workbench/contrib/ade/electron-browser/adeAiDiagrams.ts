@@ -37,6 +37,7 @@ import { viewLabels } from '../browser/adeLabels.js';
 import { ThrottledDelayer } from '../../../../base/common/async.js';
 import { canonicalJson, semanticContent } from '../common/modelSerialization.js';
 import { CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
+import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
 import { type CliConfig, type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
 import { AdeAiConnection } from './adeAiConnection.js';
 
@@ -129,6 +130,7 @@ export class AdeAiDiagrams extends Disposable {
 	}
 
 	private conversationPrompt(): string {
+		if (getDiagramExplorationPhase(this._diagramExploration) === 'applied') { return ''; }
 		return this._diagramExploration?.plan ? localize('ade.explore.repairPrompt', "Continue the saved diagram plan. Inspect its existing drafts and final-review blockers first. Keep valid diagrams and shared IDs. Repair assigned invalid drafts with supersedes and relink their tasks. Archive obsolete unassigned invalid attempts with ade_proposal_discard and a reason. Complete missing diagrams without intermediate approvals, then report whether the complete project review is ready.") : localize('ade.explore.firstQuestion', "Plan the relevant project diagrams from overview to detail using the ADE tools, then create and preview every planned draft. Continue without intermediate approvals and finish with one complete project review.");
 	}
 
