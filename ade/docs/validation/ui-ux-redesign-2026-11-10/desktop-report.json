@@ -1,0 +1,39 @@
+{
+  "kind": "electron-ui-redesign-no-provider",
+  "scenario": "/workspace/ade-redesign-scenarios/1794315741532",
+  "steps": [
+    {
+      "name": "Home has three task entrances",
+      "passed": true
+    },
+    {
+      "name": "Create a new project through the UI",
+      "passed": true
+    },
+    {
+      "name": "Create the first executable feature from its empty state",
+      "passed": true
+    },
+    {
+      "name": "Prepare a review from the canvas header",
+      "passed": true
+    },
+    {
+      "name": "Run real verification and apply locally",
+      "passed": true
+    },
+    {
+      "name": "Undo local changes from the review",
+      "passed": true
+    },
+    {
+      "name": "Review actions remain reachable at 1024 × 768",
+      "passed": true
+    },
+    {
+      "name": "Published Express v5 model reopens in the desktop",
+      "passed": true
+    }
+  ],
+  "failures": []
+}

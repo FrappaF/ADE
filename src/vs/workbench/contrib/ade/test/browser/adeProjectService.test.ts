@@ -28,7 +28,7 @@ import { AdeProjectService } from '../../browser/adeProjectService.js';
 import { IWorkspaceContextService, IWorkspaceFoldersChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
 import { testWorkspace } from '../../../../../platform/workspace/test/common/testWorkspace.js';
 import { projectDocuments } from './testProjectDocuments.js';
-import { migrateSemanticModelToV4 } from '../../common/modelMigration.js';
+import { migrateSemanticModelToV4, migrateSemanticModelToV5 } from '../../common/modelMigration.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 import { libraryModel, observatoryModel } from '../common/independentProjects.js';
 
@@ -718,6 +718,44 @@ suite('A.D.E project context', () => {
 		await project.openModelResource(resource);
 		assert.deepStrictEqual(project.model, edited);
 		assert.strictEqual(project.hasStructuralErrors, true);
+	});
+
+	test('published v5 imports open, reload and restore without migration or source changes', async () => {
+		const folder = URI.parse('test:/published-import');
+		const snapshot = '11111111-1111-4111-8111-111111111111';
+		const modelUri = URI.joinPath(folder, '.ade', 'imports', snapshot, 'model.ade.json');
+		const model = migrateSemanticModelToV5(checkoutModel);
+		const bytes = JSON.stringify(model);
+		await files.writeFile(modelUri, VSBuffer.fromString(bytes));
+		await files.writeFile(URI.joinPath(folder, '.ade', 'code-project.json'), VSBuffer.fromString(JSON.stringify({ version: 1, active: snapshot })));
+		contextFolders = [folder];
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openProject(folder);
+		await project.retry();
+		assert.deepStrictEqual([project.error, project.hasStructuralErrors, project.model, project.projectRoot?.toString(), project.dirty], [undefined, false, model, folder.toString(), false]);
+		await project.save();
+		await storage.flush();
+		project.dispose();
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await restored.restore();
+		assert.deepStrictEqual([restored.error, restored.model, (await files.readFile(modelUri)).value.toString()], [undefined, model, bytes]);
+	});
+
+	test('v5 reference errors remain recoverable drafts, while malformed v5 shapes are rejected', async () => {
+		const model = migrateSemanticModelToV5(checkoutModel);
+		model.semantics.relations.push({ id: 'draft.v5', kind: 'dependency', from: 'checkout-controller', to: 'missing', name: 'Incomplete' });
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		assert.deepStrictEqual([project.error, project.hasStructuralErrors, project.editable, project.activeView], [undefined, true, true, undefined]);
+		project.edit({ kind: 'rename', target: 'element', id: 'checkout-controller', name: 'Recoverable v5 Draft' });
+		await project.save();
+		await project.undo();
+		assert.deepStrictEqual(project.model, model);
+		await files.writeFile(resource, VSBuffer.fromString('{"version":5,"semantics":null}'));
+		await project.revert();
+		assert.ok(project.error?.includes('semantics'));
+		assert.strictEqual((await files.readFile(resource)).value.toString(), '{"version":5,"semantics":null}');
 	});
 
 	test('blueprint operations and ADR revisions round-trip in one native undo transaction', async () => {

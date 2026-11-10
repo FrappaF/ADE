@@ -1038,7 +1038,7 @@ const legacySchema = object({
 
 /** Pure, explicit migration. Never writes files or infers behavior from labels. */
 export function migrateSemanticModel(value: unknown, modelId = 'legacy-model'): { model: SemanticModel; diagnostics: ModelDiagnostic[] } {
-	if (typeof value === 'object' && value !== null && Object.hasOwn(value, 'version') && [2, 3].includes((value as { version: number }).version)) {
+	if (typeof value === 'object' && value !== null && Object.hasOwn(value, 'version') && [2, 3, 4, 5].includes((value as { version: number }).version)) {
 		const model = readSemanticModel(value);
 		return { model, diagnostics: validateSemanticModel(model) };
 	}

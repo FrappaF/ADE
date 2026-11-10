@@ -10,6 +10,7 @@
 	background: var(--vscode-editor-background);
 	font-size: var(--vscode-fontSize-body1);
 	font-weight: var(--vscode-fontWeight-regular);
+	container-type: inline-size;
 }
 
 .ade-shell .ade-navigation,
@@ -34,6 +35,8 @@
 	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
 	margin: 0 var(--vscode-spacing-size80) var(--vscode-spacing-size80) 0;
 	cursor: pointer;
+	min-height: 24px;
+	box-sizing: border-box;
 }
 
 .ade-shell button:hover,
@@ -48,7 +51,7 @@
 .ade-shell summary:focus-visible,
 .ade-sidebar summary:focus-visible,
 .ade-shell .ade-canvas-scroll:focus-visible {
-	outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+	outline: 2px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
 }
 
@@ -590,8 +593,16 @@
 
 .ade-floating-menu {
 	flex-wrap: wrap;
-	top: var(--vscode-spacing-size120);
-	left: var(--vscode-spacing-size120);
+	top: 0;
+	left: 0;
+	right: 0;
+	max-width: none;
+	background: var(--vscode-editor-background);
+	border: 0;
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	border-radius: 0;
+	box-shadow: none;
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
 }
 
 .ade-floating-menu button,
@@ -681,7 +692,7 @@
 	left: var(--vscode-spacing-size120);
 	bottom: 68px;
 	width: min(400px, calc(100% - 24px));
-	max-height: 30%;
+	max-height: 45%;
 	overflow: auto;
 }
 
@@ -868,10 +879,10 @@
 .ade-structural-review {
 	min-width: 0;
 	max-width: 100%;
-	padding: 16px;
+	padding: var(--vscode-spacing-size160);
 	color: var(--vscode-foreground);
 	background: var(--vscode-editor-background);
-	border: 1px solid var(--vscode-contrastBorder, transparent);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, transparent);
 	border-radius: var(--vscode-cornerRadius-medium);
 	overflow-wrap: anywhere;
 }
@@ -884,11 +895,220 @@
 .ade-review-actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 8px;
+	gap: var(--vscode-spacing-size80);
+	padding-block: var(--vscode-spacing-size120);
+	background: var(--vscode-editor-background);
+	flex-shrink: 0;
 }
 .ade-structural-review button:focus-visible,
 .ade-structural-review summary:focus-visible,
 .ade-structural-review pre:focus-visible {
 	outline: 2px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
+}
+
+/* Calm at rest: task context leads, supporting navigation uses the same quiet control tier. */
+.ade-shell .ade-navigation button:not(.ade-primary-action),
+.ade-floating-menu > button:not(.ade-primary-action),
+.ade-shell .ade-tools > .ade-options > summary {
+	background: transparent;
+	color: var(--vscode-foreground);
+}
+
+.ade-shell .ade-navigation button:not(.ade-primary-action):hover,
+.ade-floating-menu > button:not(.ade-primary-action):hover,
+.ade-shell .ade-tools > .ade-options > summary:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.ade-shell .ade-project-name {
+	font-weight: var(--vscode-fontWeight-semiBold);
+	max-width: 32ch;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ade-document-state {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+	max-width: 40ch;
+	overflow-wrap: anywhere;
+}
+
+.ade-welcome,
+.ade-project-start,
+.ade-current-project {
+	width: min(100%, 880px);
+	margin-inline: auto;
+	overflow-wrap: anywhere;
+}
+
+.ade-welcome,
+.ade-project-start {
+	padding-block: var(--vscode-spacing-size320);
+}
+
+.ade-eyebrow,
+.ade-supporting-text,
+.ade-welcome-task p {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body1);
+	line-height: 1.5;
+}
+
+.ade-eyebrow {
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.ade-intro {
+	max-width: 64ch;
+	line-height: 1.6;
+	margin-bottom: var(--vscode-spacing-size240);
+}
+
+.ade-welcome-tasks {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--vscode-spacing-size240);
+	margin-block: var(--vscode-spacing-size320);
+}
+
+.ade-welcome-task {
+	min-width: 0;
+}
+
+.ade-welcome-task button {
+	font-weight: var(--vscode-fontWeight-semiBold);
+	max-width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.ade-start-template {
+	max-width: 64ch;
+	padding: var(--vscode-spacing-size240);
+	margin-block: var(--vscode-spacing-size240);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium);
+	background: var(--vscode-sideBar-background);
+}
+
+.ade-start-template p {
+	line-height: 1.6;
+}
+
+.ade-current-project {
+	padding-bottom: var(--vscode-spacing-size240);
+}
+
+/* Focused: review is a working surface with persistent decisions and independently scrolling evidence. */
+.ade-review-mode > .ade-content {
+	display: flex;
+	overflow: hidden;
+	padding-block: var(--vscode-spacing-size120);
+}
+
+.ade-review-mode .ade-structural-review {
+	display: flex;
+	flex-direction: column;
+	width: min(100%, 960px);
+	min-height: 0;
+	box-sizing: border-box;
+	margin-inline: auto;
+}
+
+.ade-review-mode .ade-structural-review > h2,
+.ade-review-mode .ade-structural-review > p {
+	margin-block: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	flex-shrink: 0;
+}
+
+.ade-review-body {
+	min-height: 0;
+	overflow: auto;
+	padding-inline-end: var(--vscode-spacing-size120);
+	line-height: 1.6;
+}
+
+.ade-review-actions button {
+	margin: 0;
+	max-width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.ade-review-changes,
+.ade-review-coverage {
+	margin-block: var(--vscode-spacing-size160) var(--vscode-spacing-size240);
+}
+
+.ade-review-changes p {
+	font-family: var(--monaco-monospace-font);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.ade-review-preview {
+	margin: var(--vscode-spacing-size240) 0;
+	padding: var(--vscode-spacing-size160);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium);
+	overflow: auto;
+}
+
+.ade-review-preview figcaption {
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-review-preview img {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+
+.ade-proposal-summary {
+	margin-block: var(--vscode-spacing-size160);
+}
+
+/* At high zoom, let the complete review scroll while its decision bar stays in reach. */
+.ade-review-mode.ade-short > .ade-content {
+	display: block;
+	overflow: auto;
+}
+
+.ade-review-mode.ade-short .ade-structural-review {
+	display: flex;
+}
+
+.ade-review-mode.ade-short .ade-review-actions {
+	order: -1;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-review-mode.ade-short .ade-review-body {
+	overflow: visible;
+	flex-shrink: 0;
+}
+
+@container (max-width: 600px) {
+	.ade-welcome-tasks {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--vscode-spacing-size160);
+	}
+
+	.ade-welcome,
+	.ade-project-start {
+		padding-block: var(--vscode-spacing-size80);
+	}
+
+	.ade-review-mode > .ade-content {
+		padding: var(--vscode-spacing-size80);
+	}
+
+	.ade-review-mode .ade-structural-review {
+		padding: var(--vscode-spacing-size80);
+	}
 }

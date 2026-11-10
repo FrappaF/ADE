@@ -12,6 +12,7 @@ export class AdeControls extends Disposable {
 	private readonly targets = new Map<string, HTMLElement | SVGElement>();
 	private readonly disclosures = new Map<string, HTMLDetailsElement>();
 	private readonly expanded = new Set<string>();
+	private deferredFocus: string | undefined;
 
 	trackFocus(id: string, element: HTMLElement | SVGElement): void {
 		this.targets.set(id, element);
@@ -62,7 +63,8 @@ export class AdeControls extends Disposable {
 	/** Preserve keyboard location without moving focus from another workbench surface. */
 	render(root: HTMLElement, render: () => void): void {
 		const active = dom.getActiveElement();
-		const focused = [...this.targets].find(([, button]) => button === active)?.[0];
+		const focused = [...this.targets].find(([, button]) => button === active)?.[0] ?? (active === root ? this.deferredFocus : undefined);
+		this.deferredFocus = undefined;
 		for (const [id, details] of this.disclosures) {
 			if (details.open) { this.expanded.add(id); } else { this.expanded.delete(id); }
 		}
@@ -70,7 +72,13 @@ export class AdeControls extends Disposable {
 		this.listeners.clear();
 		this.targets.clear();
 		render();
-		if (focused) { (this.targets.get(focused) ?? root).focus({ preventScroll: true }); }
+		if (focused) {
+			const target = this.targets.get(focused);
+			const disabled = dom.isHTMLButtonElement(target) && target.disabled;
+			const successor = disabled ? [...target.parentElement?.children ?? []].find((element): element is HTMLButtonElement => dom.isHTMLButtonElement(element) && !element.disabled) : undefined;
+			if (disabled && !successor) { this.deferredFocus = focused; }
+			(successor ?? (disabled ? root : target ?? root)).focus({ preventScroll: true });
+		}
 	}
 
 	focusFirst(): void {

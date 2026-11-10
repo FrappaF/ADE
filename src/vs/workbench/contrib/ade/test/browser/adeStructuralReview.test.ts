@@ -8,7 +8,7 @@ import * as dom from '../../../../../base/browser/dom.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { AdeControls } from '../../browser/adeControls.js';
 import { renderStructuralReview, type StructuralReviewActions } from '../../browser/adeStructuralReview.js';
-import type { StructuralProjectSession } from '../../common/modelProject.js';
+import { createPureProject, type StructuralProjectSession } from '../../common/modelProject.js';
 import { nodeOrdersFixture } from '../common/nodeOrdersFixture.js';
 
 suite('A.D.E visual structural review', () => {
@@ -17,7 +17,7 @@ suite('A.D.E visual structural review', () => {
 	function fixture() {
 		const called: string[] = [], controls = store.add(new AdeControls());
 		const session = { direction: 'forward', mutations: [{ file: 'src/domain/quantity.mjs', before: null, after: { content: 'value', mode: 420 } }], verification: { generated: 8, independent: 8, output: '16 tests passed' } } as StructuralProjectSession;
-		const actions: StructuralReviewActions = { busy: false, canVerify: true, canApply: false, canUndo: false, verify: () => called.push('verify'), apply: () => called.push('apply'), undo: () => called.push('undo'), technical: () => called.push('technical'), returnToDiagram: () => called.push('return') };
+		const actions: StructuralReviewActions = { busy: false, canVerify: true, canApply: false, canUndo: false, prepare: () => called.push('prepare'), verify: () => called.push('verify'), apply: () => called.push('apply'), undo: () => called.push('undo'), technical: () => called.push('technical'), returnToDiagram: () => called.push('return') };
 		const render = () => controls.render(root, () => { root.textContent = ''; renderStructuralReview(root, nodeOrdersFixture, session, controls, actions); });
 		return { called, controls, session, actions, render };
 	}
@@ -28,7 +28,7 @@ suite('A.D.E visual structural review', () => {
 	});
 	test('keyboard focus and disclosure expansion survive a review update', () => {
 		const f = fixture(); f.render(); const details = root.querySelector('details')!; details.open = true; const button = root.querySelectorAll('button')[3]; button.focus(); assert.strictEqual(document.activeElement, button);
-		f.render(); assert.strictEqual(document.activeElement, root.querySelectorAll('button')[3]); assert.strictEqual(root.querySelector('details')!.open, true); root.querySelectorAll('button')[4].click(); assert.deepStrictEqual(f.called, ['return']);
+		f.render(); assert.strictEqual(document.activeElement, root.querySelectorAll('button')[3]); assert.strictEqual(root.querySelector('details')!.open, true); root.querySelectorAll('button')[3].click(); assert.deepStrictEqual(f.called, ['return']);
 	});
 	test('hostile names/output remain text and technical details are secondary', () => {
 		const f = fixture(); f.session.mutations[0].file = '<img src=x onerror=alert(1)>'; f.session.verification!.output = '<script>bad()</script>'; f.render();
@@ -41,7 +41,28 @@ suite('A.D.E visual structural review', () => {
 	});
 	test('failed real checks remain visible and publication stays blocked', () => {
 		const f = fixture(); f.session.status = 'failed'; f.session.verification!.output = 'Independent boundary case failed'; f.render();
-		assert.ok(root.textContent?.includes('Real Verification Failed · Publication Blocked')); assert.strictEqual(root.querySelectorAll('button')[1].disabled, true);
+		assert.ok(root.textContent?.includes('Real Verification Failed · Application Blocked')); assert.strictEqual(root.querySelectorAll('button')[1].disabled, true);
+	});
+
+	test('a busy transition restores focus to a useful action after local application', () => {
+		const f = fixture(); f.actions.canApply = true; f.render(); root.querySelectorAll('button')[1].focus();
+		f.actions.busy = true; f.render(); assert.strictEqual(document.activeElement, root);
+		f.actions.busy = false; f.actions.canApply = false; f.actions.canVerify = false; f.actions.canUndo = true; f.render();
+		assert.strictEqual(document.activeElement, root.querySelectorAll('button')[2]);
+	});
+
+	test('successful undo has its own outcome and offers a new review', () => {
+		const f = fixture(); f.session.status = 'undone'; f.actions.canVerify = false; f.render();
+		assert.ok(root.textContent?.includes('Local Changes Undone · Prepare a New Review to Continue'));
+		root.querySelector<HTMLButtonElement>('.ade-primary-action')!.click();
+		assert.deepStrictEqual(f.called, ['prepare']);
+	});
+
+	test('review explains the authored business rule without opening generated files or JSON', () => {
+		const f = fixture(); let id = 0;
+		f.session.next = { model: createPureProject('Order Rules', () => `review.${++id}`).model } as StructuralProjectSession['next'];
+		f.render();
+		for (const text of ['Reviewed Behavior · Order Rules', 'Quantity Validation', 'validateQuantity: (quantity > 0)']) { assert.ok(root.textContent?.includes(text), text); }
 	});
 
 	test('runtime change exposes implementation, dependencies, existing data, tests, deployment and recovery as readable text', () => {

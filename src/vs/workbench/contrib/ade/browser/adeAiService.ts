@@ -10,6 +10,17 @@ import type { StructuralProjectSession } from '../common/modelProject.js';
 import { CodePreview, CodeResolution, CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
 
 export const IAdeAiService = createDecorator<IAdeAiService>('adeAiService');
+
+/** A detached, human-readable review; the exploration service remains the publication authority. */
+export interface AdeDiagramReview {
+	id: string; sessionId: string; root: string; modelUri: string; semanticRevision: string;
+	proposal: CodeDiagramExploration['proposals'][number];
+	changes: { collection: string; id: string; before: { name?: string } | null; after: { name?: string } | null }[];
+	sources: { file: string; revision: string; start: number; end: number }[];
+	images: { path: string; viewId: string }[];
+	contents: string; problem?: string;
+}
+
 export interface IAdeAiService {
 	readonly _serviceBrand: undefined;
 	readonly available: boolean;
@@ -26,7 +37,11 @@ export interface IAdeAiService {
 	returnToDiagrams(): Promise<void>;
 	readonly diagramProgress: CodeDiagramProgress | undefined;
 	readonly diagramExploration: CodeDiagramExploration | undefined;
+	readonly diagramReview: AdeDiagramReview | undefined;
 	reviewDiagramProposal(id?: string): Promise<void>;
+	applyDiagramReview(): Promise<void>;
+	closeDiagramReview(): void;
+	inspectDiagramReview(): Promise<void>;
 	configureDiagramBudget(): Promise<void>;
 	chat(): Promise<void>;
 	chooseDiagramModel(): Promise<void>;
@@ -71,7 +86,11 @@ class UnavailableAiService implements IAdeAiService {
 	async returnToDiagrams(): Promise<void> { }
 	readonly diagramProgress = undefined;
 	readonly diagramExploration = undefined;
+	readonly diagramReview = undefined;
 	async reviewDiagramProposal(): Promise<void> { }
+	async applyDiagramReview(): Promise<void> { }
+	closeDiagramReview(): void { }
+	async inspectDiagramReview(): Promise<void> { }
 	async configureDiagramBudget(): Promise<void> { }
 	async chat(): Promise<void> { }
 	async chooseDiagramModel(): Promise<void> { }

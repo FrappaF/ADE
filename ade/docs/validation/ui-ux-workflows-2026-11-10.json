@@ -1,0 +1,261 @@
+{
+  "version": 1,
+  "kind": "ui-ux-expert-audit",
+  "recordedAt": "2026-11-10T12:22:00.279906+00:00",
+  "userTimezone": "Europe/Rome",
+  "branch": "feat/m6-dai-validation",
+  "commit": "b78d70c405604c32db413e56850aeb722ea23efa",
+  "remoteHead": "b78d70c405604c32db413e56850aeb722ea23efa",
+  "runtime": "Node 24.22.1",
+  "platform": "Linux x64, Electron 43.8.3, Xvfb; browser previews Chromium 154.0.8037.57",
+  "auditComplete": true,
+  "allProductWorkflowsPassed": false,
+  "implementationChanges": false,
+  "newProject": {
+    "cli": {
+      "status": "passed",
+      "operations": [
+        "create",
+        "forward",
+        "verify",
+        "apply",
+        "session",
+        "undo"
+      ],
+      "generatedCases": 8,
+      "independentCases": 8,
+      "providerCalls": 0,
+      "states": [
+        "modelled",
+        "staged",
+        "passed",
+        "applied",
+        "applied",
+        "undone"
+      ]
+    },
+    "desktop": {
+      "status": "passed-for-listed-steps",
+      "steps": [
+        {
+          "name": "Home and keyboard access",
+          "passed": true
+        },
+        {
+          "name": "Create empty project through UI",
+          "passed": true
+        },
+        {
+          "name": "Add first supported executable feature and save",
+          "passed": true
+        },
+        {
+          "name": "Prepare structural review through palette",
+          "passed": true
+        },
+        {
+          "name": "Run real verification",
+          "passed": true
+        },
+        {
+          "name": "Publish verified model and code locally",
+          "passed": true
+        }
+      ],
+      "firstSupportedFeatureVisibleAfterCreate": false,
+      "initialHomeActions": [
+        "Open Project",
+        "Open Model",
+        "Explore Purchase Example",
+        "Create Project",
+        "Import Codebase"
+      ],
+      "reopenNarrowAndKeyboard": {
+        "kind": "new",
+        "reopened": true,
+        "keyboardMoveAndUndo": true,
+        "size": {
+          "width": 1024,
+          "height": 768
+        },
+        "canvasVisible": true
+      }
+    }
+  },
+  "importedCodebase": {
+    "services": {
+      "kind": "real-repository-services-and-expert-authored-proposal-no-provider",
+      "repository": "https://github.com/expressjs/express",
+      "commit": "43fca52d28a422c8be48fd489cbd4f2d6152bab6",
+      "runtime": "v24.22.1",
+      "importMs": 1068.8004959999998,
+      "inventory": {
+        "files": 217,
+        "parsed": 142,
+        "declarations": 129,
+        "diagramState": "index"
+      },
+      "searchHits": 3,
+      "reviewable": true,
+      "publishedViews": 1,
+      "idempotent": true,
+      "reopenedSession": true,
+      "revisionChange": {
+        "staleDiagnostics": [
+          "staleEvidenceRevision"
+        ],
+        "syncBlocked": true,
+        "syncError": "A v4 synchronization adapter is required; legacy Sync cannot rewrite this model"
+      },
+      "sourcePreserved": true,
+      "trackedDiffClean": true,
+      "providerCalls": 0,
+      "sessionUsage": {
+        "toolCalls": 5,
+        "readBytes": 18304,
+        "modelTurns": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "turnsObservable": false
+      },
+      "limitations": [
+        "Not a provider quality test",
+        "Express application and its own test suite not executed",
+        "This expert-authored view covers only lib/express.js exports",
+        "Service calls do not establish desktop task timings"
+      ]
+    },
+    "nativeUiImport": {
+      "status": "passed",
+      "mode": "Structure Only",
+      "source": "clean Git archive of the same pinned Express commit",
+      "activePointerPersisted": true,
+      "reopenedInventory": {
+        "kind": "inventory",
+        "reopened": true,
+        "exploreArchitectureVisible": true,
+        "modelVersion": 3
+      }
+    },
+    "publishedV5DesktopReopen": {
+      "status": "blocked",
+      "severity": "P0",
+      "error": "Invalid value at /nodes. Expected: required.\nInvalid value at /edges. Expected: required.\nInvalid value at /version. Expected: 1.\nInvalid value at /id. Expected: unexpected property.\nInvalid value at /semantics. Expected: unexpected property.\nInvalid value at /views. Expected: unexpected property.\nInvalid value at /codeMappings. Expected: unexpected property.\nInvalid value at /verifications. Expected: unexpected property.\nInvalid value at /foundation. Expected: unexpected property.\n\nRetryOpen Model",
+      "reproducer": "ui-ux-2026-11-10/express-entrypoint-v5.ade.json",
+      "sourceCause": "adeProjectService.readDocument branches only on v4; migrateSemanticModel accepts v2/v3 before falling back to legacy v1",
+      "domainSchemaValid": true
+    },
+    "legacySync": {
+      "status": "unsupported-capability",
+      "directServiceError": "A v4 synchronization adapter is required; legacy Sync cannot rewrite this model",
+      "uiGuardAlreadyPresent": true,
+      "uiV5Behavior": "routes Sync to incremental exploration when enabled; v4/v5 incompatible operations have a profile guard",
+      "classifiedAsSecondUiBug": false
+    }
+  },
+  "checks": [
+    {
+      "command": "node --test ade/ai/test/structural-project.test.mjs ade/ai/test/roundtrip-project.test.mjs ade/ai/test/diagram-session.test.mjs ade/code-import/test/import-code.test.mjs ade/code-import/test/sync-code.test.mjs",
+      "passed": 95,
+      "failed": 0,
+      "skipped": 0,
+      "log": ".build/ade-ux-audit/workflows.tap"
+    },
+    {
+      "command": "node ade/scripts/test-ai-service.mjs",
+      "passed": 72,
+      "failed": 0,
+      "log": ".build/ade-ux-audit/native-services.log",
+      "scope": "injected native services; not renderer or provider"
+    },
+    {
+      "command": "node ade/scripts/test-diagram-exploration-browser.mjs",
+      "passed": 3,
+      "failed": 0,
+      "visualInspection": true,
+      "scope": "C4, sequence and activity SVG fixture previews; no inference"
+    },
+    {
+      "command": "npm run build-fast -- --client-only",
+      "status": "passed",
+      "scope": "client, code engine, MCP adapter, parser grammars"
+    },
+    {
+      "command": "npm run electron",
+      "status": "passed"
+    },
+    {
+      "command": "Domain readSemanticModel/validateSemanticModel on retained v5 reproducer, followed by migrateSemanticModel",
+      "status": "expected-defect-reproduced",
+      "domainDiagnostics": 0,
+      "legacyDiagnostics": [
+        "/nodes",
+        "/edges",
+        "/version"
+      ],
+      "log": ".build/ade-ux-audit/v5-loader-reproduction.json"
+    }
+  ],
+  "environmentSetup": {
+    "standardSetupCompleted": false,
+    "initialBlockers": [
+      "missing X11/xkbfile development files",
+      "ripgrep download from api.github.com returned HTTP 403"
+    ],
+    "testPreparation": "Dependencies installed with scripts disabled, required native packages rebuilt using locally extracted Debian development packages; client built and Electron prepared separately.",
+    "executableBuiltInExtensionsDisabled": true,
+    "systemSudoAvailable": false
+  },
+  "automationNotes": [
+    "Initial palette locator matched highlighted substrings in three command names; corrected to whole label before continuing.",
+    "The import dialog reuses Quick Input for analysis-mode selection; the harness was corrected to wait for the next step rather than disappearance.",
+    "A capture during workspace reload was excluded from the document; final inventory and narrow-layout observations were repeated in fresh profiles.",
+    "One return-to-project attempt overlapped workspace alignment/reload; it is not classified as a product defect. Reopen was verified independently.",
+    "These harness iterations are not user-task completion-rate samples."
+  ],
+  "sourceHashes": {
+    "src/vs/workbench/contrib/ade/browser/adeEditor.ts": "70c7a170e3182df196dc8f73c0e9b97d0f302fbc31829859c82dc571d8f4da5d",
+    "src/vs/workbench/contrib/ade/browser/adeProjectService.ts": "9b44bcb96b4d9fef8835fa0df272b78f74ee21ee4771e6b39826b1cf3b93afc9",
+    "src/vs/workbench/contrib/ade/common/semanticModel.ts": "efa723744321f229981694728854e8b2c76e2fcfeef31681289578ee50645437",
+    "src/vs/workbench/contrib/ade/electron-browser/adeCodeService.ts": "ebedf5a3a5eb4aa848c63226c28ead6103be6a7637b188fcfa9dc1085c29f9fb",
+    "src/vs/workbench/contrib/ade/electron-browser/adeAiService.ts": "e88cabdd8379e3d76e56437d004beebe7b71fa558baadf94e77304d6b5d8d0be",
+    "ade/code-import/syncCode.ts": "c95076339ab033bd79bba1795bea0559f0d0bdc7f3dd6bca2fd4dd44ea6fd350",
+    "ade/ai/diagramSession.ts": "ab3f791f0b4adc34c13d644ebbd97a956f6886196d339a7da1c7f727c7cd5e60",
+    "src/vs/workbench/contrib/ade/browser/media/ade.css": "017d9dfd131f44ce0432ce9d972de6eeeb0ede4d4fddebaac131c5e578ab6569"
+  },
+  "artifacts": {
+    "express-entrypoint-v5.ade.json": {
+      "sha256": "224905933ef25a61bb0e3cbc5ff04049b80c8eb7b0a570accd151b5079ab1abf",
+      "bytes": 5014
+    },
+    "home.png": {
+      "sha256": "e5883bba2f475c22a73caa540aca003b2632408c46ec41265fbe97b125bd0908",
+      "bytes": 53171
+    },
+    "imported-inventory.png": {
+      "sha256": "87a10fbbed8101d4009c421e0a1ae48252495e27f87874d10774e8fe9f9e92a5",
+      "bytes": 50003
+    },
+    "imported-v5-error.png": {
+      "sha256": "cf7c5d89c64b15beddc0cf8146cbe28ba884eec50721f9f427376e4410a7d3fe",
+      "bytes": 59143
+    },
+    "new-project-narrow.png": {
+      "sha256": "88bd9ebfdb8494fcd9076c4405590dc940bff181b0e48f647f2064010db0c04a",
+      "bytes": 41443
+    },
+    "review.png": {
+      "sha256": "3e5761e63c7486373333a3ff297b1c0caf43598db77b339963c63c0f5ff5e0fb",
+      "bytes": 62673
+    }
+  },
+  "limitations": [
+    "No human usability sample, satisfaction baseline or production frequency data; quantitative UX targets are proposed.",
+    "No live provider; Express proposal was authored by the expert and covers only lib/express.js exports.",
+    "No execution of Express or its test suite; source revisions were restored and tracked diff was clean.",
+    "No successful end-to-end v5 desktop workflow: loader defect remains open.",
+    "Legacy Sync rejection is a support boundary and is already guarded in the UI.",
+    "No full bundled-extension installation, marketplace installation, Git remote push/pull/conflict, application debugger, macOS, Windows, real screen reader, 200% zoom or four-theme audit.",
+    "Desktop new-project publication and CLI undo were exercised; desktop publication undo was not completed in this audit."
+  ]
+}

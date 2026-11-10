@@ -1,0 +1,446 @@
+{
+  "kind": "implemented-ui-ux-redesign-validation",
+  "date": "2026-11-10",
+  "branch": "feat/m6-dai-validation",
+  "baseCommit": "b78d70c405604c32db413e56850aeb722ea23efa",
+  "uncommittedImplementation": true,
+  "testedScenariosPassed": true,
+  "fullRoadmapComplete": false,
+  "p0Resolved": [
+    "Published v5 models open, reload and restore through the current-format reader",
+    "First supported feature is accessible from the newly created empty project"
+  ],
+  "designSkill": ".github/skills/design-philosophy/SKILL.md",
+  "implementation": "ade/docs/ui-ux-redesign-implementation.md",
+  "checks": [
+    {
+      "name": "ADE TypeScript check",
+      "passed": true,
+      "command": "npm run ade:check"
+    },
+    {
+      "name": "Fresh client and ADE build",
+      "passed": true,
+      "command": "npm run build-fast -- --client-only",
+      "scope": "Incremental client build; existing full client/tool outputs retained"
+    },
+    {
+      "name": "Targeted ESLint",
+      "passed": true,
+      "scope": "19 changed and new TypeScript files; no warnings"
+    },
+    {
+      "name": "ADE CSS stylelint",
+      "passed": true,
+      "command": "npm run stylelint -- src/vs/workbench/contrib/ade/browser/media/ade.css"
+    },
+    {
+      "name": "Diff whitespace",
+      "passed": true,
+      "command": "git diff --check"
+    }
+  ],
+  "testRuns": [
+    {
+      "name": "Browser components, persistence and accessibility content",
+      "passed": 79,
+      "failed": 0,
+      "log": "browser.log",
+      "selectors": [
+        "adeProjectService",
+        "adeStructuralReview",
+        "adeWelcome",
+        "adeDiagramReview",
+        "adeAccessibleContent"
+      ],
+      "runtime": "Repository browser runner with system Chromium executable adapter; production sources unmodified"
+    },
+    {
+      "name": "Native AI orchestration and workspace services",
+      "passed": 75,
+      "failed": 0,
+      "log": "services.log",
+      "command": "node ade/scripts/test-ai-service.mjs",
+      "limitation": "Terminal/chat services injected; no live provider"
+    },
+    {
+      "name": "Native code bridge compatibility",
+      "passed": 9,
+      "failed": 0,
+      "log": "code-bridge.log",
+      "command": "DISPLAY=:0 VSCODE_SKIP_PRELAUNCH=1 bash scripts/test.sh --no-sandbox --run src/vs/workbench/contrib/ade/test/electron-browser/adeCodeService.test.ts"
+    },
+    {
+      "name": "Structural/roundtrip/import/sync workflows",
+      "passed": 78,
+      "failed": 0,
+      "log": "workflows.log",
+      "command": "node --test ade/ai/test/structural-project.test.mjs ade/ai/test/roundtrip-project.test.mjs ade/code-import/test/import-code.test.mjs ade/code-import/test/sync-code.test.mjs"
+    },
+    {
+      "name": "Incremental diagram exploration",
+      "passed": 17,
+      "failed": 0,
+      "log": "diagrams.log",
+      "command": "node --test ade/ai/test/diagram-session.test.mjs"
+    },
+    {
+      "name": "Semantic formats and migration",
+      "passed": 12,
+      "failed": 0,
+      "log": "formats.log",
+      "command": "node --import ./ade/test/source-loader.mjs --test ade/test/semantic-model.test.mjs"
+    }
+  ],
+  "automaticTestsPassed": 270,
+  "electronScenarios": {
+    "newProjectSteps": [
+      {
+        "name": "Home has three task entrances",
+        "passed": true
+      },
+      {
+        "name": "Create a new project through the UI",
+        "passed": true
+      },
+      {
+        "name": "Create the first executable feature from its empty state",
+        "passed": true
+      },
+      {
+        "name": "Prepare a review from the canvas header",
+        "passed": true
+      },
+      {
+        "name": "Run real verification and apply locally",
+        "passed": true
+      },
+      {
+        "name": "Undo local changes from the review",
+        "passed": true
+      },
+      {
+        "name": "Review actions remain reachable at 1024 × 768",
+        "passed": true
+      },
+      {
+        "name": "Published Express v5 model reopens in the desktop",
+        "passed": true
+      }
+    ],
+    "importedProjectSteps": [
+      {
+        "name": "Reopen a published v5 model from the real Express import",
+        "passed": true
+      },
+      {
+        "name": "Review a second draft in one editor without applying it",
+        "passed": true
+      },
+      {
+        "name": "Cancelling application preserves the review and active snapshot",
+        "passed": true
+      },
+      {
+        "name": "Four native themes keep review actions readable in a narrow window",
+        "passed": true
+      },
+      {
+        "name": "At 200% zoom the primary action stays within the editor",
+        "passed": true
+      },
+      {
+        "name": "Changed source evidence blocks application and retains the review",
+        "passed": true
+      },
+      {
+        "name": "Refresh, apply only the reviewed draft, and reopen the resulting v5 diagrams",
+        "passed": true
+      }
+    ],
+    "passedSteps": 15,
+    "realVerificationCases": {
+      "derived": 8,
+      "independent": 8,
+      "passed": 16
+    },
+    "providerCalls": 0,
+    "importedRepository": "https://github.com/expressjs/express",
+    "importedCommit": "43fca52d28a422c8be48fd489cbd4f2d6152bab6",
+    "expertAuthoredProposals": true,
+    "explorationResumeSeededInIsolatedProfile": true,
+    "sourceMutationForStalenessTestRestored": true,
+    "themes": [
+      "Dark Modern",
+      "Light Modern",
+      "Dark High Contrast",
+      "Light High Contrast"
+    ],
+    "viewports": [
+      [
+        1440,
+        900
+      ],
+      [
+        1024,
+        768
+      ]
+    ],
+    "zoomFactor": 2.0736,
+    "zoomSidebarCollapsedByNativeCommand": true,
+    "screenshots": "Electron captures; the zoom capture uses BrowserWindow.capturePage to retain physical window dimensions"
+  },
+  "environment": {
+    "os": "Linux 6.18.57 x86_64",
+    "node": "24.22.1",
+    "electron": "43.8.3",
+    "chromium": "Chromium 154.0.8037.57 built on Debian GNU/Linux 13 (trixie)",
+    "nativeDependencies": "Reused the workspace toolchain and local Xvfb from the previous audit",
+    "executableBuiltinExtensionsDisabledForSmoke": true
+  },
+  "automationAdjustments": [
+    "Open Home explicitly; skip-welcome suppresses the startup Home",
+    "Wait for workspace alignment and code context before capturing or refreshing exploration",
+    "Use ADE_NODE_EXECUTABLE pinned to 24.22.1 for the trusted runner; the shell default was 24.19.0",
+    "Scope confirmation selectors to the native modal; a progress notification also exposes a Cancel button",
+    "Use native workbench zoom and full Electron window capture, rather than a cropped Playwright screenshot",
+    "An initial Node invocation of the code bridge suite required Electron IPC; the official Electron runner passed all 9 checks",
+    "An initial semantic-model test invocation needed the repository source-loader preload; the corrected run passed all 12 tests"
+  ],
+  "limits": [
+    "No live provider/account or conversation-quality validation",
+    "No actual screen reader, macOS/Windows or OS scaling validation",
+    "Zoom at 207.36% was tested with the sidebar explicitly collapsed; full zoom/layout combinations remain for the accessibility matrix",
+    "Executable built-in extensions were disabled; full extension installation and marketplace were not certified",
+    "Express application tests/runtime, Git push/conflicts and real application debugging were not exercised",
+    "User-study baselines and usability percentage improvements have not been measured",
+    "Advanced inspector/diagnostic panel persistence, contextual onboarding and remaining roadmap work are documented separately"
+  ],
+  "sourceFiles": [
+    {
+      "path": "ade/test/semantic-model.test.mjs",
+      "sha256": "433b7b600eadbc60eb4e0c3ea6f2ca27aa36ba8d5d7262a72b108ee4705014a9"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeAccessibility.ts",
+      "sha256": "eca83a42c804d6d32409831c5fcf18dcf5eb4ba880d0298fed63a3cd616df26e"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeAccessibleContent.ts",
+      "sha256": "61ffdbee01773e02f8d0493f092051be213e43e70c5147d2e5d787f415b592e7"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeAiService.ts",
+      "sha256": "813cc54cdb760379cc977ce3398a85bf24af5769f43263cffa31a4c528560545"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeControls.ts",
+      "sha256": "c1239de47ac86d7b507a6e71cf66969b62cd3f730c13cc98ff618e2256e51400"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeDiagramReview.ts",
+      "sha256": "518b52ec29114191a9a96800396791ecfa07bda7592da64726353529ffe22eaf"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeDocumentStatus.ts",
+      "sha256": "66dad834dbadb10d915b6e6041ab666c948c93a7a748b1c42e3e34adba966544"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeEditor.ts",
+      "sha256": "3e167b873ab3bbf834b49c97d4816abf696b1bc030e9571ddffb069fb58a7ab2"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeProjectService.ts",
+      "sha256": "fa612ca977e7f03f419e2d7afc40525c56fcc5cbba1bbfd6f3655f53c16beac6"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeStructuralReview.ts",
+      "sha256": "1449cd03d5a789f5f9b327fb8b43b8766293a6a6c577b9e400f1a42fc580a56a"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeView.ts",
+      "sha256": "f2b52d0cbb03d03d3793ba417e968e7ebead45ac51d987aa54ff48b3bc23e850"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/adeWelcome.ts",
+      "sha256": "eb78b5ef0919ec2c07dadc2fa016eb74d4199c3d377161e54347aeeacd9c631e"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/browser/media/ade.css",
+      "sha256": "e445865686c23b45bd6d17c63e2601723ec2f5e8c549187fc04590e014660fc6"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/common/semanticModel.ts",
+      "sha256": "db253a3a8b782d574c4d6ba8a3c7a4ca12a6759486f9ef0e65e3b6a6ba274c98"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/electron-browser/adeAiService.ts",
+      "sha256": "c73418a240129a0a95e61b900d2d1ec4b3160709f7ec71772f9f193dca5fd089"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/electron-browser/adeCodeService.ts",
+      "sha256": "9f4ea91e48951c0a470802db48c7a3059454475a5d1063dc046ee6990bc4f41c"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/test/browser/adeDiagramReview.test.ts",
+      "sha256": "2fa96e5539bfb2593af68694a50f3a51056865f2f404846b246ae0efa729003a"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts",
+      "sha256": "4d5fcac038a94c98cffab49f7060f96efa02526952be1da0a6ace8de7dad1a61"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/test/browser/adeStructuralReview.test.ts",
+      "sha256": "17fcd7dc726793428c6108463a5cbf5bcfb6abc2adde1b7758e0603fc0898e74"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/test/browser/adeWelcome.test.ts",
+      "sha256": "251ebb95058d8b182683a91bba8ac05728ca050b2a962b3cec7cb18d92de7e09"
+    },
+    {
+      "path": "src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts",
+      "sha256": "c61d8f3a84bdfe80cf5daceea298a7a003636a8df7491367d217953e98d8935e"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/home.png",
+      "kind": "electron-screenshot",
+      "sha256": "d28ca7b93a72cd107e5546583fd64cf8188569be6076cbd153b591e04ed125aa",
+      "bytes": 57217
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/new-project.png",
+      "kind": "electron-screenshot",
+      "sha256": "4f5e8ca16bd746f442c0111a69aa3f2ef37bb8d1db08fd97f492769742b0c93f",
+      "bytes": 89365
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/review.png",
+      "kind": "electron-screenshot",
+      "sha256": "fc41c1494701139dc5cfa9d846563322aac3cc127342f0eca4e704ff86d5aa94",
+      "bytes": 114124
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/review-narrow.png",
+      "kind": "electron-screenshot",
+      "sha256": "f6df993ec982009c34bb802db8ba32adc35baadfcad001f4dec618b0b5a17c13",
+      "bytes": 93666
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/imported-review.png",
+      "kind": "electron-screenshot",
+      "sha256": "2966fad33c0a94b1cc92e03044d59ce5d2c6e18e6ef8ac16357bf5e82a1a5dc7",
+      "bytes": 99358
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/imported-stale-review.png",
+      "kind": "electron-screenshot",
+      "sha256": "d2568e255ad5ce0df32426bd44c21bfe3b51395a5a14a198b292f4ff539f5ff5",
+      "bytes": 75198
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/imported-applied.png",
+      "kind": "electron-screenshot",
+      "sha256": "7c096983fd6d90d8264890608553c93f8fb73ac40ef660733d15bb8ddf6fc21b",
+      "bytes": 59690
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/review-vs.png",
+      "kind": "electron-screenshot",
+      "sha256": "5b45ca409a17ed5b5d0d08cbae220f452b8867ce984a8af6f18e36f0958f5e82",
+      "bytes": 80538
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/review-hc-black.png",
+      "kind": "electron-screenshot",
+      "sha256": "fa34663ac93478b2e1563caeb52c6301cb91088be4d2db7165e66468c73bf9e1",
+      "bytes": 83325
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/review-hc-light.png",
+      "kind": "electron-screenshot",
+      "sha256": "12b4bbbfc49c30b7ed4922bad399cde3a4772380f3b11ec734db4139e9e570e4",
+      "bytes": 87610
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/review-200-percent.png",
+      "kind": "electron-screenshot",
+      "sha256": "f165dbe3a57299b840573b47aa5e88e65ad6b54eba1cec140e0a20d03c683ef5",
+      "bytes": 83233
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/build.log",
+      "kind": "validation-log",
+      "sha256": "4c6c62dfd66c48fc3c6c898602570f11d6bbff750fa903ce31df81a6133c2cf1",
+      "bytes": 1477
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/typecheck.log",
+      "kind": "validation-log",
+      "sha256": "46dc23f667af9748c76d93957daf448de97ef94e1f612404b915b1280325f497",
+      "bytes": 1207
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/eslint.log",
+      "kind": "validation-log",
+      "sha256": "eb278d6b46b54bbf2f6a8ea7888cb7601d2fc1a19bada271a7de1344d30478d0",
+      "bytes": 2406
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/stylelint.log",
+      "kind": "validation-log",
+      "sha256": "4451e9f7cf93d500db6a7e1aad2e993b61025f74535b4391e7570bdcd8d0716e",
+      "bytes": 1942
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/browser.log",
+      "kind": "validation-log",
+      "sha256": "070106a84b21fe60f80d8ab4bd328e2245050a00fce75827f071d2d8b2407004",
+      "bytes": 7854
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/services.log",
+      "kind": "validation-log",
+      "sha256": "ee96fbe7f04e2e60596e36498c7624ef62ff817067445d69d02c0420b97ee1d5",
+      "bytes": 6572
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/code-bridge.log",
+      "kind": "validation-log",
+      "sha256": "72cb2bc45868063dcfcf4edde9f642a6ccf5f5094383ef436f2c7cbbfd9b0ec8",
+      "bytes": 8217
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/workflows.log",
+      "kind": "validation-log",
+      "sha256": "3d11c9ae2af53b9b74cd7921208da9ec9777364f7aeabc97a7c69d0bd09d4808",
+      "bytes": 6623
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/diagrams.log",
+      "kind": "validation-log",
+      "sha256": "692d2f5d04bd959ddf318c2a0fdf1c810c8cd5a4c00a83c748e0a604a034b3fe",
+      "bytes": 2006
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/formats.log",
+      "kind": "validation-log",
+      "sha256": "882552f26178e5c0a6ddab78cdec55e7564a03870547f5cc16f05a3dc7208f5f",
+      "bytes": 1274
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/desktop-report.json",
+      "kind": "scenario-report",
+      "sha256": "98cccb15a8001814f6906187f1b3bf4ad3f42edd2618e94336ce3b9a93d8a040",
+      "bytes": 891
+    },
+    {
+      "path": "ade/docs/validation/ui-ux-redesign-2026-11-10/import-desktop-report.json",
+      "kind": "scenario-report",
+      "sha256": "ff7048c3d3be80c5c0f3f31d1d85ce7ebf00fd64ab9127e47c3ac3aab7390071",
+      "bytes": 1386
+    }
+  ],
+  "artifactLogNormalization": "Trailing whitespace and surplus blank lines at EOF removed from copied logs; execution output otherwise retained."
+}

@@ -205,6 +205,7 @@ npm run ade:test
 - [Roadmap](ade/docs/roadmap.md)
 - [Visione](ade/docs/vision.md)
 - [Architettura](ade/docs/architecture.md)
+- [Piano di redesign UI/UX e verifica dei workflow](ade/docs/ui-ux-redesign-plan.md)
 - [Sviluppo e aggiornamenti del fork](ade/docs/fork-development.md)
 
 Base upstream: [microsoft/vscode](https://github.com/microsoft/vscode). Revisione importata in [upstream.json](ade/upstream.json). Licenza del codice upstream: [MIT](LICENSE.txt), con [avvisi di terze parti](ThirdPartyNotices.txt). A.D.E è un progetto indipendente; branding e servizi della distribuzione Microsoft non sono automaticamente inclusi.

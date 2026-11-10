@@ -164,7 +164,7 @@ suite('A.D.E native AI orchestration', () => {
 				}
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
-		return { prepareExploratoryDraft: () => { incremental = true; exploratoryDraft = { id: 'draft-review', status: 'ready', diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+		return { prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -657,7 +657,7 @@ suite('A.D.E native AI orchestration', () => {
 	});
 	test('normal review returns to the diagram; technical packets remain an explicit secondary action', async () => {
 		const f = fixture(false); f.usePureModel(); f.disable(); await f.service.implement();
-		assert.ok('resource' in f.editorInputs[0]); assert.equal(f.editorInputs.length, 1);
+		assert.ok(Object.hasOwn(f.editorInputs[0], 'resource')); assert.equal(f.editorInputs.length, 1);
 		await f.service.structuralTechnicalReview(); assert.equal(f.editorInputs.length, 3);
 		assert.deepStrictEqual(f.requests, ['structuralPrepare']); assert.deepStrictEqual(f.errors, []);
 	});
@@ -716,18 +716,42 @@ suite('A.D.E native AI orchestration', () => {
 		assert.equal(JSON.parse(f.storage.get('ade.ai.exploration', StorageScope.WORKSPACE)!).resource, canonical.toString());
 	});
 
-	test('review shows the complete change artifact and native image preview before selective publication', async () => {
+	test('review opens one human-readable surface and waits for an explicit apply action', async () => {
 		const f = fixture(); f.prepareExploratoryDraft(); f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' });
 		await f.service.buildDiagrams(); await f.service.reviewDiagramProposal('draft-review');
+		assert.deepStrictEqual(f.explorationActions, ['open', 'open', 'ade_view_preview']);
+		assert.match(f.service.diagramReview!.contents, /Reviewed responsibility/);
+		assert.equal(f.service.diagramReview!.images.length, 1);
+		assert.equal(f.opened.length, 0);
+		await f.service.applyDiagramReview();
 		assert.deepStrictEqual(f.explorationActions, ['open', 'open', 'ade_view_preview', 'publish', 'open']);
-		assert.match(JSON.stringify(f.editorInputs), /Reviewed responsibility/);
-		assert.match(JSON.stringify(f.editorInputs), /imagePreview\.previewEditor/);
-		assert.equal(f.opened[0].snapshot, f.root + '/.ade/imports/published');
+		assert.deepStrictEqual([f.opened[0].snapshot, f.service.diagramReview], [f.root + '/.ade/imports/published', undefined]);
 	});
-	test('declining a reviewed diagram leaves the proposal and active snapshot unchanged', async () => {
+
+	test('declining a reviewed diagram preserves both the draft and its decision surface', async () => {
 		const f = fixture(); f.prepareExploratoryDraft(); f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' });
-		await f.service.buildDiagrams(); f.setConfirmed(false); await f.service.reviewDiagramProposal('draft-review');
-		assert.deepStrictEqual([f.explorationActions, f.opened.length, f.service.diagramExploration?.proposals[0].status], [['open', 'open', 'ade_view_preview'], 0, 'ready']);
+		await f.service.buildDiagrams(); f.setConfirmed(false); await f.service.reviewDiagramProposal('draft-review'); await f.service.applyDiagramReview();
+		assert.deepStrictEqual([f.explorationActions, f.opened.length, f.service.diagramReview?.id, f.service.diagramExploration?.proposals[0].status], [['open', 'open', 'ade_view_preview'], 0, 'draft-review', 'ready']);
+	});
+
+	test('a changed model blocks application of a previously reviewed diagram', async () => {
+		const f = fixture(); f.prepareExploratoryDraft(); f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' });
+		await f.service.buildDiagrams(); await f.service.reviewDiagramProposal('draft-review');
+		f.project.model.name = 'Changed after review';
+		await f.service.applyDiagramReview();
+		assert.deepStrictEqual([f.opened.length, f.explorationActions.includes('publish'), !!f.service.diagramReview?.problem, f.errors], [0, false, true, []]);
+	});
+
+	test('an invalid imported draft remains readable but cannot publish through the service', async () => {
+		const f = fixture(); f.prepareExploratoryDraft('invalid'); f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' });
+		await f.service.buildDiagrams(); await f.service.reviewDiagramProposal('draft-review'); await f.service.applyDiagramReview();
+		assert.deepStrictEqual([f.service.diagramReview?.proposal.status, f.service.diagramReview?.changes[0].after?.name, f.opened.length, f.explorationActions.includes('publish')], ['invalid', 'Reviewed responsibility', 0, false]);
+	});
+
+	test('closing a draft review makes a stale apply action harmless', async () => {
+		const f = fixture(); f.prepareExploratoryDraft(); f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' });
+		await f.service.buildDiagrams(); await f.service.reviewDiagramProposal('draft-review'); f.service.closeDiagramReview(); await f.service.applyDiagramReview();
+		assert.deepStrictEqual([f.service.diagramReview, f.opened.length, f.explorationActions.includes('publish')], [undefined, 0, false]);
 	});
 
 });

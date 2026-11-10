@@ -1,0 +1,20 @@
+✔ current semantic formats pass through migration without legacy interpretation or mutation (27.016434ms)
+✔ published schema and checkout example stay identical to their runtime sources (7.299919ms)
+✔ rename, containment move, layout move and serialization preserve identity and references (3.620766ms)
+✔ invalid edits are atomic, detached snapshots cannot mutate service state (2.323016ms)
+✔ layout updates do not alter domain, code mappings or verification evidence (1.733135ms)
+✔ missing endpoints and incompatible relationships yield useful paths and codes (0.484786ms)
+✔ checks duplicate IDs, cycles, actors, error codes, view references and state ownership (0.520168ms)
+✔ implementation evidence and verification remain separate from design intent (0.610696ms)
+✔ malformed and future documents never crash validation or get silently normalized (1.85426ms)
+✔ legacy migration preserves IDs, labels and edges and reports uncertain classification (6.896935ms)
+✔ every checked-in invalid example is rejected with its documented diagnostic (4.950893ms)
+✔ migration CLI refuses overwrites and leaves the source intact (347.455067ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 577.306893

@@ -1,0 +1,194 @@
+[28081:1110/130218.324502:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/var/cache/fontconfig
+	/home/agent/.cache/fontconfig
+	/home/agent/.fontconfig
+Fontconfig error: No writable cache directories
+Found --crash-reporter-directory argument. Setting crashDumps directory to be '/workspace/ADE/.build/crashes'
+[28081:1110/130218.787830:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[28081:1110/130218.787991:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[28081:1110/130218.788015:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[28081:1110/130218.794202:ERROR:content/browser/zygote_host/zygote_host_impl_linux.cc:279] Failed to adjust OOM score of renderer with pid 28109: Read-only file system (30)
+
+(ade:28081): dconf-CRITICAL **: 13:02:18.849: unable to create directory '/home/agent/.cache/dconf': Read-only file system.  dconf will not work properly.
+
+(ade:28081): dconf-CRITICAL **: 13:02:18.850: unable to create directory '/home/agent/.cache/dconf': Read-only file system.  dconf will not work properly.
+
+(ade:28081): dconf-CRITICAL **: 13:02:18.850: unable to create directory '/home/agent/.cache/dconf': Read-only file system.  dconf will not work properly.
+[28081:1110/130218.861872:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[28081:1110/130218.923628:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type:
+[28081:1110/130218.923758:WARNING:device/bluetooth/dbus/bluez_dbus_manager.cc:209] Floss manager service not available, cannot set Floss enable/disable.
+[28081:1110/130218.924053:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[28081:1110/130218.929660:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type:
+Failed to create /home/agent/.cache/mesa_shader_cache for shader cache (Read-only file system)---disabling.
+Failed to create /home/agent/.cache/mesa_shader_cache_db for shader cache (Read-only file system)---disabling.
+[28109:1110/130219.061272:WARNING:media/gpu/vaapi/vaapi_wrapper.cc:1655] drmGetDevices2() has not found any devices
+[28109:1110/130219.068416:WARNING:sandbox/policy/linux/sandbox_linux.cc:405] InitializeSandbox() called with multiple threads in process gpu-process.
+[28109:1110/130219.074509:WARNING:ui/gfx/linux/gbm_support_x11.cc:48] dri3 extension not supported.
+(node:28130) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `exe --trace-deprecation ...` to show where the warning was created)
+(node:28130) [DEP0025] DeprecationWarning: sys is deprecated. Use util instead.
+(node:28130) ExperimentalWarning: WASI is an experimental feature and might change at any time
+
+[0m[0m
+[0m  Tests are using suiteSetup and setup correctly[0m
+  [32m  ✔[0m[90m assertCleanState - check that registries are clean at the start of test running[0m
+
+[0m  A.D.E native code bridge compatibility[0m
+  [32m  ✔[0m[90m Sync both builds the first diagrams before checking alignment[0m
+  [32m  ✔[0m[90m Sync code builds the first diagrams before checking alignment[0m
+  [32m  ✔[0m[90m Sync model builds the first diagrams before checking alignment[0m
+  [32m  ✔[0m[90m checks the bundled engine before requests and reuses a compatible worker[0m
+  [32m  ✔[0m[90m explains old engine without metadata, blocks execution and allows retry after repair[0m
+  [32m  ✔[0m[90m explains old worker without handshake, blocks execution and allows retry after repair[0m
+  [32m  ✔[0m[90m explains different protocol version, blocks execution and allows retry after repair[0m
+  [32m  ✔[0m[90m explains missing diagram operation, blocks execution and allows retry after repair[0m
+
+
+[92m [0m[32m 9 passing[0m[90m (32ms)[0m

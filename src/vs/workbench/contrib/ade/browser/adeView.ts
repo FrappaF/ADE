@@ -144,6 +144,7 @@ export class AdeView extends ViewPane {
 		this.controls.render(body, () => {
 			dom.clearNode(body);
 			this.controls.button(body, localize('ade.home', "Home"), () => { void this.commandService.executeCommand('ade.showHome'); });
+			if (this.project.modelUri && !this.project.error && !this.project.loading) { dom.append(body, dom.$('h3')).textContent = model.name; }
 			const more = this.controls.details(body, localize('ade.navigationOptions', "Navigation Options"), 'navigation-options');
 			this.controls.button(more, localize('ade.systemMap', "System Map"), () => { void this.commandService.executeCommand('ade.showSystemMap'); }).disabled = this.project.loading || !!this.project.error;
 			this.controls.button(more, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search'); }).disabled = this.project.loading || !!this.project.error;
@@ -163,8 +164,9 @@ export class AdeView extends ViewPane {
 				return;
 			}
 			if (isSourceEvidenceModel(model)) {
-				dom.append(body, dom.$('p')).textContent = localize('ade.import.pendingSidebar', "Source Evidence Ready. Create diagrams with AI to see your system's capabilities and flows here.");
-				this.controls.button(body, localize('ade.buildDiagrams', "Build Diagrams with AI"), () => { void this.commandService.executeCommand('ade.ai.buildDiagrams'); });
+				dom.append(body, dom.$('p')).textContent = localize('ade.import.pendingSidebar', "Local source inventory ready. Explore the architecture, review a draft, then apply the diagrams you choose.");
+				if (this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) { this.controls.button(body, localize('ade.explore.start', "Explore Architecture"), () => { void this.commandService.executeCommand('ade.ai.resumeDiagrams'); }); }
+				else { dom.append(body, dom.$('p')).textContent = localize('ade.import.aiDisabled', "AI features are disabled. Your local source inventory is preserved."); }
 				return;
 			}
 			for (const group of getDiagramGroups(model)) {

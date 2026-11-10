@@ -40,14 +40,14 @@ abstract class AdeAccessibleImplementation implements IAccessibleViewImplementat
 		if (!origin) { return undefined; }
 		const restoreFocus = origin.captureAccessibilityFocus();
 		const resource = project.modelUri?.toString();
-		const content = () => this.type === AccessibleViewType.Help ? describeAdeHelp(project) : describeAdeDiagram(project);
+		const content = () => this.type === AccessibleViewType.Help ? describeAdeHelp(project) : origin instanceof AdeEditor ? origin.describeCurrentContext() : describeAdeDiagram(project);
 		return new AccessibleContentProvider(AccessibleViewProviderId.Ade,
 			{ type: this.type, language: 'plaintext', customHelp: () => describeAdeHelp(project) }, content,
 			() => {
 				if (surface === 'editor' && editorService.activeEditorPane !== origin) { return; }
 				if (surface === 'navigation' && viewsService.getActiveViewWithId<AdeView>(ADE_VIEW_ID) !== origin) { return; }
 				if (resource === project.modelUri?.toString()) { restoreFocus(); } else { origin.focus(); }
-			}, AccessibilityVerbositySettingId.Ade, undefined, undefined, undefined, undefined, project.onDidChange);
+			}, AccessibilityVerbositySettingId.Ade, undefined, undefined, undefined, undefined, origin instanceof AdeEditor ? origin.onDidChangeReading : project.onDidChange);
 	}
 }
 

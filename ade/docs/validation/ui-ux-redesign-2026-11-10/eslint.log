@@ -1,0 +1,17 @@
+npm warn Unknown project config "disturl". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "target". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "ms_build_id". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "runtime". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "build_from_source". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "timeout". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> code-oss-dev@1.145.0 eslint
+> node --max-old-space-size=8192 build/eslint.ts src/vs/workbench/contrib/ade/browser/adeAccessibility.ts src/vs/workbench/contrib/ade/browser/adeAccessibleContent.ts src/vs/workbench/contrib/ade/browser/adeAiService.ts src/vs/workbench/contrib/ade/browser/adeControls.ts src/vs/workbench/contrib/ade/browser/adeEditor.ts src/vs/workbench/contrib/ade/browser/adeProjectService.ts src/vs/workbench/contrib/ade/browser/adeStructuralReview.ts src/vs/workbench/contrib/ade/browser/adeView.ts src/vs/workbench/contrib/ade/common/semanticModel.ts src/vs/workbench/contrib/ade/electron-browser/adeAiService.ts src/vs/workbench/contrib/ade/electron-browser/adeCodeService.ts src/vs/workbench/contrib/ade/test/browser/adeProjectService.test.ts src/vs/workbench/contrib/ade/test/browser/adeStructuralReview.test.ts src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts src/vs/workbench/contrib/ade/browser/adeDiagramReview.ts src/vs/workbench/contrib/ade/browser/adeDocumentStatus.ts src/vs/workbench/contrib/ade/browser/adeWelcome.ts src/vs/workbench/contrib/ade/test/browser/adeDiagramReview.test.ts src/vs/workbench/contrib/ade/test/browser/adeWelcome.test.ts
+
+ESLint: checking 19 requested targets.
+ESLint: checked 19 files in 5808ms.
+npm notice
+npm notice New major version of npm available! 11.19.1 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

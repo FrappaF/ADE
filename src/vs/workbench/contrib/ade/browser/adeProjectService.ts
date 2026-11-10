@@ -345,15 +345,19 @@ export class AdeProjectService extends Disposable {
 	}
 
 	/** First authored feature and independent test data, available before any code import or chat. */
+	get canCreatePureFeature(): boolean {
+		return this.editable && !!this.document && (this.model.version === 4 || this.model.version === 5) && !this.model.semantics.elements.length && !!this.projectRoot;
+	}
+
 	async createPureFeature(): Promise<void> {
-		if (!this.editable || !this.document || (this.model.version !== 4 && this.model.version !== 5) || this.model.semantics.elements.length || !this.projectRoot) { throw new Error(localize('ade.pure.empty', "Create an empty version 4 project first.")); }
+		if (!this.canCreatePureFeature) { throw new Error(localize('ade.pure.empty', "Create an empty version 4 or 5 project first.")); }
 		const version = this.documentVersion;
 		const { model, criteria } = createPureProject(this.model.name, generateUuid); model.id = this.model.id;
 		const feature = model.semantics.elements.find(element => element.kind === 'feature')!;
 		const system = model.semantics.elements.find(element => element.kind === 'system')!;
 		const container = model.semantics.elements.find(element => element.kind === 'container')!;
 		model.views = [{ id: generateUuid(), name: localize('ade.pure.structure', "Quantity Validation · Structure"), kind: 'structure', featureId: feature.id, subjectId: system.id, contextIds: [], nodes: [{ elementId: container.id, x: 80, y: 80 }], relationIds: [] }];
-		const target = URI.joinPath(this.projectRoot, '.ade', 'criteria.json');
+		const target = URI.joinPath(this.projectRoot!, '.ade', 'criteria.json');
 		await this.fileService.createFile(target, VSBuffer.fromString(JSON.stringify(criteria, null, '\t') + '\n'), { overwrite: false });
 		if (version !== this.documentVersion) { throw new Error(localize('ade.pure.stale', "The project changed while preparing the feature.")); }
 		this.replaceDocument(model); this.showDiagram(model.views[0].id);
@@ -480,7 +484,7 @@ export class AdeProjectService extends Disposable {
 	private readDocument(document: IResolvedTextFileEditorModel): void {
 		try {
 			const value = JSON.parse(document.textEditorModel.getValue());
-			const draft = value?.version === 4 ? readSemanticDraft(value) : undefined;
+			const draft = value?.version === 4 || value?.version === 5 ? readSemanticDraft(value) : undefined;
 			const result = draft ? { model: draft, diagnostics: validateSemanticModel(draft) } : migrateSemanticModel(value);
 			this.semantics.replace(result.model);
 			this._hasStructuralErrors = result.diagnostics.some(item => item.severity === 'error');

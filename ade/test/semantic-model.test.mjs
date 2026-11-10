@@ -11,10 +11,22 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { checkoutModel } from '../../src/vs/workbench/contrib/ade/common/checkoutModel.ts';
 import { semanticModelSchema, validateSemanticModel, readSemanticModel, migrateSemanticModel, SemanticModelService, InvalidSemanticModelError } from '../../src/vs/workbench/contrib/ade/common/semanticModel.ts';
+import { migrateSemanticModelToV4, migrateSemanticModelToV5 } from '../../src/vs/workbench/contrib/ade/common/modelMigration.ts';
 
 const readJson = async path => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
 const codes = model => validateSemanticModel(model).map(({ code }) => code);
 const run = promisify(execFile);
+
+test('current semantic formats pass through migration without legacy interpretation or mutation', () => {
+	for (const model of [migrateSemanticModelToV4(checkoutModel), migrateSemanticModelToV5(checkoutModel)]) {
+		const original = JSON.stringify(model);
+		const migrated = migrateSemanticModel(model);
+		assert.deepEqual(migrated, { model, diagnostics: [] });
+		assert.notEqual(migrated.model, model);
+		assert.equal(JSON.stringify(model), original);
+	}
+	assert.throws(() => migrateSemanticModel({ version: 5, semantics: null }), InvalidSemanticModelError);
+});
 
 test('published schema and checkout example stay identical to their runtime sources', async () => {
 	assert.deepEqual(await Promise.all([
