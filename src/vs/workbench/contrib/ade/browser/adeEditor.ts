@@ -144,7 +144,7 @@ export class AdeEditor extends EditorPane {
 		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
 		const reviewContext = this.ai.structuralReview ? `${this.ai.structuralReview.root}:${this.ai.structuralReview.id}` : undefined;
 		if (reviewContext !== this.reviewContext) { this.reviewOpen = !!reviewContext; this.reviewContext = reviewContext; }
-		const reviewMode = (!!this.ai.diagramReview || this.reviewOpen && !!this.ai.structuralReview) && this.project.section !== 'home' && !this.project.error && !this.project.loading;
+		const reviewMode = (!!this.ai.diagramReview || this.reviewOpen && !!this.ai.structuralReview && this.project.section !== 'home') && !this.project.error && !this.project.loading;
 		this.root.classList.toggle('ade-review-mode', reviewMode);
 		const sourceEvidence = isSourceEvidenceModel(this.project.model);
 		const canvasMode = !reviewMode && !sourceEvidence && this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error && !this.project.hasStructuralErrors;
