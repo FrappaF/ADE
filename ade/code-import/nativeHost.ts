@@ -5,6 +5,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { readFile, realpath, readdir, stat } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { adeCodeProtocolVersion, type CodeBridgeProtocol, type CodeRequest, type CodeContext, type CodePreview, type CodeResponse, type CodeEngine } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 import { importCode, type CodeImport } from './importCode.ts';
@@ -28,6 +29,7 @@ import { prepareDiagramImport, advanceDiagramImport, readDiagramJob, approveDiag
 
 const nonempty = { type: 'string', minLength: 1 };
 const requestSchemas = [
+	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'request'], properties: { operation: { const: 'exploration' }, snapshot: nonempty, request: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'root'], properties: { operation: { const: 'import' }, root: nonempty, scope: { type: 'object' }, syntaxOnly: { type: 'boolean' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot'], properties: { operation: { enum: ['inspect', 'preview', 'history'] }, snapshot: nonempty, scope: { type: 'object' }, renames: { type: 'array' }, resolutions: { type: 'array', maxItems: 1000, items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'id'], properties: { operation: { enum: ['undoSync', 'recoverSync'] }, snapshot: nonempty, id: nonempty } },
@@ -68,7 +70,7 @@ function context(snapshot: string, state: CodeImport, model = state.model): Code
 		files: state.files.map(file => ({ path: file.file, elementId: file.moduleId, language: file.language ?? '', status: file.status, diagnostics: file.diagnostics.map(item => `${item.code}${item.syntaxKind ? ': ' + item.syntaxKind : ''} (${item.count})`) })),
 		declarations: state.files.flatMap(file => file.declarations.map(item => ({ id: item.id, sourceId: item.sourceId!, name: item.name, kind: item.kind, evidence: item.nameEvidence ?? item.evidence }))),
 		providers: state.semantic?.providers.map(provider => `${provider.name} ${provider.version}`) ?? [],
-		diagramState: model.semantics.elements.some(element => element.kind === 'feature') ? 'diagrams' : 'index',
+		diagramState: model.version === 5 ? model.views.some(view => view.nodes.length > 0) ? 'diagrams' : 'index' : model.semantics.elements.some(element => element.kind === 'feature') ? 'diagrams' : 'index',
 		dependencies: state.semantic?.dependencies.map(edge => ({ ...edge, references: edge.references.map(ref => ({ source: ref.source, target: ref.target, provider: state.semantic!.providers[ref.provider].name })) })) ?? [],
 		diagnostics: [...(state.semantic?.diagnostics.map(item => `${item.file}: ${item.code}`) ?? []), ...(state.analysis.compilerDiagnostics ?? [])]
 	};
@@ -116,6 +118,18 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 		}
 		if (!valid(request)) { throw invalidRequest(request); }
 		signal?.throwIfAborted();
+		if (request.operation === 'exploration') {
+			if (import.meta.url.endsWith('/nativeHost.ts')) { await import('../scripts/source-loader.mjs'); }
+			const { executeDiagramExploration } = await import('../ai/diagramSession.ts');
+			const explorationRequest = JSON.parse(request.request);
+			const result = await executeDiagramExploration(request.snapshot, explorationRequest, signal);
+			if (explorationRequest.action === 'open' || explorationRequest.action === 'budget') {
+				const snapshot = await readSnapshot(request.snapshot);
+				const bundled = import.meta.url.endsWith('/adeCodeEngine.js');
+				Object.assign(result.data, { mcp: { command: process.env.ADE_NODE_EXECUTABLE || 'node', args: [fileURLToPath(new URL(bundled ? './adeDiagramMcp.js' : '../ai/diagram-mcp.mjs', import.meta.url)), snapshot.state.sourceRoot, result.sessionId] } });
+			}
+			return JSON.stringify(result);
+		}
 		if ('scope' in request && request.scope) { readSourceScope(request.scope); }
 		let result: CodeResponse;
 		if (request.operation === 'import') {

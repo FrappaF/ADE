@@ -76,7 +76,8 @@ export function upgradeVisualModel(model: SemanticModel): SemanticModel {
 			}
 		}
 	}
-	return candidate.version === 4 ? readSemanticDraft(candidate) : readSemanticModel(candidate);
+
+	return (candidate.version === 4 || candidate.version === 5) ? readSemanticDraft(candidate) : readSemanticModel(candidate);
 }
 
 /** All identities affected by a semantic deletion, including descendants and shared-view references. */
@@ -86,7 +87,7 @@ export function getDeletionImpact(model: SemanticModel, id: string) {
 	while (changed) {
 		changed = false;
 		for (const element of model.semantics.elements) {
-			const parentId = model.version === 4 ? model.foundation.ownership.find(entry => entry.elementId === element.id)?.ownerId : element.parentId;
+			const parentId = (model.version === 4 || model.version === 5) ? model.foundation.ownership.find(entry => entry.elementId === element.id)?.ownerId : element.parentId;
 			if (parentId && elements.has(parentId) && !elements.has(element.id)) {
 				elements.add(element.id);
 				changed = true;
@@ -129,39 +130,39 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 		return result;
 	};
 	switch (edit.kind) {
-		case 'taskIntent': { if (candidate.version !== 4) { throw new Error('Task intent requires v4'); } reviseModelTask(candidate, edit.entry, edit.expectedRevision); break; }
-		case 'stateDefinition': { if (candidate.version !== 4) { throw new Error('States require v4'); } candidate.semantics.elements.push({ id: edit.id, name: edit.name, kind: 'state', parentId: edit.ownerId }); candidate.foundation.ownership.push({ id: nextId(), elementId: edit.id, ownerId: edit.ownerId, role: 'lifecycle' }); break; }
-		case 'messagingOccurrence': { if (candidate.version !== 4) { throw new Error('Messaging requires v4'); } const topology = candidate.foundation.messaging?.find(topology => topology.id === edit.topologyId), occurrence = candidate.foundation.occurrences.find(entry => entry.id === edit.id), publisher = topology?.publishers.find(binding => binding.id === edit.bindingId), subscriber = topology?.subscriptions.find(binding => binding.id === edit.bindingId), binding = publisher ?? subscriber, broker = topology?.brokers.find(broker => broker.id === topology.channels.find(channel => channel.id === binding?.channelId)?.brokerId); if (!occurrence || !binding || !broker || occurrence.execution) { throw new Error('Messaging occurrence binding unavailable'); } occurrence.messagingBindingId = binding.id; occurrence.operationId = binding.operationId; occurrence.from = publisher ? binding.ownerId : broker.elementId; occurrence.to = publisher ? broker.elementId : binding.ownerId; break; }
-		case 'messaging': { if (candidate.version !== 4) { throw new Error('Messaging requires v4'); } return setModelMessaging(candidate, edit.entry, edit.expectedRevision); }
-		case 'viewMessaging': { if (candidate.version !== 4) { throw new Error('Messaging requires v4'); } view(edit.viewId).messagingId = edit.messagingId; break; }
-		case 'stateMachine': { if (candidate.version !== 4) { throw new Error('States require v4'); } return setModelStateMachine(candidate, edit.entry, edit.expectedRevision); }
-		case 'viewStateMachine': { if (candidate.version !== 4) { throw new Error('States require v4'); } view(edit.viewId).stateMachineId = edit.stateMachineId; break; }
-		case 'interaction': { if (candidate.version !== 4) { throw new Error('Interactions require v4'); } return setModelInteraction(candidate, edit.entry); }
-		case 'viewInteraction': { if (candidate.version !== 4) { throw new Error('Interactions require v4'); } view(edit.viewId).interactionId = edit.interactionId; break; }
+		case 'taskIntent': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Task intent requires v4'); } reviseModelTask(candidate, edit.entry, edit.expectedRevision); break; }
+		case 'stateDefinition': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('States require v4'); } candidate.semantics.elements.push({ id: edit.id, name: edit.name, kind: 'state', parentId: edit.ownerId }); candidate.foundation.ownership.push({ id: nextId(), elementId: edit.id, ownerId: edit.ownerId, role: 'lifecycle' }); break; }
+		case 'messagingOccurrence': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Messaging requires v4'); } const topology = candidate.foundation.messaging?.find(topology => topology.id === edit.topologyId), occurrence = candidate.foundation.occurrences.find(entry => entry.id === edit.id), publisher = topology?.publishers.find(binding => binding.id === edit.bindingId), subscriber = topology?.subscriptions.find(binding => binding.id === edit.bindingId), binding = publisher ?? subscriber, broker = topology?.brokers.find(broker => broker.id === topology.channels.find(channel => channel.id === binding?.channelId)?.brokerId); if (!occurrence || !binding || !broker || occurrence.execution) { throw new Error('Messaging occurrence binding unavailable'); } occurrence.messagingBindingId = binding.id; occurrence.operationId = binding.operationId; occurrence.from = publisher ? binding.ownerId : broker.elementId; occurrence.to = publisher ? broker.elementId : binding.ownerId; break; }
+		case 'messaging': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Messaging requires v4'); } return setModelMessaging(candidate, edit.entry, edit.expectedRevision); }
+		case 'viewMessaging': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Messaging requires v4'); } view(edit.viewId).messagingId = edit.messagingId; break; }
+		case 'stateMachine': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('States require v4'); } return setModelStateMachine(candidate, edit.entry, edit.expectedRevision); }
+		case 'viewStateMachine': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('States require v4'); } view(edit.viewId).stateMachineId = edit.stateMachineId; break; }
+		case 'interaction': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Interactions require v4'); } return setModelInteraction(candidate, edit.entry); }
+		case 'viewInteraction': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Interactions require v4'); } view(edit.viewId).interactionId = edit.interactionId; break; }
 		case 'predicate': {
-			if (candidate.version !== 4) { throw new Error('Predicates require v4'); }
+			if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Predicates require v4'); }
 			const entries = candidate.foundation.predicates ?? [];
 			candidate.foundation.predicates = entries.some(entry => entry.id === edit.entry.id) ? entries.map(entry => entry.id === edit.entry.id ? structuredClone(edit.entry) : entry) : [...entries, structuredClone(edit.entry)];
 			break;
 		}
 		case 'blueprint': {
-			if (candidate.version !== 4) { throw new Error('Blueprint requires v4'); }
+			if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Blueprint requires v4'); }
 			return setBlueprintRecord(candidate, edit.section, edit.entry);
 		}
 		case 'decision': {
-			if (candidate.version !== 4) { throw new Error('Project decisions require v4'); }
+			if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Project decisions require v4'); }
 			return reviseModelDecision(candidate, edit.entry, edit.expectedRevision);
 		}
 		case 'type':
 		case 'integration': {
-			if (candidate.version !== 4) { throw new Error('Semantic records require v4'); }
+			if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Semantic records require v4'); }
 			if (edit.kind === 'type') { candidate.foundation.types = [...candidate.foundation.types.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
 			else { candidate.foundation.integrations = [...candidate.foundation.integrations.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
 			break;
 		}
 		case 'c4View': candidate.views = candidate.views.some(view => view.id === edit.view.id) ? candidate.views.map(view => view.id === edit.view.id ? structuredClone(edit.view) : view) : [...candidate.views, structuredClone(edit.view)]; break;
 		case 'elementScope': {
-			if (candidate.version !== 4) { throw new Error('C4 scope requires v4'); }
+			if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('C4 scope requires v4'); }
 			const element = candidate.semantics.elements.find(element => element.id === edit.id); if (!element) { throw new Error('Unknown element'); }
 			if (edit.scope) { element.scope = edit.scope; } if (edit.runtimeKind) { element.runtimeKind = edit.runtimeKind; }
 			break;
@@ -170,7 +171,7 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 		case 'membership':
 		case 'platformBinding':
 		case 'assertion': {
-			if (candidate.version !== 4) { throw new Error('Explicit semantic records require v4'); }
+			if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Explicit semantic records require v4'); }
 			if (edit.kind === 'ownership') { candidate.foundation.ownership = [...candidate.foundation.ownership.filter(entry => entry.elementId !== edit.entry.elementId), structuredClone(edit.entry)]; }
 			else if (edit.kind === 'membership') { candidate.foundation.memberships = candidate.foundation.memberships.filter(entry => entry.elementId !== edit.entry.elementId || entry.featureId !== edit.entry.featureId); if (edit.included) { candidate.foundation.memberships.push(structuredClone(edit.entry)); } }
 			else if (edit.kind === 'platformBinding') { candidate.foundation.platform.bindings = [...candidate.foundation.platform.bindings.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
@@ -287,7 +288,7 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 			break;
 		}
 		case 'parent': {
-			if (candidate.version === 4) { throw new Error('Edit architectural ownership and feature membership separately in v4'); }
+			if ((candidate.version === 4 || candidate.version === 5)) { throw new Error('Edit architectural ownership and feature membership separately in v4'); }
 			const element = candidate.semantics.elements.find(element => element.id === edit.id);
 			if (!element) { throw new Error(`Unknown element: ${edit.id}`); }
 			if (edit.parentId) { element.parentId = edit.parentId; } else { delete element.parentId; }
@@ -371,7 +372,7 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 			break;
 		}
 	}
-	if (candidate.version === 4) {
+	if ((candidate.version === 4 || candidate.version === 5)) {
 		const f = candidate.foundation;
 		if (edit.kind === 'element' || edit.kind === 'resource') {
 			const element = candidate.semantics.elements.find(item => item.id === edit.id)!;
@@ -416,5 +417,18 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 			for (const member of element.details?.members ?? []) { member.id ??= nextId(); }
 		}
 	}
-	return candidate.version === 4 ? readSemanticDraft(candidate) : readSemanticModel(candidate);
+	if (candidate.version === 5) {
+		for (const diagram of candidate.views.filter(view => view.spec)) {
+			const previous = model.views.find(view => view.id === diagram.id);
+			if (!previous) { continue; }
+			if (JSON.stringify(previous.nodes) !== JSON.stringify(diagram.nodes)) {
+				diagram.spec!.layoutRevision = nextId();
+				if (edit.kind === 'position' && edit.viewId === diagram.id && !diagram.spec!.manualIds.includes(edit.id)) { diagram.spec!.manualIds.push(edit.id); }
+				if (edit.kind === 'layout' && edit.viewId === diagram.id) { diagram.spec!.manualIds = []; }
+			}
+			if (JSON.stringify(previous.nodes.map(node => node.elementId)) !== JSON.stringify(diagram.nodes.map(node => node.elementId)) || JSON.stringify(previous.relationIds) !== JSON.stringify(diagram.relationIds)) { diagram.spec!.projectionRevision = nextId(); }
+			if (previous.name !== diagram.name || previous.kind !== diagram.kind || previous.subjectId !== diagram.subjectId || previous.interactionId !== diagram.interactionId) { diagram.spec!.revision = nextId(); }
+		}
+	}
+	return (candidate.version === 4 || candidate.version === 5) ? readSemanticDraft(candidate) : readSemanticModel(candidate);
 }

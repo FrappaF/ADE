@@ -11,6 +11,16 @@ export type DiagramDensity = 'compact' | 'balanced' | 'spacious';
 export function diagramNodeWidth(name: string): number { return Math.max(208, Math.min(400, name.length * 8 + 40)); }
 export const diagramNodeHeight = 96;
 
+/** Prefer word boundaries; split only tokens that cannot fit on a complete line. */
+export function wrapDiagramText(value: string, columns: number): string[] {
+	const width = Math.max(1, Math.floor(columns)), lines: string[] = []; let remaining = value;
+	while (remaining.length > width) {
+		const space = remaining.lastIndexOf(' ', width), end = space > 0 ? space : width;
+		lines.push(remaining.slice(0, end)); remaining = remaining.slice(end).trimStart();
+	}
+	lines.push(remaining); return lines;
+}
+
 /** Layer the directed graph, grouping cycles into a single layer and separating disconnected components. */
 export function arrangeDiagram(model: SemanticModel, view: ModelView, density: DiagramDensity = 'spacious'): ModelView['nodes'] {
 	const ids = view.nodes.map(node => node.elementId);
@@ -122,7 +132,7 @@ export function notationBoundaries(model: SemanticModel, view: ModelView): { ele
 export function notationGroupMembers(model: SemanticModel, view: ModelView, root: string): Set<string> {
 	const members = new Set([root]);
 	for (let count = 0; count < model.semantics.elements.length; count++) {
-		for (const child of model.semantics.elements) { if (child.parentId && members.has(child.parentId)) { members.add(child.id); } }
+		for (const child of model.semantics.elements) { const parent = (model.version === 4 || model.version === 5) ? model.foundation.ownership.find(entry => entry.elementId === child.id && entry.role === 'architecture')?.ownerId : child.parentId; if (parent && members.has(parent)) { members.add(child.id); } }
 		for (const relation of model.semantics.relations) { if (view.relationIds.includes(relation.id) && relation.kind === 'hosting' && members.has(relation.from)) { members.add(relation.to); } }
 	}
 	return members;

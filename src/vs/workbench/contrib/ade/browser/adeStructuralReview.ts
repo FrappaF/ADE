@@ -38,7 +38,7 @@ export function renderStructuralReview(parent: HTMLElement, model: SemanticModel
 			[localize('ade.stack.recovery', "Recovery"), session.stackPlan.recovery]
 		]) { dom.append(migration, dom.$('p')).textContent = `${label}: ${value}`; }
 	}
-	if (model.version === 4) {
+	if ((model.version === 4 || model.version === 5)) {
 		for (const task of model.foundation.tasks ?? []) {
 			const detail = controls.details(section, task.text, `review-task:${task.id}`);
 			for (const item of task.clarifications) { dom.append(detail, dom.$('p')).textContent = localize('ade.task.questionAnswer', "Question: {0}\nAnswer: {1}", item.question, item.answer); }

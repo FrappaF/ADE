@@ -76,7 +76,7 @@ export function validateModelLayers(value: unknown): { syntax: ReadinessDiagnost
 	if (syntax.length) { return { syntax, reference: [], domain: [] }; }
 	const diagnostics = validateSemanticModel(value).map(item => adaptDiagnostic(value as SemanticModel, item));
 	const model = value as SemanticModel;
-	if (model.version === 4) {
+	if ((model.version === 4 || model.version === 5)) {
 		const ids = new Set<string>();
 		for (const predicate of model.foundation.predicates ?? []) {
 			const reasons = validateModelPredicate(model, predicate); if (ids.has(predicate.id)) { reasons.push('duplicatePredicate'); } ids.add(predicate.id);
@@ -99,7 +99,7 @@ function adaptDiagnostic(model: SemanticModel, diagnostic: ModelDiagnostic): Rea
 		if (path[2] === 'blueprint' && kinds[path[3]]) { subject = { kind: kinds[path[3]], id: path[4] }; }
 		if (kinds[path[2]]) { subject = { kind: kinds[path[2]], id: path[3] }; }
 		if (path[2] === 'platform') { subject = { kind: 'binding', id: path[4] }; }
-		if (path[2] === 'assertions' && model.version === 4) { subject = model.foundation.assertions.find(item => item.id === path[3])?.subject; }
+		if (path[2] === 'assertions' && (model.version === 4 || model.version === 5)) { subject = model.foundation.assertions.find(item => item.id === path[3])?.subject; }
 	}
 	if (diagnostic.code === 'duplicateId') { subject = undefined; }
 	const phase = ['missingReference', 'duplicateId', 'missingCriterion', 'missingError', 'viewEndpoint'].includes(diagnostic.code) ? 'reference' : 'domain';
@@ -165,11 +165,11 @@ export function getModelReadiness(value: unknown, targetId: string, profile?: Ge
 	}
 	const model = value as SemanticModel;
 	const projectDiagnostics = [...layers.reference, ...layers.domain];
-	const scope = model.version === 4 ? getGenerationScope(model as SemanticModelV4, targetId) : new Set([targetId]);
+	const scope = (model.version === 4 || model.version === 5) ? getGenerationScope(model as SemanticModelV4, targetId) : new Set([targetId]);
 	const target = generationTargetElement(model, targetId);
 	const diagnostics: ReadinessDiagnostic[] = [];
 	const add = (code: keyof typeof generationRules, id: string, field: string, ...args: string[]) => diagnostics.push({ code, severity: 'error', phase: 'generation', object: { kind: 'element', id: generationTargetElement(model, id)?.id ?? id }, field, action: generationRules[code].action, args });
-	const scopedObjects = model.version === 4 ? getScopeObjectKeys(model as SemanticModelV4, scope) : new Set([`element:${targetId}`]);
+	const scopedObjects = (model.version === 4 || model.version === 5) ? getScopeObjectKeys(model as SemanticModelV4, scope) : new Set([`element:${targetId}`]);
 	for (const item of projectDiagnostics) {
 		// Global identity ambiguity cannot safely be assigned to a different target.
 		if (item.field.startsWith('/views/')) {
@@ -179,10 +179,11 @@ export function getModelReadiness(value: unknown, targetId: string, profile?: Ge
 		if (!item.object || scopedObjects.has(`${item.object.kind}:${item.object.id}`)) { diagnostics.push(item); }
 	}
 	if (!target) { add('missingTarget', targetId, '/targetId', targetId); }
-	if (model.version !== 4) { add('migrationRequired', targetId, '/version', String(model.version)); }
+	if ((model.version !== 4 && model.version !== 5)) { add('migrationRequired', targetId, '/version', String(model.version)); }
 	if (!profile) { add('profileMissing', targetId, '/profileId'); }
-	if (model.version === 4) {
+	if ((model.version === 4 || model.version === 5)) {
 		const m = model as SemanticModelV4; const f = m.foundation;
+		for (const scenario of f.interactions.filter(entry => entry.profile === 'descriptive' && entry.description?.participantIds.some(id => scope.has(id)))) { add('incompleteBehavior', targetId, '/foundation/interactions/' + scenario.id, 'descriptiveScenarioIsNotExecutable'); }
 		for (const topology of f.messaging?.filter(topology => topology.id === targetId) ?? []) { if (!profile?.messaging) { add('incompleteBehavior', topology.brokers[0]?.elementId ?? topology.id, '/messaging', 'messaging'); } }
 		for (const machine of f.stateMachines?.filter(machine => machine.id === targetId || machine.operationId === targetId) ?? []) { if (!profile?.flatStates) { add('incompleteBehavior', machine.ownerId, '/stateMachines', 'flatStates'); } }
 		for (const element of m.semantics.elements.filter(element => scope.has(element.id))) {
@@ -279,7 +280,7 @@ export function getScopeObjectKeys(model: SemanticModelV4, scope: Set<string>): 
 	for (const entry of f.integrations.filter(item => scope.has(item.consumerId))) { add('integration', entry.id); }
 	for (const entry of f.platform.bindings.filter(item => scope.has(item.elementId))) { add('binding', entry.id); }
 	for (const entry of f.decisions.filter(item => item.status === 'accepted' && item.scopeIds.some(id => scope.has(id)))) { add('decision', entry.id); }
-	for (const occurrence of f.occurrences.filter(item => scope.has(item.from) || scope.has(item.to))) { add('occurrence', occurrence.id); add('operation', occurrence.operationId); if (occurrence.errorId) { add('error', occurrence.errorId); } }
+	for (const occurrence of f.occurrences.filter(item => scope.has(item.from) || scope.has(item.to))) { add('occurrence', occurrence.id); if (occurrence.operationId) { add('operation', occurrence.operationId); } if (occurrence.errorId) { add('error', occurrence.errorId); } }
 	for (const entry of f.interactions.filter(item => interactionInScope(model, item, scope))) {
 		add('interaction', entry.id);
 		for (const id of entry.frameIds) { add('frame', id); for (const occurrenceId of f.frames.find(item => item.id === id)?.occurrenceIds ?? []) { add('occurrence', occurrenceId); } }
@@ -324,10 +325,10 @@ function readModelField(value: object | undefined, pointer: string): object | st
 
 /** Operations and fields are valid generation targets without becoming duplicate element definitions. */
 function generationTargetElement(model: SemanticModel, id: string) {
-	const topology = model.version === 4 ? model.foundation.messaging?.find(topology => topology.id === id) : undefined;
+	const topology = (model.version === 4 || model.version === 5) ? model.foundation.messaging?.find(topology => topology.id === id) : undefined;
 	if (topology) { return model.semantics.elements.find(element => element.id === topology.publishers[0]?.ownerId); }
-	const machine = model.version === 4 ? model.foundation.stateMachines?.find(machine => machine.id === id) : undefined;
-	const operation = model.version === 4 ? model.foundation.blueprint?.operations.find(operation => operation.id === id || [...operation.inputs, ...operation.outputs].some(field => field.id === id)) : undefined;
+	const machine = (model.version === 4 || model.version === 5) ? model.foundation.stateMachines?.find(machine => machine.id === id) : undefined;
+	const operation = (model.version === 4 || model.version === 5) ? model.foundation.blueprint?.operations.find(operation => operation.id === id || [...operation.inputs, ...operation.outputs].some(field => field.id === id)) : undefined;
 	return model.semantics.elements.find(element => element.id === machine?.ownerId || element.id === operation?.ownerId || element.id === id || element.behavior?.id === id || [...(element.behavior?.inputs ?? []), ...(element.behavior?.outputs ?? []), ...(element.details?.members ?? [])].some(field => field.id === id));
 }
 
@@ -373,5 +374,5 @@ function referenceElementIds(model: SemanticModelV4, subject: ModelReference): s
 export function assertModelProposalAllowed(baseline: SemanticModelV4, candidate: SemanticModel, targetId: string, profile: GenerationProfile): void {
 	const result = getModelReadiness(candidate, targetId, profile);
 	if (result.state !== 'generationReady') { throw new Error(`Model proposal blocked: ${result.diagnostics.map(item => item.code).join(', ')}`); }
-	if (candidate.version !== 4 || canonicalJson(candidate.foundation.decisions) !== canonicalJson(baseline.foundation.decisions)) { throw new Error('Model proposal blocked: normativeDecisionMutation; revise project decisions through the tracked editor first'); }
+	if ((candidate.version !== 4 && candidate.version !== 5) || canonicalJson(candidate.foundation.decisions) !== canonicalJson(baseline.foundation.decisions)) { throw new Error('Model proposal blocked: normativeDecisionMutation; revise project decisions through the tracked editor first'); }
 }

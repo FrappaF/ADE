@@ -14,6 +14,20 @@ export function adeInteractionRows(model: SemanticModelV4, id: string): { id: st
 	return describeModelInteraction(model, id).map(row => {
 		const call = model.foundation.occurrences.find(entry => entry.id === row.id), frame = model.foundation.frames.find(entry => entry.id === row.id);
 		let text = row.id;
+		if (frame?.kind === 'unspecified' && frame.description) {
+			const label = frame.description.operator === 'alt' ? localize('ade.scenario.alt', "Exclusive Alternatives") : frame.description.operator === 'par' ? localize('ade.scenario.parallel', "Parallel Branches") : frame.description.operator === 'loop' ? localize('ade.scenario.loop', "Descriptive Loop") : localize('ade.scenario.optional', "Optional Branch");
+			return { ...row, text: label, label };
+		}
+		if (row.kind === 'operand') {
+			const operand = model.foundation.frames.flatMap(frame => frame.kind === 'unspecified' && frame.description ? frame.description.operands : []).find(operand => operand.id === row.id);
+			if (operand) { const label = operand.condition.state === 'known' ? localize('ade.scenario.condition', "Condition: {0}", String(operand.condition.value)) : localize('ade.scenario.unknownCondition', "Condition Is Unknown"); return { ...row, text: label, label }; }
+		}
+		if (call?.profile === 'descriptive') {
+			const alternatives = model.foundation.frames.flatMap(frame => frame.kind === 'unspecified' && frame.description ? frame.description.operands.filter(operand => operand.steps.includes(call.id)).map(operand => operand.condition.state === 'known' ? String(operand.condition.value) : '?') : []);
+			const label = localize('ade.scenario.message', "{0} → {1}: {2} · {3}", elements.get(call.from) ?? call.from, elements.get(call.to) ?? call.to, call.name ?? call.id, alternatives.join(' · '));
+			return { ...row, text: label, label };
+		}
+		if (row.kind === 'unordered') { const label = localize('ade.scenario.unordered', "Order Between the Following Events Is Unknown"); return { ...row, text: label, label }; }
 		if (call) {
 			const operation = model.foundation.blueprint?.operations.find(entry => entry.id === call.operationId), execution = call.execution;
 			text = localize('ade.interaction.read.message', "{0} → {1}: {2}. {3}. Result: {4}. Reply Required. Timeout: {5} ms. Errors Propagate. Arguments: {6}. Correlation: {7}.", elements.get(call.from) ?? call.from, elements.get(call.to) ?? call.to, operation?.name ?? call.operationId, execution?.mode === 'async' ? localize('ade.interaction.read.async', "Asynchronous Local Call") : localize('ade.interaction.read.sync', "Synchronous Call"), execution ? describeModelVariable(model, execution.resultId) : '?', execution?.timeoutMs ?? '?', execution?.arguments.map(arg => `${operation?.inputs.find(field => field.id === arg.fieldId)?.name ?? arg.fieldId} = ${describeModelExpression(model, arg.expression)}`).join(', ') ?? '', execution ? describeModelExpression(model, execution.correlation) : '?');

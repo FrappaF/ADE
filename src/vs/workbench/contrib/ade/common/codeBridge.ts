@@ -6,7 +6,7 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 4;
+export const adeCodeProtocolVersion = 5;
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
 export interface CliRuntimeEnvironment { path?: string; pathExt?: string; codexHome?: string }
@@ -20,6 +20,7 @@ export interface CodeRename { fromId: string; toSourceId: string }
 export interface CodeResolution { path: string; choice: 'model' | 'code' }
 export type CodeRequest =
 	| { operation: 'collaboration'; request: string }
+	| { operation: 'exploration'; snapshot: string; request: string }
 	| { operation: 'import'; root: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
 	| { operation: 'inspect' | 'preview' | 'history'; snapshot: string; scope?: CodeScope; renames?: CodeRename[]; resolutions?: CodeResolution[]; bundles?: string[] }
 	| { operation: 'undoSync' | 'recoverSync'; snapshot: string; id: string }
@@ -56,3 +57,13 @@ export interface CodeSource { path: string; stale: boolean; startLine: number; s
 export interface CodeHistory { snapshots: { directory: string; revision: string }[]; operations?: { id: string; created: string; status: 'reconciling' | 'applied' | 'undoing' | 'undone' | 'rolledBack'; origin: string; fromRevision: string; toRevision: string; from: string; to: string }[] }
 export type CodeResponse = CodeContext | CodePreview | CodeSource | CodeHistory | CodeReconciliationContext | CodeDiagramProgress;
 export interface CodeEngine { execute(request: string, signal?: AbortSignal): Promise<string> }
+
+/** Compact product state; detailed receipts and proposals stay in the project journal. */
+export interface CodeDiagramExploration {
+	sessionId: string; model: string;
+	invalidation?: { evidenceIds: string[]; objectIds: string[]; viewIds: string[]; queryIds: string[] };
+	budget: { maxToolCalls: number; maxReadBytes: number; maxDurationMs: number; maxModelTurns: number };
+	usage: { toolCalls: number; readBytes: number; modelTurns: string[]; turnsObservable: boolean; inputTokens: null; outputTokens: null };
+	tasks: { id: string; intent: string; status: string; gaps: string[]; proposalId?: string }[];
+	proposals: { id: string; status: 'invalid' | 'ready' | 'applied'; diagnostics: { code: string; path: string; args: string[] }[]; views: import('./semanticModel.js').ModelView[] }[];
+}

@@ -3,6 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { diagramToolDefinitions, diagramSessionInstruction } from '../common/diagramTools.js';
+import { IMAGE_PREVIEW_EDITOR_ID } from '../../mediaPreview/common/mediaPreview.js';
+import { ILanguageModelsService } from '../../chat/common/languageModels.js';
+import { ILanguageModelToolsService, ToolDataSource } from '../../chat/common/tools/languageModelToolsService.js';
+import { IAgentHostActiveClientService } from '../../chat/browser/agentSessions/agentHost/agentHostActiveClientService.js';
+import type { IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { assertPureProject } from '../common/modelProject.js';
 import { ModelContinuity, type ContinuityPolicy } from '../common/modelContinuity.js';
 import { validateSemanticModel } from '../common/semanticModel.js';
@@ -51,7 +57,7 @@ import { openAdeTerminal } from '../browser/adeTerminal.js';
 import { getModelImpact } from '../common/modelImpact.js';
 import { canonicalJson, semanticContent } from '../common/modelSerialization.js';
 import { isSourceEvidenceModel } from '../common/semanticModel.js';
-import { CodePreview, CodeReconciliationContext, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
+import { CodePreview, CodeReconciliationContext, CodeResolution, CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
 
 interface CliConfig {
 	version: 1; provider: 'codex' | 'claude'; connection: 'cli'; model: string; executable: string;
@@ -93,6 +99,12 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	get connectionStatus(): string { return this._connectionStatus ?? localize('ade.ai.unchecked', "CLI Account Not Checked Yet"); }
 	private config: CliConfig | undefined;
 	diagramProgress: CodeDiagramProgress | undefined;
+	diagramExploration: CodeDiagramExploration | undefined;
+	private exploration: { root: string; id: string; snapshot: string; resource?: string; selectedModel?: string } | undefined;
+	private readonly explorationTools = this._register(new DisposableStore());
+	private explorationBinding: string | undefined;
+	private explorationToolResource: URI | undefined;
+
 	private session: CollaborationSession | undefined;
 	private structuralSession: StructuralSession | undefined;
 	private structuralInvalid = false;
@@ -113,7 +125,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	}
 	async configureContinuity(): Promise<void> {
 		const root = this.project.projectRoot?.fsPath;
-		if (!root || this.project.model.version !== 4) { return; }
+		if (!root || (this.project.model.version !== 4 && this.project.model.version !== 5)) { return; }
 		if (this.continuity.active) { this.continuity.pause(); return; }
 		let saved: ContinuityPolicy | undefined;
 		try { saved = JSON.parse(this.storage.get('ade.structural.continuity', StorageScope.WORKSPACE) ?? 'null'); } catch { /* Invalid saved policy requires a new explicit budget. */ }
@@ -132,8 +144,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		if (!this.continuity.active) { return; }
 		const root = this.project.projectRoot?.fsPath;
 		if (root !== this.continuity.budget?.root) { this.continuity.pause(); return; }
-		let valid = this.project.editable !== false && !this.project.error && this.project.model.version === 4 && !validateSemanticModel(this.project.model).some(item => item.severity === 'error');
-		if (valid && this.project.model.version === 4) { try { assertPureProject(this.project.model); } catch { valid = false; } }
+		let valid = this.project.editable !== false && !this.project.error && (this.project.model.version === 4 || this.project.model.version === 5) && !validateSemanticModel(this.project.model).some(item => item.severity === 'error');
+		if (valid && (this.project.model.version === 4 || this.project.model.version === 5)) { try { assertPureProject(this.project.model); } catch { valid = false; } }
 		const revision = `${root}:${valid}:${canonicalJson(semanticContent(this.project.model))}`;
 		this.continuity.update(revision, valid, async (signal, policy) => {
 			const operation = this.operations.acquire('ai');
@@ -186,22 +198,27 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		@IConfigurationService private readonly configuration: IConfigurationService,
 		@IStorageService private readonly storage: IStorageService,
 		@IWorkspaceTrustRequestService private readonly trust: IWorkspaceTrustRequestService,
-		@IAdeOperationService private readonly operations: AdeOperationService
+		@IAdeOperationService private readonly operations: AdeOperationService,
+		@ILanguageModelToolsService private readonly tools: ILanguageModelToolsService,
+		@IAgentHostActiveClientService private readonly activeClients: IAgentHostActiveClientService,
+		@ILanguageModelsService private readonly languageModels: ILanguageModelsService
 	) {
 		super();
 		let projectId = project.model.id;
 		this._register(project.onDidChange(() => {
-			if (projectId !== project.model.id) { this.continuity.pause(); this.preparationProblem = undefined; this.conversation = undefined; this.structuralSession = undefined; projectId = project.model.id; }
+			if (projectId !== project.model.id) { this.continuity.pause(); this.preparationProblem = undefined; this.conversation = undefined; this.explorationTools.clear(); this.explorationBinding = undefined; this.diagramExploration = undefined; this.structuralSession = undefined; projectId = project.model.id; }
 			this.updateContinuity();
 			if (!this.busy) { this.activityStatus = undefined; this.changes.fire(); }
 		}));
 		const saved = storage.get('ade.ai.cliConfig', StorageScope.PROFILE);
 		if (saved) { try { this.config = JSON.parse(saved); } catch { /* choose a connection again */ } }
+		try { this.exploration = JSON.parse(storage.get('ade.ai.exploration', StorageScope.WORKSPACE) ?? 'null') ?? undefined; } catch { /* Invalid session must be reopened. */ }
 		const diagramJob = storage.get('ade.ai.diagramJob', StorageScope.WORKSPACE);
 		if (diagramJob) { try { this.diagramProgress = JSON.parse(diagramJob); } catch { /* invalid saved progress */ } }
 		this._register(code.onDidChange(() => {
 			if (this.conversation && code.context && this.conversation.root !== code.context.sourceRoot) { this.conversation = undefined; this.activityStatus = undefined; this.changes.fire(); }
 			if (this.session && code.context && this.session.root !== code.context.sourceRoot) { this.session = undefined; this.changes.fire(); }
+			if (this.exploration && code.context && this.exploration.root !== code.context.sourceRoot) { this.explorationTools.clear(); this.explorationBinding = undefined; this.diagramExploration = undefined; }
 			if (this.diagramProgress && code.context && this.diagramProgress.sourceRoot !== code.context.sourceRoot) { this.diagramProgress = undefined; this.changes.fire(); }
 		}));
 	}
@@ -459,6 +476,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	/** One visible entry point to the user's Codex account, with the active diagram attached. */
 	async chat(): Promise<void> {
+		if (this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(); return; }
 		if (this.busy || this.operations.busy || this.chatOpening || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
 		const opening = this.operations.acquire('ai');
 		if (!opening) { return; }
@@ -473,26 +491,40 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			if (terminal) { this.conversation = undefined; }
 			const native = this.codexAccount.account.status === 'signedIn' && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready') && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this.config || this.config.provider !== 'codex' || this.config.executable === 'codex');
 			if (native) {
-				await this.configuration.updateValue(AgentHostCodexAgentEnabledSettingId, true, ConfigurationTarget.USER);
-				const resource = this.conversation?.resource ?? getNewChatSessionResource('agent-host-codex');
+				await this.configuration.updateValue(AgentHostCodexAgentEnabledSettingId, true, this.exploration ? ConfigurationTarget.WORKSPACE : ConfigurationTarget.USER);
+				const resource = this.conversation?.resource ?? (this.exploration?.root === root && this.exploration.resource ? URI.parse(this.exploration.resource) : getNewChatSessionResource('agent-host-codex'));
+				if (this.exploration?.root === root) { this.bindExplorationTools(resource); }
 				const widget = await this.chatWidgets.openSession(resource, ChatViewPaneTarget);
 				if (!widget) { throw new Error(localize('ade.ai.chatUnavailable', "Codex Chat Could Not Be Opened. Use AI Settings to Check the Connection.")); }
-				if (this.project.modelUri) {
+				if (this.exploration?.root === root) {
+					const chosen = this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE);
+					if (chosen && this.exploration.selectedModel !== chosen) {
+						const selected = this.languageModels.getLanguageModelIds().map(identifier => ({ identifier, metadata: this.languageModels.lookupLanguageModel(identifier) })).find(entry => entry.metadata?.targetChatSessionType === 'agent-host-codex' && parseCodexModelSelection({ id: entry.metadata.id })?.modelId === chosen && parseCodexModelSelection({ id: entry.metadata.id })?.modelProvider === 'openai');
+						if (!selected?.metadata) { throw new Error(localize('ade.explore.modelUnavailable', "The Selected Diagram Model Is Not Available in Codex Chat: {0}. Choose an Available Model and Retry.", chosen)); }
+						widget.input.setCurrentLanguageModel({ identifier: selected.identifier, metadata: selected.metadata }, false, false);
+						this.exploration.selectedModel = chosen;
+					}
+					this.exploration.resource = resource.toString(); this.persistExploration();
+					widget.attachmentModel.updateContext(['ade:exploration'], [{ kind: 'generic', id: 'ade:exploration', name: localize('ade.explore.context', "Architecture Exploration"), value: JSON.stringify({ instruction: diagramSessionInstruction, sessionId: this.exploration.id, root, activeView: this.project.activeView?.id ?? null }) }]);
+				}
+				if (this.project.modelUri && !this.exploration) {
 					const previous = this.conversation?.attachedModel;
 					if (previous && previous !== this.project.modelUri.toString()) { widget.attachmentModel.delete(previous); }
 					if (!widget.attachmentModel.fileAttachments.some(uri => uri.toString() === this.project.modelUri!.toString())) { await widget.attachmentModel.addFile(this.project.modelUri); }
 				}
-				widget.attachmentModel.updateContext(['ade:diagram-context'], [{ kind: 'generic', id: 'ade:diagram-context', name: localize('ade.ai.currentDiagramContext', "Current Diagram"), value: JSON.stringify({ model: this.project.modelUri?.fsPath, diagram: this.project.activeView ? { id: this.project.activeView.id, name: this.project.activeView.name } : null }) }]);
+				widget.attachmentModel.updateContext(['ade:diagram-context'], [{ kind: 'generic', id: 'ade:diagram-context', name: localize('ade.ai.currentDiagramContext', "Current Diagram"), value: JSON.stringify({ ...(this.exploration?.root === root ? { sessionId: this.exploration.id } : { model: this.project.modelUri?.fsPath }), diagram: this.project.activeView ? { id: this.project.activeView.id, name: this.project.activeView.name } : null }) }]);
 				this.conversation = { root, resource, attachedModel: this.project.modelUri?.toString() };
+				if (this.exploration?.root === root && !this.conversation?.resource) { widget.setInput(localize('ade.explore.firstQuestion', "Explore this project and propose a concise overview of its main runtime responsibilities and integrations. Retrieve additional source evidence as needed and preview the proposal.")); }
 				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
 			} else {
 				const executable = await this.resolveCli('codex');
 				if (!executable) { return; }
 				const account = await this.code.checkCliAccount('codex', executable);
 				if (account.status !== 'signedIn') { if (account.status === 'signedOut') { await this.signIn('codex', true); } else { await this.checkAccount('codex', executable); } return; }
-				const model = this.config?.provider === 'codex' ? this.config.model : undefined;
+				let model = this.exploration?.root === root ? this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? (this.config?.provider === 'codex' ? this.config.model : undefined) : this.config?.provider === 'codex' ? this.config.model : undefined;
+				if (this.exploration?.root === root && !model) { model = await this.selectDiagramModel({ version: 1, provider: 'codex', connection: 'cli', executable, model: '', timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 8 }); if (!model) { return; } }
 				const prompt = localize('ade.ai.chatContext', "Help me work on this project's A.D.E diagrams and implementation. The model is {0}, active diagram: {1}. Preserve semantic IDs and valid model v3 references. Resolve the current model from .ade/code-project.json before editing because snapshot paths can change. Model edits appear in the visual editor; after code changes I will use Update Diagrams to reconcile them. I will describe the requested change next; do not edit files until I do.", this.project.modelUri?.fsPath ?? localize('ade.ai.noModelContext', "not created yet"), this.project.activeView?.name ?? this.project.model.name);
-				const terminal = await openAdeTerminal(this.terminals, this.terminalGroups, { name: localize('ade.ai.codexChat', "Codex Chat · Your Account"), executable, args: [...(model ? ['--model', model] : []), prompt], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
+				const terminal = await openAdeTerminal(this.terminals, this.terminalGroups, { name: localize('ade.ai.codexChat', "Codex Chat · Your Account"), executable, args: [...(model ? ['--model', model] : []), ...(this.exploration?.root === root ? await this.explorationCliArguments() : []), this.exploration?.root === root ? diagramSessionInstruction : prompt], cwd: this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
 				this.conversation = { root, terminal };
 				this._register(terminal.onExit(() => { if (this.conversation?.terminal === terminal) { this.conversation = undefined; this.changes.fire(); } }));
 			}
@@ -503,8 +535,96 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	async returnToDiagrams(): Promise<void> {
 		this.terminalGroups.hidePanel();
+		try { await this.refreshExploration(); } catch (error) { this.notifications.error(String(error)); }
 		await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 		if (this.code.changed) { this.report(localize('ade.ai.reviewAfterChat', "Code Changed · Update Diagrams to Review the Result")); }
+	}
+
+	private persistExploration(): void {
+		if (this.exploration) { this.storage.store('ade.ai.exploration', JSON.stringify(this.exploration), StorageScope.WORKSPACE, StorageTarget.MACHINE); }
+	}
+	private async explorationRequest(request: object, token = CancellationToken.None, failOnDiagnostics = true): Promise<{ sessionId: string; data: CodeDiagramExploration & { reviewFile?: string; images?: { path: string; viewId: string }[]; snapshot?: string; mcp?: { command: string; args: string[] } }; diagnostics: { code: string }[] }> {
+		const context = this.code.context;
+		if (!context) { throw new Error(localize('ade.explore.importRequired', "Import a Project to Explore Its Architecture.")); }
+		const result = JSON.parse(await this.code.executeReconciliation({ operation: 'exploration', snapshot: context.snapshot, request: JSON.stringify(request) }, token));
+		if (failOnDiagnostics && result.diagnostics?.length) { throw new Error(result.diagnostics.map((entry: { code: string }) => entry.code).join(' · ')); }
+		return result;
+	}
+	private async refreshExploration(): Promise<void> {
+		if (!this.exploration || this.exploration.root !== this.code.context?.sourceRoot) { return; }
+		const result = await this.explorationRequest({ action: 'open', sessionId: this.exploration.id });
+		this.diagramExploration = result.data; this.changes.fire();
+	}
+	private bindExplorationTools(resource: URI): void {
+		const session = this.exploration;
+		if (!session) { return; }
+		if (this.explorationBinding === session.id) { if (this.explorationToolResource && this.explorationToolResource.toString() !== resource.toString()) { this.activeClients.moveSessionTools(this.explorationToolResource, resource); this.explorationToolResource = resource; } return; }
+		this.explorationTools.clear(); this.explorationBinding = session.id;
+		const ids = diagramToolDefinitions.map(tool => {
+			const id = `ade.${session.id}.${tool.name}`;
+			this.explorationTools.add(this.tools.registerTool({ id, toolReferenceName: tool.name, displayName: localize('ade.explore.tool', "A.D.E Architecture: {0}", tool.name), modelDescription: tool.description, source: ToolDataSource.Internal, inputSchema: tool.inputSchema as IJSONSchema, canBeReferencedInPrompt: false, agentHostPreferences: { availability: 'session', defer: 'never' } }, {
+				invoke: async (invocation, _countTokens, _progress, token) => {
+					if (this.code.context?.sourceRoot !== session.root || !invocation.context || !await this.trust.requestWorkspaceTrust()) { throw new Error(localize('ade.explore.scopeChanged', "The Exploration Project Is No Longer Active.")); }
+					const scope = this.activeClients.acquireSessionTools(invocation.context.sessionResource);
+					try { if (!scope.object.get().some(definition => definition.name === tool.name)) { throw new Error(localize('ade.explore.sessionScope', "These Tools Belong to Another Conversation.")); } } finally { scope.dispose(); }
+					if (this.exploration?.id === session.id && this.exploration.resource !== invocation.context.sessionResource.toString()) { this.exploration.resource = invocation.context.sessionResource.toString(); this.persistExploration(); }
+					if (this.conversation?.root === session.root && this.conversation.resource) { this.conversation.resource = invocation.context.sessionResource; }
+					const result = await this.explorationRequest({ action: 'tool', sessionId: session.id, tool: tool.name, arguments: invocation.parameters, callId: invocation.callId, ...(invocation.chatRequestId || invocation.context.requestId ? { turnId: invocation.chatRequestId ?? invocation.context.requestId } : {}), ...(invocation.modelId ? { model: invocation.modelId } : {}) }, token, false);
+					await this.refreshExploration();
+					return { content: [{ kind: 'text', value: JSON.stringify(result) }] };
+				}
+			}));
+			return id;
+		});
+		this.activeClients.setSessionTools(resource, ids); this.explorationToolResource = resource;
+		this.explorationTools.add({ dispose: () => this.activeClients.clearSessionTools(resource) });
+	}
+	private async exploreDiagrams(): Promise<void> {
+		if (this.busy || this.operations.busy || !this.code.context) { return; }
+		await this.run(async token => {
+			if (!await this.project.save()) { return; }
+			const root = this.code.context!.sourceRoot;
+			if (this.exploration?.root !== root) { this.exploration = undefined; }
+			const result = await this.explorationRequest({ action: 'open', ...(this.exploration ? { sessionId: this.exploration.id } : {}), ...(!this.exploration ? { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' } : {}) }, token);
+			this.exploration = { ...this.exploration, root, id: result.sessionId, snapshot: this.code.context!.snapshot };
+			this.diagramExploration = result.data; this.diagramProgress = undefined; this.persistExploration();
+		}, true);
+		if (this.exploration) { await this.chat(); }
+	}
+	private async explorationCliArguments(): Promise<string[]> {
+		const session = this.exploration!;
+		const result = await this.explorationRequest({ action: 'open', sessionId: session.id });
+		const mcp = result.data.mcp;
+		if (!mcp) { throw new Error(localize('ade.explore.mcpMissing', "Rebuild ADE to Install the Local Diagram Tools.")); }
+		return ['--sandbox', 'read-only', '-c', `mcp_servers.ade.command=${JSON.stringify(mcp.command)}`, '-c', `mcp_servers.ade.args=${JSON.stringify(mcp.args)}`];
+	}
+	async configureDiagramBudget(): Promise<void> {
+		if (!this.exploration || this.busy) { return; }
+		const selected = await this.quick.pick([
+			{ label: localize('ade.explore.budgetSmall', "Explore One Scenario"), description: localize('ade.explore.budgetSmallDetail', "8 Reported Turns · 80 Local Tool Calls · 1 MiB Retrieved · 30 Minutes"), calls: 80, bytes: 1048576, turns: 8, duration: 1800000 },
+			{ label: localize('ade.explore.budgetMedium', "Explore Several Scenarios"), description: localize('ade.explore.budgetMediumDetail', "16 Reported Turns · 160 Local Tool Calls · 2 MiB Retrieved · 60 Minutes"), calls: 160, bytes: 2097152, turns: 16, duration: 3600000 }
+		], { title: localize('ade.explore.budget', "Add Exploration Budget"), placeHolder: localize('ade.explore.budgetHint', "Evidence and Drafts Are Retained. Provider Turns and Tokens Are Counted Only When Reported.") });
+		if (!selected || !this.diagramExploration) { return; }
+		const usage = this.diagramExploration.usage;
+		await this.run(async token => { await this.explorationRequest({ action: 'budget', sessionId: this.exploration!.id, budget: { maxToolCalls: Math.min(1000, usage.toolCalls + selected.calls), maxReadBytes: Math.min(33554432, usage.readBytes + selected.bytes), maxModelTurns: Math.min(100, usage.modelTurns.length + selected.turns), maxDurationMs: selected.duration } }, token); await this.refreshExploration(); }, false, true);
+	}
+	async reviewDiagramProposal(id?: string): Promise<void> {
+		if (!this.exploration || this.busy || this.operations.busy) { return; }
+		await this.run(async token => {
+			await this.refreshExploration();
+			const proposal = id ? this.diagramExploration?.proposals.find(entry => entry.id === id) : (await this.quick.pick(this.diagramExploration?.proposals.filter(entry => entry.status !== 'applied').map(entry => ({ label: entry.views.map(view => view.name).join(', ') || entry.id, description: entry.status, proposal: entry })) ?? [], { title: localize('ade.explore.review', "Review Diagram Draft") }))?.proposal;
+			if (!proposal || !await this.project.save()) { return; }
+			const preview = await this.explorationRequest({ action: 'tool', sessionId: this.exploration!.id, tool: 'ade_view_preview', arguments: { proposalId: proposal.id } }, token);
+			const review = preview.data.reviewFile ? (await this.files.readFile(URI.file(preview.data.reviewFile))).value.toString() : JSON.stringify(preview, null, '\t');
+			const resource = URI.from({ scheme: 'untitled', path: `A.D.E Proposal Review ${proposal.id}.json` });
+			await this.editors.openEditor({ resource, contents: review, languageId: 'json', options: { pinned: true } });
+			for (const image of preview.data.images ?? []) { await this.editors.openEditor({ resource: URI.file(image.path), options: { pinned: true, override: IMAGE_PREVIEW_EDITOR_ID } }); }
+			if (proposal.status !== 'ready') { this.info(localize('ade.explore.draftInvalid', "This Draft Has Diagnostics. Continue the Conversation to Correct It; Other Drafts Can Be Applied.")); return; }
+			if (!(await this.dialogs.confirm({ message: localize('ade.explore.apply', "Apply This Diagram Proposal?"), detail: localize('ade.explore.applyDetail', "{0}\nThe preview contains the resolved changes. This applies only this proposal and its dependencies. Other drafts remain available.", proposal.views.map(view => view.name).join(', ')), primaryButton: localize('ade.explore.applyButton', "Apply Proposal") })).confirmed) { return; }
+			const result = await this.explorationRequest({ action: 'publish', sessionId: this.exploration!.id, proposalId: proposal.id }, token);
+			if (result.data.snapshot) { const context = JSON.parse(await this.code.executeReconciliation({ operation: 'inspect', snapshot: result.data.snapshot }, token)); await this.code.openContext(context); }
+			await this.refreshExploration();
+		}, false, true);
 	}
 
 	/** First use asks only for the diagram model; advanced coding settings stay separate. */
@@ -534,8 +654,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		return { ...this.config, executable };
 	}
 
-	async buildDiagrams(): Promise<void> { await this.generateDiagrams(false); }
-	async resumeDiagrams(): Promise<void> { await this.generateDiagrams(true); }
+	async buildDiagrams(): Promise<void> { if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.exploreDiagrams(); } else { await this.generateDiagrams(false); } }
+	async resumeDiagrams(): Promise<void> { if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.exploreDiagrams(); } else { await this.generateDiagrams(true); } }
 	private async generateDiagrams(resume: boolean): Promise<void> {
 		if (this.busy || this.operations.busy || !this.code.context) { return; }
 		await this.run(async token => {
@@ -581,7 +701,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	async chooseDiagramModel(): Promise<void> {
 		if (this.busy || this.operations.busy || !await this.ensureConfigured()) { return; }
-		await this.selectDiagramModel(this.config!);
+		const selected = await this.selectDiagramModel(this.config!);
+		if (selected && this.exploration && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.chat(); }
 	}
 	private async selectDiagramModel(configured: CliConfig): Promise<string | undefined> {
 		const choices = (configured.provider === 'codex' && configured.executable !== 'codex' && this.config?.executable !== 'codex' ? [] : this.nativeModels(configured.provider)).sort((a, b) => (a.rates ? a.rates.input + a.rates.output : Infinity) - (b.rates ? b.rates.input + b.rates.output : Infinity));
@@ -591,12 +712,12 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	}
 
 	async implement(): Promise<void> {
-		if (this.project.model.version === 4) { await this.preparePureProject('forward'); return; }
+		if ((this.project.model.version === 4 || this.project.model.version === 5)) { await this.preparePureProject('forward'); return; }
 		this.structuralSession = undefined; await this.collaborate('plan');
 	}
 	async structuralReverse(): Promise<void> { await this.preparePureProject('reverse'); }
 	async movePureSource(): Promise<void> {
-		const model = this.project.model; if (model.version !== 4) { return; }
+		const model = this.project.model; if ((model.version !== 4 && model.version !== 5)) { return; }
 		const behavior = await this.quick.pick([...(model.foundation.predicates ?? []).map(predicate => ({ label: predicate.id, id: predicate.id })), ...model.foundation.interactions.filter(entry => entry.execution).map(entry => ({ label: entry.id, id: entry.id })), ...(model.foundation.messaging ?? []).map(entry => ({ label: entry.id, id: entry.id })), ...(model.foundation.stateMachines ?? []).map(entry => ({ label: model.semantics.elements.find(element => element.id === entry.ownerId)?.name ?? entry.id, id: entry.id }))], { title: localize('ade.pure.move', "Move Model Behavior Source") }); if (!behavior) { return; }
 		const file = await this.quick.input({ title: localize('ade.pure.move.path', "Destination Source"), value: 'src/model-behavior.mjs', prompt: localize('ade.pure.move.hint', "Choose a source filename. The reviewed plan preserves the behavior identity.") });
 		if (file) { await this.preparePureProject('forward', { [behavior.id]: file }); }
@@ -658,7 +779,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	}
 	async simulateStates(): Promise<void> {
 		await this.run(async token => {
-			const root = this.project.projectRoot, model = this.project.model; if (!root || model.version !== 4) { return; }
+			const root = this.project.projectRoot, model = this.project.model; if (!root || (model.version !== 4 && model.version !== 5)) { return; }
 			const version = canonicalJson(semanticContent(model)), file = URI.joinPath(root, '.ade', 'criteria.json'); if (!await this.files.exists(file)) { this.info(localize('ade.states.simulation.author', "Author an Independent State Case Before Simulating.")); return; }
 			const before = (await this.files.readFile(file)).value.toString(); if (new TextEncoder().encode(before).length > 2097152) { throw new Error(localize('ade.states.simulation.budget', "The Criteria File Exceeds the Local Simulation Budget.")); } const criteria: ProjectCriteria = JSON.parse(before);
 			const choice = await this.quick.pick((criteria.states ?? []).map(entry => ({ label: entry.id, entry })), { title: localize('ade.states.simulation.select', "Simulate Authored State Scenario") }); if (!choice) { return; }
@@ -673,7 +794,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			const root = this.project.projectRoot; if (!root) { return; } const file = URI.joinPath(root, '.ade', 'criteria.json');
 			const exists = await this.files.exists(file); const before = exists ? (await this.files.readFile(file)).value.toString() : undefined; const criteria: ProjectCriteria = before ? JSON.parse(before) : { version: 1, revision: '1', cases: [] };
 			const model = this.project.model, version = canonicalJson(semanticContent(this.project.model));
-			if (model.version === 4 && (model.foundation.interactions.some(entry => entry.execution) || model.foundation.stateMachines?.length || model.foundation.messaging?.length)) {
+			if ((model.version === 4 || model.version === 5) && (model.foundation.interactions.some(entry => entry.execution) || model.foundation.stateMachines?.length || model.foundation.messaging?.length)) {
 				const mode = await this.quick.pick([...(model.foundation.messaging?.length ? [{ label: localize('ade.messaging.newCase', "Author Independent Messaging Case"), interaction: true, messaging: true }] : []), ...(model.foundation.stateMachines?.length ? [{ label: localize('ade.criteria.newState', "Author Independent State Case"), interaction: true, states: true }] : []), { label: localize('ade.criteria.newInteraction', "Author Independent Interaction Case"), interaction: true }, ...(criteria.cases.length ? [{ label: localize('ade.criteria.predicate', "Edit Predicate Expectation"), interaction: false }] : [])], { title: localize('ade.pure.criteria', "Independent Business Expectations") }); if (!mode) { return; }
 				if (mode.interaction) {
 					const next = 'messaging' in mode && mode.messaging ? await editAdeMessagingCriteria(this.quick, model, criteria) : 'states' in mode && mode.states ? await editAdeStateCriteria(this.quick, model, criteria) : await editAdeInteractionCriteria(this.quick, model, criteria); if (!next) { return; }
@@ -725,7 +846,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		return result;
 	}
 	private async collaborate(operation: 'plan' | 'interpret'): Promise<void> {
-		if (this.project.model.version === 4) { this.info(localize('ade.ai.v4Profile', "Choose a Compatible Generation Profile Before Implementing This Specification. You Can Continue Editing and Saving the Draft.")); return; }
+		if ((this.project.model.version === 4 || this.project.model.version === 5)) { this.info(localize('ade.ai.v4Profile', "Choose a Compatible Generation Profile Before Implementing This Specification. You Can Continue Editing and Saving the Draft.")); return; }
 		if (this.busy || this.operations.busy) { this.notifications.info(localize('ade.ai.busy', "An A.D.E operation is already running. Wait for it to finish or cancel it before starting another.")); return; }
 		if (!this.code.context) { this.info(localize('ade.ai.importRequired', "Import a Git Codebase with a Commit and Add a Feature Before Implementing. Use Import Codebase or Sync Project.")); return; }
 		if (!await this.ensureConfigured()) { return; }
@@ -888,6 +1009,8 @@ registerAction2(class extends Action2 {
 for (const [id, title, method] of [
 	['ade.ai.connect', localize2('ade.ai.connectCommand', "A.D.E: Connect Claude Code or Codex"), 'connect'],
 	['ade.ai.cli', localize2('ade.ai.cliCommand', "A.D.E: Open AI CLI"), 'openCli'],
+	['ade.ai.reviewDiagramProposal', localize2('ade.explore.reviewCommand', "A.D.E: Review Diagram Draft"), 'reviewDiagramProposal'],
+	['ade.ai.configureDiagramBudget', localize2('ade.explore.budgetCommand', "A.D.E: Configure Exploration Budget"), 'configureDiagramBudget'],
 	['ade.ai.chooseDiagramModel', localize2('ade.ai.diagramModelCommand', "Choose Diagram Model"), 'chooseDiagramModel'],
 	['ade.ai.returnToDiagrams', localize2('ade.ai.returnToDiagramsCommand', "A.D.E: Back to Diagrams"), 'returnToDiagrams'],
 	['ade.ai.chat', localize2('ade.ai.chatCommand', "A.D.E: Chat with Codex"), 'chat'],

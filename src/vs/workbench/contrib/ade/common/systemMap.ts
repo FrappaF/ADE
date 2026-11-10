@@ -20,7 +20,7 @@ export interface SystemConnection {
 export function getSystemMap(model: SemanticModel): { branches: SystemBranch[]; connections: SystemConnection[] } {
 	const children = new Map<string | undefined, SemanticElement[]>();
 	for (const element of model.semantics.elements) {
-		const parentId = model.version === 4 ? model.foundation.ownership.find(entry => entry.elementId === element.id)?.ownerId : element.parentId;
+		const parentId = (model.version === 4 || model.version === 5) ? model.foundation.ownership.find(entry => entry.elementId === element.id)?.ownerId : element.parentId;
 		const siblings = children.get(parentId) ?? [];
 		siblings.push(element);
 		children.set(parentId, siblings);

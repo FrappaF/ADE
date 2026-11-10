@@ -95,7 +95,7 @@ async function criteria(root: string, model: SemanticModelV4): Promise<ProjectCr
 	}
 	return value;
 }
-async function currentModel(root: string): Promise<SemanticModelV4> { const model = readSemanticModel(JSON.parse((await physicalImage(root, metadata))?.content ?? 'null')); if (model.version !== 4) { throw new Error('Structural project requires v4'); } return model; }
+async function currentModel(root: string): Promise<SemanticModelV4> { const model = readSemanticModel(JSON.parse((await physicalImage(root, metadata))?.content ?? 'null')); if ((model.version !== 4 && model.version !== 5)) { throw new Error('Structural project requires v4'); } return model; }
 async function noInterrupted(root: string): Promise<void> { await assertNoInterruptedOperation(root); const path = join(await directory(root), 'sessions'); for (const file of await readdir(path)) { if (!file.endsWith('.json')) { continue; } const session = await readStructuralSession(root, file.slice(0, -5)); if (['publishing', 'undoing'].includes(session.status)) { throw new Error('Interrupted structural publication requires recovery'); } } }
 
 export async function readStructuralSession(root: string, id: string): Promise<StructuralSession> {

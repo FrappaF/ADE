@@ -17,6 +17,8 @@
     "ade:ai:test": "npm --prefix ade/ai test",
     "ade:ai:service-test": "node ade/scripts/test-ai-service.mjs",
     "ade:ai:diagram-live": "node ade/scripts/test-diagram-live.mjs",
+    "ade:diagrams:browser": "node ade/scripts/test-diagram-exploration-browser.mjs",
+    "ade:diagrams:live": "node ade/scripts/test-diagram-exploration-live.mjs",
     "ade:check": "tsc6 --project ade/tsconfig.json --noEmit",
     "ade:test": "node --test ade/test/*.test.mjs",
     "ade:dai:model": "node ade/scripts/dai-model.mjs",

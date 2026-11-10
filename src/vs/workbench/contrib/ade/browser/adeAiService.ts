@@ -7,7 +7,7 @@ import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import type { StructuralProjectSession } from '../common/modelProject.js';
-import { CodePreview, CodeResolution, CodeDiagramProgress } from '../common/codeBridge.js';
+import { CodePreview, CodeResolution, CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
 
 export const IAdeAiService = createDecorator<IAdeAiService>('adeAiService');
 export interface IAdeAiService {
@@ -25,6 +25,9 @@ export interface IAdeAiService {
 	readonly chatLocation: 'chat' | 'terminal' | undefined;
 	returnToDiagrams(): Promise<void>;
 	readonly diagramProgress: CodeDiagramProgress | undefined;
+	readonly diagramExploration: CodeDiagramExploration | undefined;
+	reviewDiagramProposal(id?: string): Promise<void>;
+	configureDiagramBudget(): Promise<void>;
 	chat(): Promise<void>;
 	chooseDiagramModel(): Promise<void>;
 	buildDiagrams(): Promise<void>;
@@ -67,6 +70,9 @@ class UnavailableAiService implements IAdeAiService {
 	readonly chatLocation = undefined;
 	async returnToDiagrams(): Promise<void> { }
 	readonly diagramProgress = undefined;
+	readonly diagramExploration = undefined;
+	async reviewDiagramProposal(): Promise<void> { }
+	async configureDiagramBudget(): Promise<void> { }
 	async chat(): Promise<void> { }
 	async chooseDiagramModel(): Promise<void> { }
 	async buildDiagrams(): Promise<void> { }

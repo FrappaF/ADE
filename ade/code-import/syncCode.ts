@@ -86,7 +86,7 @@ function mergeView(base: ModelView, current: ModelView, next: ModelView, path: s
 
 /** Prepares one code-to-model update. Conflicts return a report without a replacement model. */
 export function prepareSync(previous: CodeImport, currentValue: SemanticModel, next: CodeImport, resolutions: SyncResolution[] = []): { report: SyncReport; model?: SemanticModel } {
-	if ([previous.model, currentValue, next.model].some(model => model.version === 4)) { throw new Error('A v4 synchronization adapter is required; legacy Sync cannot rewrite this model'); }
+	if ([previous.model, currentValue, next.model].some(model => (model.version === 4 || model.version === 5))) { throw new Error('A v4 synchronization adapter is required; legacy Sync cannot rewrite this model'); }
 	validateProjection(previous);
 	validateProjection(next);
 	const current = readSemanticModel(currentValue);

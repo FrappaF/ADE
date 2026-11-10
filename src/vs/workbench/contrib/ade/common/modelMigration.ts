@@ -11,7 +11,7 @@ export type ModelIdFactory = () => string;
 /** Explicit v2/v3 upgrade on a detached copy. Reading an existing v4 draft allocates no identities. */
 export function migrateSemanticModelToV4(value: unknown, nextId: ModelIdFactory = () => globalThis.crypto.randomUUID()): SemanticModelV4 {
 	const draft = readSemanticDraft(value);
-	if (draft.version === 4) { return draft as SemanticModelV4; }
+	if ((draft.version === 4 || draft.version === 5)) { return draft as SemanticModelV4; }
 	const source = readSemanticModel(draft);
 	const sourceVersion = source.version as 2 | 3;
 	const model = { ...source, version: 4 as const, foundation: emptyFoundation() };
@@ -52,5 +52,15 @@ export function normalizeInteractionAliases(value: unknown): SemanticModelV4 {
 	if (copy && typeof copy === 'object' && 'foundation' in copy && copy.foundation && typeof copy.foundation === 'object' && 'frames' in copy.foundation && Array.isArray(copy.foundation.frames)) {
 		for (const frame of copy.foundation.frames) { if (frame && typeof frame === 'object' && 'kind' in frame && frame.kind === 'region') { frame.kind = 'critical'; } }
 	}
-	const model = readSemanticDraft(copy); if (model.version !== 4) { throw new Error('Executable frame normalization requires v4'); } return model;
+	const model = readSemanticDraft(copy); if ((model.version !== 4 && model.version !== 5)) { throw new Error('Executable frame normalization requires v4'); } return model;
+}
+
+/** Upgrade a detached copy without changing IDs, executable policies or unknown knowledge. */
+export function migrateSemanticModelToV5(value: unknown, nextId?: ModelIdFactory): SemanticModelV4 {
+	const draft = readSemanticDraft(value);
+	if (draft.version === 5) { return draft; }
+	const model = migrateSemanticModelToV4(draft, nextId);
+	model.version = 5;
+	model.foundation.evidence = [];
+	return readSemanticModel(model) as SemanticModelV4;
 }

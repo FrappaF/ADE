@@ -1,5 +1,7 @@
 # Generazione semantica: protocollo e prove reali
 
+Questo documento conserva il protocollo legacy `compact/planned` per riproduzione e confronto. Il percorso predefinito usa ora strumenti di sessione v2 e modello v5, descritti in [ADR 0015](decisions/0015-incremental-diagram-exploration.md) e nella [guida corrente](diagram-workflow.md).
+
 L’IA sceglie oggetti, capacità, aggregazioni, esclusioni, relazioni e flussi. Gli strumenti preparano le evidenze, espongono le regole ADE, risolvono riferimenti univoci e proiettano il modello dichiarato in un’overview completa.
 
 ```mermaid

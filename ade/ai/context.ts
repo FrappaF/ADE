@@ -60,7 +60,7 @@ export async function prepareImplementation(requestValue: unknown, configValue: 
 	signal?.throwIfAborted();
 	const snapshot = await readSnapshot(request.snapshot);
 	const { state, model } = snapshot;
-	if (model.version === 4) { throw new Error('A registered diagram-driven generation profile is required for v4; legacy M5 cannot generate this model'); }
+	if ((model.version === 4 || model.version === 5)) { throw new Error('A registered diagram-driven generation profile is required for v4; legacy M5 cannot generate this model'); }
 	if (state.analysis.semanticInvalidated) { throw new Error('Refresh the deterministic semantic index before planning'); }
 	const feature = model.semantics.elements.find(element => element.id === request.featureId);
 	if (feature?.kind !== 'feature') { throw new Error('Select a feature in the semantic model'); }

@@ -77,7 +77,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			const channel = worker.client.getChannel(adeCodeChannel);
 			try {
 				const protocol = await channel.call<CodeBridgeProtocol | undefined>('protocol');
-				if (protocol?.version !== adeCodeProtocolVersion || !Array.isArray(protocol.operations) || !['diagramPrepare', 'diagramStep', 'diagramApprovePlan'].every(operation => protocol.operations.includes(operation))) { throw new Error('Incompatible code bridge protocol'); }
+				if (protocol?.version !== adeCodeProtocolVersion || !Array.isArray(protocol.operations) || !['exploration', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan'].every(operation => protocol.operations.includes(operation))) { throw new Error('Incompatible code bridge protocol'); }
 			} catch {
 				worker.dispose();
 				throw new Error(localize('ade.code.incompatibleEngine', "The A.D.E analysis engine is out of date or incompatible with this interface. For a development build, run npm run build-fast -- --client-only in the ADE repository, then fully quit and reopen ADE. For an installed application, update or reinstall the complete application."));
@@ -174,7 +174,8 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		if (this.context?.sourceRoot === selected[0].fsPath) { await this.workspace.align(); }
 	}
 	async sync(direction?: 'model' | 'code'): Promise<void> {
-		if (this.project.model.version === 4) { this.notifications.info(localize('ade.code.v4Profile', "This Specification Needs a Compatible Synchronization Profile. You Can Continue Editing and Saving the Draft.")); return; }
+		if (this.project.model.version === 5 && this.context && direction !== 'model' && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.commands.executeCommand('ade.ai.resumeDiagrams'); return; }
+		if ((this.project.model.version === 4 || this.project.model.version === 5)) { this.notifications.info(localize('ade.code.v4Profile', "This Specification Needs a Compatible Synchronization Profile. You Can Continue Editing and Saving the Draft.")); return; }
 		await this.refreshing;
 		if (this.busy) { this.notifications.info(localize('ade.code.syncBusy', "Wait for the active A.D.E operation to finish before preparing Sync.")); return; }
 		if (!this.context) {
@@ -309,6 +310,12 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 	private async showEvidence(context: CodeContext, elementId?: string): Promise<void> {
 		const items: (IQuickPickItem & { evidence?: CodeEvidence })[] = [];
 		const names = new Map(context.declarations.map(item => [item.id, item.name]));
+		if (this.project.model.version === 5 && elementId) {
+			const foundation = this.project.model.foundation;
+			const ids = new Set(foundation.assertions.filter(assertion => assertion.subject.id === elementId).flatMap(assertion => assertion.evidenceIds ?? []));
+			for (const occurrence of foundation.occurrences.filter(occurrence => occurrence.id === elementId || occurrence.from === elementId || occurrence.to === elementId)) { for (const id of occurrence.evidenceIds ?? []) { ids.add(id); } }
+			for (const record of foundation.evidence?.filter(record => ids.has(record.id)) ?? []) { items.push({ label: record.file, description: `${record.start}–${record.end}`, detail: localize('ade.code.explorationEvidence', "Versioned Evidence · {0} · {1}", record.nature, record.producer), evidence: { file: record.file, revision: record.revision, start: record.start, end: record.end, line: 1, endLine: 1 } }); }
+		}
 		const selectedFiles = new Set(this.project.model.codeMappings.filter(mapping => mapping.elementId === elementId).map(mapping => mapping.file));
 		const selectedFile = context.files.find(file => file.elementId === elementId)?.path;
 		if (selectedFile) { selectedFiles.add(selectedFile); }

@@ -17,7 +17,7 @@ export function stateTransitionLabel(relation: SemanticRelation): string {
 
 /** Resource summaries and a native table complement the existing editable graph and accessible reader. */
 export function renderAdeState(parent: HTMLElement, model: SemanticModel, view: ModelView, controls: AdeControls, inspect: (id: string) => void, select: (id: string) => void): void {
-	if (model.version === 4 && view.stateMachineId) {
+	if ((model.version === 4 || model.version === 5) && view.stateMachineId) {
 		const section = dom.append(parent, dom.$('section.ade-state-summary')); section.setAttribute('aria-label', localize('ade.states.table', "Executable State Machine"));
 		for (const row of adeStateRows(model, view.stateMachineId)) { const item = dom.append(section, dom.$('p')); item.dataset.stateId = row.id; if (model.semantics.elements.some(element => element.id === row.id)) { controls.button(item, row.label, () => select(row.id), 'state-executable:' + row.id); } dom.append(item, dom.$('span')).textContent = row.text; }
 		return;

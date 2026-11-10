@@ -39,7 +39,7 @@ export function getModelImpact(model: SemanticModel, id: string) {
 	const subject = elements.get(id);
 	if (!subject) { throw new Error(`Unknown element: ${id}`); }
 	const children = new Map<string, string[]>();
-	const hierarchy = model.version === 4 ? [
+	const hierarchy = (model.version === 4 || model.version === 5) ? [
 		...model.foundation.ownership.map(entry => ({ child: entry.elementId, parent: entry.ownerId })),
 		...model.foundation.memberships.map(entry => ({ child: entry.elementId, parent: entry.featureId }))
 	] : [...elements.values()].flatMap(element => element.parentId ? [{ child: element.id, parent: element.parentId }] : []);
@@ -68,7 +68,7 @@ export function getModelImpact(model: SemanticModel, id: string) {
 	for (const element of elements.values()) {
 		for (const permission of element.behavior?.permissions ?? []) { addReference({ kind: 'authorization', sourceId: element.id, targetId: permission.actorId, capability: permission.capability }); }
 	}
-	if (model.version === 4 && model.foundation.blueprint) {
+	if ((model.version === 4 || model.version === 5) && model.foundation.blueprint) {
 		const b = model.foundation.blueprint;
 		for (const topology of model.foundation.messaging ?? []) { for (const binding of [...topology.publishers, ...topology.subscriptions]) { const broker = topology.brokers.find(broker => broker.id === topology.channels.find(channel => channel.id === binding.channelId)?.brokerId); if (broker) { addReference({ kind: 'contract', sourceId: binding.ownerId, targetId: broker.elementId }); } } }
 		for (const machine of model.foundation.stateMachines ?? []) { for (const state of machine.states) { addReference({ kind: 'contract', sourceId: machine.ownerId, targetId: state.elementId }); } for (const action of machine.actions) { const interaction = model.foundation.interactions.find(entry => entry.id === action.interactionId); if (interaction?.ownerId) { addReference({ kind: 'contract', sourceId: machine.ownerId, targetId: interaction.ownerId }); } } }
@@ -91,7 +91,7 @@ export function getModelImpact(model: SemanticModel, id: string) {
 			}
 		}
 	}
-	const parentOf = (id: string) => model.version === 4 ? model.foundation.ownership.find(entry => entry.elementId === id)?.ownerId : elements.get(id)?.parentId;
+	const parentOf = (id: string) => (model.version === 4 || model.version === 5) ? model.foundation.ownership.find(entry => entry.elementId === id)?.ownerId : elements.get(id)?.parentId;
 	const ownershipIds = new Set<string>();
 	for (const elementId of visited) {
 		const seen = new Set<string>();

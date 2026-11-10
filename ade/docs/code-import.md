@@ -1,5 +1,7 @@
 # Importazione del codice e Sync — M4
 
+Questa guida descrive anche gli adattatori e i comandi standalone dei precedenti incrementi M4. Il percorso corrente di importazione dei diagrammi nell’app è l’[esplorazione incrementale](diagram-workflow.md), con documento v5 e servizi di query/proposta condivisi; non richiede il piano globale descritto dai protocolli storici.
+
 M4 collega il modello ai sorgenti con analisi locale deterministica, senza account, chiamate IA o esecuzione del progetto importato. La base Tree-sitter copre 16 profili; il compilatore TypeScript integrato risolve JS/TS/TSX e il ponte SCIP collega indicizzatori esterni, con produttori TypeScript/Python verificati. Sono disponibili importazione, anteprima Sync, perimetro, rinomine confermate, evidenze navigabili e ripristino nativi. Il [verbale M4](m4-verification.md) registra matrice, benchmark e confini di copertura; l'IA appartiene a M5.
 
 ## Percorso desktop

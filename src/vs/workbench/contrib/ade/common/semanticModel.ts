@@ -71,6 +71,7 @@ export interface SemanticRelation {
 }
 
 export interface ModelView {
+	spec?: { revision: string; intent: string; projectionRevision: string; layoutRevision: string; manualIds: string[] };
 	stateMachineId?: string;
 	messagingId?: string;
 	interactionId?: string;
@@ -112,7 +113,8 @@ interface SemanticModelContent {
 }
 
 export interface LegacySemanticModel extends SemanticModelContent { version: 2 | 3 }
-export interface SemanticModelV4 extends SemanticModelContent { version: 4; foundation: ModelFoundation }
+export interface SemanticModelV4 extends SemanticModelContent { version: 4 | 5; foundation: ModelFoundation }
+export interface SemanticModelV5 extends SemanticModelV4 { version: 5 }
 export type SemanticModel = LegacySemanticModel | SemanticModelV4;
 
 /** Codes and arguments are translated by UI adapters, never inside the domain. */
@@ -123,7 +125,10 @@ export interface ModelDiagnostic {
 	args: string[];
 }
 
-interface Schema {
+export interface Schema {
+	oneOf?: Schema[];
+	maxLength?: number;
+	maxItems?: number;
 	type?: 'object' | 'array' | 'string' | 'number' | 'boolean' | 'integer' | 'null';
 	const?: number | string | boolean | null;
 	anyOf?: Schema[];
@@ -207,7 +212,18 @@ export function checkShape(value: unknown, schema: Schema, path: string, diagnos
 export type Knowledge = { state: 'unknown'; reason: string } | { state: 'omitted' } | { state: 'known'; value: string | number | boolean | null };
 export type ObjectKind = 'element' | 'relation' | 'field' | 'operation' | 'occurrence' | 'frame' | 'interaction' | 'type' | 'decision' | 'binding' | 'ownership' | 'membership' | 'integration' | 'interface' | 'port' | 'connection' | 'transport' | 'module' | 'fieldMapping' | 'error' | 'predicate' | 'stateMachine' | 'messaging';
 export interface ModelReference { kind: ObjectKind; id: string }
+/** Exact source anchors; offsets use UTF-16 and are never rebased implicitly. */
+export interface EvidenceRecord {
+	id: string; revision: string; file: string; start: number; end: number; encoding: 'utf-16';
+	producer: string; producerVersion: string; nature: 'syntax' | 'reference' | 'text' | 'documentation' | 'runtime';
+	factIds: string[];
+}
+export interface DescriptiveScenario {
+	trigger: string; scope: string; participantIds: string[]; evidenceIds: string[];
+	order: { before: string; after: string; evidenceIds: string[]; basis: 'extracted' | 'inferred' | 'observed' | 'authored' }[];
+}
 export interface ModelAssertion {
+	evidenceIds?: string[];
 	id: string;
 	subject: ModelReference;
 	field: string;
@@ -278,10 +294,10 @@ export interface MessageExecution {
 	mode: 'sync' | 'async'; arguments: InteractionArgument[]; resultId: string;
 	response: 'required'; failure: 'propagate'; timeoutMs: number; correlation: ModelExpression;
 }
-export interface ModelOccurrence { messagingBindingId?: string; id: string; operationId: string; from: string; to: string; errorId?: string; execution?: MessageExecution }
+export interface ModelOccurrence { profile?: 'descriptive'; name?: string; evidenceIds?: string[]; messagingBindingId?: string; id: string; operationId?: string; from: string; to: string; errorId?: string; execution?: MessageExecution }
 interface FrameBase { id: string; occurrenceIds: string[] }
 export type ModelFrame = FrameBase & (
-	| { kind: 'unspecified' }
+	| { kind: 'unspecified'; description?: { operator: 'alt' | 'opt' | 'par' | 'loop'; operands: { id: string; condition: Knowledge; steps: string[]; evidenceIds: string[] }[] } }
 	| { kind: 'alt'; selection: 'exclusive'; operands: { id: string; guard: ModelExpression | null; steps: string[] }[] }
 	| { kind: 'opt'; guard: ModelExpression; steps: string[] }
 	| { kind: 'loop'; guard: ModelExpression; steps: string[]; iterationId: string; iterationTypeId: string; maxIterations: number; limit: 'error' }
@@ -290,6 +306,7 @@ export type ModelFrame = FrameBase & (
 	| { kind: 'ref'; interactionId: string; revision: string; arguments: InteractionArgument[]; resultId: string }
 );
 export interface ModelInteraction {
+	profile?: 'descriptive' | 'executable'; description?: DescriptiveScenario;
 	id: string; ownerId?: string; occurrenceIds: string[]; frameIds: string[]; legacyViewId?: string; legacyRelationOrder?: string[];
 	execution?: { version: 1; revision: string; operationId: string; steps: string[]; outputs: InteractionArgument[] };
 }
@@ -322,6 +339,7 @@ export interface ModelTaskIntent {
 	history: { revision: string; text: string; clarifications: { question: string; answer: string }[] }[];
 }
 export interface ModelFoundation {
+	evidence?: EvidenceRecord[];
 	tasks?: ModelTaskIntent[];
 	messaging?: ModelMessaging[];
 	stateMachines?: ModelStateMachine[];
@@ -554,12 +572,12 @@ function validateV4References(value: SemanticModel): ModelDiagnostic[] {
 	for (const view of model.views.filter(view => view.messagingId)) { reference('messaging', view.messagingId!, `/views/${view.id}/messagingId`); }
 	for (const machine of f.stateMachines ?? []) { const path = `/foundation/stateMachines/${machine.id}`; reference('element', machine.ownerId, path + '/ownerId'); reference('operation', machine.operationId, path + '/operationId'); for (const state of machine.states) { reference('element', state.elementId, path + '/states'); } for (const event of machine.events) { reference('operation', event.operationId, path + '/events'); } for (const action of machine.actions) { reference('interaction', action.interactionId, path + '/actions'); } }
 	for (const view of model.views.filter(view => view.stateMachineId)) { reference('stateMachine', view.stateMachineId!, `/views/${view.id}/stateMachineId`); if (view.kind !== 'state') { report('contract', `/views/${view.id}`, view.id, 'stateViewKind'); } }
-	for (const view of model.views.filter(view => view.interactionId)) { reference('interaction', view.interactionId!, `/views/${view.id}/interactionId`); if (view.kind !== 'sequence') { report('contract', `/views/${view.id}`, view.id, 'interactionViewKind'); } }
+	for (const view of model.views.filter(view => view.interactionId)) { reference('interaction', view.interactionId!, `/views/${view.id}/interactionId`); if (view.kind !== 'sequence' && !(model.version === 5 && view.kind === 'activity' && f.interactions.some(interaction => interaction.id === view.interactionId && interaction.profile === 'descriptive'))) { report('contract', `/views/${view.id}`, view.id, 'interactionViewKind'); } }
 	for (const entry of f.occurrences) {
 		const path = `/foundation/occurrences/${entry.id}`;
-		reference('operation', entry.operationId, path + '/operationId'); reference('element', entry.from, path + '/from'); reference('element', entry.to, path + '/to');
+		if (entry.profile !== 'descriptive') { reference('operation', entry.operationId ?? '', path + '/operationId'); } reference('element', entry.from, path + '/from'); reference('element', entry.to, path + '/to');
 		const target = elements.get(entry.to);
-		if (target && !entry.messagingBindingId && !f.blueprint?.operations.some(operation => operation.id === entry.operationId && (operation.ownerId === target.id || f.blueprint?.ports.some(port => port.elementId === target.id && port.direction === 'provided' && f.blueprint?.interfaces.some(contract => contract.id === port.interfaceId && contract.operationIds.includes(operation.id)))) ) && target.behavior?.id !== entry.operationId && !target.details?.members.some(member => member.kind === 'method' && member.id === entry.operationId)) { report('ownership', path, entry.operationId, 'operationOwner'); }
+		if (target && entry.profile !== 'descriptive' && !entry.messagingBindingId && !f.blueprint?.operations.some(operation => operation.id === entry.operationId && (operation.ownerId === target.id || f.blueprint?.ports.some(port => port.elementId === target.id && port.direction === 'provided' && f.blueprint?.interfaces.some(contract => contract.id === port.interfaceId && contract.operationIds.includes(operation.id)))) ) && target.behavior?.id !== entry.operationId && !target.details?.members.some(member => member.kind === 'method' && member.id === entry.operationId)) { report('ownership', path, entry.operationId ?? '', 'operationOwner'); }
 	}
 	for (const occurrence of f.occurrences.filter(entry => entry.messagingBindingId)) {
 		const publishers = (f.messaging ?? []).flatMap(topology => topology.publishers.filter(binding => binding.id === occurrence.messagingBindingId).map(binding => ({ topology, binding }))), subscriptions = (f.messaging ?? []).flatMap(topology => topology.subscriptions.filter(binding => binding.id === occurrence.messagingBindingId).map(binding => ({ topology, binding })));
@@ -811,11 +829,28 @@ export const semanticModelSchema = modelSchema(2);
 export const semanticModelV3Schema = modelSchema(3);
 export const semanticModelV4Schema = createSemanticModelV4Schema(semanticModelV3Schema);
 
+/** V5 is additive: old executable contracts retain exactly their V4 grammar. */
+export const semanticModelV5Schema = (() => {
+	const schema = structuredClone(semanticModelV4Schema);
+	schema.$id = 'urn:ade:model:5'; schema.title = 'A.D.E semantic model v5'; schema.properties!.version.const = 5;
+	const foundation = schema.properties!.foundation.properties!;
+	foundation.evidence = array(object({ id: identifier, revision: nonempty, file: nonempty, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 0 }, encoding: { type: 'string', const: 'utf-16' }, producer: nonempty, producerVersion: nonempty, nature: { type: 'string', enum: ['syntax', 'reference', 'text', 'documentation', 'runtime'] }, factIds: array(identifier) }));
+	foundation.assertions.items!.properties!.evidenceIds = array(identifier);
+	const occurrence = foundation.occurrences.items!;
+	foundation.occurrences.items = { anyOf: [occurrence, object({ id: identifier, profile: { type: 'string', const: 'descriptive' }, name: nonempty, from: identifier, to: identifier, evidenceIds: array(identifier), operationId: identifier }, ['operationId'])] };
+	const interaction = foundation.interactions.items!;
+	interaction.properties!.profile = { type: 'string', const: 'executable' };
+	foundation.interactions.items = { anyOf: [interaction, object({ id: identifier, profile: { type: 'string', const: 'descriptive' }, ownerId: identifier, occurrenceIds: array(identifier), frameIds: array(identifier), description: object({ trigger: nonempty, scope: nonempty, participantIds: array(identifier), evidenceIds: array(identifier), order: array(object({ before: identifier, after: identifier, evidenceIds: array(identifier), basis: { type: 'string', enum: ['extracted', 'inferred', 'observed', 'authored'] } })) }) }, ['ownerId'])] };
+	foundation.frames.items!.anyOf!.push(object({ id: identifier, occurrenceIds: array(identifier), kind: { type: 'string', const: 'unspecified' }, description: object({ operator: { type: 'string', enum: ['alt', 'opt', 'par', 'loop'] }, operands: array(object({ id: identifier, condition: knowledgeSchema, steps: array(identifier), evidenceIds: array(identifier) })) }) }));
+	schema.properties!.views.items!.properties!.spec = object({ revision: nonempty, intent: nonempty, projectionRevision: nonempty, layoutRevision: nonempty, manualIds: array(identifier) });
+	return schema;
+})();
+
 /** Syntax is shared with the provider grammar; invalid references remain inspectable drafts. */
 export function validateSemanticShape(value: unknown): ModelDiagnostic[] {
 	const diagnostics: ModelDiagnostic[] = [];
 	const version = value !== null && typeof value === 'object' && Object.hasOwn(value, 'version') ? (value as { version: number }).version : undefined;
-	checkShape(value, version === 4 ? semanticModelV4Schema : version === 3 ? semanticModelV3Schema : semanticModelSchema, '', diagnostics);
+	checkShape(value, version === 5 ? semanticModelV5Schema : version === 4 ? semanticModelV4Schema : version === 3 ? semanticModelV3Schema : semanticModelSchema, '', diagnostics);
 	return diagnostics;
 }
 
@@ -940,8 +975,8 @@ export function validateSemanticModel(value: unknown): ModelDiagnostic[] {
 	});
 	model.views.forEach((view, index) => {
 		const path = `/views/${index}`;
-		for (const node of view.nodes) { const element = byId.get(node.elementId); if (element && !(model.version === 4 && (view.contextIds?.includes(element.id) || view.subjectId === element.id)) && !acceptsNotationElement(view.kind, element)) { report('shape', path, `Unsupported ${element.kind} in ${view.kind}`); } }
-		for (const id of view.relationIds) { const relation = relationById.get(id); if (relation && !(model.version === 4 && view.subjectId && ['invocation', 'dependency', 'communication'].includes(relation.kind)) && !acceptsNotationRelation(view.kind, relation)) { report('shape', path, `Unsupported ${relation.kind} in ${view.kind}`); } }
+		for (const node of view.nodes) { const element = byId.get(node.elementId); if (element && !(model.version === 5 && view.kind === 'activity' && view.interactionId) && !((model.version === 4 || model.version === 5) && (view.contextIds?.includes(element.id) || view.subjectId === element.id)) && !acceptsNotationElement(view.kind, element)) { report('shape', path, `Unsupported ${element.kind} in ${view.kind}`); } }
+		for (const id of view.relationIds) { const relation = relationById.get(id); if (relation && !((model.version === 4 || model.version === 5) && view.subjectId && ['invocation', 'dependency', 'communication'].includes(relation.kind)) && !acceptsNotationRelation(view.kind, relation)) { report('shape', path, `Unsupported ${relation.kind} in ${view.kind}`); } }
 		if (view.featureId) {
 			const feature = reference(view.featureId, `${path}/featureId`);
 			if (feature && feature.kind !== 'feature') { report('invalidParent', `${path}/featureId`, feature.id, feature.kind); }
@@ -967,7 +1002,7 @@ export function validateSemanticModel(value: unknown): ModelDiagnostic[] {
 			report('missingCriterion', `${path}/criterionId`, verification.criterionId, element.id);
 		}
 	});
-	if (model.version === 4) { diagnostics.push(...validateV4References(model)); }
+	if ((model.version === 4 || model.version === 5)) { diagnostics.push(...validateV4References(model), ...validateExploration(model)); }
 	return diagnostics;
 }
 
@@ -1043,7 +1078,7 @@ export class SemanticModelService {
 
 	private read(value: unknown): SemanticModel {
 		const draft = readSemanticDraft(value);
-		return draft.version === 4 ? draft : readSemanticModel(draft);
+		return (draft.version === 4 || draft.version === 5) ? draft : readSemanticModel(draft);
 	}
 
 	getSnapshot(): SemanticModel { return structuredClone(this.model); }
@@ -1065,7 +1100,7 @@ export class SemanticModelService {
 	}
 
 	moveElement(id: string, parentId: string | undefined): void {
-		if (this.model.version === 4) { throw new InvalidSemanticModelError([{ code: 'ownership', severity: 'error', path: '/foundation/ownership', args: [id, 'separateOwnershipAndMembership'] }]); }
+		if ((this.model.version === 4 || this.model.version === 5)) { throw new InvalidSemanticModelError([{ code: 'ownership', severity: 'error', path: '/foundation/ownership', args: [id, 'separateOwnershipAndMembership'] }]); }
 		this.editElement(id, element => {
 			if (parentId === undefined) {
 				delete element.parentId;
@@ -1099,7 +1134,7 @@ export class SemanticModelService {
 
 /** A deterministic source index is evidence for AI, never the user-facing diagram model. */
 export function isSourceEvidenceModel(model: SemanticModel): boolean {
-	return model.id.startsWith('code:') && !model.semantics.elements.some(element => element.kind === 'feature');
+	return model.version !== 5 && model.id.startsWith('code:') && !model.semantics.elements.some(element => element.kind === 'feature');
 }
 
 interface NotationRule { core: readonly ElementKind[]; elements: readonly ElementKind[]; relations: readonly RelationKind[]; purpose: string }
@@ -1129,4 +1164,114 @@ export function acceptsNotationRelation(kind: ModelView['kind'], relation: Pick<
 
 export function notationRelationLabel(relation: SemanticRelation): string {
 	return [relation.details?.sourceMultiplicity, relation.details?.sourceMember, relation.name, relation.details?.targetMember, relation.details?.targetMultiplicity, relation.details?.protocol].filter(Boolean).join(' · ');
+}
+
+/** A partial order produces layers; peers have no implied temporal relationship. */
+export function scenarioLayers(interaction: ModelInteraction): string[][] {
+	const remaining = new Set(interaction.occurrenceIds), layers: string[][] = [];
+	const order = interaction.description?.order ?? [];
+	while (remaining.size) {
+		const layer = [...remaining].filter(id => !order.some(edge => edge.after === id && remaining.has(edge.before)));
+		if (!layer.length) { return []; }
+		layers.push(layer); for (const id of layer) { remaining.delete(id); }
+	}
+	return layers;
+}
+
+/** Exclusive or parallel operands are explicit; peers within one operand still need order evidence. */
+export function areSeparateScenarioBranches(model: SemanticModelV4, scenarioId: string, first: string, second: string): boolean {
+	const scenario = model.foundation.interactions.find(entry => entry.id === scenarioId);
+	return model.foundation.frames.some(frame => {
+		if (!scenario?.frameIds.includes(frame.id) || frame.kind !== 'unspecified' || !frame.description || !['alt', 'par'].includes(frame.description.operator)) { return false; }
+		const left = frame.description.operands.find(operand => operand.steps.includes(first)), right = frame.description.operands.find(operand => operand.steps.includes(second));
+		return !!left && !!right && left.id !== right.id;
+	});
+}
+
+/** Reachability distinguishes topological display layers from semantic temporal order. */
+function scenarioReachability(interaction: ModelInteraction): Map<string, Set<string>> {
+	const edges = interaction.description?.order ?? [], result = new Map<string, Set<string>>();
+	for (const id of interaction.occurrenceIds) {
+		const reached = new Set<string>(), pending = edges.filter(edge => edge.before === id).map(edge => edge.after);
+		while (pending.length) { const next = pending.pop()!; if (reached.has(next)) { continue; } reached.add(next); pending.push(...edges.filter(edge => edge.before === next).map(edge => edge.after)); }
+		result.set(id, reached);
+	}
+	return result;
+}
+
+/** Incomparable occurrences remain uncertain even when drawn on different topological layers. */
+export function scenarioUnorderedOccurrences(model: SemanticModelV4, scenarioId: string): Set<string> {
+	const scenario = model.foundation.interactions.find(entry => entry.id === scenarioId), unknown = new Set<string>();
+	if (!scenario) { return unknown; }
+	const reachability = scenarioReachability(scenario);
+	for (const [index, first] of scenario.occurrenceIds.entries()) {
+		for (const second of scenario.occurrenceIds.slice(index + 1)) {
+			if (!reachability.get(first)?.has(second) && !reachability.get(second)?.has(first) && !areSeparateScenarioBranches(model, scenarioId, first, second)) { unknown.add(first); unknown.add(second); }
+		}
+	}
+	return unknown;
+}
+
+/** Integrity and descriptive fidelity are independent of executable readiness. */
+export function validateExploration(model: SemanticModelV4): ModelDiagnostic[] {
+	if (model.version !== 5) { return []; }
+	const diagnostics: ModelDiagnostic[] = [];
+	const report = (code: ModelDiagnostic['code'], path: string, ...args: string[]) => diagnostics.push({ code, severity: 'error', path, args });
+	const evidence = new Map((model.foundation.evidence ?? []).map(entry => [entry.id, entry]));
+	if (evidence.size !== (model.foundation.evidence ?? []).length) { report('duplicateId', '/foundation/evidence', 'evidence'); }
+	const anchors = (ids: string[], path: string) => { for (const id of ids) { if (!evidence.has(id)) { report('missingReference', path, id); } } };
+	for (const entry of evidence.values()) {
+		if (entry.start > entry.end || !/^[a-f0-9]{64}$/.test(entry.revision) || /[\\\x00]/.test(entry.file) || entry.file.startsWith('/') || entry.file.split('/').some(part => !part || part === '..' || part === '.')) { report('contract', '/foundation/evidence/' + entry.id, 'sourceAnchor'); }
+	}
+	for (const assertion of model.foundation.assertions) { anchors(assertion.evidenceIds ?? [], '/foundation/assertions/' + assertion.id); }
+	const elements = new Set(model.semantics.elements.map(entry => entry.id));
+	const occurrences = new Map(model.foundation.occurrences.map(entry => [entry.id, entry]));
+	const ownership = new Set<string>();
+	for (const interaction of model.foundation.interactions.filter(entry => entry.profile === 'descriptive')) {
+		const path = '/foundation/interactions/' + interaction.id, description = interaction.description;
+		if (!description || interaction.execution) { report('contract', path, 'descriptiveProfile'); continue; }
+		anchors(description.evidenceIds, path);
+		for (const id of description.participantIds) { if (!elements.has(id)) { report('missingReference', path, id); } }
+		const local = new Set(interaction.occurrenceIds);
+		if (local.size !== interaction.occurrenceIds.length) { report('duplicateId', path, 'occurrence'); }
+		for (const id of local) {
+			const call = occurrences.get(id);
+			if (ownership.has(id)) { report('ownership', path, id); } ownership.add(id);
+			if (!call || call.profile !== 'descriptive' || call.execution || !description.participantIds.includes(call.from) || !description.participantIds.includes(call.to)) { report('contract', path, id, 'descriptiveOccurrence'); }
+			if (call) { anchors(call.evidenceIds ?? [], path + '/' + id); }
+		}
+		for (const edge of description.order) {
+			if (!local.has(edge.before) || !local.has(edge.after) || edge.before === edge.after) { report('missingReference', path + '/order', edge.before, edge.after); }
+			anchors(edge.evidenceIds, path + '/order');
+			if (edge.basis !== 'authored' && !edge.evidenceIds.length) { report('contract', path + '/order', 'orderEvidenceRequired'); }
+		}
+		if (local.size && !scenarioLayers(interaction).length) { report('containmentCycle', path + '/order', interaction.id); }
+		const reachability = scenarioReachability(interaction), framed = new Set<string>();
+		for (const id of interaction.frameIds) {
+			const frame = model.foundation.frames.find(entry => entry.id === id);
+			if (!frame || frame.kind !== 'unspecified' || !frame.description) { report('contract', path + '/frames', id, 'descriptiveFrame'); continue; }
+			const frameSteps = new Set<string>();
+			if (frame.description.operands.length < (['alt', 'par'].includes(frame.description.operator) ? 2 : 1)) { report('contract', path + '/frames/' + id, 'descriptiveFrameArity'); }
+			for (const operand of frame.description.operands) {
+				anchors(operand.evidenceIds, path + '/frames/' + id);
+				for (const step of operand.steps) { if (!local.has(step) || framed.has(step)) { report('contract', path + '/frames/' + id, step, 'operandOwnership'); } framed.add(step); frameSteps.add(step); }
+			}
+			if (frame.description.operator === 'alt') {
+				for (const operand of frame.description.operands) {
+					const others = frame.description.operands.filter(other => other.id !== operand.id).flatMap(other => other.steps);
+					if (operand.steps.some(step => others.some(other => reachability.get(step)?.has(other)))) { report('contract', path + '/order', 'exclusiveBranchesCannotBeOrdered'); }
+				}
+			}
+			if (frame.occurrenceIds.length !== frameSteps.size || frame.occurrenceIds.some(id => !frameSteps.has(id))) { report('contract', path + '/frames/' + id, 'frameCoverage'); }
+		}
+	}
+	for (const view of model.views) {
+		if (['sequence', 'activity'].includes(view.kind) && view.spec && !view.interactionId) { report('contract', '/views/' + view.id, 'scenarioRequired'); }
+		if (!view.interactionId) { continue; }
+		const scenario = model.foundation.interactions.find(entry => entry.id === view.interactionId);
+		if (scenario?.profile !== 'descriptive') { continue; }
+		const visible = new Set(view.nodes.map(node => node.elementId));
+		for (const id of scenario.description?.participantIds ?? []) { if (!visible.has(id)) { report('viewEndpoint', '/views/' + view.id, id); } }
+	}
+	return diagnostics;
 }

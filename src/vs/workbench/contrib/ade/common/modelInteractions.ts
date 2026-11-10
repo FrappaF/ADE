@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readSemanticDraft, validateSemanticShape, type InteractionArgument, type ModelExpression, type ModelField, type ModelFrame, type ModelInteraction, type SemanticModelV4 } from './semanticModel.js';
+import { readSemanticDraft, validateSemanticShape, scenarioLayers, scenarioUnorderedOccurrences, type InteractionArgument, type ModelExpression, type ModelField, type ModelFrame, type ModelInteraction, type SemanticModelV4 } from './semanticModel.js';
 import { checkModelExpression, evaluateModelExpression, fieldValueType, isModelValue, resolveValueType, type ExpressionScope, type ModelValue } from './modelValues.js';
 import { canonicalJson } from './modelSerialization.js';
 
@@ -60,7 +60,7 @@ export function validateModelInteraction(model: SemanticModelV4, targetId: strin
 		if (callPath.has(id)) { errors.push('refCycle'); return; } if (visited.has(visitKey)) { return; }
 		if (depth > interactionRules.maxDepth) { errors.push('depthBudget'); return; }
 		const interaction = f.interactions.find(entry => entry.id === id), execution = interaction?.execution, operation = operations.find(entry => entry.id === execution?.operationId);
-		if (!interaction || !execution || !operation || !interaction.ownerId || operation.ownerId !== interaction.ownerId || interaction.legacyRelationOrder?.length) { errors.push('interactionContract'); return; }
+		if (!interaction || interaction.profile === 'descriptive' || !execution || !operation || !interaction.ownerId || operation.ownerId !== interaction.ownerId || interaction.legacyRelationOrder?.length) { errors.push('interactionContract'); return; }
 		if (operation.permissions.length || operation.effects.length) { errors.push('unsupportedInteractionEffects'); }
 		visited.add(visitKey); callPath.add(id);
 		const local = new Set<string>(), usedOccurrences = new Set<string>(), usedFrames = new Set<string>();
@@ -223,6 +223,41 @@ export async function executeInteractionProgram(program: InteractionProgram, inp
 /** Human-readable hierarchy derives from semantic order; view geometry cannot reorder execution. */
 export function describeModelInteraction(model: SemanticModelV4, id: string): { id: string; depth: number; kind: string; text: string }[] {
 	const rows: { id: string; depth: number; kind: string; text: string }[] = [], interaction = model.foundation.interactions.find(entry => entry.id === id);
+	if (interaction?.profile === 'descriptive') {
+		const frames = model.foundation.frames.filter(frame => interaction.frameIds.includes(frame.id) && frame.kind === 'unspecified' && frame.description);
+		const owner = (id: string): string => frames.find(frame => frame.occurrenceIds.includes(id))?.id ?? id;
+		const ordered = (ids: string[], edges: { before: string; after: string }[]): string[][] => {
+			const remaining = new Set(ids), layers: string[][] = [];
+			while (remaining.size) { const layer = [...remaining].filter(id => !edges.some(edge => edge.after === id && remaining.has(edge.before))); if (!layer.length) { return []; } layers.push(layer); for (const id of layer) { remaining.delete(id); } }
+			return layers;
+		};
+		const message = (id: string, depth: number) => { const call = model.foundation.occurrences.find(entry => entry.id === id)!; rows.push({ id, depth, kind: 'message', text: call.name ?? id }); };
+		const edges = interaction.description!.order.map(edge => ({ before: owner(edge.before), after: owner(edge.after) })).filter(edge => edge.before !== edge.after);
+		const groups = ordered([...new Set(interaction.occurrenceIds.map(owner))], edges);
+		// A frame can surround an external event. Collapsing it may cycle even though occurrence order is valid.
+		if (!groups.length && interaction.occurrenceIds.length) {
+			if (scenarioUnorderedOccurrences(model, id).size) { rows.push({ id: id + '.partialOrder', depth: 0, kind: 'unordered', text: 'partialOrder' }); }
+			for (const layer of scenarioLayers(interaction)) { for (const step of layer) { message(step, 0); } }
+			return rows;
+		}
+		for (const [index, layer] of groups.entries()) {
+			if (layer.length > 1) { rows.push({ id: interaction.id + '.layer.' + index, depth: 0, kind: 'unordered', text: 'partialOrder' }); }
+			for (const id of layer) {
+				const frame = frames.find(frame => frame.id === id);
+				if (frame?.kind === 'unspecified' && frame.description) {
+					rows.push({ id, depth: 0, kind: frame.description.operator, text: frame.description.operator });
+					for (const operand of frame.description.operands) {
+						rows.push({ id: operand.id, depth: 1, kind: 'operand', text: operand.condition.state === 'known' ? String(operand.condition.value) : '?' });
+						for (const [position, peers] of ordered(operand.steps, interaction.description!.order.filter(edge => operand.steps.includes(edge.before) && operand.steps.includes(edge.after))).entries()) {
+							if (peers.length > 1) { rows.push({ id: operand.id + '.layer.' + position, depth: 2, kind: 'unordered', text: 'partialOrder' }); }
+							for (const step of peers) { message(step, 2); }
+						}
+					}
+				} else { message(id, 0); }
+			}
+		}
+		return rows;
+	}
 	const visited = new Set<string>();
 	const walk = (steps: string[], depth: number) => { if (depth > 16) { return; } for (const id of steps) {
 		if (visited.has(id)) { rows.push({ id, depth, kind: 'invalid', text: id }); continue; } visited.add(id);

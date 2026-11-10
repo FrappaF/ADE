@@ -117,7 +117,7 @@ function windows(content: string, offsets: number[], limit: number): { start: nu
 
 /** No model call. Delta-first context, compact IDs and bounded source windows reduce the cheap model's workload. */
 export async function prepareAiReconciliation(previous: ImportSnapshot, next: CodeImport, configValue: unknown, sourceFiles: string[], resolutions: PreparedReconciliation['resolutions'] = [], signal?: AbortSignal, clarification = ''): Promise<PreparedReconciliation> {
-	if ([previous.commonModel, previous.model, next.model].some(model => model.version === 4)) { throw new Error('A v4 reconciliation adapter is required; legacy M6 cannot rewrite this model'); }
+	if ([previous.commonModel, previous.model, next.model].some(model => (model.version === 4 || model.version === 5))) { throw new Error('A v4 reconciliation adapter is required; legacy M6 cannot rewrite this model'); }
 	const config = readProviderConfig(configValue);
 	if (clarification.length > 8000) { throw new Error('Reconciliation clarification exceeds 8000 characters'); }
 	if (new Set(sourceFiles).size !== sourceFiles.length) { throw new Error('Select unique source files'); }

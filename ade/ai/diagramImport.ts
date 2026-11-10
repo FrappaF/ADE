@@ -306,7 +306,7 @@ function expandCoverage(wire: CompactInterpretation, units: Unit[], previous: Di
 
 /** Legacy interpretation cannot discard v4 identities, provenance or ownership. */
 function assertLegacyDiagramModel(previous: ImportSnapshot, next: CodeImport): void {
-	if ([previous.model, previous.commonModel, next.model].some(model => model.version === 4)) { throw new Error('A v4 diagram adapter is required; legacy interpretation cannot rewrite this model'); }
+	if ([previous.model, previous.commonModel, next.model].some(model => (model.version === 4 || model.version === 5))) { throw new Error('A v4 diagram adapter is required; legacy interpretation cannot rewrite this model'); }
 }
 
 /** Preparation is local. Approving this manifest authorizes a bounded multi-call job, not repository upload. */

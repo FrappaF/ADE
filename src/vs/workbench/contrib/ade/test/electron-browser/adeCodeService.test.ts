@@ -29,7 +29,7 @@ import { AdeCodeService } from '../../electron-browser/adeCodeService.js';
 
 suite('A.D.E native code bridge compatibility', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
-	const compatible: CodeBridgeProtocol = { version: adeCodeProtocolVersion, operations: ['diagramPrepare', 'diagramStep', 'diagramApprovePlan'] };
+	const compatible: CodeBridgeProtocol = { version: adeCodeProtocolVersion, operations: ['exploration', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan'] };
 	function fixture(initial: CodeBridgeProtocol | undefined | Error) {
 		const instantiation = store.add(new TestInstantiationService());
 		const stub = <T extends object>(id: ServiceIdentifier<T>, values: object = {}) => instantiation.stub(id, Object.assign(new (mock<T>())(), values));

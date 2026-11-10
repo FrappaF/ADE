@@ -13,6 +13,8 @@ import { resolve } from 'node:path';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const decorator = pathToFileURL(resolve(root, 'out/vs/platform/instantiation/common/instantiation.js')).href;
 const tokens = new Map([
+	[pathToFileURL(resolve(root, 'out/vs/workbench/contrib/chat/common/languageModels.js')).href, ['ILanguageModelsService', 'languageModelsService']],
+	[pathToFileURL(resolve(root, 'out/vs/workbench/contrib/chat/browser/agentSessions/agentHost/agentHostActiveClientService.js')).href, ['IAgentHostActiveClientService', 'agentHostActiveClientService']],
 	[pathToFileURL(resolve(root, 'out/vs/workbench/contrib/chat/browser/chat.js')).href, ['IChatWidgetService', 'chatWidgetService']],
 	[pathToFileURL(resolve(root, 'out/vs/workbench/contrib/terminal/browser/terminal.js')).href, ['ITerminalService', 'terminalService', 'ITerminalGroupService', 'terminalGroupService']]
 ]);

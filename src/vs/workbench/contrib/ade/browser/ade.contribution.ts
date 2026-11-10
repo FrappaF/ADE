@@ -192,3 +192,9 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 ]);
 
 registerWorkbenchContribution2(AdeStartup.ID, AdeStartup, WorkbenchPhase.AfterRestored);
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+	id: 'ade', title: 'A.D.E', type: 'object', properties: {
+		'ade.diagramImport.incremental': { type: 'boolean', default: true, description: localize('ade.incremental.setting', "Explore architecture in a persistent Codex conversation with local tools and independent diagram drafts. Disable to use the legacy import pipeline.") }
+	}
+});

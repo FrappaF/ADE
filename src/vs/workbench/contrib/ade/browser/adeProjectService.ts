@@ -337,7 +337,7 @@ export class AdeProjectService extends Disposable {
 
 	/** Local structural disclosure only; provider/model selection is explicit before any future live task. */
 	async prepareStructuralContext(operationId: string, text: string): Promise<ModelTaskPacket> {
-		const model = this.model; if (model.version !== 4) { throw new Error(localize('ade.task.upgrade', "Structural context requires model version 4.")); }
+		const model = this.model; if ((model.version !== 4 && model.version !== 5)) { throw new Error(localize('ade.task.upgrade', "Structural context requires model version 4.")); }
 		const version = this.documentVersion;
 		const packet = await compileModelTaskContext(model, { version: 1, target: { kind: 'operation', id: operationId }, mode: 'analysis', profileId: modelProjectProfile(model).profile.id, intent: modelTaskIntent(model, 'operation', operationId, text), provider: { id: 'local-preview', model: 'none', configurationRevision: '1' }, baselineRevision: 'structural-preview-v1', delta: [], writeScope: { objects: [{ kind: 'operation', id: operationId }], files: [], createOperationsUnder: [] }, retrievalScope: { objects: [], files: [] }, sources: [], budget: { maxInputBytes: 196608, maxContextBytes: 262144, outputReserveBytes: 65536, overheadReserveBytes: 0 } });
 		if (this.documentVersion !== version) { throw new Error(localize('ade.task.stale', "The project changed. Prepare context again.")); }
@@ -346,7 +346,7 @@ export class AdeProjectService extends Disposable {
 
 	/** First authored feature and independent test data, available before any code import or chat. */
 	async createPureFeature(): Promise<void> {
-		if (!this.editable || !this.document || this.model.version !== 4 || this.model.semantics.elements.length || !this.projectRoot) { throw new Error(localize('ade.pure.empty', "Create an empty version 4 project first.")); }
+		if (!this.editable || !this.document || (this.model.version !== 4 && this.model.version !== 5) || this.model.semantics.elements.length || !this.projectRoot) { throw new Error(localize('ade.pure.empty', "Create an empty version 4 project first.")); }
 		const version = this.documentVersion;
 		const { model, criteria } = createPureProject(this.model.name, generateUuid); model.id = this.model.id;
 		const feature = model.semantics.elements.find(element => element.kind === 'feature')!;
@@ -361,7 +361,7 @@ export class AdeProjectService extends Disposable {
 
 	/** Missing fields are computed per target and never written as a generation-ready flag. */
 	readiness(targetId: string, profile?: GenerationProfile) {
-		if (!profile && this.model.version === 4) { try { profile = modelProjectProfile(this.model).profile; } catch { /* Incomplete or mixed runtime remains a structural draft. */ } }
+		if (!profile && (this.model.version === 4 || this.model.version === 5)) { try { profile = modelProjectProfile(this.model).profile; } catch { /* Incomplete or mixed runtime remains a structural draft. */ } }
 		return getModelReadiness(this.model, targetId, profile);
 	}
 
@@ -370,7 +370,7 @@ export class AdeProjectService extends Disposable {
 
 	/** Explicit user action on the native undo stack; opening a legacy document never upgrades it. */
 	upgradeToV4(): void {
-		if (!this.editable || !this.document || this.model.version === 4) { return; }
+		if (!this.editable || !this.document || (this.model.version === 4 || this.model.version === 5)) { return; }
 		this.replaceDocument(migrateSemanticModelToV4(this.model, generateUuid));
 	}
 

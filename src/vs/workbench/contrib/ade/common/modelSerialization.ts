@@ -29,7 +29,7 @@ export function serializeSemanticModel(model: SemanticModel): string { return ca
 /** Pure semantic projection excludes visual grouping/geometry but retains legacy sequence declarations. */
 export function semanticContent(model: SemanticModel): object {
 	const { views, ...content } = structuredClone(model);
-	return { ...content, ...(model.version === 4 && views.some(view => view.subjectId) ? { c4Scopes: views.filter(view => view.subjectId).map(view => ({ viewId: view.id, kind: view.kind, subjectId: view.subjectId!, contextIds: view.contextIds ?? [] })) } : {}), legacySequenceOrders: views.filter(view => view.kind === 'sequence').map(view => ({ viewId: view.id, relationIds: view.relationIds })) };
+	return { ...content, ...((model.version === 4 || model.version === 5) && views.some(view => view.subjectId) ? { c4Scopes: views.filter(view => view.subjectId).map(view => ({ viewId: view.id, kind: view.kind, subjectId: view.subjectId!, contextIds: view.contextIds ?? [] })) } : {}), legacySequenceOrders: views.filter(view => view.kind === 'sequence').map(view => ({ viewId: view.id, relationIds: view.relationIds })) };
 }
 
 /** WebCrypto is available in both the worker/CLI and workbench; no Node or browser module is imported. */

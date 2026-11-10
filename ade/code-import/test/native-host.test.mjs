@@ -36,7 +36,7 @@ async function workspace(t, files) {
 	return root;
 }
 test('native boundary advertises the semantic diagram protocol', () => {
-	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'restore', 'source'] });
+	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'exploration', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'restore', 'source'] });
 });
 test('native boundary identifies malformed AI requests without disclosing configuration values', async () => {
 	for (const [request, expected] of [
