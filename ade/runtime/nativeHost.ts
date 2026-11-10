@@ -99,7 +99,9 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 				if (explorationRequest.action === 'open' || explorationRequest.action === 'budget') {
 					const snapshot = await readSnapshot(request.snapshot);
 					const bundled = import.meta.url.endsWith('/adeCodeEngine.js');
-					Object.assign(result.data, { mcp: { command: process.env.ADE_NODE_EXECUTABLE || 'node', args: [fileURLToPath(new URL(bundled ? '../code-import/adeDiagramMcp.js' : '../ai/diagram-mcp.mjs', import.meta.url)), snapshot.state.sourceRoot, result.sessionId] } });
+					const mcpPath = fileURLToPath(new URL(bundled ? './adeDiagramMcp.js' : '../ai/diagram-mcp.mjs', import.meta.url));
+					if (!(await stat(mcpPath).catch(() => undefined))?.isFile()) { throw new Error(`Diagram tools are missing at ${mcpPath}. Rebuild ADE and restart before continuing exploration.`); }
+					Object.assign(result.data, { mcp: { command: process.env.ADE_NODE_EXECUTABLE || 'node', args: [mcpPath, snapshot.state.sourceRoot, result.sessionId] } });
 				}
 				return JSON.stringify(result);
 			}
