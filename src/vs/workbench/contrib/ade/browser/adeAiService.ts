@@ -47,6 +47,7 @@ export interface IAdeAiService {
 	chooseDiagramModel(): Promise<void>;
 	buildDiagrams(): Promise<void>;
 	resumeDiagrams(): Promise<void>;
+	updateDiagrams(): Promise<void>;
 	connect(): Promise<void>;
 	refreshConnection(): Promise<void>;
 	openCli(): Promise<void>;
@@ -96,6 +97,7 @@ class UnavailableAiService implements IAdeAiService {
 	async chooseDiagramModel(): Promise<void> { }
 	async buildDiagrams(): Promise<void> { }
 	async resumeDiagrams(): Promise<void> { }
+	async updateDiagrams(): Promise<void> { }
 	async connect(): Promise<void> { }
 	async refreshConnection(): Promise<void> { }
 	async openCli(): Promise<void> { }

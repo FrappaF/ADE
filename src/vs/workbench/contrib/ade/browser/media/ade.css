@@ -196,6 +196,39 @@
 	padding-inline-start: var(--vscode-spacing-size120);
 }
 
+.ade-project-shortcuts {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+	margin-block: var(--vscode-spacing-size80) var(--vscode-spacing-size160);
+}
+
+.ade-sidebar .ade-project-shortcuts > button {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	margin: 0;
+	background: transparent;
+	color: inherit;
+}
+
+.ade-sidebar .ade-project-shortcuts > button:hover:not(:disabled) {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.ade-sidebar .ade-project-shortcuts > button:disabled {
+	color: var(--vscode-disabledForeground);
+	cursor: default;
+}
+
+.ade-project-shortcuts .codicon {
+	flex-shrink: 0;
+}
+
+.ade-project-shortcuts .ade-shortcut-hint {
+	margin: 0;
+}
+
 .ade-sidebar p,
 .ade-shell .ade-tools p {
 	color: var(--vscode-descriptionForeground);

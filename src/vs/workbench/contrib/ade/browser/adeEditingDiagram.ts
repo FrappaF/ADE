@@ -23,8 +23,9 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 	const context = (element: SemanticElement): string => [model.name, ...getElementPath(model, element.id).slice(0, -1).map(parent => parent.name)].join(' / ');
 	const selected = model.semantics.elements.find(element => element.id === ui.project.selectedId);
 	if (command === 'addDiagram') {
-		const feature = await ui.feature(id);
-		if (!feature) { return; }
+		const chooseFeature = !!id || model.semantics.elements.some(element => element.kind === 'feature');
+		const feature = chooseFeature ? await ui.feature(id) : undefined;
+		if (chooseFeature && !feature) { return; }
 		const creationLabels: Partial<typeof viewLabels> = { structure: localize('ade.structure', "Structure Diagram"), activity: localize('ade.activity', "Activity Flow"), sequence: localize('ade.sequence', "Sequence Diagram"), state: localize('ade.stateDiagram', "State Diagram") };
 		const kind = await ui.quickInput.pick((Object.keys(viewLabels) as (keyof typeof viewLabels)[]).map(kind => ({ label: creationLabels[kind] ?? viewLabels[kind], kind })), { title: localize('ade.diagramType', "Diagram Type") });
 		if (!kind) { return; }
@@ -41,13 +42,13 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 				const name = await ui.name(undefined, localize('ade.state.resourceName', "Resource Name"));
 				if (!name) { return; }
 				resourceId = generateUuid();
-				edits.push({ kind: 'resource', id: resourceId, name, parentId: feature.id });
+				edits.push({ kind: 'resource', id: resourceId, name, parentId: feature?.id });
 			}
 		}
 		const name = await ui.name();
 		if (!name) { return; }
 		const viewId = generateUuid();
-		edits.push(kind.kind === 'state' ? { kind: 'stateDiagram', id: viewId, name, featureId: feature.id, resourceId: resourceId! } : { kind: 'diagram', id: viewId, name, featureId: feature.id, viewKind: kind.kind });
+		edits.push(kind.kind === 'state' ? { kind: 'stateDiagram', id: viewId, name, featureId: feature?.id, resourceId: resourceId! } : { kind: 'diagram', id: viewId, name, featureId: feature?.id, viewKind: kind.kind });
 		ui.edit(edits);
 		ui.project.showDiagram(viewId);
 	}

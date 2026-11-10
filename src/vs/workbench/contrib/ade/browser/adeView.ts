@@ -27,6 +27,12 @@ import { AdeControls } from './adeControls.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { adeFocusedSurface, getAdeAccessibilityHint } from './adeAccessibilityContext.js';
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
+import { IAdeAiService } from './adeAiService.js';
+import { IAdeCodeService } from './adeCodeService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
+import { type ThemeIcon } from '../../../../base/common/themables.js';
 
 export const ADE_VIEW_CONTAINER_ID = 'workbench.view.ade';
 export const ADE_VIEW_ID = 'ade.systemFeatures';
@@ -55,6 +61,9 @@ export class AdeView extends ViewPane {
 		@IStorageService storageService: IStorageService,
 		@IAdeProjectService private readonly project: AdeProjectService,
 		@ICommandService private readonly commandService: ICommandService,
+		@IAdeAiService private readonly ai: IAdeAiService,
+		@IAdeCodeService private readonly code: IAdeCodeService,
+		@INotificationService private readonly notifications: INotificationService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 		const saved = storageService.getObject<Record<string, string[]>>('ade.sidebar.collapsedGroups', StorageScope.WORKSPACE, {});
@@ -68,8 +77,10 @@ export class AdeView extends ViewPane {
 			storageService.store('ade.sidebar.collapsedGroups', JSON.stringify(Object.fromEntries([...this.collapsed].map(([context, ids]) => [context, [...ids]]))), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		}));
 		this._register(project.onDidChange(() => this.renderNavigation()));
+		this._register(ai.onDidChange(() => this.renderNavigation()));
+		this._register(code.onDidChange(() => this.renderNavigation()));
 		this._register(configurationService.onDidChangeConfiguration(event => {
-			if (event.affectsConfiguration(AccessibilityVerbositySettingId.Ade)) { this.renderNavigation(true); }
+			if (event.affectsConfiguration(AccessibilityVerbositySettingId.Ade) || event.affectsConfiguration('chat.disableAIFeatures')) { this.renderNavigation(true); }
 		}));
 		this._register(keybindingService.onDidUpdateKeybindings(() => this.renderNavigation(true)));
 	}
@@ -129,11 +140,35 @@ export class AdeView extends ViewPane {
 		button.setAttribute('aria-current', String(this.project.section === 'diagram' && view.id === this.project.activeView?.id));
 	}
 
+	private renderProjectShortcuts(parent: HTMLElement): void {
+		const actions = dom.append(parent, dom.$('div.ade-project-shortcuts'));
+		actions.setAttribute('role', 'group'); actions.setAttribute('aria-label', localize('ade.project.diagramActions', "Diagram Actions"));
+		const blocked = this.ai.busy || this.code.busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : this.project.hasStructuralErrors ? localize('ade.shortcuts.invalid', "Correct the Draft Specification Before Changing Diagrams.") : !this.project.editable ? localize('ade.shortcuts.readonly', "Open a Writable Project to Change Its Diagrams.") : undefined;
+		const hints = new Map<string, string>();
+		const shortcut = (label: string, icon: ThemeIcon, id: string, reason: string | undefined, action: () => Promise<void>) => {
+			const button = this.controls.button(actions, label, () => { void action().catch(error => this.notifications.error(error)); }, id);
+			const glyph = renderIcon(icon); glyph.setAttribute('aria-hidden', 'true'); button.prepend(glyph);
+			button.disabled = !!reason;
+			if (reason) {
+				if (!hints.has(reason)) { hints.set(reason, `${id}-reason`); }
+				button.setAttribute('aria-describedby', hints.get(reason)!);
+			}
+		};
+		shortcut(localize('ade.shortcuts.create', "Create Diagram"), Codicon.add, 'project-create-diagram', blocked ?? (isSourceEvidenceModel(this.project.model) ? localize('ade.shortcuts.generateFirst', "Generate and Apply the Codebase Diagrams Before Adding Manual Diagrams.") : undefined), () => this.commandService.executeCommand<void>('ade.addDiagram'));
+		const updateBlocked = blocked ?? (this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true ? localize('ade.import.aiDisabled', "AI features are disabled. Your local source inventory is preserved.") : !this.code.available || !this.ai.available ? localize('ade.shortcuts.updateUnavailable', "Codebase Diagram Updates Are Unavailable in This Environment.") : undefined);
+		shortcut(localize('ade.shortcuts.update', "Update Diagrams from Codebase"), Codicon.refresh, 'project-update-diagrams', updateBlocked, async () => {
+			if (!this.code.context) { await this.commandService.executeCommand('ade.importCodebase'); }
+			if (this.code.context) { await this.commandService.executeCommand('ade.ai.updateDiagrams'); }
+		});
+		for (const [reason, id] of hints) { const hint = dom.append(actions, dom.$('p.ade-shortcut-hint')); hint.id = id; hint.textContent = reason; }
+		if (!this.code.context && !updateBlocked) { dom.append(actions, dom.$('p.ade-shortcut-hint')).textContent = localize('ade.shortcuts.importFirst', "Choose a Codebase to Import Before Generating Its Diagrams."); }
+	}
+
 	private renderNavigation(force = false): void {
 		const body = this.navigationBody;
 		if (!body) { return; }
 		// Selection changes update the editor, not the sidebar's semantic groups.
-		const state = JSON.stringify([this.project.documentVersion, this.project.section, this.project.activeView?.id, this.project.loading, this.project.error, this.project.editable]);
+		const state = JSON.stringify([this.project.modelUri?.toString(), this.project.model.id, this.project.documentVersion, this.project.section, this.project.activeView?.id, this.project.loading, this.project.error, this.project.editable, this.project.hasStructuralErrors, this.ai.busy, this.ai.available, this.code.busy, this.code.available, this.code.context?.sourceRoot]);
 		if (!force && this.renderedState === state) { return; }
 		this.renderedState = state;
 		this.captureGroups();
@@ -146,7 +181,6 @@ export class AdeView extends ViewPane {
 		this.controls.render(body, () => {
 			dom.clearNode(body);
 			this.controls.button(body, localize('ade.home', "Home"), () => { void this.commandService.executeCommand('ade.showHome'); });
-			if (this.project.modelUri && !this.project.error && !this.project.loading) { dom.append(body, dom.$('h3')).textContent = model.name; }
 			const more = this.controls.details(body, localize('ade.navigationOptions', "Navigation Options"), 'navigation-options');
 			this.controls.button(more, localize('ade.systemMap', "System Map"), () => { void this.commandService.executeCommand('ade.showSystemMap'); }).disabled = this.project.loading || !!this.project.error;
 			this.controls.button(more, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search'); }).disabled = this.project.loading || !!this.project.error;
@@ -160,22 +194,22 @@ export class AdeView extends ViewPane {
 				this.controls.button(more, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
 				return;
 			}
+			const project = this.group(body, 'system', model.name);
+			if (this.project.modelUri) { this.renderProjectShortcuts(project); }
 			if (this.project.hasStructuralErrors) {
 				dom.append(body, dom.$('p')).textContent = localize('ade.draft.navigation', "Correct the Draft Specification to Restore Diagram Navigation. Saving and Undo Remain Available.");
 				this.controls.button(body, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); });
 				return;
 			}
 			if (isSourceEvidenceModel(model)) {
-				dom.append(body, dom.$('p')).textContent = localize('ade.import.pendingSidebar', "Source inventory ready. Generate the project diagrams, then review and apply all changes together.");
-				if (this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true) { this.controls.button(body, localize('ade.explore.start', "Explore Architecture"), () => { void this.commandService.executeCommand('ade.ai.resumeDiagrams'); }); }
-				else { dom.append(body, dom.$('p')).textContent = localize('ade.import.aiDisabled', "AI features are disabled. Your local source inventory is preserved."); }
+				dom.append(project, dom.$('p')).textContent = localize('ade.import.pendingSidebar', "Source inventory ready. Generate the project diagrams, then review and apply all changes together.");
 				return;
 			}
 			for (const group of getDiagramGroups(model)) {
 				if (!group.featureId && !group.views.length && model.views.length) { continue; }
-				const section = dom.append(body, dom.$('section.ade-diagram-group'));
+				const section = dom.append(project, dom.$('section.ade-diagram-group'));
 				section.setAttribute('aria-label', group.name);
-				const context = this.group(section, group.featureId ? `feature:${group.featureId}` : 'system', group.name);
+				const context = group.featureId ? this.group(section, `feature:${group.featureId}`, group.name) : section;
 				if (this.project.editable && group.featureId) {
 					const actions = this.controls.details(context, localize('ade.featureOptions', "Feature Options"), `feature-options:${group.featureId}`);
 					for (const [label, command] of [

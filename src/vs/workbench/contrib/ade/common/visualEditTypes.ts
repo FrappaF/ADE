@@ -32,7 +32,7 @@ export type VisualEdit =
 	| { kind: 'feature'; id: string; name: string }
 	| { kind: 'resource'; id: string; name: string; parentId?: string }
 	| { kind: 'diagram'; id: string; name: string; featureId?: string; viewKind: Exclude<ModelView['kind'], 'state'> }
-	| { kind: 'stateDiagram'; id: string; name: string; featureId: string; resourceId: string }
+	| { kind: 'stateDiagram'; id: string; name: string; featureId?: string; resourceId: string }
 	| { kind: 'stateLifecycle'; viewId: string; resourceId: string }
 	| { kind: 'stateTransition'; viewId: string; id: string }
 	| { kind: 'element'; id: string; name: string; elementKind: ElementKind; viewId: string; parentId?: string }

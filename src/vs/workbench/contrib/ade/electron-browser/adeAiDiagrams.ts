@@ -71,10 +71,10 @@ export class AdeAiDiagrams extends Disposable {
 
 	private explorationToolResource: URI | undefined;
 
-	async chat(): Promise<void> {
+	async chat(initialPrompt?: string): Promise<void> {
 		if (this.host.busy || this.operations.busy || this.chatOpening || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
 		await this.discardMissingExploration();
-		if (this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(); return; }
+		if (this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(initialPrompt); return; }
 		const opening = this.operations.acquire('ai');
 		if (!opening) { return; }
 		this.chatOpening = true; this.host.busy = true;
@@ -109,7 +109,7 @@ export class AdeAiDiagrams extends Disposable {
 				}
 				widget.attachmentModel.updateContext(['ade:diagram-context'], [{ kind: 'generic', id: 'ade:diagram-context', name: localize('ade.ai.currentDiagramContext', "Current Diagram"), value: JSON.stringify({ ...(this.exploration?.root === root ? { sessionId: this.exploration.id } : { model: this.project.modelUri?.fsPath }), diagram: this.project.activeView ? { id: this.project.activeView.id, name: this.project.activeView.name } : null }) }]);
 				this.conversation = { root, resource, attachedModel: this.project.modelUri?.toString() };
-				if (this.exploration?.root === root && firstQuestion) { widget.setInput(this.conversationPrompt()); }
+				if (initialPrompt !== undefined || this.exploration?.root === root && firstQuestion) { widget.setInput(initialPrompt ?? this.conversationPrompt()); }
 				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
 			} else {
 				const provider = this.connection.config?.provider ?? 'codex';
@@ -121,7 +121,7 @@ export class AdeAiDiagrams extends Disposable {
 				if (!model) { model = await this.selectDiagramModel({ version: 1, provider, connection: 'cli', executable, model: '', timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 1 }); if (!model) { return; } }
 				const config: CliConfig = { version: 1, provider, connection: 'cli', executable, model, timeoutMs: 300000, maxContextBytes: 262144, maxCalls: this.connection.config?.maxCalls ?? 1 };
 				this.conversation = { root };
-				await this.aiDialog.open({ prompt: this.exploration?.root === root ? this.conversationPrompt() : '', onClose: () => this.closeConversation(root), send: (messages, token) => this.sendConversation(root, config, messages, token) });
+				await this.aiDialog.open({ prompt: initialPrompt ?? (this.exploration?.root === root ? this.conversationPrompt() : ''), onClose: () => this.closeConversation(root), send: (messages, token) => this.sendConversation(root, config, messages, token) });
 			}
 			this.watchConversation();
 			this.host.report(localize('ade.ai.chatModalReady', "Assistant Is Open · Diagrams Update Automatically"));
@@ -247,7 +247,7 @@ export class AdeAiDiagrams extends Disposable {
 		this.explorationTools.add({ dispose: () => this.activeClients.clearSessionTools(resource) });
 	}
 
-	private async exploreDiagrams(): Promise<void> {
+	private async exploreDiagrams(initialPrompt?: string): Promise<void> {
 		if (this.host.busy || this.operations.busy || !this.code.context) { return; }
 		let opened = false, needsBudget = false;
 		await this.host.run(async token => {
@@ -261,7 +261,7 @@ export class AdeAiDiagrams extends Disposable {
 			opened = true;
 		}, { kind: 'diagram' });
 		if (opened && needsBudget) { await this.configureDiagramBudget(); if (this._diagramExploration?.budgetStatus?.exhausted.length) { return; } }
-		if (opened) { await this.chat(); }
+		if (opened) { await this.chat(initialPrompt); }
 	}
 
 	async configureDiagramBudget(): Promise<void> {
@@ -356,6 +356,11 @@ export class AdeAiDiagrams extends Disposable {
 	async buildDiagrams(): Promise<void> { if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.exploreDiagrams(); } else { await this.generateDiagrams(false); } }
 
 	async resumeDiagrams(): Promise<void> { if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.exploreDiagrams(); } else { await this.generateDiagrams(true); } }
+
+	async updateDiagrams(): Promise<void> {
+		if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') === false) { await this.generateDiagrams(true); return; }
+		await this.exploreDiagrams(localize('ade.explore.updatePrompt', "Update the project diagrams from the current codebase using the ADE tools. Inspect the saved project, diagram plan and drafts first. Identify code changes and preserve existing diagram and object IDs and manual layout where they still apply. Prepare the necessary additions, updates and removals, including any missing views from overview to detail. Reconcile the plan and task assignments, resolve validation errors and preview every proposed diagram. Continue without intermediate approvals and finish with a single complete project review. Do not publish changes: I will apply them from the review."));
+	}
 
 	private async generateDiagrams(resume: boolean): Promise<void> {
 		if (this.host.busy || this.operations.busy || !this.code.context) { return; }

@@ -27,6 +27,7 @@ export function applyBehaviorVisualEdit(context: VisualEditContext, edit: Visual
 		case 'stateDiagram': {
 			if (!candidate.semantics.elements.some(element => element.id === edit.resourceId && element.kind === 'resource')) { throw new Error(`Unknown resource: ${edit.resourceId}`); }
 			candidate.views.push({ id: edit.id, name: edit.name, kind: 'state', featureId: edit.featureId, nodes: [{ elementId: edit.resourceId, x: 0, y: 0 }], relationIds: [] });
+			if (!edit.featureId) { delete candidate.views.at(-1)!.featureId; }
 			break;
 		}
 		case 'stateLifecycle': {

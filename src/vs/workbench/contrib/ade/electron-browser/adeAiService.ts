@@ -135,6 +135,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	async resumeDiagrams(): Promise<void> { return this.diagrams.resumeDiagrams(); }
 
+	async updateDiagrams(): Promise<void> { return this.diagrams.updateDiagrams(); }
+
 	async chooseDiagramModel(): Promise<void> { return this.diagrams.chooseDiagramModel(); }
 
 	async implement(): Promise<void> {
@@ -245,6 +247,7 @@ for (const [id, title, method] of [
 	['ade.ai.chat', localize2('ade.ai.chatCommand', "A.D.E: Chat with Codex"), 'chat'],
 	['ade.ai.buildDiagrams', localize2('ade.ai.buildDiagramsCommand', "A.D.E: Build Semantic Diagrams"), 'buildDiagrams'],
 	['ade.ai.resumeDiagrams', localize2('ade.ai.resumeDiagramsCommand', "A.D.E: Resume Diagram Generation"), 'resumeDiagrams'],
+	['ade.ai.updateDiagrams', localize2('ade.ai.updateDiagramsCommand', "A.D.E: Update Diagrams from Codebase"), 'updateDiagrams'],
 	['ade.ai.implement', localize2('ade.ai.implementCommand', "A.D.E: Implement Feature"), 'implement'],
 	['ade.ai.interpret', localize2('ade.ai.interpretCommand', "A.D.E: Interpret Unresolved Evidence"), 'interpret'],
 	['ade.ai.review', localize2('ade.ai.reviewCommand', "A.D.E: Review Implementation"), 'review'],
