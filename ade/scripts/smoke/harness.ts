@@ -12,17 +12,19 @@ import { _electron as electron, type ElectronApplication } from 'playwright-core
 import { runCommand, openProperties } from './helpers.ts';
 
 /** Owns the isolated desktop process, fixture directories and failure evidence. */
-export async function createSmokeHarness() {
+export async function createSmokeHarness(platform = process.platform) {
 	const { validateSemanticModel } = await import('../../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
 	const { checkoutModel } = await import('../../../src/vs/workbench/contrib/ade/common/checkoutModel.ts');
 	const root = fileURLToPath(new URL('../../..', import.meta.url));
 	const aiLive = process.argv.includes('--ai-live');
 	if (aiLive && !process.env.ADE_AI_MODEL) { throw new Error('--ai-live requires ADE_AI_MODEL from the authenticated Codex account'); }
 	const product = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(root, 'product.json'), 'utf8'));
-	const executablePath = process.env.ADE_ELECTRON_PATH || path.join(root, '.build/electron', process.platform === 'darwin'
+	const executablePath = process.env.ADE_ELECTRON_PATH || path.join(root, '.build/electron', platform === 'darwin'
 		? `${product.nameLong}.app/Contents/MacOS/${product.nameShort}`
-		: process.platform === 'win32' ? `${product.nameShort}.exe` : product.applicationName);
-	const directory = await mkdtemp(path.join(tmpdir(), 'ade-smoke-'));
+		: platform === 'win32' ? `${product.nameShort}.exe` : product.applicationName);
+	// macOS's per-user TMPDIR can exceed the 103-byte Unix socket path limit
+	// once Electron appends the portable profile and main IPC handle.
+	const directory = await mkdtemp(path.join(platform === 'darwin' ? '/tmp' : tmpdir(), 'ade-smoke-'));
 	const portable = path.join(directory, 'portable');
 	const userData = path.join(portable, 'user-data');
 	const workspace = path.join(directory, 'project');

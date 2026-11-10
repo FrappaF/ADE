@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type SemanticElement, type SemanticRelation, type ModelView } from '../../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
-import { type SmokeHarness } from './harness.ts';
+import type { SemanticElement, SemanticRelation, ModelView } from '../../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
+import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type Page } from 'playwright-core';
+import type { Page } from 'playwright-core';
 import path from 'node:path';
 
 export async function revealAdeButton(window: Page, name: string) {

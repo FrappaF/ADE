@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type ModelView, type SemanticElement, type ElementDetails } from '../../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
-import { type CodeRequest } from '../../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
-import { type SmokeHarness } from './harness.ts';
+import type { ModelView, SemanticElement, ElementDetails } from '../../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
+import type { CodeRequest } from '../../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
+import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, copyFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
