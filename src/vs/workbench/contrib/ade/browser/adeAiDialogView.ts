@@ -11,6 +11,10 @@ import { localize } from '../../../../nls.js';
 import { AdeControls } from './adeControls.js';
 import { type AdeAiDialogOptions, type AdeAiMessage } from './adeAiDialog.js';
 import { type CodeAiProgress } from '../common/codeBridge.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
+import '../../../../base/browser/ui/codicons/codicon/codicon-modifiers.css';
 
 /** A transient, focus-trapping surface. Only generated project artifacts outlive its closure. */
 export class AdeAiDialog extends Disposable {
@@ -53,8 +57,19 @@ export class AdeAiDialog extends Disposable {
 		const input = dom.append(form, dom.$<HTMLTextAreaElement>('textarea'));
 		input.setAttribute('aria-label', localize('ade.ai.dialog.message', "Message the Assistant")); input.rows = 3;
 		input.placeholder = localize('ade.ai.dialog.placeholder', "Describe the diagrams or changes you need…");
+		input.setAttribute('aria-description', localize('ade.ai.dialog.keyboard', "Enter to Send. Shift+Enter for a New Line."));
 		input.value = this.options.prompt ?? '';
 		const send = dom.append(form, dom.$<HTMLButtonElement>('button')); send.type = 'submit'; send.textContent = localize('ade.ai.dialog.send', "Send");
+		const setSending = (active: boolean) => {
+			send.disabled = active; send.setAttribute('aria-busy', String(active)); dom.clearNode(send);
+			if (active) { const icon = renderIcon(ThemeIcon.modify(Codicon.loading, 'spin')); icon.setAttribute('aria-hidden', 'true'); send.appendChild(icon); }
+			dom.append(send, dom.$('span')).textContent = active ? localize('ade.ai.dialog.sending', "Working…") : localize('ade.ai.dialog.send', "Send");
+		};
+		this._register(dom.addDisposableListener(input, 'keydown', (event: KeyboardEvent) => {
+			if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) { return; }
+			event.preventDefault(); event.stopPropagation();
+			if (!event.repeat && !send.disabled) { form.requestSubmit(send); }
+		}));
 		const append = (message: AdeAiMessage) => {
 			const article = dom.append(transcript, dom.$('article.ade-ai-message'));
 			dom.append(article, dom.$('strong')).textContent = message.role === 'user' ? localize('ade.ai.dialog.you', "You") : localize('ade.ai.dialog.assistant', "Assistant");
@@ -66,7 +81,7 @@ export class AdeAiDialog extends Disposable {
 			const text = input.value.trim();
 			if (!text || send.disabled || !this.options.send) { return; }
 			this.messages.push({ role: 'user', text }); append(this.messages[this.messages.length - 1]); input.value = '';
-			send.disabled = true; input.disabled = true; this.content.setAttribute('aria-busy', 'true');
+			setSending(true); input.disabled = true; this.content.setAttribute('aria-busy', 'true');
 			this.turnActive = true; this.responses.clear();
 			status.setAttribute('role', 'status');
 			status.textContent = localize('ade.ai.dialog.working', "Working… You Can Close This Dialog to Stop. Completed Drafts Are Saved.");
@@ -80,7 +95,7 @@ export class AdeAiDialog extends Disposable {
 				if (!this.closed) { status.textContent = error instanceof Error ? error.message : String(error); status.setAttribute('role', 'alert'); }
 			} finally {
 				this.turnActive = false;
-				if (!this.closed) { send.disabled = false; input.disabled = false; this.content.setAttribute('aria-busy', 'false'); input.focus(); }
+				if (!this.closed) { setSending(false); input.disabled = false; this.content.setAttribute('aria-busy', 'false'); input.focus(); }
 			}
 		}));
 		input.focus();

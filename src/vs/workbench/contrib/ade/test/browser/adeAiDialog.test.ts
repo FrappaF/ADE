@@ -74,4 +74,38 @@ suite('A.D.E transient assistant dialog', () => {
 		assert.deepStrictEqual([dialog.element.querySelectorAll('article').length, dialog.element.querySelector('textarea')!.disabled], [2, false]);
 		await dialog.close();
 	});
+
+	test('Enter sends once and shows a busy spinner until the response completes', async () => {
+		const response = new DeferredPromise<string>(), sent: AdeAiMessage[][] = [];
+		const dialog = store.add(new AdeAiDialog(root, { prompt: 'Update the diagrams', onClose: async () => {}, send: async messages => { sent.push(messages); return response.p; } })); dialog.showConversation();
+		const input = dialog.element.querySelector('textarea')!, button = dialog.element.querySelector<HTMLButtonElement>('form button')!;
+		const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }); input.dispatchEvent(enter);
+		input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+		assert.deepStrictEqual({ prevented: enter.defaultPrevented, sent, busy: button.getAttribute('aria-busy'), disabled: button.disabled, spinner: !!button.querySelector('.codicon-loading.codicon-modifier-spin'), label: button.textContent }, { prevented: true, sent: [[{ role: 'user', text: 'Update the diagrams' }]], busy: 'true', disabled: true, spinner: true, label: 'Working…' });
+		await response.complete('Prepared'); await timeout(0);
+		assert.deepStrictEqual([button.disabled, button.getAttribute('aria-busy'), button.querySelector('.codicon'), button.textContent, document.activeElement], [false, 'false', null, 'Send', input]);
+		await dialog.close();
+	});
+
+	test('Shift+Enter, composition and repeated keys never submit; whitespace stays unsent', async () => {
+		let sent = 0;
+		const dialog = store.add(new AdeAiDialog(root, { onClose: async () => {}, send: async () => { sent++; return 'Done'; } })); dialog.showConversation();
+		const input = dialog.element.querySelector('textarea')!; input.value = 'A multiline request';
+		for (const options of [{ shiftKey: true }, { isComposing: true }, { keyCode: 229 }]) {
+			const event = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true, ...options }); input.dispatchEvent(event); assert.equal(event.defaultPrevented, false);
+		}
+		input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', repeat: true, cancelable: true, bubbles: true }));
+		input.value = ' \n '; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true }));
+		assert.deepStrictEqual([sent, dialog.element.querySelectorAll('article').length], [0, 0]); await dialog.close();
+	});
+
+	test('a failed request clears the spinner and Enter can send a follow-up', async () => {
+		let sent = 0;
+		const dialog = store.add(new AdeAiDialog(root, { onClose: async () => {}, send: async () => { if (++sent === 1) { throw new Error('Provider stopped responding'); } return 'Recovered'; } })); dialog.showConversation();
+		const input = dialog.element.querySelector('textarea')!, button = dialog.element.querySelector<HTMLButtonElement>('form button')!;
+		input.value = 'First attempt'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await timeout(0);
+		assert.deepStrictEqual([button.disabled, button.querySelector('.codicon-modifier-spin'), dialog.element.querySelector('[role="alert"]')?.textContent], [false, null, 'Provider stopped responding']);
+		input.value = 'Continue'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await timeout(0);
+		assert.deepStrictEqual([sent, button.disabled, dialog.element.querySelector('[role="alert"]'), dialog.element.textContent?.includes('Recovered')], [2, false, null, true]); await dialog.close();
+	});
 });

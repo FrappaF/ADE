@@ -64,3 +64,20 @@ test('a CLI that produces no startup response has a bounded actionable failure',
 	const { runProcess } = await import('../process.ts');
 	await assert.rejects(runProcess(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], process.cwd(), { startupTimeoutMs: 50, timeoutMs: 2000, gracefulShutdownMs: 20 }), /provider CLI did not start responding/);
 });
+
+test('active chat is not cut off at the five-minute silence limit and session deadlines remain bounded', async () => {
+	for (const [budget, expected] of [[undefined, 1800000], [900000, 900000], [5400000, 5400000], [7200000, 5400000]] as const) {
+		await runDiagramChat('/project', config, [{ role: 'user', text: 'Update the diagrams' }], undefined, undefined, async (_executable, args, _cwd, options) => {
+			assert.deepEqual([options?.timeoutMs, options?.idleTimeoutMs, options?.startupTimeoutMs], [expected, 300000, 45000]);
+			assert.match(options!.input!, /For diagram-only requests/);
+			await writeFile(args[args.indexOf('--output-last-message') + 1], 'Prepared');
+			return { code: 0, stdout: '{"type":"turn.completed"}\n', stderr: '' };
+		}, budget);
+	}
+});
+
+test('a total deadline explains how to continue while cancellation remains distinct', async () => {
+	await assert.rejects(runDiagramChat('/project', config, [{ role: 'user', text: 'Update' }], undefined, undefined, async () => { throw new Error('Operation timed out'); }), /time limit.*drafts are retained.*follow-up/i);
+	const cancelled = new Error('Operation cancelled');
+	await assert.rejects(runDiagramChat('/project', config, [{ role: 'user', text: 'Update' }], undefined, undefined, async () => { throw cancelled; }), error => error === cancelled);
+});

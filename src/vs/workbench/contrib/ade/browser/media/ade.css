@@ -1395,3 +1395,16 @@
 	color: var(--vscode-disabledForeground);
 	cursor: default;
 }
+
+.ade-ai-composer button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--vscode-spacing-size80);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ade-ai-composer .codicon-modifier-spin {
+		animation: none;
+	}
+}
