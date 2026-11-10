@@ -157,6 +157,7 @@ export class AdeView extends ViewPane {
 		shortcut(localize('ade.shortcuts.create', "Create Diagram"), Codicon.add, 'project-create-diagram', blocked ?? (isSourceEvidenceModel(this.project.model) ? localize('ade.shortcuts.generateFirst', "Generate and Apply the Codebase Diagrams Before Adding Manual Diagrams.") : undefined), () => this.commandService.executeCommand<void>('ade.addDiagram'));
 		const updateBlocked = blocked ?? (this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true ? localize('ade.import.aiDisabled', "AI features are disabled. Your local source inventory is preserved.") : !this.code.available || !this.ai.available ? localize('ade.shortcuts.updateUnavailable', "Codebase Diagram Updates Are Unavailable in This Environment.") : undefined);
 		shortcut(localize('ade.shortcuts.update', "Update Diagrams from Codebase"), Codicon.refresh, 'project-update-diagrams', updateBlocked, () => this.commandService.executeCommand<void>('ade.ai.updateDiagrams'));
+		shortcut(localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), Codicon.code, 'project-update-codebase', updateBlocked ?? (!this.project.projectRoot ? localize('ade.codeUpdate.saveFirst', "Open or Save a Project Before Updating Its Codebase.") : undefined), () => this.commandService.executeCommand<void>('ade.ai.updateCodebase'));
 		for (const [reason, id] of hints) { const hint = dom.append(actions, dom.$('p.ade-shortcut-hint')); hint.id = id; hint.textContent = reason; }
 	}
 

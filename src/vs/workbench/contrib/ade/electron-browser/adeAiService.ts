@@ -16,14 +16,15 @@ import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/co
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
+import { IAdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { IAdeAiService, type AdeDiagramReview } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { CodePreview, CodeResolution, CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
-import { type AdeAiWorkflow, type AdeAiRunOptions } from './adeAiTypes.js';
+import { type AdeAiWorkflow, type AdeAiRunOptions, type AdeAiProject } from './adeAiTypes.js';
 import { AdeAiConnection } from './adeAiConnection.js';
 import { AdeAiDiagrams } from './adeAiDiagrams.js';
+import { AdeAiCodeUpdates } from './adeAiCodeUpdates.js';
 import { AdeAiStructural } from './adeAiStructural.js';
 import { AdeAiImplementation } from './adeAiImplementation.js';
 
@@ -136,6 +137,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	async resumeDiagrams(): Promise<void> { return this.diagrams.resumeDiagrams(); }
 
 	async updateDiagrams(): Promise<void> { return this.diagrams.updateDiagrams(); }
+	async updateCodebase(): Promise<void> { return this.codeUpdates.update(); }
 
 	async chooseDiagramModel(): Promise<void> { return this.diagrams.chooseDiagramModel(); }
 
@@ -186,13 +188,14 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	private readonly connection: AdeAiConnection;
 
 	private readonly diagrams: AdeAiDiagrams;
+	private readonly codeUpdates: AdeAiCodeUpdates;
 
 	private readonly structural: AdeAiStructural;
 
 	private readonly implementation: AdeAiImplementation;
 
 	constructor(
-		@IAdeProjectService private readonly project: Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'saveError' | 'projectRoot' | 'modelUri' | 'activeView' | 'onDidChange' | 'revert' | 'editable' | 'error'>,
+		@IAdeProjectService private readonly project: AdeAiProject,
 		@IAdeCodeService private readonly code: IAdeCodeService,
 		@INotificationService private readonly notifications: INotificationService,
 		@IProgressService private readonly progress: IProgressService,
@@ -213,6 +216,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		};
 		this.connection = this._register(instantiation.createInstance(AdeAiConnection, workflow));
 		this.diagrams = this._register(instantiation.createInstance(AdeAiDiagrams, workflow, this.connection));
+		this.codeUpdates = this._register(instantiation.createInstance(AdeAiCodeUpdates, workflow, this.diagrams));
 		this.structural = this._register(instantiation.createInstance(AdeAiStructural, workflow));
 		this.implementation = this._register(instantiation.createInstance(AdeAiImplementation, workflow, this.connection));
 
@@ -248,6 +252,7 @@ for (const [id, title, method] of [
 	['ade.ai.buildDiagrams', localize2('ade.ai.buildDiagramsCommand', "A.D.E: Build Semantic Diagrams"), 'buildDiagrams'],
 	['ade.ai.resumeDiagrams', localize2('ade.ai.resumeDiagramsCommand', "A.D.E: Resume Diagram Generation"), 'resumeDiagrams'],
 	['ade.ai.updateDiagrams', localize2('ade.ai.updateDiagramsCommand', "A.D.E: Update Diagrams from Codebase"), 'updateDiagrams'],
+	['ade.ai.updateCodebase', localize2('ade.ai.updateCodebaseCommand', "A.D.E: Update Codebase from Diagrams"), 'updateCodebase'],
 	['ade.ai.implement', localize2('ade.ai.implementCommand', "A.D.E: Implement Feature"), 'implement'],
 	['ade.ai.interpret', localize2('ade.ai.interpretCommand', "A.D.E: Interpret Unresolved Evidence"), 'interpret'],
 	['ade.ai.review', localize2('ade.ai.reviewCommand', "A.D.E: Review Implementation"), 'review'],

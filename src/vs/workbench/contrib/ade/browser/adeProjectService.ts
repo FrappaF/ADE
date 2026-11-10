@@ -34,6 +34,9 @@ import { createPureProject } from '../common/modelProject.js';
 import { compileModelTaskContext, type ModelTaskPacket } from '../common/modelTaskContext.js';
 import { compileModelContext, type ModelContextRequest } from '../common/modelContext.js';
 import { diagnosticMessage } from './adeDiagnostics.js';
+import { savedModelChanges, type SavedModelChange } from '../common/modelCodeUpdate.js';
+import { type SemanticModel } from '../common/modelTypes.js';
+import { SaveReason } from '../../../common/editor.js';
 
 export const IAdeProjectService = createDecorator<AdeProjectService>('adeProjectService');
 
@@ -42,6 +45,13 @@ export class AdeProjectService extends Disposable {
 	declare readonly _serviceBrand: undefined;
 	private readonly changeEmitter = this._register(new Emitter<void>());
 	readonly onDidChange = this.changeEmitter.event;
+	private readonly savedEmitter = this._register(new Emitter<SavedModelChange>());
+	readonly onDidSaveModel = this.savedEmitter.event;
+	private savedModel: SemanticModel | undefined;
+	private savedChange: SavedModelChange | undefined;
+	get lastSavedChange(): SavedModelChange | undefined { return this.savedChange?.modelUri === this.modelUri?.toString() ? structuredClone(this.savedChange) : undefined; }
+	private silentSave = 0;
+	private recordingSave: Promise<void> = Promise.resolve();
 	private structuralPreview: { version: string; packet: ModelTaskPacket } | undefined;
 	get taskPreview(): ModelTaskPacket | undefined { return this.structuralPreview?.version === this.documentVersion ? this.structuralPreview.packet : undefined; }
 	private readonly modelDisposables = this._register(new DisposableStore());
@@ -402,11 +412,13 @@ export class AdeProjectService extends Disposable {
 	async undo(): Promise<void> { await this.document?.textEditorModel.undo(); }
 	async redo(): Promise<void> { await this.document?.textEditorModel.redo(); }
 
-	async save(): Promise<boolean> {
+	async save(suggestCodeUpdate = false): Promise<boolean> {
 		if (!this.document || this._error) { return false; }
 		const document = this.document;
+		if (!suggestCodeUpdate) { this.silentSave++; }
 		try {
 			const success = await document.save();
+			await this.recordingSave;
 			if (document === this.document) {
 				this._saveError = success ? undefined : localize('ade.saveFailed', "The project could not be saved. Check disk changes and permissions, or save a copy.");
 				this.changeEmitter.fire();
@@ -418,7 +430,18 @@ export class AdeProjectService extends Disposable {
 				this.changeEmitter.fire();
 			}
 			return false;
-		}
+		} finally { if (!suggestCodeUpdate) { this.silentSave--; } }
+	}
+
+	private async recordSavedModel(resource: URI, generation: number, suggest: boolean): Promise<void> {
+		const value = JSON.parse((await this.fileService.readFile(resource)).value.toString());
+		const model = value.version === 4 || value.version === 5 ? readSemanticDraft(value) : migrateSemanticModel(value).model;
+		if (generation !== this.generation || this.modelUri?.toString() !== resource.toString()) { return; }
+		const changes = this.savedModel ? savedModelChanges(this.savedModel, model) : [];
+		this.savedModel = structuredClone(model);
+		if (!changes.length) { return; }
+		this.savedChange = { modelUri: resource.toString(), model: structuredClone(model), changes };
+		if (suggest && !validateSemanticModel(model).some(entry => entry.severity === 'error')) { this.savedEmitter.fire(structuredClone(this.savedChange)); }
 	}
 
 	async saveAs(): Promise<boolean> {
@@ -543,8 +566,13 @@ export class AdeProjectService extends Disposable {
 			this.modelDisposables.add(document.onDidChangeContent(() => { if (generation === this.generation) { this.readDocument(document); } }));
 			this.modelDisposables.add(document.onDidChangeDirty(() => this.changeEmitter.fire()));
 			this.modelDisposables.add(document.onDidChangeReadonly(() => this.changeEmitter.fire()));
-			this.modelDisposables.add(document.onDidSave(() => { this._saveError = undefined; this.changeEmitter.fire(); }));
+			this.modelDisposables.add(document.onDidSave(event => {
+				this._saveError = undefined; this.changeEmitter.fire();
+				const suggest = !this.silentSave && event.reason === SaveReason.EXPLICIT;
+				this.recordingSave = this.recordingSave.then(() => this.recordSavedModel(resource, generation, suggest)).catch(() => { /* Invalid saved drafts cannot request code generation. */ });
+			}));
 			this.readDocument(document);
+			this.savedModel = structuredClone(this.model); this.savedChange = undefined;
 		} catch (error) {
 			if (generation !== this.generation) { return; }
 			this._error = localize('ade.loadFailed', "Could not read the selected model: {0}", String(error.message ?? error));

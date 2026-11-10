@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SaveReason } from '../../../../common/editor.js';
 import { Event, Emitter } from '../../../../../base/common/event.js';
 import { DisposableStore, IReference } from '../../../../../base/common/lifecycle.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
@@ -11,7 +12,7 @@ import { mock } from '../../../../../base/test/common/mock.js';
 import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
-import { IResolvedTextFileEditorModel, ITextFileEditorModelManager, ITextFileService } from '../../../../services/textfile/common/textfiles.js';
+import { IResolvedTextFileEditorModel, ITextFileEditorModelManager, ITextFileService, type ITextFileEditorModelSaveEvent } from '../../../../services/textfile/common/textfiles.js';
 
 /** Uses the real editor text model and undo stack; file-model plumbing is covered by desktop smoke. */
 class ProjectDocument extends mock<IResolvedTextFileEditorModel>() {
@@ -21,11 +22,13 @@ class ProjectDocument extends mock<IResolvedTextFileEditorModel>() {
 	override readonly onDidChangeContent;
 	override readonly onDidChangeDirty;
 	override readonly onDidChangeReadonly = Event.None;
-	override readonly onDidSave = Event.None;
+	private readonly saveEmitter: Emitter<ITextFileEditorModelSaveEvent>;
+	override readonly onDidSave;
 
 	constructor(private readonly files: IFileService, readonly uri: URI, value: string, store: Pick<DisposableStore, 'add'>) {
 		super();
 		this.baseline = value;
+		this.saveEmitter = store.add(new Emitter<ITextFileEditorModelSaveEvent>()); this.onDidSave = this.saveEmitter.event;
 		this.dirtyEmitter = store.add(new Emitter<void>());
 		this.textEditorModel = store.add(createTextModel(value, undefined, undefined, uri));
 		const contentEmitter = store.add(new Emitter<void>());
@@ -41,8 +44,10 @@ class ProjectDocument extends mock<IResolvedTextFileEditorModel>() {
 		if (this.textEditorModel.getValue() !== value) { this.textEditorModel.setValue(value); }
 	}
 	override async save(): Promise<boolean> {
-		await this.files.writeFile(this.uri, VSBuffer.fromString(this.textEditorModel.getValue()));
-		this.baseline = this.textEditorModel.getValue();
+		const content = this.textEditorModel.getValue();
+		const stat = await this.files.writeFile(this.uri, VSBuffer.fromString(content));
+		this.baseline = content;
+		this.saveEmitter.fire({ reason: SaveReason.EXPLICIT, stat });
 		this.dirtyEmitter.fire();
 		return true;
 	}

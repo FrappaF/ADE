@@ -27,7 +27,7 @@ export class AdeInput extends EditorInput {
 		return EditorInputCapabilities.Singleton | (this.project.editable ? 0 : EditorInputCapabilities.Readonly);
 	}
 	override isDirty(): boolean { return this.project.dirty; }
-	override async save(): Promise<EditorInput | undefined> { return await this.project.save() ? this : undefined; }
+	override async save(): Promise<EditorInput | undefined> { return await this.project.save(true) ? this : undefined; }
 	override async saveAs(): Promise<EditorInput | undefined> { return await this.project.saveAs() ? this : undefined; }
 	override async revert(): Promise<void> { await this.project.revert(); }
 	readonly resource = AdeInput.RESOURCE;

@@ -331,6 +331,25 @@ suite('A.D.E project context', () => {
 		assert.deepStrictEqual([project.modelUri, project.loading, project.error], [undefined, false, undefined]);
 	});
 
+	test('explicit saves report exact model changes, while layout-only and internal saves do not suggest coding', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		const saved: import('../../common/modelCodeUpdate.js').SavedModelChange[] = [];
+		disposables.add(project.onDidSaveModel(change => saved.push(change)));
+		const original = project.model.semantics.elements[0];
+		project.edit({ kind: 'rename', target: 'element', id: original.id, name: 'New responsibility' });
+		await project.save(true);
+		assert.deepStrictEqual(saved[0].changes.filter(change => change.collection === 'elements').map(change => ({ before: change.before, after: change.after })), [{ before: original, after: project.model.semantics.elements[0] }]);
+		assert.equal(saved.length, 1);
+		await project.save(true); assert.equal(saved.length, 1);
+		const view = project.model.views[0], node = view.nodes[0];
+		project.edit({ kind: 'position', viewId: view.id, id: node.elementId, x: node.x + 20, y: node.y + 20 });
+		await project.save(true); assert.equal(saved.length, 1);
+		project.edit({ kind: 'rename', target: 'element', id: original.id, name: 'Internal save' });
+		await project.save(); assert.equal(saved.length, 1);
+		assert.equal(project.lastSavedChange?.changes[0].id, original.id);
+	});
+
 	test('creates an empty project without overwrites, and records feature creation as one native undo transaction', async () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
 		const folder = URI.parse('test:/project');

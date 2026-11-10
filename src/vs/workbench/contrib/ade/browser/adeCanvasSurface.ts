@@ -310,7 +310,7 @@ export class AdeCanvasSurface {
 		if (this.project.modelUri) {
 			const history = dom.append(toolbar, dom.$('div.ade-editing-history'));
 			history.setAttribute('role', 'group'); history.setAttribute('aria-label', localize('ade.editing.history', "Save and History"));
-			this.host.iconButton(history, localize('ade.save', "Save"), Codicon.save, () => { void this.project.save(); }).disabled = !this.project.dirty;
+			this.host.iconButton(history, localize('ade.save', "Save"), Codicon.save, () => { void this.project.save(true); }).disabled = !this.project.dirty;
 			this.host.iconButton(history, localize('ade.undo', "Undo"), Codicon.discard, () => { void this.project.undo(); }).disabled = !this.project.canUndo;
 			this.host.iconButton(history, localize('ade.redo', "Redo"), Codicon.redo, () => { void this.project.redo(); }).disabled = !this.project.canRedo;
 		}

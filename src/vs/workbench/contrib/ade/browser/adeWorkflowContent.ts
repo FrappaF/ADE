@@ -171,6 +171,8 @@ export class AdeWorkflowContent {
 			[localize('ade.reload', "Reload Project"), 'ade.reload']
 		]);
 		if (this.project.error || this.project.loading) { return; }
+		const codeUpdate = this.group(parent, localize('ade.codeUpdate.group', "Codebase from Diagrams"));
+		this.host.button(codeUpdate, localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), () => { void this.ai.updateCodebase(); }).disabled = this.ai.busy || this.code.busy || !this.project.editable || !this.project.projectRoot || this.project.hasStructuralErrors || !this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true;
 		const exploration = this.group(parent, localize('ade.project.explore', "Explore and Review"));
 		this.host.button(exploration, localize('ade.systemMap', "System Map"), () => this.project.showSystemMap());
 		commands(exploration, [[localize('ade.search.button', "Search System"), 'ade.search'], [localize('ade.diagramNavigation', "Diagram Navigation"), 'ade.showNavigation']]);

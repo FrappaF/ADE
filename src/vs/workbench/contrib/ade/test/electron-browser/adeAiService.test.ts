@@ -59,6 +59,9 @@ suite('A.D.E native AI orchestration', () => {
 		const aiProgress = store.add(new Emitter<import('../../common/codeBridge.js').CodeAiProgress>());
 		const liveUpdates: import('../../common/codeBridge.js').CodeAiProgress[] = [];
 		const projectChanged = store.add(new Emitter<void>());
+		const savedModel = store.add(new Emitter<import('../../common/modelCodeUpdate.js').SavedModelChange>());
+		const contextFiles = new Map<string, string>();
+		const chatRequests: Extract<CodeRequest, { operation: 'diagramChat' }>[] = [];
 		const root = '/workspace/ade-ai-fixture';
 		if (savedExploration) { storage.store('ade.ai.exploration', JSON.stringify({ root, snapshot: root + '/.ade/imports/fixture', ...savedExploration }), StorageScope.WORKSPACE, StorageTarget.MACHINE); }
 		const context: CodeContext = { snapshot: root + '/.ade/imports/fixture', model: root + '/.ade/imports/fixture/model.ade.json', sourceRoot: root, revision: 'fixture',
@@ -115,7 +118,7 @@ suite('A.D.E native AI orchestration', () => {
 		instantiation.stub(IStorageService, storage);
 		const operations = store.add(new AdeOperationService());
 		instantiation.stub(IAdeOperationService, operations);
-		const project = { model: structuredClone(checkoutModel), modelUri: URI.file(context.model), onDidChange: projectChanged.event, save: async () => true };
+		const project = { model: structuredClone(checkoutModel), modelUri: URI.file(context.model), editable: true, onDidSaveModel: savedModel.event, onDidChange: projectChanged.event, save: async () => true };
 		let reverted = 0;
 		Object.assign(project, { projectRoot: URI.file(root), revert: async () => { reverted++; } });
 		const projectService = stub(IAdeProjectService, project);
@@ -126,13 +129,13 @@ suite('A.D.E native AI orchestration', () => {
 		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed: confirmations.shift() ?? confirmed }; } });
 		let stateData: string | undefined;
 		const fileChanges = store.add(new Emitter<{ contains(resource: URI): boolean }>());
-		stub(IFileService, { createWatcher: () => ({ onDidChange: fileChanges.event, dispose: () => {} }), createFolder: async () => {}, writeFile: async () => {}, exists: async () => stateData !== undefined,
+		stub(IFileService, { createWatcher: () => ({ onDidChange: fileChanges.event, dispose: () => {} }), createFolder: async () => {}, writeFile: async (resource: URI, content: VSBuffer) => { contextFiles.set(resource.fsPath, content.toString()); }, exists: async () => stateData !== undefined,
 			stat: async () => { if (explorationReadError) { throw explorationReadError; } if (explorationMissing) { throw new FileOperationError('Exploration session was removed', FileOperationResult.FILE_NOT_FOUND); } return { isFile: true }; },
 			readFile: async (resource: URI) => ({ value: VSBuffer.fromString(resource?.path.endsWith('/review-fixture.json') ? '{"changes":[{"before":null,"after":{"name":"Reviewed responsibility"}}]}' : stateData ?? '') }) });
 		stub(IEditorService, { openEditor: async (input: object) => { editorInputs.push(input); return undefined; } });
 		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => { await focusRequested.complete(); await terminalFocus; }, onExit: terminalExit.event }; }, setActiveInstance: () => {} });
 		stub(ITerminalGroupService, { showPanel: async () => {}, hidePanel: () => { hiddenPanels++; } });
-		stub(IChatWidgetService, { openSession: async (resource: URI) => { if (incremental) { assert.equal(sessionTools.get(resource.toString())?.length, diagramToolDefinitions.length); } const chat = { resource: resource.toString(), attachments: [] as string[], focused: false }; chats.push(chat); return { input: { setCurrentLanguageModel: (model: { identifier: string }) => selectedChatModels.push(model.identifier) }, attachmentModel: { get fileAttachments() { return attachmentFiles.get(resource.toString()) ?? []; }, delete: (id: string) => { deletedAttachments.push(id); attachmentFiles.set(resource.toString(), (attachmentFiles.get(resource.toString()) ?? []).filter(uri => uri.toString() !== id)); }, addFile: async (uri: URI) => { chat.attachments.push(uri.toString()); attachmentFiles.set(resource.toString(), [...(attachmentFiles.get(resource.toString()) ?? []), uri]); }, updateContext: (_deleted: string[], entries: { value: string }[]) => { diagramContexts.push(entries[0].value); } }, setInput: (value: string) => { chatPrompts.push(value); }, setInputPlaceholder: () => {}, focusInput: () => { chat.focused = true; } }; } });
+		stub(IChatWidgetService, { openSession: async (resource: URI) => {  const chat = { resource: resource.toString(), attachments: [] as string[], focused: false }; chats.push(chat); return { input: { setCurrentLanguageModel: (model: { identifier: string }) => selectedChatModels.push(model.identifier) }, attachmentModel: { get fileAttachments() { return attachmentFiles.get(resource.toString()) ?? []; }, delete: (id: string) => { deletedAttachments.push(id); attachmentFiles.set(resource.toString(), (attachmentFiles.get(resource.toString()) ?? []).filter(uri => uri.toString() !== id)); }, addFile: async (uri: URI) => { chat.attachments.push(uri.toString()); attachmentFiles.set(resource.toString(), [...(attachmentFiles.get(resource.toString()) ?? []), uri]); }, updateContext: (_deleted: string[], entries: { value: string }[]) => { diagramContexts.push(entries[0].value); } }, setInput: (value: string) => { chatPrompts.push(value); }, setInputPlaceholder: () => {}, focusInput: () => { chat.focused = true; } }; } });
 		stub(IAdeAiDialogService, { updateConversation: (event: import('../../common/codeBridge.js').CodeAiProgress) => liveUpdates.push(event), updateProgress: () => {}, open: async (options: AdeAiDialogOptions) => { dialogs.push(options); activeDialog = options; return options.resource ? instantiation.get(IChatWidgetService).openSession(options.resource) : undefined; }, close: async () => { const options = activeDialog; activeDialog = undefined; await options?.onClose(); } });
 		stub(ICodexAccountService, { account, onDidChangeAccount: accountChanged.event, signIn: () => signIns++ });
 		stub(IAgentSdkSetupService, { setups, requestReload: () => {} });
@@ -145,7 +148,7 @@ suite('A.D.E native AI orchestration', () => {
 		const execute = async (inputText: string) => {
 				const request: { operation: string } = JSON.parse(inputText); requests.push(request.operation);
 				switch (request.operation) {
-					case 'diagramChat': { const request = JSON.parse(inputText) as { requestId: string }; aiProgress.fire({ requestId: request.requestId, kind: 'message', itemId: 'reply', text: 'Diagrams prepared' }); return JSON.stringify({ text: 'Diagrams prepared' }); }
+					case 'diagramChat': { chatRequests.push(JSON.parse(inputText)); const request = JSON.parse(inputText) as { requestId: string }; aiProgress.fire({ requestId: request.requestId, kind: 'message', itemId: 'reply', text: 'Diagrams prepared' }); return JSON.stringify({ text: 'Diagrams prepared' }); }
 					case 'exploration': {
 						const input = JSON.parse((JSON.parse(inputText) as { request: string }).request);
 						explorationActions.push(input.tool ?? input.action);
@@ -187,7 +190,7 @@ suite('A.D.E native AI orchestration', () => {
 				}
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
-		return { prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+		return { savedModel, contextFiles, chatRequests, prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			holdProjectContext: (pending: Promise<boolean>) => { projectContext = pending; }, holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -862,6 +865,48 @@ suite('A.D.E native AI orchestration', () => {
 		await f.service.chat();
 		assert.equal(f.dialogs.at(-1)!.prompt, '');
 		assert.equal(f.service.diagramExploration?.proposals[0].status, 'applied');
+	});
+
+	for (const native of [false, true]) {
+		test(`${native ? 'native' : 'CLI'} model-to-code update opens an independent coding modal with the saved project context`, async () => {
+			const f = fixture(); f.enableIncremental();
+			if (native) { f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' }); }
+			await f.service.buildDiagrams();
+			await f.service.updateCodebase();
+			assert.equal(f.contextFiles.size, 1);
+			const [file, text] = [...f.contextFiles][0];
+			const context = JSON.parse(text);
+			assert.deepStrictEqual([context.root, context.modelFile, context.model, context.scope], [f.root, f.project.modelUri.fsPath, f.project.model, 'saved-model']);
+			const prompt = native ? f.chatPrompts.at(-1)! : f.dialogs.at(-1)!.prompt!;
+			assert.ok(prompt.includes(file) && prompt.includes('desired specification') && prompt.includes('meaningful tests'));
+			assert.equal(f.requests.includes('diagramChat'), false);
+			if (native) {
+				assert.equal(f.sessionTools.has(f.chats.at(-1)!.resource), false);
+				assert.ok(f.chats.at(-1)!.attachments.includes(URI.file(file).toString()));
+			} else {
+				await f.dialogs.at(-1)!.send!([{ role: 'user', text: prompt }], CancellationToken.None);
+				assert.deepStrictEqual([f.chatRequests[0].root, f.chatRequests[0].snapshot, f.chatRequests[0].sessionId], [f.root, undefined, undefined]);
+				f.project.model.name = 'A newer unsaved specification';
+				await assert.rejects(f.dialogs.at(-1)!.send!([{ role: 'user', text: 'Continue' }], CancellationToken.None), /Model Changed/);
+			}
+			assert.deepStrictEqual(f.errors, []);
+		});
+	}
+
+	test('declining the save suggestion keeps the model saved and never opens a coding request', async () => {
+		const f = fixture(); f.setConfirmed(false);
+		f.savedModel.fire({ modelUri: f.project.modelUri.toString(), model: structuredClone(f.project.model), changes: [{ collection: 'elements', id: 'new-feature', before: null, after: { name: 'New feature' } }] });
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual([f.dialogDetails.length, f.dialogs.length, f.contextFiles.size], [1, 0, 0]);
+	});
+
+	test('accepting the save suggestion includes exact before and after definitions in the coding context', async () => {
+		const f = fixture();
+		const changes = [{ collection: 'elements', id: 'changed-feature', before: { name: 'Before' }, after: { name: 'After' } }];
+		f.savedModel.fire({ modelUri: f.project.modelUri.toString(), model: structuredClone(f.project.model), changes });
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual(JSON.parse([...f.contextFiles.values()][0]).changes, changes);
+		assert.deepStrictEqual([f.dialogs.length, f.requests.includes('diagramChat')], [1, false]);
 	});
 
 	test('updating waits for the current project codebase and canceling setup never opens the assistant', async () => {

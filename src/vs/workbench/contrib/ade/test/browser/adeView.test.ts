@@ -31,7 +31,7 @@ suite('A.D.E sidebar project shortcuts', () => {
 		const instantiation = workbenchInstantiationService({ configurationService: () => configuration }, store);
 		const changed = store.add(new Emitter<void>()), aiChanged = store.add(new Emitter<void>()), codeChanged = store.add(new Emitter<void>());
 		const model: SemanticModel = { version: 3, id: 'project', name: 'ecommerce-ade', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
-		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.file('/project/model.ade.json'), editable: true, section: 'home', onDidChange: changed.event, restore: async () => {} });
+		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.file('/project/model.ade.json'), projectRoot: URI.file('/project'), editable: true, section: 'home', onDidChange: changed.event, restore: async () => {} });
 		const ai = Object.assign(new (mock<IAdeAiService>())(), { available: true, busy: false, onDidChange: aiChanged.event });
 		const code = Object.assign(new (mock<IAdeCodeService>())(), { available: true, busy: false, context: linked ? { sourceRoot: '/project' } : undefined, onDidChange: codeChanged.event });
 		const commands: string[] = [];
@@ -45,12 +45,12 @@ suite('A.D.E sidebar project shortcuts', () => {
 		return { view, project, ai, code, changed, aiChanged, codeChanged, commands, configuration, buttons };
 	}
 
-	test('empty projects expose both shortcuts under a single project title and dispatch the existing commands', async () => {
+	test('empty projects expose diagram shortcuts under a single project title and dispatch their commands', async () => {
 		const f = fixture();
-		assert.deepStrictEqual({ title: root.querySelector('.ade-navigation-group > summary')?.textContent, actions: f.buttons().map(button => button.textContent), duplicateTitle: root.querySelector('.ade-sidebar > h3'), empty: root.textContent?.includes('No diagrams in this context.') }, { title: 'ecommerce-ade', actions: ['Create Diagram', 'Update Diagrams from Codebase'], duplicateTitle: null, empty: true });
+		assert.deepStrictEqual({ title: root.querySelector('.ade-navigation-group > summary')?.textContent, actions: f.buttons().map(button => button.textContent), duplicateTitle: root.querySelector('.ade-sidebar > h3'), empty: root.textContent?.includes('No diagrams in this context.') }, { title: 'ecommerce-ade', actions: ['Create Diagram', 'Update Diagrams from Codebase', 'Update Codebase from Diagrams'], duplicateTitle: null, empty: true });
 		for (const button of f.buttons()) { button.click(); }
 		await Promise.resolve();
-		assert.deepStrictEqual(f.commands, ['ade.addDiagram', 'ade.ai.updateDiagrams']);
+		assert.deepStrictEqual(f.commands, ['ade.addDiagram', 'ade.ai.updateDiagrams', 'ade.ai.updateCodebase']);
 	});
 
 	test('an unlinked open project delegates updates without opening a codebase picker', async () => {
@@ -73,7 +73,7 @@ suite('A.D.E sidebar project shortcuts', () => {
 
 	test('source inventories offer generation while manual editing waits for published diagrams', () => {
 		const f = fixture(); f.project.model.id = 'code:inventory'; f.changed.fire();
-		assert.deepStrictEqual(f.buttons().map(button => button.disabled), [true, false]);
+		assert.deepStrictEqual(f.buttons().map(button => button.disabled), [true, false, false]);
 		assert.ok(root.textContent?.includes('Source inventory ready'));
 	});
 
@@ -82,6 +82,6 @@ suite('A.D.E sidebar project shortcuts', () => {
 		await f.configuration.setUserConfiguration('chat.disableAIFeatures', true);
 		f.configuration.onDidChangeConfigurationEmitter.fire(Object.assign(new (mock<IConfigurationChangeEvent>())(), { affectsConfiguration: (key: string) => key === 'chat.disableAIFeatures' }));
 		f.buttons()[1].click();
-		assert.deepStrictEqual([f.buttons().map(button => button.disabled), f.commands, root.textContent?.includes('AI features are disabled')], [[false, true], [], true]);
+		assert.deepStrictEqual([f.buttons().map(button => button.disabled), f.commands, root.textContent?.includes('AI features are disabled')], [[false, true, true], [], true]);
 	});
 });

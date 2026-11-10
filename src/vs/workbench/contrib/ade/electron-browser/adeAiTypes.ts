@@ -31,7 +31,7 @@ export interface ModelBenchmark {
 	models: { candidate: { config: CliConfig; rates?: ModelRates }; eligible: boolean; estimatedConsumption: number | null; cases: { repository?: string; language?: string; direction?: string; passed: boolean; durationMs: number; inputTokens: number | null; outputTokens: number | null }[] }[];
 }
 
-export type AdeAiProject = Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'saveError' | 'projectRoot' | 'modelUri' | 'activeView' | 'onDidChange' | 'revert' | 'editable' | 'error'>;
+export type AdeAiProject = Pick<AdeProjectService, '_serviceBrand' | 'model' | 'save' | 'saveError' | 'projectRoot' | 'modelUri' | 'activeView' | 'onDidChange' | 'onDidSaveModel' | 'lastSavedChange' | 'hasStructuralErrors' | 'revert' | 'editable' | 'error'>;
 
 /** Shared execution boundary; each workflow owns its own session and disposables. */
 export interface AdeAiWorkflow {
