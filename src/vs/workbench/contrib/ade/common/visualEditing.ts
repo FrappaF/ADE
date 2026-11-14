@@ -62,6 +62,7 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 		}
 		case 'c4View':
 		case 'diagram':
+		case 'includeRelation':
 		case 'include':
 		case 'exclude':
 		case 'position':

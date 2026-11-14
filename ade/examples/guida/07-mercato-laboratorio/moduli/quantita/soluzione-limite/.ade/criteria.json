@@ -1,6 +1,6 @@
 {
 	"version": 1,
-	"revision": "99832774-ef1d-43d6-a0d6-25db293e0437",
+	"revision": "0b3e97cd-a800-4910-899d-d087050d3ec4",
 	"cases": [
 		{
 			"id": "quantity.0",
@@ -69,6 +69,24 @@
 			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
 			"input": {
 				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 9007199254740992
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "Zero quantità",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 0
+			},
+			"expected": false
+		},
+		{
+			"id": "Testo non numerico",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": "due"
 			},
 			"expected": "typeError"
 		},

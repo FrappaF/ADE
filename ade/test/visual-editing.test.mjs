@@ -98,3 +98,33 @@ test('editing a relationship preserves its identity across views and rejects inc
 	assert.throws(() => applyVisualEdit(checkoutModel, { ...edit, relationKind: 'write', from: 'customer' }));
 	assert.notEqual(checkoutModel.semantics.relations.find(relation => relation.id === original.id).kind, 'read');
 });
+
+test('ordinary diagrams reuse compatible relationships without duplicating shared identities or changing other views', async () => {
+	const { getAvailableDiagramRelations } = await import('../../src/vs/workbench/contrib/ade/common/visualEditSupport.ts');
+	let model = applyVisualEdit(empty(), { kind: 'diagram', id: 'source', name: 'Components', viewKind: 'component' });
+	for (const id of ['provider', 'consumer', 'outside']) {
+		model = applyVisualEdit(model, { kind: 'element', id, name: id, elementKind: 'component', viewId: 'source' });
+	}
+	model = applyVisualEdit(model, { kind: 'relation', id: 'dependency', from: 'consumer', to: 'provider', name: 'Uses', relationKind: 'dependency', viewId: 'source' });
+	model = applyVisualEdit(model, { kind: 'relation', id: 'hidden', from: 'consumer', to: 'outside', name: 'Outside', relationKind: 'dependency', viewId: 'source' });
+	model = applyVisualEdit(model, { kind: 'diagram', id: 'target', name: 'Reuse', viewKind: 'component' });
+	for (const id of ['provider', 'consumer']) { model = applyVisualEdit(model, { kind: 'include', id, viewId: 'target' }); }
+	const before = structuredClone(model);
+	assert.deepEqual(getAvailableDiagramRelations(model, model.views[1]).map(relation => relation.id), ['dependency']);
+	assert.throws(() => applyVisualEdit(model, { kind: 'includeRelation', id: 'hidden', viewId: 'target' }));
+	assert.throws(() => applyVisualEdit(model, { kind: 'includeRelation', id: 'missing', viewId: 'target' }));
+	model = applyVisualEdit(model, { kind: 'includeRelation', id: 'dependency', viewId: 'target' });
+	assert.deepEqual(model.semantics, before.semantics);
+	assert.deepEqual(model.views[0], before.views[0]);
+	assert.deepEqual(model.views[1].nodes, before.views[1].nodes);
+	assert.deepEqual(model.views[1].relationIds, ['dependency']);
+	assert.deepEqual(getAvailableDiagramRelations(model, model.views[1]), []);
+	assert.deepEqual(applyVisualEdit(model, { kind: 'includeRelation', id: 'dependency', viewId: 'target' }), model);
+	assert.deepEqual(applyVisualEdit(model, { kind: 'exclude', target: 'relation', id: 'dependency', viewId: 'target' }), before);
+	const network = { ...before.views[1], kind: 'network' };
+	assert.deepEqual(getAvailableDiagramRelations(before, network), []);
+	for (const kind of ['sequence', 'state']) {
+		assert.deepEqual(getAvailableDiagramRelations(before, { ...before.views[1], kind }), []);
+	}
+	assert.deepEqual(getAvailableDiagramRelations(before, { ...before.views[1], interactionId: 'derived' }), []);
+});

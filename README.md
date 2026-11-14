@@ -77,11 +77,12 @@ Per gli avvii successivi, dalla radice del clone bastano `nvm use` e `./ade/scri
 
 ## Imparare a usare ADE
 
-La [guida completa per utenti esterni](ade/docs/guida-utente/README.md) accompagna dalla prima apertura a diagrammi, contratti, casi indipendenti, codice e collaborazione IA. È organizzata in tre parti: tour di Bottega Ordini con acquisto, resi e rimborsi; laboratorio Mercato da zero con checkpoint e moduli eseguibili; atlante dettagliato delle 16 notazioni. Include 31 immagini dell’interfaccia e una soluzione Mercato con 18 viste.
+La [guida completa per utenti esterni](ade/docs/guida-utente/README.md) accompagna dalla prima apertura a diagrammi, contratti, casi indipendenti, codice e collaborazione IA. È organizzata in tre parti: tour di Bottega Ordini con acquisto, resi e rimborsi; laboratorio Mercato da zero con checkpoint e moduli eseguibili; atlante dettagliato delle 16 notazioni. Include 32 immagini dell’interfaccia e una soluzione Mercato con 18 viste.
 
 - [Guida PDF](ade/docs/guida-utente/Guida-ADE.pdf), con indice e collegamenti.
 - [Guida HTML da scaricare e aprire nel browser](ade/docs/guida-utente/Guida-ADE.html), consultabile offline con ricerca e immagini ingrandibili.
 - [Progetti di esempio pronti da estrarre](ade/docs/guida-utente/progetti-esempio.zip).
+- [Verifica del laboratorio da primo utilizzo](ade/docs/guida-utente/VERIFICA-LABORATORIO.md), con problemi corretti, prove e limiti rimasti.
 - [Esempi in cartelle](ade/examples/guida/INIZIA-QUI.md), per chi usa il clone.
 
 Copia le cartelle degli esempi in uno spazio di lavoro separato dal clone dell’IDE. Inizia con **Open Project** su `01-bottega-visuale`; prosegui con il template `02-quantita-ordine`. La modellazione e il laboratorio eseguibile non richiedono account IA o modifiche manuali al JSON. Per provare importazione ed evidenze usa **Import Codebase** su `03-codebase-ordini`.

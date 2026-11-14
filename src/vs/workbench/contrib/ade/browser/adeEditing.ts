@@ -64,7 +64,7 @@ class EditingUI implements AdeEditingContext {
 			case 'reload': return runAdeProjectCommand(this, command);
 		}
 		if (!this.project.editable) { return; }
-		if (this.project.activeView && getProjectedInteraction(this.project.model, this.project.activeView) && ['addElement', 'addExisting', 'addSequenceMessage', 'connect', 'removeElementFromDiagram', 'removeRelationFromDiagram', 'layout'].includes(command)) {
+		if (this.project.activeView && getProjectedInteraction(this.project.model, this.project.activeView) && ['addElement', 'addExisting', 'addExistingRelation', 'addSequenceMessage', 'connect', 'removeElementFromDiagram', 'removeRelationFromDiagram', 'layout'].includes(command)) {
 			throw new Error(localize('ade.interaction.derivedEdit', "This diagram is derived from its linked behavior. Edit the interaction or scenario to change its participants and messages."));
 		}
 		switch (command) {
@@ -91,6 +91,7 @@ class EditingUI implements AdeEditingContext {
 			case 'deleteElement': return runAdeStructureCommand(this, command, id);
 			case 'addDiagram':
 			case 'addElement':
+			case 'addExistingRelation':
 			case 'addExisting':
 			case 'addExistingState':
 			case 'includeLifecycle':

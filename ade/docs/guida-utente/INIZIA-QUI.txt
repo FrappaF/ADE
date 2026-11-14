@@ -7,6 +7,6 @@ GUIDA COMPLETA AD ADE
 5. Nella Parte II costruisci Mercato da zero. Parti da 07-mercato-laboratorio/inizio o da una cartella nuova.
 6. Usa la Parte III come atlante delle 16 notazioni.
 
-Il materiale comprende tre parti e appendici operative, 51 capitoli e 31 immagini dell’interfaccia. Bottega ha due feature e otto viste. Mercato include 18 viste, due checkpoint, moduli eseguibili e codice di esempio. Ogni sottoprogetto ADE va aperto sulla propria root.
+Il materiale comprende tre parti e appendici operative, 51 capitoli e 32 immagini dell’interfaccia. Bottega ha due feature e otto viste. Mercato include 18 viste, due checkpoint, moduli eseguibili e codice di esempio. Ogni sottoprogetto ADE va aperto sulla propria root.
 
 Progettazione e laboratori locali non richiedono un account IA né modifiche manuali al JSON. Le lezioni IA indicano account, modello, contesto e review richiesti.

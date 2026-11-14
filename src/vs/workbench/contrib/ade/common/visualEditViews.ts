@@ -7,10 +7,10 @@ import { type SemanticModel } from './modelTypes.js';
 import { getStateDiagram } from './stateDiagram.js';
 import { arrangeDiagram } from './diagramLayout.js';
 import { type VisualEditContext, type VisualEditOf } from './visualEditTypes.js';
-import { includeElement, excludeFromView, isDiagramContextElement } from './visualEditSupport.js';
+import { getAvailableDiagramRelations, includeElement, excludeFromView, isDiagramContextElement } from './visualEditSupport.js';
 
 /** Views edits share the caller's transaction and validation boundary. */
-export function applyViewsVisualEdit(context: VisualEditContext, edit: VisualEditOf<'c4View' | 'diagram' | 'include' | 'exclude' | 'position' | 'layout' | 'deleteDiagram'>): SemanticModel | undefined {
+export function applyViewsVisualEdit(context: VisualEditContext, edit: VisualEditOf<'c4View' | 'diagram' | 'include' | 'includeRelation' | 'exclude' | 'position' | 'layout' | 'deleteDiagram'>): SemanticModel | undefined {
 	const { candidate, view } = context;
 	switch (edit.kind) {
 		case 'c4View': candidate.views = candidate.views.some(view => view.id === edit.view.id) ? candidate.views.map(view => view.id === edit.view.id ? structuredClone(edit.view) : view) : [...candidate.views, structuredClone(edit.view)]; break;
@@ -24,6 +24,13 @@ export function applyViewsVisualEdit(context: VisualEditContext, edit: VisualEdi
 			if (diagram.kind === 'state' && element?.kind === 'state' && !getStateDiagram(candidate, diagram).groups.some(group => group.resource.id === element.parentId)) { throw new Error(`Resource is outside this state diagram: ${element.parentId}`); }
 			if (isDiagramContextElement(candidate, diagram, edit.id)) { diagram.contextIds = [...new Set([...(diagram.contextIds ?? []), edit.id])]; }
 			includeElement(diagram, edit.id, candidate);
+			break;
+		}
+		case 'includeRelation': {
+			const diagram = view(edit.viewId);
+			if (diagram.relationIds.includes(edit.id)) { break; }
+			if (!getAvailableDiagramRelations(candidate, diagram).some(relation => relation.id === edit.id)) { throw new Error(`Relationship cannot be included in this diagram: ${edit.id}`); }
+			diagram.relationIds.push(edit.id);
 			break;
 		}
 		case 'exclude':

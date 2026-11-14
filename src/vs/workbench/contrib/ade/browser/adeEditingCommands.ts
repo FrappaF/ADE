@@ -26,6 +26,7 @@ export const adeEditingCommands = [
 	['relationNotation', localize2('ade.relationNotation', "A.D.E: Edit Cardinalities and Protocol")],
 	['addDiagram', localize2('ade.addDiagram', "A.D.E: Add Diagram")],
 	['addElement', localize2('ade.addElement', "A.D.E: Add Element")],
+	['addExistingRelation', localize2('ade.addExistingRelation.command', "A.D.E: Add Existing Relationship")],
 	['addExisting', localize2('ade.addExisting', "A.D.E: Add Existing Element")],
 	['addExistingState', localize2('ade.state.addExisting.command', "A.D.E: Add Existing State")],
 	['includeLifecycle', localize2('ade.state.includeLifecycle.command', "A.D.E: Include Resource Lifecycle")],

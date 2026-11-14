@@ -1,2141 +1,1453 @@
 {
-  "version": 4,
-  "id": "mercato-laboratorio",
-  "name": "Mercato - E-commerce didattico",
-  "semantics": {
-    "elements": [
-      {
-        "id": "person.buyer",
-        "kind": "actor",
-        "name": "Cliente",
-        "description": "Progetto didattico: Cliente"
-      },
-      {
-        "id": "system.shop",
-        "kind": "system",
-        "name": "Mercato",
-        "scope": "governed",
-        "description": "Progetto didattico: Mercato"
-      },
-      {
-        "id": "system.payments",
-        "kind": "system",
-        "name": "Pagamenti esterni",
-        "scope": "external",
-        "description": "Progetto didattico: Pagamenti esterni"
-      },
-      {
-        "id": "container.api",
-        "kind": "container",
-        "name": "API Mercato",
-        "runtimeKind": "service",
-        "description": "Progetto didattico: API Mercato"
-      },
-      {
-        "id": "container.store",
-        "kind": "container",
-        "name": "Archivio Mercato",
-        "runtimeKind": "store",
-        "description": "Progetto didattico: Archivio Mercato"
-      },
-      {
-        "id": "component.checkout",
-        "kind": "component",
-        "name": "Checkout",
-        "description": "Progetto didattico: Checkout"
-      },
-      {
-        "id": "component.audit",
-        "kind": "component",
-        "name": "Registro esiti",
-        "description": "Progetto didattico: Registro esiti"
-      },
-      {
-        "id": "component.stock",
-        "kind": "component",
-        "name": "Scorte",
-        "description": "Progetto didattico: Scorte"
-      },
-      {
-        "id": "contract.checkout",
-        "kind": "contract",
-        "name": "Contratto acquisto",
-        "description": "Progetto didattico: Contratto acquisto"
-      },
-      {
-        "id": "contract.stockRequired",
-        "kind": "interface",
-        "name": "Scorte richieste",
-        "description": "Progetto didattico: Scorte richieste"
-      },
-      {
-        "id": "contract.stockProvided",
-        "kind": "interface",
-        "name": "Scorte fornite",
-        "description": "Progetto didattico: Scorte fornite"
-      },
-      {
-        "id": "feature.catalog",
-        "kind": "feature",
-        "name": "Catalogo prodotti"
-      },
-      {
-        "id": "feature.purchase",
-        "kind": "feature",
-        "name": "Acquisto"
-      },
-      {
-        "id": "feature.returns",
-        "kind": "feature",
-        "name": "Resi e rimborsi"
-      },
-      {
-        "id": "person.support",
-        "kind": "actor",
-        "name": "Assistenza"
-      },
-      {
-        "id": "system.carrier",
-        "kind": "system",
-        "name": "Corriere esterno",
-        "scope": "external"
-      },
-      {
-        "id": "container.web",
-        "kind": "container",
-        "name": "Web shop",
-        "runtimeKind": "spa"
-      },
-      {
-        "id": "container.broker",
-        "kind": "container",
-        "name": "Broker eventi",
-        "runtimeKind": "messaging"
-      },
-      {
-        "id": "component.returns",
-        "kind": "component",
-        "name": "Gestione resi"
-      },
-      {
-        "id": "resource.order",
-        "kind": "resource",
-        "name": "Ordine",
-        "parentId": "feature.purchase"
-      },
-      {
-        "id": "resource.return",
-        "kind": "resource",
-        "name": "Richiesta di reso",
-        "parentId": "feature.returns"
-      },
-      {
-        "id": "entity.customer",
-        "kind": "entity",
-        "name": "Cliente",
-        "details": {
-          "technology": "",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "entity.customer.id",
-              "name": "customerId",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            },
-            {
-              "id": "entity.customer.email",
-              "name": "email",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "entity.order",
-        "kind": "entity",
-        "name": "Ordine",
-        "details": {
-          "technology": "",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "entity.order.id",
-              "name": "orderId",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            },
-            {
-              "id": "entity.order.total",
-              "name": "totalCents",
-              "type": "integer",
-              "typeId": "type.count",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "entity.line",
-        "kind": "entity",
-        "name": "Riga ordine",
-        "details": {
-          "technology": "",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "entity.line.quantity",
-              "name": "quantity",
-              "type": "integer",
-              "typeId": "type.count",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            },
-            {
-              "id": "entity.line.price",
-              "name": "unitPriceCents",
-              "type": "integer",
-              "typeId": "type.count",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "entity.product",
-        "kind": "entity",
-        "name": "Prodotto",
-        "details": {
-          "technology": "",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "entity.product.sku",
-              "name": "sku",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            },
-            {
-              "id": "entity.product.price",
-              "name": "priceCents",
-              "type": "integer",
-              "typeId": "type.count",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "entity.return",
-        "kind": "entity",
-        "name": "Reso",
-        "details": {
-          "technology": "",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "entity.return.id",
-              "name": "returnId",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            },
-            {
-              "id": "entity.return.reason",
-              "name": "reason",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "table.customers",
-        "kind": "table",
-        "name": "customers",
-        "details": {
-          "technology": "SQL progettato",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "table.customers.id",
-              "name": "id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "primary",
-              "required": true
-            },
-            {
-              "id": "table.customers.email",
-              "name": "email",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "unique",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "table.orders",
-        "kind": "table",
-        "name": "orders",
-        "details": {
-          "technology": "SQL progettato",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "table.orders.id",
-              "name": "id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "primary",
-              "required": true
-            },
-            {
-              "id": "table.orders.customer_id",
-              "name": "customer_id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "foreign",
-              "required": true
-            },
-            {
-              "id": "table.orders.total_cents",
-              "name": "total_cents",
-              "type": "integer",
-              "typeId": "type.count",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "table.lines",
-        "kind": "table",
-        "name": "order_lines",
-        "details": {
-          "technology": "SQL progettato",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "table.lines.id",
-              "name": "id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "primary",
-              "required": true
-            },
-            {
-              "id": "table.lines.order_id",
-              "name": "order_id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "foreign",
-              "required": true
-            },
-            {
-              "id": "table.lines.product_id",
-              "name": "product_id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "foreign",
-              "required": true
-            },
-            {
-              "id": "table.lines.quantity",
-              "name": "quantity",
-              "type": "integer",
-              "typeId": "type.count",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "table.products",
-        "kind": "table",
-        "name": "products",
-        "details": {
-          "technology": "SQL progettato",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "table.products.id",
-              "name": "id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "primary",
-              "required": true
-            },
-            {
-              "id": "table.products.sku",
-              "name": "sku",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "unique",
-              "required": true
-            },
-            {
-              "id": "table.products.price_cents",
-              "name": "price_cents",
-              "type": "integer",
-              "typeId": "type.count",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "table.returns",
-        "kind": "table",
-        "name": "returns",
-        "details": {
-          "technology": "SQL progettato",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "table.returns.id",
-              "name": "id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "primary",
-              "required": true
-            },
-            {
-              "id": "table.returns.order_id",
-              "name": "order_id",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "foreign",
-              "required": true
-            },
-            {
-              "id": "table.returns.reason",
-              "name": "reason",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "class.order",
-        "kind": "class",
-        "name": "Order",
-        "details": {
-          "technology": "JavaScript ESM",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "class.order.id",
-              "name": "orderId",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            },
-            {
-              "id": "class.order.total",
-              "name": "totalCents",
-              "type": "integer",
-              "typeId": "type.count",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "attribute",
-              "key": "none",
-              "required": true
-            },
-            {
-              "id": "class.order.confirm",
-              "name": "confirm",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "method",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "class.checkout",
-        "kind": "class",
-        "name": "CheckoutService",
-        "details": {
-          "technology": "JavaScript ESM",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "class.checkout.submit",
-              "name": "submit",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "method",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "interface.repository",
-        "kind": "interface",
-        "name": "OrderRepository",
-        "details": {
-          "technology": "",
-          "environment": "Didattico locale",
-          "members": [
-            {
-              "id": "repo.save",
-              "name": "save",
-              "type": "string",
-              "typeId": "type.text",
-              "nullable": {
-                "state": "known",
-                "value": false
-              },
-              "kind": "method",
-              "key": "none",
-              "required": true
-            }
-          ]
-        }
-      },
-      {
-        "id": "package.domain",
-        "kind": "package",
-        "name": "Dominio"
-      },
-      {
-        "id": "package.app",
-        "kind": "package",
-        "name": "Applicazione"
-      },
-      {
-        "id": "package.adapters",
-        "kind": "package",
-        "name": "Adapter"
-      },
-      {
-        "id": "host.web",
-        "kind": "deploymentNode",
-        "name": "Host Web",
-        "details": {
-          "technology": "Processo locale progettato",
-          "environment": "Didattico locale",
-          "members": []
-        }
-      },
-      {
-        "id": "host.api",
-        "kind": "deploymentNode",
-        "name": "Host API",
-        "details": {
-          "technology": "Processo locale progettato",
-          "environment": "Didattico locale",
-          "members": []
-        }
-      },
-      {
-        "id": "host.data",
-        "kind": "deploymentNode",
-        "name": "Host dati",
-        "details": {
-          "technology": "Processo locale progettato",
-          "environment": "Didattico locale",
-          "members": []
-        }
-      },
-      {
-        "id": "artifact.web",
-        "kind": "artifact",
-        "name": "Web bundle"
-      },
-      {
-        "id": "artifact.api",
-        "kind": "artifact",
-        "name": "API ESM"
-      },
-      {
-        "id": "network.public",
-        "kind": "networkNode",
-        "name": "Rete client"
-      },
-      {
-        "id": "network.private",
-        "kind": "networkNode",
-        "name": "Rete backend"
-      },
-      {
-        "id": "uc.buy",
-        "kind": "useCase",
-        "name": "Confermare acquisto",
-        "parentId": "system.shop"
-      },
-      {
-        "id": "uc.pay",
-        "kind": "useCase",
-        "name": "Autorizzare pagamento",
-        "parentId": "system.shop"
-      },
-      {
-        "id": "uc.coupon",
-        "kind": "useCase",
-        "name": "Applicare coupon",
-        "parentId": "system.shop"
-      },
-      {
-        "id": "uc.return",
-        "kind": "useCase",
-        "name": "Richiedere reso",
-        "parentId": "system.shop"
-      },
-      {
-        "id": "process.checkout",
-        "kind": "process",
-        "name": "Elabora ordine"
-      },
-      {
-        "id": "process.return",
-        "kind": "process",
-        "name": "Valuta reso"
-      },
-      {
-        "id": "store.orders",
-        "kind": "dataStore",
-        "name": "Dati ordini"
-      },
-      {
-        "id": "store.products",
-        "kind": "dataStore",
-        "name": "Dati catalogo"
-      },
-      {
-        "id": "flow.start",
-        "kind": "start",
-        "name": "Inizio",
-        "parentId": "feature.purchase"
-      },
-      {
-        "id": "flow.validate",
-        "kind": "action",
-        "name": "Valida carrello",
-        "parentId": "feature.purchase"
-      },
-      {
-        "id": "flow.stock",
-        "kind": "decision",
-        "name": "Scorte disponibili?",
-        "parentId": "feature.purchase"
-      },
-      {
-        "id": "flow.pay",
-        "kind": "action",
-        "name": "Richiedi pagamento",
-        "parentId": "feature.purchase"
-      },
-      {
-        "id": "flow.confirm",
-        "kind": "action",
-        "name": "Conferma ordine",
-        "parentId": "feature.purchase"
-      },
-      {
-        "id": "flow.reject",
-        "kind": "action",
-        "name": "Rifiuta ordine",
-        "parentId": "feature.purchase"
-      },
-      {
-        "id": "flow.end",
-        "kind": "end",
-        "name": "Fine",
-        "parentId": "feature.purchase"
-      },
-      {
-        "id": "state.pending",
-        "kind": "state",
-        "name": "In attesa",
-        "parentId": "resource.order"
-      },
-      {
-        "id": "state.paid",
-        "kind": "state",
-        "name": "Confermato",
-        "parentId": "resource.order"
-      },
-      {
-        "id": "state.rejected",
-        "kind": "state",
-        "name": "Rifiutato",
-        "parentId": "resource.order"
-      },
-      {
-        "id": "return.view",
-        "kind": "view",
-        "name": "Pagina resi",
-        "parentId": "feature.returns"
-      },
-      {
-        "id": "return.ctrl",
-        "kind": "controller",
-        "name": "Coordinamento reso",
-        "parentId": "feature.returns"
-      },
-      {
-        "id": "return.check",
-        "kind": "action",
-        "name": "Valuta reso",
-        "parentId": "feature.returns"
-      },
-      {
-        "id": "return.refund",
-        "kind": "action",
-        "name": "Emetti rimborso",
-        "parentId": "feature.returns"
-      },
-      {
-        "id": "return.reject",
-        "kind": "action",
-        "name": "Rifiuta richiesta",
-        "parentId": "feature.returns"
-      }
-    ],
-    "relations": [
-      {
-        "id": "rel.context",
-        "from": "person.buyer",
-        "to": "system.shop",
-        "kind": "communication",
-        "name": "acquista e richiede resi"
-      },
-      {
-        "id": "rel.support",
-        "from": "person.support",
-        "to": "system.shop",
-        "kind": "communication",
-        "name": "gestisce richieste"
-      },
-      {
-        "id": "rel.payment.context",
-        "from": "system.shop",
-        "to": "system.payments",
-        "kind": "communication",
-        "name": "autorizza e rimborsa"
-      },
-      {
-        "id": "rel.carrier",
-        "from": "system.shop",
-        "to": "system.carrier",
-        "kind": "communication",
-        "name": "richiede consegna"
-      },
-      {
-        "id": "rel.web",
-        "from": "person.buyer",
-        "to": "container.web",
-        "kind": "communication",
-        "name": "naviga",
-        "details": {
-          "sourceMultiplicity": "",
-          "targetMultiplicity": "",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": "HTTPS"
-        }
-      },
-      {
-        "id": "rel.api",
-        "from": "container.web",
-        "to": "container.api",
-        "kind": "communication",
-        "name": "invia ordini",
-        "details": {
-          "sourceMultiplicity": "",
-          "targetMultiplicity": "",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": "HTTPS / JSON"
-        }
-      },
-      {
-        "id": "rel.sql",
-        "from": "container.api",
-        "to": "container.store",
-        "kind": "communication",
-        "name": "legge e scrive",
-        "details": {
-          "sourceMultiplicity": "",
-          "targetMultiplicity": "",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": "SQL"
-        }
-      },
-      {
-        "id": "rel.events",
-        "from": "container.api",
-        "to": "container.broker",
-        "kind": "communication",
-        "name": "pubblica eventi",
-        "details": {
-          "sourceMultiplicity": "",
-          "targetMultiplicity": "",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": "Messaggistica dichiarata"
-        }
-      },
-      {
-        "id": "relation.payments",
-        "from": "component.checkout",
-        "to": "system.payments",
-        "kind": "invocation",
-        "name": "autorizza pagamento"
-      },
-      {
-        "id": "relation.stock",
-        "from": "component.checkout",
-        "to": "component.stock",
-        "kind": "dependency",
-        "name": "richiede disponibilità"
-      },
-      {
-        "id": "rel.audit",
-        "from": "component.checkout",
-        "to": "component.audit",
-        "kind": "invocation",
-        "name": "registra esito"
-      },
-      {
-        "id": "rel.contract",
-        "from": "component.checkout",
-        "to": "contract.checkout",
-        "kind": "implementation",
-        "name": "espone contratto"
-      },
-      {
-        "id": "rel.returns.component",
-        "from": "component.returns",
-        "to": "component.checkout",
-        "kind": "dependency",
-        "name": "consulta acquisto"
-      },
-      {
-        "id": "erd.customer.order",
-        "from": "entity.customer",
-        "to": "entity.order",
-        "kind": "association",
-        "name": "effettua",
-        "details": {
-          "sourceMultiplicity": "1",
-          "targetMultiplicity": "0..*",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": ""
-        }
-      },
-      {
-        "id": "erd.order.line",
-        "from": "entity.order",
-        "to": "entity.line",
-        "kind": "association",
-        "name": "contiene",
-        "details": {
-          "sourceMultiplicity": "1",
-          "targetMultiplicity": "1..*",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": ""
-        }
-      },
-      {
-        "id": "erd.line.product",
-        "from": "entity.line",
-        "to": "entity.product",
-        "kind": "association",
-        "name": "riguarda",
-        "details": {
-          "sourceMultiplicity": "0..*",
-          "targetMultiplicity": "1",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": ""
-        }
-      },
-      {
-        "id": "erd.return.order",
-        "from": "entity.return",
-        "to": "entity.order",
-        "kind": "association",
-        "name": "si riferisce a",
-        "details": {
-          "sourceMultiplicity": "0..*",
-          "targetMultiplicity": "1",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": ""
-        }
-      },
-      {
-        "id": "db.order.customer",
-        "from": "table.orders",
-        "to": "table.customers",
-        "kind": "association",
-        "name": "customer_id",
-        "details": {
-          "sourceMultiplicity": "0..*",
-          "targetMultiplicity": "1",
-          "sourceMember": "customer_id",
-          "targetMember": "id",
-          "protocol": ""
-        }
-      },
-      {
-        "id": "db.line.order",
-        "from": "table.lines",
-        "to": "table.orders",
-        "kind": "association",
-        "name": "order_id",
-        "details": {
-          "sourceMultiplicity": "0..*",
-          "targetMultiplicity": "1",
-          "sourceMember": "order_id",
-          "targetMember": "id",
-          "protocol": ""
-        }
-      },
-      {
-        "id": "db.line.product",
-        "from": "table.lines",
-        "to": "table.products",
-        "kind": "association",
-        "name": "product_id",
-        "details": {
-          "sourceMultiplicity": "0..*",
-          "targetMultiplicity": "1",
-          "sourceMember": "product_id",
-          "targetMember": "id",
-          "protocol": ""
-        }
-      },
-      {
-        "id": "db.return.order",
-        "from": "table.returns",
-        "to": "table.orders",
-        "kind": "association",
-        "name": "order_id",
-        "details": {
-          "sourceMultiplicity": "0..*",
-          "targetMultiplicity": "1",
-          "sourceMember": "order_id",
-          "targetMember": "id",
-          "protocol": ""
-        }
-      },
-      {
-        "id": "class.uses",
-        "from": "class.checkout",
-        "to": "class.order",
-        "kind": "dependency",
-        "name": "valida e conferma"
-      },
-      {
-        "id": "class.port",
-        "from": "class.checkout",
-        "to": "interface.repository",
-        "kind": "dependency",
-        "name": "usa contratto"
-      },
-      {
-        "id": "class.impl",
-        "from": "component.audit",
-        "to": "interface.repository",
-        "kind": "implementation",
-        "name": "fornisce persistenza"
-      },
-      {
-        "id": "pkg.app.domain",
-        "from": "package.app",
-        "to": "package.domain",
-        "kind": "dependency",
-        "name": "usa regole"
-      },
-      {
-        "id": "pkg.adapter.domain",
-        "from": "package.adapters",
-        "to": "package.domain",
-        "kind": "dependency",
-        "name": "implementa contratti"
-      },
-      {
-        "id": "pkg.adapter.app",
-        "from": "package.adapters",
-        "to": "package.app",
-        "kind": "dependency",
-        "name": "collega esterni"
-      },
-      {
-        "id": "deploy.web",
-        "from": "host.web",
-        "to": "artifact.web",
-        "kind": "hosting",
-        "name": "ospita"
-      },
-      {
-        "id": "deploy.api",
-        "from": "host.api",
-        "to": "artifact.api",
-        "kind": "hosting",
-        "name": "ospita"
-      },
-      {
-        "id": "deploy.app",
-        "from": "host.api",
-        "to": "container.api",
-        "kind": "hosting",
-        "name": "ospita"
-      },
-      {
-        "id": "deploy.data",
-        "from": "host.data",
-        "to": "container.store",
-        "kind": "hosting",
-        "name": "ospita"
-      },
-      {
-        "id": "net.browser",
-        "from": "network.public",
-        "to": "container.web",
-        "kind": "communication",
-        "name": "accesso web",
-        "details": {
-          "sourceMultiplicity": "",
-          "targetMultiplicity": "",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": "HTTPS 443"
-        }
-      },
-      {
-        "id": "net.api",
-        "from": "network.public",
-        "to": "network.private",
-        "kind": "communication",
-        "name": "confine applicativo",
-        "details": {
-          "sourceMultiplicity": "",
-          "targetMultiplicity": "",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": "HTTPS 443"
-        }
-      },
-      {
-        "id": "net.backend",
-        "from": "network.private",
-        "to": "container.api",
-        "kind": "communication",
-        "name": "API",
-        "details": {
-          "sourceMultiplicity": "",
-          "targetMultiplicity": "",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": "HTTPS / JSON"
-        }
-      },
-      {
-        "id": "net.data",
-        "from": "container.api",
-        "to": "container.store",
-        "kind": "communication",
-        "name": "persistenza",
-        "details": {
-          "sourceMultiplicity": "",
-          "targetMultiplicity": "",
-          "sourceMember": "",
-          "targetMember": "",
-          "protocol": "SQL"
-        }
-      },
-      {
-        "id": "uc.actor.buy",
-        "from": "person.buyer",
-        "to": "uc.buy",
-        "kind": "association",
-        "name": "avvia"
-      },
-      {
-        "id": "uc.actor.return",
-        "from": "person.buyer",
-        "to": "uc.return",
-        "kind": "association",
-        "name": "richiede"
-      },
-      {
-        "id": "uc.support",
-        "from": "person.support",
-        "to": "uc.return",
-        "kind": "association",
-        "name": "gestisce"
-      },
-      {
-        "id": "uc.include",
-        "from": "uc.buy",
-        "to": "uc.pay",
-        "kind": "include",
-        "name": "include"
-      },
-      {
-        "id": "uc.extend",
-        "from": "uc.coupon",
-        "to": "uc.buy",
-        "kind": "extend",
-        "name": "extend",
-        "condition": "coupon presente"
-      },
-      {
-        "id": "df.request",
-        "from": "person.buyer",
-        "to": "process.checkout",
-        "kind": "dataFlow",
-        "name": "dati acquisto"
-      },
-      {
-        "id": "df.catalog",
-        "from": "store.products",
-        "to": "process.checkout",
-        "kind": "dataFlow",
-        "name": "prezzi e disponibilità"
-      },
-      {
-        "id": "df.order",
-        "from": "process.checkout",
-        "to": "store.orders",
-        "kind": "dataFlow",
-        "name": "ordine confermato"
-      },
-      {
-        "id": "df.result",
-        "from": "process.checkout",
-        "to": "person.buyer",
-        "kind": "dataFlow",
-        "name": "esito acquisto"
-      },
-      {
-        "id": "flow.1",
-        "from": "flow.start",
-        "to": "flow.validate",
-        "kind": "controlFlow",
-        "name": "avvia"
-      },
-      {
-        "id": "flow.2",
-        "from": "flow.validate",
-        "to": "flow.stock",
-        "kind": "controlFlow",
-        "name": "controlla"
-      },
-      {
-        "id": "flow.3",
-        "from": "flow.stock",
-        "to": "flow.pay",
-        "kind": "controlFlow",
-        "name": "prosegui",
-        "condition": "disponibili"
-      },
-      {
-        "id": "flow.4",
-        "from": "flow.stock",
-        "to": "flow.reject",
-        "kind": "controlFlow",
-        "name": "rifiuta",
-        "condition": "non disponibili"
-      },
-      {
-        "id": "flow.5",
-        "from": "flow.pay",
-        "to": "flow.confirm",
-        "kind": "controlFlow",
-        "name": "conferma",
-        "condition": "pagamento autorizzato"
-      },
-      {
-        "id": "flow.6",
-        "from": "flow.pay",
-        "to": "flow.reject",
-        "kind": "controlFlow",
-        "name": "rifiuta",
-        "condition": "pagamento rifiutato"
-      },
-      {
-        "id": "flow.7",
-        "from": "flow.confirm",
-        "to": "flow.end",
-        "kind": "controlFlow",
-        "name": "termina"
-      },
-      {
-        "id": "flow.8",
-        "from": "flow.reject",
-        "to": "flow.end",
-        "kind": "controlFlow",
-        "name": "termina"
-      },
-      {
-        "id": "seq.request",
-        "from": "person.buyer",
-        "to": "component.checkout",
-        "kind": "invocation",
-        "name": "conferma acquisto"
-      },
-      {
-        "id": "seq.save",
-        "from": "component.checkout",
-        "to": "resource.order",
-        "kind": "write",
-        "name": "registra ordine",
-        "condition": "pagamento autorizzato"
-      },
-      {
-        "id": "state.accept",
-        "from": "state.pending",
-        "to": "state.paid",
-        "kind": "transition",
-        "name": "Pagamento autorizzato",
-        "condition": "esito positivo"
-      },
-      {
-        "id": "state.reject",
-        "from": "state.pending",
-        "to": "state.rejected",
-        "kind": "transition",
-        "name": "Pagamento rifiutato",
-        "condition": "esito negativo"
-      },
-      {
-        "id": "returns.req",
-        "from": "person.buyer",
-        "to": "return.view",
-        "kind": "invocation",
-        "name": "chiede reso"
-      },
-      {
-        "id": "returns.send",
-        "from": "return.view",
-        "to": "return.ctrl",
-        "kind": "invocation",
-        "name": "invia richiesta"
-      },
-      {
-        "id": "returns.read",
-        "from": "return.ctrl",
-        "to": "resource.order",
-        "kind": "read",
-        "name": "verifica acquisto"
-      },
-      {
-        "id": "returns.write",
-        "from": "return.ctrl",
-        "to": "resource.return",
-        "kind": "write",
-        "name": "registra reso"
-      },
-      {
-        "id": "returns.yes",
-        "from": "return.check",
-        "to": "return.refund",
-        "kind": "invocation",
-        "name": "autorizza",
-        "condition": "entro 30 giorni"
-      },
-      {
-        "id": "returns.no",
-        "from": "return.check",
-        "to": "return.reject",
-        "kind": "invocation",
-        "name": "rifiuta",
-        "condition": "termine superato"
-      },
-      {
-        "id": "rel.web.checkout",
-        "from": "container.web",
-        "to": "component.checkout",
-        "kind": "invocation",
-        "name": "invia acquisto"
-      }
-    ]
-  },
-  "views": [
-    {
-      "id": "lab.structure",
-      "name": "01 Panoramica delle responsabilità",
-      "kind": "structure",
-      "nodes": [
-        {
-          "elementId": "person.buyer",
-          "x": 0,
-          "y": 100
-        },
-        {
-          "elementId": "container.web",
-          "x": 300,
-          "y": 100
-        },
-        {
-          "elementId": "component.checkout",
-          "x": 600,
-          "y": 100
-        },
-        {
-          "elementId": "resource.order",
-          "x": 900,
-          "y": 100
-        },
-        {
-          "elementId": "system.payments",
-          "x": 600,
-          "y": 360
-        },
-        {
-          "elementId": "component.returns",
-          "x": 900,
-          "y": 360
-        }
-      ],
-      "relationIds": [
-        "rel.web",
-        "rel.web.checkout",
-        "seq.save",
-        "relation.payments",
-        "rel.returns.component"
-      ]
-    },
-    {
-      "id": "lab.context",
-      "name": "02 C4 Contesto Mercato",
-      "kind": "c4Context",
-      "nodes": [
-        {
-          "elementId": "person.buyer",
-          "x": 80,
-          "y": 100
-        },
-        {
-          "elementId": "system.shop",
-          "x": 410,
-          "y": 100
-        },
-        {
-          "elementId": "system.payments",
-          "x": 740,
-          "y": 100
-        },
-        {
-          "elementId": "person.support",
-          "x": 80,
-          "y": 320
-        },
-        {
-          "elementId": "system.carrier",
-          "x": 410,
-          "y": 320
-        }
-      ],
-      "relationIds": [
-        "rel.context",
-        "rel.support",
-        "rel.payment.context",
-        "rel.carrier"
-      ],
-      "subjectId": "system.shop",
-      "contextIds": [
-        "person.buyer",
-        "person.support",
-        "system.payments",
-        "system.carrier"
-      ]
-    },
-    {
-      "id": "lab.containers",
-      "name": "03 C4 Applicazioni e dati",
-      "kind": "c4Container",
-      "nodes": [
-        {
-          "elementId": "system.shop",
-          "x": 400,
-          "y": 0
-        },
-        {
-          "elementId": "person.buyer",
-          "x": 0,
-          "y": 180
-        },
-        {
-          "elementId": "container.web",
-          "x": 400,
-          "y": 180
-        },
-        {
-          "elementId": "container.api",
-          "x": 740,
-          "y": 180
-        },
-        {
-          "elementId": "container.store",
-          "x": 740,
-          "y": 450
-        },
-        {
-          "elementId": "container.broker",
-          "x": 400,
-          "y": 450
-        }
-      ],
-      "relationIds": [
-        "rel.web",
-        "rel.api",
-        "rel.sql",
-        "rel.events"
-      ],
-      "subjectId": "system.shop",
-      "contextIds": [
-        "person.buyer"
-      ]
-    },
-    {
-      "id": "lab.components",
-      "name": "04 C4 Componenti API",
-      "kind": "c4Component",
-      "nodes": [
-        {
-          "elementId": "container.api",
-          "x": 300,
-          "y": 0
-        },
-        {
-          "elementId": "component.checkout",
-          "x": 300,
-          "y": 160
-        },
-        {
-          "elementId": "component.audit",
-          "x": 640,
-          "y": 160
-        },
-        {
-          "elementId": "component.returns",
-          "x": 300,
-          "y": 430
-        },
-        {
-          "elementId": "contract.checkout",
-          "x": 1040,
-          "y": 430
-        },
-        {
-          "elementId": "component.stock",
-          "x": 1040,
-          "y": 160
-        }
-      ],
-      "relationIds": [
-        "rel.audit",
-        "rel.contract",
-        "rel.returns.component",
-        "relation.stock"
-      ],
-      "subjectId": "container.api",
-      "contextIds": [
-        "contract.checkout"
-      ]
-    },
-    {
-      "id": "lab.erd",
-      "name": "05 Entità e cardinalità",
-      "kind": "erd",
-      "nodes": [
-        {
-          "elementId": "entity.customer",
-          "x": 0,
-          "y": 60
-        },
-        {
-          "elementId": "entity.order",
-          "x": 360,
-          "y": 60
-        },
-        {
-          "elementId": "entity.line",
-          "x": 720,
-          "y": 60
-        },
-        {
-          "elementId": "entity.product",
-          "x": 720,
-          "y": 400
-        },
-        {
-          "elementId": "entity.return",
-          "x": 0,
-          "y": 400
-        }
-      ],
-      "relationIds": [
-        "erd.customer.order",
-        "erd.order.line",
-        "erd.line.product",
-        "erd.return.order"
-      ]
-    },
-    {
-      "id": "lab.database",
-      "name": "06 Schema dati progettato",
-      "kind": "databaseSchema",
-      "nodes": [
-        {
-          "elementId": "table.customers",
-          "x": 0,
-          "y": 50
-        },
-        {
-          "elementId": "table.orders",
-          "x": 360,
-          "y": 50
-        },
-        {
-          "elementId": "table.lines",
-          "x": 720,
-          "y": 50
-        },
-        {
-          "elementId": "table.products",
-          "x": 720,
-          "y": 420
-        },
-        {
-          "elementId": "table.returns",
-          "x": 360,
-          "y": 420
-        }
-      ],
-      "relationIds": [
-        "db.order.customer",
-        "db.line.order",
-        "db.line.product",
-        "db.return.order"
-      ]
-    }
-  ],
-  "foundation": {
-    "ownership": [
-      {
-        "id": "ownership.container.api",
-        "elementId": "container.api",
-        "ownerId": "system.shop",
-        "role": "architecture"
-      },
-      {
-        "id": "ownership.container.store",
-        "elementId": "container.store",
-        "ownerId": "system.shop",
-        "role": "architecture"
-      },
-      {
-        "id": "ownership.component.checkout",
-        "elementId": "component.checkout",
-        "ownerId": "container.api",
-        "role": "architecture"
-      },
-      {
-        "id": "ownership.component.audit",
-        "elementId": "component.audit",
-        "ownerId": "container.api",
-        "role": "architecture"
-      },
-      {
-        "id": "ownership.component.stock",
-        "elementId": "component.stock",
-        "ownerId": "container.api",
-        "role": "architecture"
-      },
-      {
-        "id": "ownership.contract.checkout",
-        "elementId": "contract.checkout",
-        "ownerId": "component.checkout",
-        "role": "architecture"
-      },
-      {
-        "id": "ownership.contract.stockRequired",
-        "elementId": "contract.stockRequired",
-        "ownerId": "component.checkout",
-        "role": "architecture"
-      },
-      {
-        "id": "ownership.contract.stockProvided",
-        "elementId": "contract.stockProvided",
-        "ownerId": "component.stock",
-        "role": "architecture"
-      },
-      {
-        "id": "own.container.web",
-        "elementId": "container.web",
-        "ownerId": "system.shop",
-        "role": "architecture"
-      },
-      {
-        "id": "own.container.broker",
-        "elementId": "container.broker",
-        "ownerId": "system.shop",
-        "role": "architecture"
-      },
-      {
-        "id": "own.component.returns",
-        "elementId": "component.returns",
-        "ownerId": "container.api",
-        "role": "architecture"
-      }
-    ],
-    "memberships": [
-      {
-        "id": "member.component.stock",
-        "featureId": "feature.catalog",
-        "elementId": "component.stock"
-      },
-      {
-        "id": "member.component.checkout",
-        "featureId": "feature.purchase",
-        "elementId": "component.checkout"
-      },
-      {
-        "id": "member.component.audit",
-        "featureId": "feature.purchase",
-        "elementId": "component.audit"
-      },
-      {
-        "id": "member.component.returns",
-        "featureId": "feature.returns",
-        "elementId": "component.returns"
-      }
-    ],
-    "integrations": [],
-    "types": [
-      {
-        "id": "type.text",
-        "name": "String",
-        "kind": "primitive",
-        "primitive": "string",
-        "fields": []
-      },
-      {
-        "id": "type.count",
-        "name": "Integer",
-        "kind": "primitive",
-        "primitive": "integer",
-        "fields": []
-      },
-      {
-        "id": "type.order",
-        "name": "Dati ordine",
-        "kind": "record",
-        "fields": [
-          {
-            "id": "field.orderId",
-            "name": "orderId",
-            "type": "",
-            "typeId": "type.text",
-            "required": true,
-            "nullable": {
-              "state": "known",
-              "value": false
-            }
-          }
-        ]
-      },
-      {
-        "id": "type.failure",
-        "name": "Failure",
-        "kind": "record",
-        "fields": [
-          {
-            "id": "field.failureCode",
-            "name": "code",
-            "type": "",
-            "typeId": "type.text",
-            "required": true,
-            "nullable": {
-              "state": "known",
-              "value": false
-            }
-          }
-        ]
-      },
-      {
-        "id": "type.status",
-        "name": "Status",
-        "kind": "enum",
-        "values": [
-          "confirmed",
-          "refused"
-        ],
-        "fields": []
-      },
-      {
-        "id": "type.orders",
-        "name": "Orders",
-        "kind": "collection",
-        "itemTypeId": "type.order",
-        "fields": []
-      },
-      {
-        "id": "type.orderRef",
-        "name": "Order Reference",
-        "kind": "reference",
-        "targetTypeId": "type.order",
-        "fields": []
-      }
-    ],
-    "occurrences": [],
-    "frames": [],
-    "interactions": [],
-    "assertions": [],
-    "platform": {
-      "bindings": []
-    },
-    "decisions": [],
-    "blueprint": {
-      "operations": [
-        {
-          "id": "operation.confirm",
-          "ownerId": "contract.checkout",
-          "name": "confirmOrder",
-          "inputs": [
-            {
-              "id": "input.operation.confirm",
-              "name": "order",
-              "type": "",
-              "typeId": "type.order",
-              "required": true,
-              "nullable": {
-                "state": "known",
-                "value": false
-              }
-            }
-          ],
-          "outputs": [
-            {
-              "id": "output.operation.confirm",
-              "name": "result",
-              "type": "",
-              "typeId": "type.status",
-              "required": true,
-              "nullable": {
-                "state": "known",
-                "value": false
-              }
-            }
-          ],
-          "errors": [
-            {
-              "id": "error.operation.confirm",
-              "code": "OUT_OF_STOCK",
-              "description": "The requested stock is unavailable",
-              "typeId": "type.failure"
-            }
-          ],
-          "effects": [
-            "stock.reserve"
-          ],
-          "preconditions": [
-            "L’ordine contiene almeno una riga"
-          ],
-          "postconditions": [
-            "L’esito viene registrato"
-          ],
-          "permissions": [
-            {
-              "actorId": "person.buyer",
-              "capability": "checkout"
-            }
-          ],
-          "acceptanceCriteria": [
-            {
-              "id": "criterion.operation.confirm",
-              "given": "Scorte disponibili",
-              "when": "Il cliente conferma un ordine",
-              "then": "Le scorte vengono riservate una sola volta"
-            }
-          ]
-        },
-        {
-          "id": "operation.reserveRequired",
-          "ownerId": "contract.stockRequired",
-          "name": "reserveStock",
-          "inputs": [
-            {
-              "id": "input.operation.reserveRequired",
-              "name": "order",
-              "type": "",
-              "typeId": "type.order",
-              "required": true,
-              "nullable": {
-                "state": "known",
-                "value": false
-              }
-            }
-          ],
-          "outputs": [
-            {
-              "id": "output.operation.reserveRequired",
-              "name": "result",
-              "type": "",
-              "typeId": "type.status",
-              "required": true,
-              "nullable": {
-                "state": "known",
-                "value": false
-              }
-            }
-          ],
-          "errors": [
-            {
-              "id": "error.operation.reserveRequired",
-              "code": "OUT_OF_STOCK",
-              "description": "The requested stock is unavailable",
-              "typeId": "type.failure"
-            }
-          ],
-          "effects": [
-            "stock.reserve"
-          ],
-          "preconditions": [
-            "L’ordine contiene almeno una riga"
-          ],
-          "postconditions": [
-            "L’esito viene registrato"
-          ],
-          "permissions": [
-            {
-              "actorId": "person.buyer",
-              "capability": "checkout"
-            }
-          ],
-          "acceptanceCriteria": [
-            {
-              "id": "criterion.operation.reserveRequired",
-              "given": "Scorte disponibili",
-              "when": "Il cliente conferma un ordine",
-              "then": "Le scorte vengono riservate una sola volta"
-            }
-          ]
-        },
-        {
-          "id": "operation.reserve",
-          "ownerId": "contract.stockProvided",
-          "name": "reserveStock",
-          "inputs": [
-            {
-              "id": "input.operation.reserve",
-              "name": "order",
-              "type": "",
-              "typeId": "type.order",
-              "required": true,
-              "nullable": {
-                "state": "known",
-                "value": false
-              }
-            }
-          ],
-          "outputs": [
-            {
-              "id": "output.operation.reserve",
-              "name": "result",
-              "type": "",
-              "typeId": "type.status",
-              "required": true,
-              "nullable": {
-                "state": "known",
-                "value": false
-              }
-            }
-          ],
-          "errors": [
-            {
-              "id": "error.operation.reserve",
-              "code": "OUT_OF_STOCK",
-              "description": "The requested stock is unavailable",
-              "typeId": "type.failure"
-            }
-          ],
-          "effects": [
-            "stock.reserve"
-          ],
-          "preconditions": [
-            "L’ordine contiene almeno una riga"
-          ],
-          "postconditions": [
-            "L’esito viene registrato"
-          ],
-          "permissions": [
-            {
-              "actorId": "person.buyer",
-              "capability": "checkout"
-            }
-          ],
-          "acceptanceCriteria": [
-            {
-              "id": "criterion.operation.reserve",
-              "given": "Scorte disponibili",
-              "when": "Il cliente conferma un ordine",
-              "then": "Le scorte vengono riservate una sola volta"
-            }
-          ]
-        }
-      ],
-      "interfaces": [
-        {
-          "id": "interface.checkout",
-          "elementId": "contract.checkout",
-          "version": "1",
-          "operationIds": [
-            "operation.confirm"
-          ],
-          "invariants": [
-            "Contract members are shared by identity"
-          ]
-        },
-        {
-          "id": "interface.required",
-          "elementId": "contract.stockRequired",
-          "version": "1",
-          "operationIds": [
-            "operation.reserveRequired"
-          ],
-          "invariants": [
-            "Contract members are shared by identity"
-          ]
-        },
-        {
-          "id": "interface.stock",
-          "elementId": "contract.stockProvided",
-          "version": "1",
-          "operationIds": [
-            "operation.reserve"
-          ],
-          "invariants": [
-            "Contract members are shared by identity"
-          ]
-        }
-      ],
-      "ports": [
-        {
-          "id": "port.checkout",
-          "elementId": "component.checkout",
-          "interfaceId": "interface.checkout",
-          "direction": "provided"
-        },
-        {
-          "id": "port.required",
-          "elementId": "component.checkout",
-          "interfaceId": "interface.required",
-          "direction": "required"
-        },
-        {
-          "id": "port.stock",
-          "elementId": "component.stock",
-          "interfaceId": "interface.stock",
-          "direction": "provided"
-        }
-      ],
-      "connections": [
-        {
-          "id": "connection.stock",
-          "requiredPortId": "port.required",
-          "providedPortId": "port.stock",
-          "operations": [
-            {
-              "requiredOperationId": "operation.reserveRequired",
-              "providedOperationId": "operation.reserve"
-            }
-          ]
-        }
-      ],
-      "transports": [
-        {
-          "id": "transport.payment",
-          "relationId": "relation.payments",
-          "protocol": "HTTPS",
-          "format": "JSON",
-          "schemaTypeId": "type.order",
-          "schemaVersion": "1"
-        }
-      ],
-      "modules": [],
-      "fieldMappings": []
-    }
-  },
-  "codeMappings": [],
-  "verifications": []
+	"version": 4,
+	"foundation": {
+		"ownership": [
+			{
+				"id": "6c53df8c-945c-480e-ad18-0daf4c656038",
+				"elementId": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "c8b581a5-2a4e-4e40-9f2b-63ea334cf57d",
+				"elementId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "089be77e-6782-479d-bd7a-1482346180ef",
+				"elementId": "8123fcf0-0c80-4176-adbd-4747d3c0e684",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "a462d77b-6d04-43a1-bb2f-adf67b4db0be",
+				"elementId": "e38c4a59-bc8f-4331-bb1e-c2d659796341",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "c4705090-fc90-443d-a0c7-765cb2497a6c",
+				"elementId": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"ownerId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"role": "architecture"
+			},
+			{
+				"id": "c77ec31d-0a58-4959-b004-50184352f022",
+				"elementId": "e923fb71-6706-4511-9d15-d261a6ab7ddc",
+				"ownerId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"role": "architecture"
+			},
+			{
+				"id": "f8986281-4e5f-425e-a83c-8f87f5258e7a",
+				"elementId": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+				"ownerId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"role": "architecture"
+			},
+			{
+				"id": "5c475d6d-fe69-422f-bd88-122fdfd09ef4",
+				"elementId": "690f44cd-397c-48bb-83b6-0e37356fe189",
+				"ownerId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"role": "architecture"
+			},
+			{
+				"id": "209a9093-39c1-4cfd-a3ec-7d979746c0ea",
+				"elementId": "a534918f-adfc-4315-be98-279a733e7dbe",
+				"ownerId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"role": "architecture"
+			},
+			{
+				"id": "3c680540-53b2-4c61-8719-2651524f40a2",
+				"elementId": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "c44adca0-8ed1-4a3d-9579-5a928e794f6d",
+				"elementId": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "0f28b886-e8e8-424f-8b4d-893b849624d2",
+				"elementId": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "19a9b3b3-5c0e-4282-a29e-bd55ea1b5500",
+				"elementId": "98318779-77bb-472a-90e9-a04b5d3962bc",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			}
+		],
+		"memberships": [
+			{
+				"id": "d5a6c758-3744-43f9-b03c-3f380499c936",
+				"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "b7c89087-3e85-421a-bbae-b4efba18a8f0",
+				"elementId": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "6d499a06-79b2-4d0d-b53d-5e4f067384aa",
+				"elementId": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "07274430-0637-4b74-ae74-aa03b6eed3bf",
+				"elementId": "87cd4fa8-c0f8-4a46-962c-bbcb377cd889",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "43c449ba-8b49-4bae-a6c0-2d8769d775f9",
+				"elementId": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "6540d91e-98cd-43cd-900d-9caee4206b83",
+				"elementId": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "53f37afc-08c9-43d1-88fb-4d590f56e0b2",
+				"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "a2a8022e-d677-46ef-a008-3460be4d8580",
+				"elementId": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "33c4d4b1-f8fc-484b-b321-a8fa264a04c8",
+				"elementId": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "6a9a27a3-cdce-4f6e-b1db-a76404221e69",
+				"elementId": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "2b4acef2-4597-4383-be8e-24fb091d0d30",
+				"elementId": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "9e69a8c3-cadb-4d9c-ad3f-5e821ae49a4d",
+				"elementId": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "2cbc6d6a-af66-411a-ac07-c472e4569c9c",
+				"elementId": "98318779-77bb-472a-90e9-a04b5d3962bc",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "0cc231c8-e35e-4463-b0ac-5c338e715f1e",
+				"elementId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "5f7e078c-ef1e-44bc-a538-4a43df618042",
+				"elementId": "8123fcf0-0c80-4176-adbd-4747d3c0e684",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "48c72a19-8111-4b63-829b-d3144c136413",
+				"elementId": "e38c4a59-bc8f-4331-bb1e-c2d659796341",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "6ea0f45f-ed77-4be9-b73d-c65945b03999",
+				"elementId": "e923fb71-6706-4511-9d15-d261a6ab7ddc",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "7d4c3dce-a6bd-4f80-a16c-6db6c8979e1f",
+				"elementId": "690f44cd-397c-48bb-83b6-0e37356fe189",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "cea16ff8-56d3-4453-ac3f-098905acb88a",
+				"elementId": "41325141-a41b-462e-b5d6-5efb3987ccde",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "74aa4b0d-efec-444a-9f38-97c680ba834c",
+				"elementId": "8ec7f06c-40d3-4f34-a16d-8428a640696e",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "dd58e386-95ba-499d-a5e3-f2005c55064e",
+				"elementId": "64264856-5cf8-495a-830b-3525e00ef145",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "5c6f0e55-9414-4634-8c39-a97a47122ab6",
+				"elementId": "2a963487-b51f-4e77-93a0-4a76726bc225",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "27583d47-51e8-497a-9429-d80b83c2756d",
+				"elementId": "092593e6-3461-4d43-93a4-fc4ddf286fdb",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "62c1250f-8977-4643-aa5e-a0295924b8c7",
+				"elementId": "b8aaa218-84df-41ab-a2a0-dea2230b87a3",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "f37011d2-1525-4817-8675-142e463b0e0c",
+				"elementId": "7382d55e-2039-44a9-b79d-928e6fa0699c",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "833524f6-2abd-4dbc-b85e-a3168aa953ca",
+				"elementId": "b311ba59-3fdf-4339-983a-9f093de16e54",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "23c54bb3-6f94-464b-9308-c294beaa7f97",
+				"elementId": "cc3e1768-28b0-48e0-b294-05590552cb4f",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "01655d05-101b-4859-90fe-f93af25b7ad4",
+				"elementId": "7454a20c-6959-473d-ad9b-f9d17d03a081",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			}
+		],
+		"integrations": [],
+		"types": [],
+		"occurrences": [],
+		"frames": [],
+		"interactions": [],
+		"assertions": [],
+		"platform": {
+			"bindings": []
+		},
+		"decisions": []
+	},
+	"id": "e1899bec-ddc6-4187-8ec0-43b199bf6e0d",
+	"name": "Mercato",
+	"semantics": {
+		"elements": [
+			{
+				"id": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+				"kind": "feature",
+				"name": "Acquisto"
+			},
+			{
+				"id": "076207b4-dd44-4b55-96bf-2c93b42085cb",
+				"kind": "feature",
+				"name": "Catalogo prodotti"
+			},
+			{
+				"id": "98afe8bb-9eb3-48d2-8bc9-6740b38deb15",
+				"kind": "feature",
+				"name": "Resi e rimborsi"
+			},
+			{
+				"id": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"kind": "actor",
+				"name": "Cliente"
+			},
+			{
+				"id": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"kind": "container",
+				"name": "Web shop",
+				"description": "Interfaccia web del negozio",
+				"runtimeKind": "spa"
+			},
+			{
+				"id": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"kind": "component",
+				"name": "Checkout"
+			},
+			{
+				"id": "87cd4fa8-c0f8-4a46-962c-bbcb377cd889",
+				"kind": "resource",
+				"name": "Ordine"
+			},
+			{
+				"id": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"kind": "system",
+				"name": "Pagamenti esterni",
+				"scope": "external"
+			},
+			{
+				"id": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+				"kind": "component",
+				"name": "Gestione resi"
+			},
+			{
+				"id": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"kind": "system",
+				"name": "Mercato",
+				"scope": "governed"
+			},
+			{
+				"id": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+				"kind": "system",
+				"name": "Corriere esterno",
+				"scope": "external"
+			},
+			{
+				"id": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+				"kind": "actor",
+				"name": "Assistenza"
+			},
+			{
+				"id": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"kind": "useCase",
+				"name": "Confermare acquisto"
+			},
+			{
+				"id": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+				"kind": "useCase",
+				"name": "Autorizzare pagamento"
+			},
+			{
+				"id": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"kind": "useCase",
+				"name": "Richiedere reso"
+			},
+			{
+				"id": "98318779-77bb-472a-90e9-a04b5d3962bc",
+				"kind": "useCase",
+				"name": "Applicare coupon"
+			},
+			{
+				"id": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"kind": "container",
+				"name": "API Mercato",
+				"description": "Conferma acquisti e gestisce resi",
+				"runtimeKind": "service"
+			},
+			{
+				"id": "8123fcf0-0c80-4176-adbd-4747d3c0e684",
+				"kind": "container",
+				"name": "Archivio Mercato",
+				"description": "Conserva ordini e prodotti",
+				"runtimeKind": "store"
+			},
+			{
+				"id": "e38c4a59-bc8f-4331-bb1e-c2d659796341",
+				"kind": "container",
+				"name": "Broker eventi",
+				"description": "Distribuisce eventi",
+				"runtimeKind": "messaging"
+			},
+			{
+				"id": "e923fb71-6706-4511-9d15-d261a6ab7ddc",
+				"kind": "component",
+				"name": "Registro esiti"
+			},
+			{
+				"id": "690f44cd-397c-48bb-83b6-0e37356fe189",
+				"kind": "component",
+				"name": "Scorte"
+			},
+			{
+				"id": "a534918f-adfc-4315-be98-279a733e7dbe",
+				"kind": "contract",
+				"name": "Contratto acquisto"
+			},
+			{
+				"id": "41325141-a41b-462e-b5d6-5efb3987ccde",
+				"kind": "entity",
+				"name": "Cliente",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "customerId",
+							"type": "string",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "e02699f6-1947-43f7-9ccb-08358c3f8dea"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "email",
+							"type": "string",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "d37f421f-f5d9-4624-b1f3-81c07fd044e2"
+						}
+					]
+				}
+			},
+			{
+				"id": "8ec7f06c-40d3-4f34-a16d-8428a640696e",
+				"kind": "entity",
+				"name": "Ordine",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "orderId",
+							"type": "string",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "4a2fa5b9-43b5-4894-a43c-8209a2ef0b19"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "totalCents",
+							"type": "integer",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "6e555f62-167c-4244-aea2-7c08f6521128"
+						}
+					]
+				}
+			},
+			{
+				"id": "64264856-5cf8-495a-830b-3525e00ef145",
+				"kind": "entity",
+				"name": "Riga ordine",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "quantity",
+							"type": "integer",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "39fec0fe-d3eb-4fb8-8c1c-9cf1257203b9"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "unitPriceCents",
+							"type": "integer",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "b6d70c08-4392-49cd-9866-5c5007918515"
+						}
+					]
+				}
+			},
+			{
+				"id": "2a963487-b51f-4e77-93a0-4a76726bc225",
+				"kind": "entity",
+				"name": "Prodotto",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "sku",
+							"type": "string",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "be7fa8c1-e705-4007-bfc6-f8bf0c52c59c"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "priceCents",
+							"type": "integer",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "2459d3fa-95e1-4c6f-a2ae-d5fbcc52f019"
+						}
+					]
+				}
+			},
+			{
+				"id": "092593e6-3461-4d43-93a4-fc4ddf286fdb",
+				"kind": "entity",
+				"name": "Reso",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "returnId",
+							"type": "string",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "6bfbf64b-e6c6-4690-b742-e672b9fa2655"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "reason",
+							"type": "string",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "0305468f-65d1-4be1-996d-01c15663413d"
+						}
+					]
+				}
+			},
+			{
+				"id": "b8aaa218-84df-41ab-a2a0-dea2230b87a3",
+				"kind": "table",
+				"name": "customers",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "primary",
+							"required": true,
+							"id": "ac7ce9be-d9cf-4d3f-b2a4-d49bff1ecbb7"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "email",
+							"type": "string",
+							"kind": "attribute",
+							"key": "unique",
+							"required": true,
+							"id": "9b1353ce-74ed-4433-86e2-23f149b512fa"
+						}
+					]
+				}
+			},
+			{
+				"id": "7382d55e-2039-44a9-b79d-928e6fa0699c",
+				"kind": "table",
+				"name": "orders",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "primary",
+							"required": true,
+							"id": "c93bb6cb-427b-4752-aa6a-5b05f62d0ac6"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "customer_id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "foreign",
+							"required": true,
+							"id": "9d37ed3e-3ceb-4e31-9fc0-482600b42605"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "total_cents",
+							"type": "integer",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "66888a0a-ba8f-4da9-9b99-b7165b645cfa"
+						}
+					]
+				}
+			},
+			{
+				"id": "b311ba59-3fdf-4339-983a-9f093de16e54",
+				"kind": "table",
+				"name": "order_lines",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "primary",
+							"required": true,
+							"id": "3813417d-97ae-4292-930e-69ac4a0f176e"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "order_id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "foreign",
+							"required": true,
+							"id": "b6852df1-0a63-4117-b12b-872d490ced0c"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "product_id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "foreign",
+							"required": true,
+							"id": "f2141e60-0fac-4d8d-ad38-f640d2f589a5"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "quantity",
+							"type": "integer",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "af5b32bb-f90b-46c6-afa0-47f8b8fd129f"
+						}
+					]
+				}
+			},
+			{
+				"id": "cc3e1768-28b0-48e0-b294-05590552cb4f",
+				"kind": "table",
+				"name": "products",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "primary",
+							"required": true,
+							"id": "c4a861b0-4c5c-49ee-8418-7515c5f809a6"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "sku",
+							"type": "string",
+							"kind": "attribute",
+							"key": "unique",
+							"required": true,
+							"id": "2b54ea57-5a5a-42b1-bb26-a7c402f3a744"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "price_cents",
+							"type": "integer",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "46ca5a68-1cd1-4e3d-b344-a8e880a2ef81"
+						}
+					]
+				}
+			},
+			{
+				"id": "7454a20c-6959-473d-ad9b-f9d17d03a081",
+				"kind": "table",
+				"name": "returns",
+				"details": {
+					"technology": "",
+					"environment": "",
+					"members": [
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "primary",
+							"required": true,
+							"id": "3a7f3595-6033-4b76-84a9-0bac363d4074"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "order_id",
+							"type": "string",
+							"kind": "attribute",
+							"key": "foreign",
+							"required": true,
+							"id": "dddd303f-aae2-4352-82ae-069d1a3e1e0d"
+						},
+						{
+							"nullable": {
+								"state": "known",
+								"value": false
+							},
+							"name": "reason",
+							"type": "string",
+							"kind": "attribute",
+							"key": "none",
+							"required": true,
+							"id": "a8dccac2-4c45-4346-b921-ace7fde5be26"
+						}
+					]
+				}
+			}
+		],
+		"relations": [
+			{
+				"id": "06cbc73b-bb84-48a6-819f-5b94f18f88ef",
+				"kind": "communication",
+				"from": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"to": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"name": "naviga",
+				"details": {
+					"sourceMultiplicity": "",
+					"targetMultiplicity": "",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": "HTTPS"
+				}
+			},
+			{
+				"id": "ed25f55c-18e3-4577-aba4-1ba7a6a90a96",
+				"kind": "invocation",
+				"from": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"to": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"name": "invia acquisto"
+			},
+			{
+				"id": "4478f597-1f6b-4c5d-87b3-ecb78b689f77",
+				"kind": "invocation",
+				"from": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"to": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"name": "autorizza pagamento"
+			},
+			{
+				"id": "4b7d5a05-6def-4f32-b82e-bb9bfe8d668e",
+				"kind": "write",
+				"from": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"to": "87cd4fa8-c0f8-4a46-962c-bbcb377cd889",
+				"name": "registra ordine",
+				"condition": "pagamento autorizzato"
+			},
+			{
+				"id": "11024d82-521f-4eff-8f1f-ef0272b4247f",
+				"kind": "dependency",
+				"from": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+				"to": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"name": "consulta acquisto"
+			},
+			{
+				"id": "9eb3aba7-e41d-46b3-8103-b0ad18a8cadc",
+				"kind": "communication",
+				"from": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"to": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"name": "acquista e richiede resi"
+			},
+			{
+				"id": "27f830da-fccb-4814-974b-432af7891233",
+				"kind": "communication",
+				"from": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+				"to": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"name": "gestisce richieste"
+			},
+			{
+				"id": "a1e33746-66bb-47c6-9b6a-ed9230ec5c39",
+				"kind": "communication",
+				"from": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"to": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"name": "autorizza e rimborsa"
+			},
+			{
+				"id": "e6574117-ecce-4258-a3ab-d6da892aa6f5",
+				"kind": "communication",
+				"from": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"to": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+				"name": "richiede consegna"
+			},
+			{
+				"id": "47230415-2032-4f27-9fc4-1056006c3268",
+				"kind": "association",
+				"from": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"to": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"name": "avvia"
+			},
+			{
+				"id": "42f03692-f53d-40d4-9c26-aecfebdf32f6",
+				"kind": "association",
+				"from": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"to": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"name": "richiede"
+			},
+			{
+				"id": "b1d37471-85ea-4aca-acfa-742f0467250c",
+				"kind": "association",
+				"from": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+				"to": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"name": "gestisce"
+			},
+			{
+				"id": "a1f79678-3770-4ad1-8682-2e239d50cbfa",
+				"kind": "include",
+				"from": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"to": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+				"name": "include"
+			},
+			{
+				"id": "f0377b20-b578-4049-bd7d-fb2f34b9ad97",
+				"kind": "extend",
+				"from": "98318779-77bb-472a-90e9-a04b5d3962bc",
+				"to": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"name": "extend",
+				"condition": "coupon presente"
+			},
+			{
+				"id": "b24e83f9-1dd9-4a7e-a832-409d0880180e",
+				"kind": "communication",
+				"from": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"to": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"name": "invia ordini",
+				"details": {
+					"sourceMultiplicity": "",
+					"targetMultiplicity": "",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": "HTTPS / JSON"
+				}
+			},
+			{
+				"id": "b6bdc443-29cb-4fb1-8962-f8e8dce6b14a",
+				"kind": "communication",
+				"from": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"to": "8123fcf0-0c80-4176-adbd-4747d3c0e684",
+				"name": "legge e scrive",
+				"details": {
+					"sourceMultiplicity": "",
+					"targetMultiplicity": "",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": "SQL"
+				}
+			},
+			{
+				"id": "205c1b63-877f-472c-8381-1cc408ff66f7",
+				"kind": "communication",
+				"from": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+				"to": "e38c4a59-bc8f-4331-bb1e-c2d659796341",
+				"name": "pubblica eventi",
+				"details": {
+					"sourceMultiplicity": "",
+					"targetMultiplicity": "",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": "Messaggistica dichiarata"
+				}
+			},
+			{
+				"id": "3d969e33-ff0f-4949-92bc-6462fd203a12",
+				"kind": "communication",
+				"from": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"to": "e923fb71-6706-4511-9d15-d261a6ab7ddc",
+				"name": "registra esito"
+			},
+			{
+				"id": "2ffd1e3e-33cc-49e5-b00c-962d149a36c8",
+				"kind": "implementation",
+				"from": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"to": "a534918f-adfc-4315-be98-279a733e7dbe",
+				"name": "espone contratto"
+			},
+			{
+				"id": "ca688e83-d4e7-4991-89b3-aa3e1f349ebd",
+				"kind": "dependency",
+				"from": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"to": "690f44cd-397c-48bb-83b6-0e37356fe189",
+				"name": "richiede disponibilità"
+			},
+			{
+				"id": "c36d227b-883e-474a-83a6-d92306437683",
+				"kind": "association",
+				"from": "41325141-a41b-462e-b5d6-5efb3987ccde",
+				"to": "8ec7f06c-40d3-4f34-a16d-8428a640696e",
+				"name": "effettua",
+				"details": {
+					"sourceMultiplicity": "1",
+					"targetMultiplicity": "0..*",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": ""
+				}
+			},
+			{
+				"id": "035f8d54-cd56-4d28-b2ce-471870ca7c33",
+				"kind": "association",
+				"from": "8ec7f06c-40d3-4f34-a16d-8428a640696e",
+				"to": "64264856-5cf8-495a-830b-3525e00ef145",
+				"name": "contiene",
+				"details": {
+					"sourceMultiplicity": "1",
+					"targetMultiplicity": "1..*",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": ""
+				}
+			},
+			{
+				"id": "0e59a1c2-488d-439a-b414-970cce9ee097",
+				"kind": "association",
+				"from": "64264856-5cf8-495a-830b-3525e00ef145",
+				"to": "2a963487-b51f-4e77-93a0-4a76726bc225",
+				"name": "riguarda",
+				"details": {
+					"sourceMultiplicity": "0..*",
+					"targetMultiplicity": "1",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": ""
+				}
+			},
+			{
+				"id": "018be16d-6265-4fcd-951a-9fdeb3b77725",
+				"kind": "association",
+				"from": "092593e6-3461-4d43-93a4-fc4ddf286fdb",
+				"to": "8ec7f06c-40d3-4f34-a16d-8428a640696e",
+				"name": "si riferisce a",
+				"details": {
+					"sourceMultiplicity": "0..*",
+					"targetMultiplicity": "1",
+					"sourceMember": "",
+					"targetMember": "",
+					"protocol": ""
+				}
+			},
+			{
+				"id": "00d5c0c0-2753-4d48-894d-42cbe7d612dc",
+				"kind": "association",
+				"from": "7382d55e-2039-44a9-b79d-928e6fa0699c",
+				"to": "b8aaa218-84df-41ab-a2a0-dea2230b87a3",
+				"name": "customer_id",
+				"details": {
+					"sourceMultiplicity": "0..*",
+					"targetMultiplicity": "1",
+					"sourceMember": "customer_id",
+					"targetMember": "id",
+					"protocol": ""
+				}
+			},
+			{
+				"id": "5895a2f2-f122-4288-bf2b-31e0090d17ec",
+				"kind": "association",
+				"from": "b311ba59-3fdf-4339-983a-9f093de16e54",
+				"to": "7382d55e-2039-44a9-b79d-928e6fa0699c",
+				"name": "order_id",
+				"details": {
+					"sourceMultiplicity": "0..*",
+					"targetMultiplicity": "1",
+					"sourceMember": "order_id",
+					"targetMember": "id",
+					"protocol": ""
+				}
+			},
+			{
+				"id": "40c43a7b-89cc-4790-b0f3-90512e001df2",
+				"kind": "association",
+				"from": "b311ba59-3fdf-4339-983a-9f093de16e54",
+				"to": "cc3e1768-28b0-48e0-b294-05590552cb4f",
+				"name": "product_id",
+				"details": {
+					"sourceMultiplicity": "0..*",
+					"targetMultiplicity": "1",
+					"sourceMember": "product_id",
+					"targetMember": "id",
+					"protocol": ""
+				}
+			},
+			{
+				"id": "effb3917-42ee-4e93-a1ef-e2238bf30bf6",
+				"kind": "association",
+				"from": "7454a20c-6959-473d-ad9b-f9d17d03a081",
+				"to": "7382d55e-2039-44a9-b79d-928e6fa0699c",
+				"name": "order_id",
+				"details": {
+					"sourceMultiplicity": "0..*",
+					"targetMultiplicity": "1",
+					"sourceMember": "order_id",
+					"targetMember": "id",
+					"protocol": ""
+				}
+			}
+		]
+	},
+	"views": [
+		{
+			"id": "921cbbda-22ce-4456-b294-d578b9fcf09e",
+			"name": "01 Panoramica delle responsabilità",
+			"kind": "structure",
+			"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+			"nodes": [
+				{
+					"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "0c137ada-9052-4753-a62c-b4dc85104beb",
+					"x": 360,
+					"y": 0
+				},
+				{
+					"elementId": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+					"x": 720,
+					"y": 0
+				},
+				{
+					"elementId": "87cd4fa8-c0f8-4a46-962c-bbcb377cd889",
+					"x": 0,
+					"y": 416
+				},
+				{
+					"elementId": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+					"x": 0,
+					"y": 624
+				},
+				{
+					"elementId": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+					"x": 0,
+					"y": 208
+				},
+				{
+					"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+					"x": 256,
+					"y": 360
+				},
+				{
+					"elementId": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+					"x": 512,
+					"y": 360
+				},
+				{
+					"elementId": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+					"x": 768,
+					"y": 360
+				},
+				{
+					"elementId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+					"x": 256,
+					"y": 540
+				},
+				{
+					"elementId": "8123fcf0-0c80-4176-adbd-4747d3c0e684",
+					"x": 512,
+					"y": 540
+				},
+				{
+					"elementId": "e38c4a59-bc8f-4331-bb1e-c2d659796341",
+					"x": 768,
+					"y": 540
+				},
+				{
+					"elementId": "e923fb71-6706-4511-9d15-d261a6ab7ddc",
+					"x": 256,
+					"y": 720
+				},
+				{
+					"elementId": "690f44cd-397c-48bb-83b6-0e37356fe189",
+					"x": 512,
+					"y": 720
+				}
+			],
+			"relationIds": [
+				"06cbc73b-bb84-48a6-819f-5b94f18f88ef",
+				"ed25f55c-18e3-4577-aba4-1ba7a6a90a96",
+				"4478f597-1f6b-4c5d-87b3-ecb78b689f77",
+				"4b7d5a05-6def-4f32-b82e-bb9bfe8d668e",
+				"11024d82-521f-4eff-8f1f-ef0272b4247f"
+			]
+		},
+		{
+			"id": "fd50f4d7-6e61-4983-9f87-601ef3d153a4",
+			"name": "Acquisto · Flow",
+			"kind": "activity",
+			"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "52139061-78fb-44af-a0f6-de85ddaf0e4d",
+			"name": "Catalogo prodotti · Structure",
+			"kind": "structure",
+			"featureId": "076207b4-dd44-4b55-96bf-2c93b42085cb",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "7e9c6f96-f0e4-4ccc-a25b-33f6a0020075",
+			"name": "Catalogo prodotti · Flow",
+			"kind": "activity",
+			"featureId": "076207b4-dd44-4b55-96bf-2c93b42085cb",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "0b872073-56b0-406c-b6b7-32df5e3a5a49",
+			"name": "Resi e rimborsi · Structure",
+			"kind": "structure",
+			"featureId": "98afe8bb-9eb3-48d2-8bc9-6740b38deb15",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "9e487cca-3e11-4af9-b6fe-0e0973eec42a",
+			"name": "Resi e rimborsi · Flow",
+			"kind": "activity",
+			"featureId": "98afe8bb-9eb3-48d2-8bc9-6740b38deb15",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "a886eeb1-acd8-425e-9030-d7764e531fa1",
+			"name": "02 C4 Contesto Mercato",
+			"kind": "c4Context",
+			"subjectId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+			"contextIds": [
+				"d60014ac-abe7-4f46-a536-1cb58086c886",
+				"6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+				"e6cc2c22-7d90-4f2a-af61-cac9a7cccc55"
+			],
+			"nodes": [
+				{
+					"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+					"x": 0,
+					"y": 208
+				},
+				{
+					"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+					"x": 0,
+					"y": 416
+				},
+				{
+					"elementId": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+					"x": 360,
+					"y": 0
+				},
+				{
+					"elementId": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+					"x": 360,
+					"y": 208
+				}
+			],
+			"relationIds": [
+				"9eb3aba7-e41d-46b3-8103-b0ad18a8cadc",
+				"27f830da-fccb-4814-974b-432af7891233",
+				"a1e33746-66bb-47c6-9b6a-ed9230ec5c39",
+				"e6574117-ecce-4258-a3ab-d6da892aa6f5"
+			]
+		},
+		{
+			"id": "fca070ca-4be7-4f16-b2a1-7d6c2573073f",
+			"name": "12 Casi d’uso",
+			"kind": "useCase",
+			"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+			"nodes": [
+				{
+					"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+					"x": 260,
+					"y": 0
+				},
+				{
+					"elementId": "d0f39791-d81e-47a2-b309-db59c14e818b",
+					"x": 520,
+					"y": 0
+				},
+				{
+					"elementId": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+					"x": 0,
+					"y": 180
+				},
+				{
+					"elementId": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+					"x": 260,
+					"y": 180
+				},
+				{
+					"elementId": "98318779-77bb-472a-90e9-a04b5d3962bc",
+					"x": 520,
+					"y": 180
+				},
+				{
+					"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+					"x": 0,
+					"y": 360
+				}
+			],
+			"relationIds": [
+				"47230415-2032-4f27-9fc4-1056006c3268",
+				"42f03692-f53d-40d4-9c26-aecfebdf32f6",
+				"b1d37471-85ea-4aca-acfa-742f0467250c",
+				"a1f79678-3770-4ad1-8682-2e239d50cbfa",
+				"f0377b20-b578-4049-bd7d-fb2f34b9ad97"
+			]
+		},
+		{
+			"id": "7b05ac7c-5076-4ce4-926e-5f80d3c41cdd",
+			"name": "03 C4 Applicazioni e dati",
+			"kind": "c4Container",
+			"subjectId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+			"contextIds": [
+				"d60014ac-abe7-4f46-a536-1cb58086c886"
+			],
+			"nodes": [
+				{
+					"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+					"x": 1080,
+					"y": 0
+				},
+				{
+					"elementId": "0c137ada-9052-4753-a62c-b4dc85104beb",
+					"x": 720,
+					"y": 0
+				},
+				{
+					"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+					"x": 720,
+					"y": 208
+				},
+				{
+					"elementId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+					"x": 0,
+					"y": 208
+				},
+				{
+					"elementId": "8123fcf0-0c80-4176-adbd-4747d3c0e684",
+					"x": 360,
+					"y": 0
+				},
+				{
+					"elementId": "e38c4a59-bc8f-4331-bb1e-c2d659796341",
+					"x": 360,
+					"y": 208
+				}
+			],
+			"relationIds": [
+				"06cbc73b-bb84-48a6-819f-5b94f18f88ef",
+				"9eb3aba7-e41d-46b3-8103-b0ad18a8cadc",
+				"b24e83f9-1dd9-4a7e-a832-409d0880180e",
+				"b6bdc443-29cb-4fb1-8962-f8e8dce6b14a",
+				"205c1b63-877f-472c-8381-1cc408ff66f7"
+			]
+		},
+		{
+			"id": "a0ce03d5-20d9-467e-a867-456ae5aeb196",
+			"name": "04 C4 Componenti API",
+			"kind": "c4Component",
+			"subjectId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+			"contextIds": [],
+			"nodes": [
+				{
+					"elementId": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+					"x": 720,
+					"y": 0
+				},
+				{
+					"elementId": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "ef9c5dbb-8062-46c8-9a79-949f730d0b9c",
+					"x": 0,
+					"y": 208
+				},
+				{
+					"elementId": "e923fb71-6706-4511-9d15-d261a6ab7ddc",
+					"x": 360,
+					"y": 0
+				},
+				{
+					"elementId": "690f44cd-397c-48bb-83b6-0e37356fe189",
+					"x": 360,
+					"y": 208
+				},
+				{
+					"elementId": "a534918f-adfc-4315-be98-279a733e7dbe",
+					"x": 616,
+					"y": 180
+				}
+			],
+			"relationIds": [
+				"11024d82-521f-4eff-8f1f-ef0272b4247f",
+				"3d969e33-ff0f-4949-92bc-6462fd203a12",
+				"2ffd1e3e-33cc-49e5-b00c-962d149a36c8",
+				"ca688e83-d4e7-4991-89b3-aa3e1f349ebd"
+			]
+		},
+		{
+			"id": "92559e77-b8f9-436c-9a21-9484d65f7e8d",
+			"name": "05 Entità e cardinalità",
+			"kind": "erd",
+			"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+			"nodes": [
+				{
+					"elementId": "41325141-a41b-462e-b5d6-5efb3987ccde",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "8ec7f06c-40d3-4f34-a16d-8428a640696e",
+					"x": 260,
+					"y": 0
+				},
+				{
+					"elementId": "64264856-5cf8-495a-830b-3525e00ef145",
+					"x": 520,
+					"y": 0
+				},
+				{
+					"elementId": "2a963487-b51f-4e77-93a0-4a76726bc225",
+					"x": 0,
+					"y": 180
+				},
+				{
+					"elementId": "092593e6-3461-4d43-93a4-fc4ddf286fdb",
+					"x": 260,
+					"y": 180
+				}
+			],
+			"relationIds": [
+				"c36d227b-883e-474a-83a6-d92306437683",
+				"035f8d54-cd56-4d28-b2ce-471870ca7c33",
+				"0e59a1c2-488d-439a-b414-970cce9ee097",
+				"018be16d-6265-4fcd-951a-9fdeb3b77725"
+			]
+		},
+		{
+			"id": "4fa82f8f-3382-4c64-a316-8a1f30cd3eec",
+			"name": "06 Schema dati progettato",
+			"kind": "databaseSchema",
+			"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+			"nodes": [
+				{
+					"elementId": "b8aaa218-84df-41ab-a2a0-dea2230b87a3",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "7382d55e-2039-44a9-b79d-928e6fa0699c",
+					"x": 260,
+					"y": 0
+				},
+				{
+					"elementId": "b311ba59-3fdf-4339-983a-9f093de16e54",
+					"x": 564,
+					"y": 0
+				},
+				{
+					"elementId": "cc3e1768-28b0-48e0-b294-05590552cb4f",
+					"x": 0,
+					"y": 180
+				},
+				{
+					"elementId": "7454a20c-6959-473d-ad9b-f9d17d03a081",
+					"x": 260,
+					"y": 180
+				}
+			],
+			"relationIds": [
+				"00d5c0c0-2753-4d48-894d-42cbe7d612dc",
+				"5895a2f2-f122-4288-bf2b-31e0090d17ec",
+				"40c43a7b-89cc-4790-b0f3-90512e001df2",
+				"effb3917-42ee-4e93-a1ef-e2238bf30bf6"
+			]
+		}
+	],
+	"codeMappings": [],
+	"verifications": []
 }

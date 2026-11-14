@@ -8,7 +8,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { ElementKind, RelationKind, SemanticElement } from '../common/modelTypes.js';
 import { acceptsNotationElement, acceptsNotationRelation } from '../common/modelNotation.js';
 import { isCompatibleRelation } from '../common/modelValidation.js';
-import { isDiagramContextElement } from '../common/visualEditSupport.js';
+import { getAvailableDiagramRelations, isDiagramContextElement } from '../common/visualEditSupport.js';
 import { VisualEdit } from '../common/visualEditing.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 import { isSequenceMessage } from '../common/sequenceDiagram.js';
@@ -18,7 +18,7 @@ import { type AdeEditingContext } from './adeEditingContext.js';
 import { type AdeEditingCommand } from './adeEditingCommands.js';
 
 /** Collects diagram intent; domain mutation remains in the project service. */
-export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'addDiagram' | 'addElement' | 'addExisting' | 'addExistingState' | 'includeLifecycle' | 'addTransition' | 'addSequenceMessage' | 'connect' | 'editRelation' | 'removeElementFromDiagram' | 'removeRelationFromDiagram' | 'renameDiagram' | 'deleteDiagram' | 'renameRelation' | 'condition' | 'relationError' | 'deleteRelation' | 'layout'>, id?: string): Promise<void> {
+export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'addDiagram' | 'addElement' | 'addExisting' | 'addExistingRelation' | 'addExistingState' | 'includeLifecycle' | 'addTransition' | 'addSequenceMessage' | 'connect' | 'editRelation' | 'removeElementFromDiagram' | 'removeRelationFromDiagram' | 'renameDiagram' | 'deleteDiagram' | 'renameRelation' | 'condition' | 'relationError' | 'deleteRelation' | 'layout'>, id?: string): Promise<void> {
 	const view = ui.project.activeView;
 	const model = ui.project.model;
 	const context = (element: SemanticElement): string => [model.name, ...getElementPath(model, element.id).slice(0, -1).map(parent => parent.name)].join(' / ');
@@ -133,6 +133,18 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 			ui.edit({ kind: 'include', id: picked.element.id, viewId: view.id });
 			ui.project.selectElement(picked.element.id);
 		}
+	}
+	if (command === 'addExistingRelation' && view) {
+		const names = new Map(model.semantics.elements.map(element => [element.id, element.name]));
+		const candidates = getAvailableDiagramRelations(model, view).map(relation => ({
+			label: localize('ade.existingRelation', "{0} → {1}: {2}", names.get(relation.from)!, names.get(relation.to)!, relation.name), description: relationLabels[relation.kind], relation
+		}));
+		if (!candidates.length) {
+			await ui.dialogs.info(localize('ade.noExistingRelations', "No Existing Relationships to Add"), localize('ade.noExistingRelationsHelp', "Include both endpoints with Add Existing Element first. Only compatible relationships that are not already in this diagram are available. Use Connect to create a new relationship."));
+			return;
+		}
+		const picked = await ui.quickInput.pick(candidates, { title: localize('ade.addExistingRelation', "Add Existing Relationship") });
+		if (picked) { ui.edit({ kind: 'includeRelation', viewId: view.id, id: picked.relation.id }); }
 	}
 	if (command === 'includeLifecycle' && view?.kind === 'state') {
 		const resources = getStateDiagram(model, view).groups.map(group => group.resource);

@@ -74,6 +74,7 @@ export class AdeCanvasSurface {
 		if (this.project.editable) {
 			for (const [label, command] of [
 				...(!interaction ? [[localize('ade.addExisting', "Add Existing Element"), 'ade.addExisting']] : []),
+				...(!interaction && view.kind !== 'state' && view.kind !== 'sequence' ? [[localize('ade.addExistingRelation', "Add Existing Relationship"), 'ade.addExistingRelation']] : []),
 				...(view.kind === 'state' ? [[localize('ade.state.addExisting', "Add Existing State"), 'ade.addExistingState'], [localize('ade.state.addTransition', "Add Existing Transition"), 'ade.addTransition'], [localize('ade.state.includeLifecycle', "Include Resource Lifecycle"), 'ade.includeLifecycle']] : []),
 				...(view.kind === 'sequence' && !interaction ? [[localize('ade.sequence.addMessage', "Add Existing Message"), 'ade.addSequenceMessage']] : []),
 				[localize('ade.renameDiagram', "Rename Diagram"), 'ade.renameDiagram'],

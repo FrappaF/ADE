@@ -128,9 +128,9 @@
 					"acceptanceCriteria": [
 						{
 							"id": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
-							"given": "A safe integer quantity",
-							"when": "The precondition is checked",
-							"then": "Only positive quantities satisfy the precondition"
+							"given": "Una quantità intera",
+							"when": "Viene valutata la precondizione",
+							"then": "Soltanto i valori da 1 a 10 soddisfano la precondizione"
 						}
 					]
 				}
@@ -148,7 +148,7 @@
 				"version": 1,
 				"operationId": "7eefb698-664a-4325-9ba1-cd84f3ebfb9c",
 				"phase": "pre",
-				"rootId": "a46f4182-d736-4246-90b7-c5747ab55c50",
+				"rootId": "b34dc40a-cadf-4f9c-ae35-f25b201b4083",
 				"nodes": [
 					{
 						"id": "quantity",
@@ -170,25 +170,25 @@
 						"right": "zero"
 					},
 					{
-						"id": "b9a449cd-fda5-4974-88f0-1f0c57cc6d04",
+						"id": "eda38ade-9a6f-4e97-a4eb-c0ac08ac718b",
 						"kind": "literal",
 						"typeId": "f98a5217-30b9-4b84-8a0b-e291ef8bcff3",
 						"value": 10
 					},
 					{
-						"id": "34478bf5-7822-4e59-97bc-c914016fadfd",
+						"id": "365626ee-9ba1-4332-9941-bac35048b6de",
 						"kind": "compare",
 						"operator": "le",
 						"left": "quantity",
-						"right": "b9a449cd-fda5-4974-88f0-1f0c57cc6d04"
+						"right": "eda38ade-9a6f-4e97-a4eb-c0ac08ac718b"
 					},
 					{
-						"id": "a46f4182-d736-4246-90b7-c5747ab55c50",
+						"id": "b34dc40a-cadf-4f9c-ae35-f25b201b4083",
 						"kind": "logic",
 						"operator": "and",
 						"operands": [
 							"positive",
-							"34478bf5-7822-4e59-97bc-c914016fadfd"
+							"365626ee-9ba1-4332-9941-bac35048b6de"
 						]
 					}
 				]

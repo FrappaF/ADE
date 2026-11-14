@@ -36,6 +36,7 @@ export type VisualEdit =
 	| { kind: 'stateLifecycle'; viewId: string; resourceId: string }
 	| { kind: 'stateTransition'; viewId: string; id: string }
 	| { kind: 'element'; id: string; name: string; elementKind: ElementKind; viewId: string; parentId?: string }
+	| { kind: 'includeRelation'; id: string; viewId: string }
 	| { kind: 'include'; id: string; viewId: string }
 	| { kind: 'exclude'; id: string; viewId: string; target: 'element' | 'relation' }
 	| { kind: 'sequenceMessage'; id: string; viewId: string }

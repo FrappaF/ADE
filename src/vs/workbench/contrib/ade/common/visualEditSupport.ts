@@ -5,6 +5,7 @@
 
 import { readSemanticDraft, readSemanticModel } from './modelValidation.js';
 import { type ModelView, type SemanticModel } from './modelTypes.js';
+import { acceptsNotationRelation } from './modelNotation.js';
 import { notationNodeSize } from './diagramLayout.js';
 import { getDiagramGroups } from './visualNavigation.js';
 
@@ -49,6 +50,14 @@ export function getDeletionImpact(model: SemanticModel, id: string) {
 export function isDiagramContextElement(model: SemanticModel, view: ModelView, id: string): boolean {
 	if ((model.version !== 4 && model.version !== 5) || !view.subjectId || id === view.subjectId || !['c4Context', 'c4Container', 'c4Component', 'class'].includes(view.kind)) { return false; }
 	return view.kind === 'class' || !!view.contextIds?.includes(id) || model.foundation.ownership.find(entry => entry.elementId === id && entry.role === 'architecture')?.ownerId !== view.subjectId;
+}
+
+/** Ordinary views reuse shared relationships only when both endpoints are already visible. */
+export function getAvailableDiagramRelations(model: SemanticModel, view: ModelView) {
+	if (view.kind === 'state' || view.kind === 'sequence' || view.interactionId) { return []; }
+	const visible = new Set(view.nodes.map(node => node.elementId));
+	return model.semantics.relations.filter(relation => !view.relationIds.includes(relation.id)
+		&& visible.has(relation.from) && visible.has(relation.to) && acceptsNotationRelation(view.kind, relation));
 }
 
 export function includeElement(view: ModelView, id: string, model?: SemanticModel): void {
