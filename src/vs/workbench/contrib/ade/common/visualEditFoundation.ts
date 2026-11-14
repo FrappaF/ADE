@@ -30,7 +30,7 @@ export function applyFoundationVisualEdit(context: VisualEditContext, edit: Visu
 		case 'type':
 		case 'integration': {
 			if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Semantic records require v4'); }
-			if (edit.kind === 'type') { candidate.foundation.types = [...candidate.foundation.types.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
+			if (edit.kind === 'type') { const index = candidate.foundation.types.findIndex(entry => entry.id === edit.entry.id); if (index < 0) { candidate.foundation.types.push(structuredClone(edit.entry)); } else { candidate.foundation.types[index] = structuredClone(edit.entry); } }
 			else { candidate.foundation.integrations = [...candidate.foundation.integrations.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
 			break;
 		}
@@ -45,8 +45,15 @@ export function applyFoundationVisualEdit(context: VisualEditContext, edit: Visu
 		case 'platformBinding':
 		case 'assertion': {
 			if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('Explicit semantic records require v4'); }
-			if (edit.kind === 'ownership') { candidate.foundation.ownership = [...candidate.foundation.ownership.filter(entry => entry.elementId !== edit.entry.elementId), structuredClone(edit.entry)]; }
-			else if (edit.kind === 'membership') { candidate.foundation.memberships = candidate.foundation.memberships.filter(entry => entry.elementId !== edit.entry.elementId || entry.featureId !== edit.entry.featureId); if (edit.included) { candidate.foundation.memberships.push(structuredClone(edit.entry)); } }
+			if (edit.kind === 'ownership') {
+				const entries = candidate.foundation.ownership, index = entries.findIndex(entry => entry.elementId === edit.entry.elementId);
+				candidate.foundation.ownership = index < 0 ? [...entries, structuredClone(edit.entry)] : entries.flatMap((entry, position) => entry.elementId !== edit.entry.elementId ? [entry] : position === index ? [structuredClone(edit.entry)] : []);
+			}
+			else if (edit.kind === 'membership') {
+				const matches = (entry: typeof edit.entry) => entry.elementId === edit.entry.elementId && entry.featureId === edit.entry.featureId;
+				const entries = candidate.foundation.memberships, index = entries.findIndex(matches);
+				candidate.foundation.memberships = !edit.included ? entries.filter(entry => !matches(entry)) : index < 0 ? [...entries, structuredClone(edit.entry)] : entries.flatMap((entry, position) => !matches(entry) ? [entry] : position === index ? [structuredClone(edit.entry)] : []);
+			}
 			else if (edit.kind === 'platformBinding') { candidate.foundation.platform.bindings = [...candidate.foundation.platform.bindings.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
 			else { candidate.foundation.assertions = [...candidate.foundation.assertions.filter(entry => entry.id !== edit.entry.id), structuredClone(edit.entry)]; }
 			break;

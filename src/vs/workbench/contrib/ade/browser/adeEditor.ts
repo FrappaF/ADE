@@ -34,7 +34,7 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
 import { adeFocusedSurface, getAdeAccessibilityHint } from './adeAccessibilityContext.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
-import { getDiagramGroups, getElementPath } from '../common/visualNavigation.js';
+import { getDiagramGroups, getElementPath, getProjectedInteraction } from '../common/visualNavigation.js';
 import { getSystemMap } from '../common/systemMap.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -58,7 +58,7 @@ export class AdeEditor extends EditorPane {
 
 	private reviewOpen = false;
 
-	private activeTab: 'workspace' | 'project' | 'ai' = 'workspace';
+	private activeTab: 'workspace' | 'project' | 'ai' | 'code' = 'workspace';
 
 	private reviewContext: string | undefined;
 
@@ -100,6 +100,7 @@ export class AdeEditor extends EditorPane {
 	override layout(dimension: dom.Dimension): void {
 		dom.size(this.root, dimension.width, dimension.height);
 		this.root.classList.toggle('ade-narrow', dimension.width < 850);
+		this.root.classList.toggle('ade-compact', dimension.width < 600);
 		this.root.classList.toggle('ade-short', dimension.height < 480);
 		this.canvas.applyCamera();
 	}
@@ -161,13 +162,16 @@ export class AdeEditor extends EditorPane {
 		this.canvas.interactions.clear();
 		this.controls.render(this.root, () => {
 			dom.clearNode(this.root);
-			this.renderTabs(this.root);
-			if (!canvasMode) { this.renderNavigation(this.root); }
+			this.renderWorkspaceBar(this.root);
+			if (!canvasMode && this.activeTab === 'workspace' && this.project.section !== 'home' && this.project.model.views.length > 0) { this.renderNavigation(this.root); }
 			const content = dom.append(this.root, dom.$('main.ade-content'));
 			this.content = content;
-			content.setAttribute('role', 'tabpanel'); content.setAttribute('aria-labelledby', `ade-tab-${this.activeTab}`);
+			content.setAttribute('role', 'region'); content.setAttribute('aria-label', this.activeTab === 'code' ? localize('ade.code.title', "Code") : this.activeTab === 'project' ? localize('ade.project.settingsTitle', "Project Settings") : this.activeTab === 'ai' ? localize('ade.ai.settings', "AI Settings") : localize('ade.workspaceTab', "Diagrams"));
 			if (this.activeTab === 'workspace' && !reviewMode && !canvasMode && !sourceEvidence && this.project.section !== 'home' && !this.project.error && !this.project.loading) { this.workflow.renderWorkflow(content); }
-			if (this.activeTab === 'project') {
+			if (this.activeTab === 'code') {
+				this.workflow.renderCodeActions(content);
+				this.renderPrimaryActions(this.controls.details(content, localize('ade.code.reviewOptions', "Review and Verification"), 'code-review-actions'));
+			} else if (this.activeTab === 'project') {
 				this.workflow.renderProjectActions(content);
 			} else if (this.activeTab === 'ai') {
 				this.workflow.renderAiSettings(content);
@@ -175,8 +179,9 @@ export class AdeEditor extends EditorPane {
 				this.renderReview(content);
 			} else if (this.project.hasStructuralErrors && !this.project.error && !this.project.loading) {
 				dom.append(content, dom.$('h1')).textContent = localize('ade.draft.title', "Draft Needs Correction");
-				this.paragraph(content, localize('ade.draft.recoverable', "Your draft can be saved, reopened and undone. Correct its references before using its diagrams or generating code."));
+				this.paragraph(content, localize('ade.draft.recoverable', "Your draft can be saved and reopened. Correct the reported issues before using diagrams or generating code. Undo is available for changes made in this session."));
 				for (const diagnostic of this.project.diagnostics) { this.paragraph(content, diagnostic); }
+				this.button(content, localize('ade.draft.undo', "Undo Last Change"), () => { void this.project.undo(); }).disabled = !this.project.canUndo;
 				if ((this.project.model.version === 4 || this.project.model.version === 5) && this.project.editable) { this.button(content, localize('ade.blueprint.edit', "Edit Blueprint"), () => { void this.commandService.executeCommand('ade.blueprint'); }); }
 				this.button(content, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); });
 			} else if (sourceEvidence && !this.project.loading && !this.project.error) {
@@ -188,12 +193,17 @@ export class AdeEditor extends EditorPane {
 			} else if (this.project.section === 'home' && !this.project.error && !this.project.loading) {
 				this.renderHome(content);
 			} else if (this.project.loading || this.project.error) {
+				if (this.project.error) { dom.append(content, dom.$('h1')).textContent = localize('ade.error.title', "Model Could Not Be Read"); }
 				const status = dom.append(content, dom.$('p.ade-status'));
 				status.setAttribute('role', this.project.error ? 'alert' : 'status');
 				status.textContent = this.project.error ?? localize('ade.loading', "Loading model…");
 				if (this.project.error) {
-					this.button(content, localize('ade.retry', "Retry"), () => { void this.project.retry(); });
-					this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
+					if (this.project.canUndo) { this.button(content, localize('ade.draft.undo', "Undo Last Change"), () => { void this.project.undo(); }); }
+					this.button(content, localize('ade.retry', "Retry"), () => { void this.project.retry(); }).classList.add('ade-primary-action');
+					this.button(content, localize('ade.openProject', "Open Project"), () => { void this.commandService.executeCommand('ade.openProject'); });
+					const technical = this.controls.details(content, localize('ade.properties.technical', "Technical Details"), 'load-error-technical');
+					if (this.project.modelUri) { this.button(technical, localize('ade.error.openModelSource', "Open Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); }); }
+					this.button(technical, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
 				}
 			} else if (this.project.section === 'map') {
 				this.renderSystemMap(content);
@@ -204,7 +214,6 @@ export class AdeEditor extends EditorPane {
 			} else {
 				this.renderDiagram(content);
 			}
-			if (!canvasMode) { this.workflow.renderTools(dom.append(this.root, dom.$('nav.ade-tools'))); }
 			// Restore the camera before restoring keyboard focus: focus may reveal a node.
 			if (canvasMode) { this.canvas.applyCamera(); }
 		});
@@ -213,19 +222,31 @@ export class AdeEditor extends EditorPane {
 		this.readingChanged.fire();
 	}
 
-	private renderTabs(parent: HTMLElement): void {
-		const tabs = dom.append(parent, dom.$('nav.ade-workspace-tabs'));
-		tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', localize('ade.workspaceSections', "Workspace Sections"));
-		const entries = [['workspace', localize('ade.workspaceTab', "Diagrams")], ['project', localize('ade.projectTab', "Project")], ['ai', localize('ade.ai.settings', "AI Settings")]] as const;
-		for (const [id, label] of entries) {
-			const button = this.button(tabs, label, () => { this.activeTab = id; this.render(); }, `workspace-tab:${id}`);
-			button.id = `ade-tab-${id}`; button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(this.activeTab === id)); button.tabIndex = this.activeTab === id ? 0 : -1;
+	private renderWorkspaceBar(parent: HTMLElement): void {
+		const bar = dom.append(parent, dom.$('nav.ade-workspace-bar'));
+		bar.setAttribute('aria-label', localize('ade.workspaceSections', "Workspace"));
+		const menu = this.controls.details(bar, this.project.section === 'home' ? localize('ade.project.menu', "Project") : this.project.model.name, 'workspace-project-menu', { popup: true });
+		menu.parentElement!.classList.add('ade-project-menu');
+		const action = (label: string, run: () => void) => this.button(menu, label, () => { this.controls.setExpanded('workspace-project-menu', false); run(); });
+		action(localize('ade.home', "Home"), () => { this.activeTab = 'workspace'; this.project.showHome(); });
+		action(localize('ade.openProject', "Open Project"), () => { void this.commandService.executeCommand('ade.openProject'); });
+		action(localize('ade.project.settingsTitle', "Project Settings"), () => { this.activeTab = 'project'; this.render(); });
+		action(localize('ade.ai.settings', "AI Settings"), () => { this.activeTab = 'ai'; this.render(); });
+		action(this.configurationService.getValue<boolean>('ade.focusDiagrams') === false ? localize('ade.layout.focus', "Focus on Diagrams") : localize('ade.layout.showIDE', "Show IDE"), () => { void this.commandService.executeCommand('ade.toggleWorkbench'); });
+		if (this.activeTab === 'workspace' && this.project.section === 'diagram' && this.project.activeView) {
+			const diagram = this.button(bar, this.project.activeView.name, () => { this.controls.setExpanded('workspace-project-menu', false); void this.chooseDiagram(); }, 'workspace-diagram');
+			diagram.classList.add('ade-diagram-picker'); diagram.setAttribute('aria-haspopup', 'listbox'); diagram.setAttribute('aria-label', this.project.activeView.name);
+		} else if (this.project.section !== 'home' && !!this.project.activeView && !this.project.error && !this.project.loading) {
+			this.button(bar, localize('ade.backToDiagram', "Back to Diagram"), () => { this.activeTab = 'workspace'; this.project.showDiagram(this.project.selectedId); this.render(); }, 'workspace-diagram').classList.add('ade-diagram-picker');
 		}
-		this.canvas.interactions.add(dom.addDisposableListener(tabs, 'keydown', (event: KeyboardEvent) => {
-			const index = entries.findIndex(([id]) => id === this.activeTab);
-			const next = event.key === 'ArrowRight' ? (index + 1) % entries.length : event.key === 'ArrowLeft' ? (index + entries.length - 1) % entries.length : event.key === 'Home' ? 0 : event.key === 'End' ? entries.length - 1 : undefined;
-			if (next !== undefined) { event.preventDefault(); this.activeTab = entries[next][0]; this.render(); this.controls.focusTarget(`workspace-tab:${this.activeTab}`); }
-		}));
+		const trailing = dom.append(bar, dom.$('div.ade-workspace-trailing'));
+		if (this.project.section !== 'home' && this.project.model.views.length) { this.button(trailing, localize('ade.diagrams', "Diagrams"), () => { void this.commandService.executeCommand('ade.toggleNavigation'); }, 'workspace-navigation'); }
+		if (this.project.section !== 'home' && !this.project.loading && !this.project.error && (this.project.model.semantics.elements.length > 0 || !!this.code.context)) {
+			const code = this.button(trailing, localize('ade.code.title', "Code"), () => { this.controls.setExpanded('workspace-project-menu', false); this.activeTab = 'code'; this.render(); }, 'workspace-code');
+			code.setAttribute('aria-pressed', String(this.activeTab === 'code'));
+		}
+		if (this.project.dirty) { this.button(trailing, localize('ade.save', "Save"), () => { void this.project.save(true); }, 'workspace-save').classList.add('ade-primary-action'); }
+		const state = dom.append(trailing, dom.$('span.ade-document-state')); state.setAttribute('role', 'status'); state.textContent = this.documentStatus();
 	}
 
 	private renderNavigation(parent: HTMLElement, canvas = false): void {
@@ -237,7 +258,6 @@ export class AdeEditor extends EditorPane {
 		if (!canvas && this.project.section !== 'home' && !this.project.error && !this.project.loading) {
 			dom.append(navigation, dom.$('span.ade-project-name')).textContent = this.project.model.name;
 			this.button(navigation, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); }).disabled = isSourceEvidenceModel(this.project.model);
-			this.renderPrimaryActions(navigation);
 		}
 	}
 
@@ -248,18 +268,24 @@ export class AdeEditor extends EditorPane {
 		if (this.ai.structuralReview) {
 			if (!this.reviewOpen) { this.button(parent, localize('ade.ai.reviewButton', "Review Changes"), () => this.showReview()).classList.add('ade-primary-action'); }
 		} else if ((model.version === 4 || model.version === 5) && this.project.modelUri?.path.endsWith('/.ade/model.json') && model.semantics.elements.length) {
-			const prepare = this.button(parent, localize('ade.review.prepare', "Prepare Model to Code Review"), () => { void this.ai.implement(); });
 			let generationReady = false;
 			try { assertPureProject(model); generationReady = true; } catch { /* Incomplete designs remain editable, without promising code generation. */ }
-			const reason = !this.ai.available || !this.code.available ? localize('ade.generation.unavailable', "Local code generation and verification are unavailable in this environment.") : !this.project.editable ? localize('ade.generation.readonly', "Open a writable project to prepare code changes.") : busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : localize('ade.generation.requirements', "Code review requires a complete executable contract and a supported runtime. Continue editing the specification in Project Actions.");
-			this.explainDisabled(prepare, busy || !this.ai.available || !this.code.available || !this.project.editable || this.project.hasStructuralErrors || !generationReady, reason);
-			if (!prepare.disabled) { prepare.classList.add('ade-primary-action'); }
+			const reason = !this.ai.available || !this.code.available ? localize('ade.generation.unavailable', "Local code generation and verification are unavailable in this environment.") : !this.project.editable ? localize('ade.generation.readonly', "Open a writable project to prepare code changes.") : busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : localize('ade.generation.requirements', "Complete the Executable Behavior in Project Settings Before Preparing a Local Code Review.");
+			const disabled = busy || !this.ai.available || !this.code.available || !this.project.editable || this.project.hasStructuralErrors || !generationReady;
+			if (disabled && parent.classList.contains('ade-floating-menu')) {
+				this.paragraph(this.controls.details(parent, localize('ade.generation.whyUnavailable', "Code Review Unavailable"), 'canvas-code-unavailable'), reason);
+			} else {
+				const prepare = this.button(parent, localize('ade.review.prepare', "Prepare Model to Code Review"), () => { void this.ai.implement(); });
+				this.explainDisabled(prepare, disabled, reason);
+				if (!prepare.disabled) { prepare.classList.add('ade-primary-action'); }
+			}
 		} else if (this.code.context && this.code.context.diagramState !== 'index' && model.version !== 4 && model.version !== 5) {
 			const sync = this.button(parent, localize('ade.updateCode', "Update Code"), () => { void this.code.sync('model'); });
 			this.explainDisabled(sync, !this.code.available || busy || isSourceEvidenceModel(model), localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish."), false);
 		}
 		if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true && this.code.context?.diagramState === 'diagrams') {
 			const exploration = this.ai.diagramExploration, phase = getDiagramExplorationPhase(exploration);
+			if (exploration && phase !== 'applied') { return; }
 			if (phase === 'review' || phase === 'incomplete' || this.code.changed || exploration?.invalidation?.viewIds.length) {
 				const review = phase === 'review';
 				const label = review ? exploration?.workflow === 'project' ? localize('ade.explore.reviewAll', "Review All Changes") : localize('ade.explore.reviewDraft', "Review Draft") : phase === 'incomplete' ? exploration?.workflow === 'project' ? localize('ade.explore.continueProject', "Continue Generation") : localize('ade.explore.continue', "Continue Exploration") : localize('ade.updateDiagrams', "Update Diagrams");
@@ -352,7 +378,6 @@ export class AdeEditor extends EditorPane {
 			this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
 			return;
 		}
-		if (view.subjectId) { this.renderBreadcrumbs(content); }
 		const workspace = dom.append(content, dom.$('.ade-workspace'));
 		workspace.classList.toggle('has-inspector', this.surface.inspectorOpen);
 		const visual = dom.append(workspace, dom.$('section.ade-visual'));
@@ -360,7 +385,9 @@ export class AdeEditor extends EditorPane {
 		const help = dom.append(visual, dom.$('p.ade-canvas-help'));
 		help.classList.toggle('is-pending', !!this.surface.pendingConnection);
 		help.id = 'ade-canvas-help';
-		help.textContent = view.kind === 'sequence' && this.project.editable
+		help.textContent = getProjectedInteraction(model, view)
+			? localize('ade.sequence.projectedHelp', "Select a participant, message, frame or branch to inspect its properties. Edit the linked behavior to change the diagram. Focus the background and use arrow keys to pan.")
+			: view.kind === 'sequence' && this.project.editable
 			? localize('ade.sequence.help', "Select a participant or message to inspect its shared contract. Use Properties to order participants and messages or remove them from this diagram. Focus the background and use arrow keys to pan.")
 			: view.kind === 'sequence' ? localize('ade.sequence.readonlyHelp', "Select a participant or message to inspect its shared contract. Read Diagram presents the sequence as text. Focus the background and use arrow keys to pan.")
 				: this.project.editable
@@ -432,28 +459,30 @@ export class AdeEditor extends EditorPane {
 	}
 
 	private renderBreadcrumbs(parent: HTMLElement): void {
-		const model = this.project.model;
+		const model = this.project.model, view = this.project.activeView;
+		const inspecting = this.project.section === 'element' || this.project.section === 'impact';
+		const path = inspecting ? getElementPath(model, this.project.selectedId) : (model.version === 4 || model.version === 5) && view?.subjectId ? getElementPath(model, view.subjectId) : [];
+		const group = !inspecting ? getDiagramGroups(model).find(group => group.featureId && !path.some(element => element.id === group.featureId) && group.views.some(candidate => candidate.id === view?.id)) : undefined;
+		const names = [model.name, ...path.map(element => element.name), ...(group ? [group.name] : []), ...(!inspecting && view ? [view.name] : [])];
+		const repeated = new Set(names.filter((name, index) => names.indexOf(name) !== index));
+		const elementName = (element: typeof path[number]) => repeated.has(element.name) ? localize('ade.breadcrumb.elementRole', "{0}: {1}", elementLabels[element.kind], element.name) : element.name;
 		const breadcrumbs = dom.append(parent, dom.$('nav.ade-breadcrumbs'));
 		breadcrumbs.setAttribute('aria-label', localize('ade.breadcrumbs', "Semantic Path"));
-		this.button(breadcrumbs, model.name, () => this.project.showSystemMap(), 'breadcrumb:system');
-		if (this.project.section === 'element' || this.project.section === 'impact') {
-			for (const element of getElementPath(model, this.project.selectedId)) {
+		this.button(breadcrumbs, repeated.has(model.name) ? localize('ade.breadcrumb.projectRole', "Project: {0}", model.name) : model.name, () => this.project.showSystemMap(), 'breadcrumb:system');
+		if (inspecting) {
+			for (const element of path) {
 				if (element.id === this.project.selectedId) {
 					const current = dom.append(breadcrumbs, dom.$('span'));
-					current.textContent = element.name;
+					current.textContent = elementName(element);
 					current.setAttribute('aria-current', 'page');
-				} else { this.button(breadcrumbs, element.name, () => this.project.inspectElement(element.id), `breadcrumb:${element.id}`); }
+				} else { this.button(breadcrumbs, elementName(element), () => this.project.inspectElement(element.id), `breadcrumb:${element.id}`); }
 			}
 		} else {
-			const view = this.project.activeView;
-			if ((model.version === 4 || model.version === 5) && view?.subjectId) {
-				for (const element of getElementPath(model, view.subjectId)) { this.button(breadcrumbs, element.name, () => { const next = getC4DrillDown(model, element.id)[0]; if (next) { this.project.showDiagram(next.id); this.project.selectElement(element.id); } else { this.project.inspectElement(element.id); } }, `c4-breadcrumb:${element.id}`); }
-			}
-			const group = getDiagramGroups(model).find(group => group.featureId && group.views.some(candidate => candidate.id === view?.id));
-			if (group?.featureId) { this.button(breadcrumbs, group.name, () => this.project.inspectElement(group.featureId!), `breadcrumb:${group.featureId}`); }
+			for (const element of path) { this.button(breadcrumbs, elementName(element), () => { const next = (model.version === 4 || model.version === 5) ? getC4DrillDown(model, element.id)[0] : undefined; if (next) { this.project.showDiagram(next.id); this.project.selectElement(element.id); } else { this.project.inspectElement(element.id); } }, `c4-breadcrumb:${element.id}`); }
+			if (group?.featureId) { this.button(breadcrumbs, repeated.has(group.name) ? localize('ade.breadcrumb.featureRole', "Feature: {0}", group.name) : group.name, () => this.project.inspectElement(group.featureId!), `breadcrumb:${group.featureId}`); }
 			if (view) {
 				const current = dom.append(breadcrumbs, dom.$('span'));
-				current.textContent = view.name;
+				current.textContent = repeated.has(view.name) ? localize('ade.breadcrumb.diagramRole', "Diagram: {0}", view.name) : view.name;
 				current.setAttribute('aria-current', 'page');
 			}
 		}
@@ -520,18 +549,22 @@ export class AdeEditor extends EditorPane {
 
 	private async chooseDiagram(): Promise<void> {
 		if (isSourceEvidenceModel(this.project.model)) { this.project.showHome(); return; }
-		const items: ((IQuickPickItem & { view?: ModelView }) | IQuickPickSeparator)[] = [];
+		const items: ((IQuickPickItem & { view?: ModelView; command?: string }) | IQuickPickSeparator)[] = [];
 		for (const group of getDiagramGroups(this.project.model)) {
 			if (!group.views.length) { continue; }
 			items.push({ type: 'separator', label: group.name });
 			for (const view of group.views) { items.push({ label: view.name, description: viewLabels[view.kind], detail: view.subjectId ? this.project.model.semantics.elements.find(element => element.id === view.subjectId)?.name : undefined, view }); }
 		}
-		const choice = await this.quick.pick<IQuickPickItem & { view?: ModelView }>(items, { title: localize('ade.chooseDiagram', "Choose Diagram"), matchOnDescription: true });
+		if (this.project.editable && !this.project.hasStructuralErrors && !this.ai.busy && !this.code.busy) {
+			items.push({ type: 'separator', label: localize('ade.diagram.create', "Create") }, { label: localize('ade.addDiagram', "Add Diagram"), command: 'ade.addDiagram' }, { label: localize('ade.addFeature', "Add Feature"), command: 'ade.addFeature' });
+		}
+		const choice = await this.quick.pick<IQuickPickItem & { view?: ModelView; command?: string }>(items, { title: localize('ade.chooseDiagram', "Choose Diagram"), matchOnDescription: true });
 		if (choice?.view) { this.project.showDiagram(choice.view.id); }
+		else if (choice?.command) { await this.commandService.executeCommand(choice.command); }
 	}
 
 	private documentStatus(): string {
-		return adeDocumentStatus({ error: this.project.error, saveError: this.project.saveError, loading: this.project.loading, dirty: this.project.dirty, hasDocument: !!this.project.modelUri, draft: this.project.hasStructuralErrors, operation: this.ai.busy ? this.ai.status : this.code.busy ? this.code.status : undefined, codeChanged: this.code.changed });
+		return adeDocumentStatus({ error: this.project.error, saveError: this.project.saveError, loading: this.project.loading, dirty: this.project.dirty, hasDocument: !!this.project.modelUri, draft: this.project.hasStructuralErrors, operation: this.ai.busy ? this.ai.status : this.code.busy ? this.code.status : undefined, codeChanged: this.code.changed, readOnly: !this.project.editable && (!!this.project.modelUri || this.project.section !== 'home') });
 	}
 
 	private readonly canvas: AdeCanvasController;
@@ -572,7 +605,7 @@ export class AdeEditor extends EditorPane {
 		let navigationContext = `${project.section}:${project.activeView?.id}`;
 		this._register(project.onDidChange(() => { const context = `${project.section}:${project.activeView?.id}`; if (context !== navigationContext) { this.activeTab = 'workspace'; navigationContext = context; } if (this.root) { this.render(); } }));
 		this._register(configurationService.onDidChangeConfiguration(event => {
-			if (this.root && (event.affectsConfiguration(AccessibilityVerbositySettingId.Ade) || event.affectsConfiguration('chat.disableAIFeatures'))) { this.render(); }
+			if (this.root && (event.affectsConfiguration(AccessibilityVerbositySettingId.Ade) || event.affectsConfiguration('chat.disableAIFeatures') || event.affectsConfiguration('ade.focusDiagrams'))) { this.render(); }
 		}));
 		this._register(keybindingService.onDidUpdateKeybindings(() => { if (this.root) { this.render(); } }));
 

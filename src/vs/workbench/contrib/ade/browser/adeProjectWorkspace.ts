@@ -35,17 +35,17 @@ export class AdeProjectWorkspace {
 		@INotificationService private readonly notifications: INotificationService
 	) { }
 
-	async align(): Promise<void> {
+	async align(showFiles = false): Promise<void> {
 		const root = this.project.projectRoot;
 		if (!root) { return; }
 		this.storage.store('ade.project.activeRoot', root.toString(), StorageScope.PROFILE, StorageTarget.MACHINE);
 		const folders = this.context.getWorkspace().folders;
 		if (folders.some(folder => isEqual(folder.uri, root))) { return; }
 		if (folders.length > 1 || this.context.getWorkbenchState() === WorkbenchState.WORKSPACE) { await this.editing.addFolders([{ uri: root }], true); }
-		else { await this.host.openWindow([{ folderUri: root }], { forceReuseWindow: true }); }
+		else { this.project.prepareWorkspaceOpen(showFiles); await this.host.openWindow([{ folderUri: root }], { forceReuseWindow: true }); }
 	}
 	async files(): Promise<void> {
-		await this.align();
+		await this.align(true);
 		await this.commands.executeCommand('workbench.view.explorer');
 		if (this.project.projectRoot) { await this.commands.executeCommand('revealInExplorer', this.project.projectRoot); }
 	}

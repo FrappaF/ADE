@@ -10,6 +10,12 @@ import { checkShape, semanticModelSchema, semanticModelV3Schema, semanticModelV4
 import { acceptsNotationElement, acceptsNotationRelation } from './modelNotation.js';
 import { scenarioLayers, scenarioReachability } from './modelScenario.js';
 
+/** Shared ownership rule used by validation and guided editors. */
+export function isValidModelOwnership(child: SemanticElement, owner: SemanticElement, role: 'architecture' | 'lifecycle'): boolean {
+	const architecturalOwners: readonly ElementKind[] = ['system', 'container', 'component', 'package', 'class', 'interface'];
+	return role === 'lifecycle' ? child.kind === 'state' && ['resource', 'entity', 'class'].includes(owner.kind) : architecturalOwners.includes(owner.kind) && !['feature', 'actor', 'state'].includes(child.kind);
+}
+
 /** Checks identity, references and ownership independently from target generation rules. */
 function validateV4References(value: SemanticModel): ModelDiagnostic[] {
 	const model = value as SemanticModelV4;
@@ -45,8 +51,7 @@ function validateV4References(value: SemanticModel): ModelDiagnostic[] {
 		if (ownership.has(entry.elementId)) { report('ownership', path, entry.elementId, 'multipleOwners'); }
 		ownership.set(entry.elementId, entry.ownerId);
 		const owner = elements.get(entry.ownerId); const child = elements.get(entry.elementId);
-		const architecturalOwners: readonly ElementKind[] = ['system', 'container', 'component', 'package', 'class', 'interface'];
-		if (owner && child && (entry.role === 'lifecycle' ? child.kind !== 'state' || !['resource', 'entity', 'class'].includes(owner.kind) : !architecturalOwners.includes(owner.kind) || ['feature', 'actor', 'state'].includes(child.kind))) { report('ownership', path, entry.elementId, 'invalidOwner'); }
+		if (owner && child && !isValidModelOwnership(child, owner, entry.role)) { report('ownership', path, entry.elementId, 'invalidOwner'); }
 	}
 	for (const entry of f.ownership) {
 		const seen = new Set([entry.elementId]); let owner: string | undefined = entry.ownerId;

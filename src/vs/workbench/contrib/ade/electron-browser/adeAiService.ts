@@ -43,6 +43,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	get diagramReview(): AdeDiagramReview | undefined { return this.diagrams.diagramReview; }
 
 	private activityStatus: string | undefined;
+	private operationProgress: { report(step: { message: string }): void } | undefined;
 
 	get generatingDiagrams(): boolean { return this.diagrams.generatingDiagrams; }
 
@@ -51,6 +52,10 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	get chatLocation(): 'modal' | undefined { return this.diagrams.chatLocation; }
 
 	get connectionStatus(): string { return this.connection.connectionStatus; }
+
+	get requestStatus(): string { return this.connection.requestStatus; }
+
+	async configureRequestBudget(): Promise<void> { return this.connection.configureRequestBudget(); }
 
 	get diagramProgress(): CodeDiagramProgress | undefined { return this.diagrams.diagramProgress; }
 
@@ -72,7 +77,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	get canUndo(): boolean { return this.structural.canUndo || this.implementation.canUndo; }
 
-	private report(message: string): void { this.activityStatus = message; this.changes.fire(); }
+	private report(message: string): void { this.activityStatus = message; this.operationProgress?.report({ message }); this.changes.fire(); }
 
 	private info(message: string): void { this.report(message); this.notifications.info(message); }
 
@@ -82,7 +87,10 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			interpret: localize('ade.ai.phase.interpret', "Interpreting Evidence"), stage: localize('ade.ai.phase.stage', "Generating Changes in the Worktree"),
 			verify: localize('ade.ai.phase.verify', "Running Reviewed Tests"), apply: localize('ade.ai.phase.apply', "Applying Verified Changes"),
 			undo: localize('ade.ai.phase.undo', "Restoring Original Files"), session: localize('ade.ai.phase.session', "Loading Saved Implementation"),
-			recover: localize('ade.ai.phase.recover', "Recovering Interrupted Implementation"), benchmark: localize('ade.ai.phase.benchmark', "Comparing Models")
+			recover: localize('ade.ai.phase.recover', "Recovering Interrupted Implementation"), benchmark: localize('ade.ai.phase.benchmark', "Comparing Models"),
+			structuralPrepare: localize('ade.pure.phase.prepare', "Preparing Model Behavior Review"), structuralVerify: localize('ade.pure.phase.verify', "Verifying Model Behavior"),
+			structuralApply: localize('ade.pure.phase.apply', "Applying Reviewed Model Behavior"), structuralUndo: localize('ade.pure.phase.undo', "Restoring Model and Code"),
+			structuralSession: localize('ade.pure.phase.session', "Loading Saved Review"), structuralRecover: localize('ade.pure.phase.recover', "Recovering Local Publication")
 		};
 		const label = labels[request.operation] ?? localize('ade.ai.phase.request', "Running AI Operation");
 		this.report(label);
@@ -92,21 +100,25 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	}
 
 	private async run(task: (token: CancellationToken) => Promise<void>, options: AdeAiRunOptions = {}): Promise<void> {
-		const diagramJob = options.kind === 'diagram', local = options.kind === 'local', review = options.review;
+		const diagramJob = options.kind === 'diagram', local = options.kind === 'local', interactive = local && options.interactive, review = options.review;
 		if (!local && this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { this.info(localize('ade.ai.disabled', "AI Features Are Disabled in Settings.")); return; }
 		const operation = this.operations.acquire('ai');
 		if (this.busy || !operation) { operation?.dispose(); this.notifications.info(localize('ade.ai.busy', "An A.D.E operation is already running. Wait for it to finish or cancel it before starting another.")); return; }
 		if (diagramJob) { this.diagrams.beginGeneration(); }
-		this.busy = true; this.report(local ? localize('ade.states.simulation.preparing', "Preparing Local Operation") : localize('ade.ai.starting', "Preparing AI Operation"));
+		this.busy = true; this.report(interactive ? localize('ade.local.editing', "Editing Local Values") : local ? localize('ade.states.simulation.preparing', "Preparing Local Operation") : localize('ade.ai.starting', "Preparing AI Operation"));
 		const cancelled = () => local ? localize('ade.states.simulation.cancelled', "Local Operation Cancelled") : diagramJob ? localize('ade.ai.diagramCancelled', "Diagram Generation Paused · Completed Steps Can Be Resumed") : localize('ade.ai.cancelled', "AI Operation Cancelled. Review Any Existing Worktree Before Continuing.");
 		const cancellation = new CancellationTokenSource();
 		try {
 			if (!local && !await this.trust.requestWorkspaceTrust({ message: localize('ade.ai.trust', "A.D.E runs the original AI CLI and reviewed project tests on this computer.") })) { this.info(localize('ade.ai.untrusted', "AI Operation Cancelled · Workspace Trust Was Not Granted.")); return; }
-			await this.progress.withProgress({ location: ProgressLocation.Notification, title: local ? localize('ade.states.simulation.progress', "A.D.E Local Operation") : localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
+			await this.progress.withProgress({ location: interactive ? ProgressLocation.Window : ProgressLocation.Notification, title: local ? localize('ade.states.simulation.progress', "A.D.E Local Operation") : localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, async progress => {
+				this.operationProgress = progress;
+				if (this.activityStatus) { progress.report({ message: this.activityStatus }); }
+				try { await task(cancellation.token); } finally { this.operationProgress = undefined; }
+			}, () => cancellation.cancel());
 			if (cancellation.token.isCancellationRequested) { this.info(cancelled()); }
 		}
 		catch (error) {
-			const message = cancellation.token.isCancellationRequested ? cancelled() : localize('ade.ai.error', "A.D.E AI: {0}", error instanceof Error ? error.message : String(error));
+			const message = cancellation.token.isCancellationRequested ? cancelled() : local ? localize('ade.local.error', "A.D.E Local Operation: {0}", error instanceof Error ? error.message : String(error)) : localize('ade.ai.error', "A.D.E AI: {0}", error instanceof Error ? error.message : String(error));
 			this.report(message); if (cancellation.token.isCancellationRequested) { if (!diagramJob) { this.notifications.info(message); } } else if (review && this.diagrams.diagramReview === review && review.problem) { /* The active review owns this recoverable error. */ } else if (diagramJob) { this.diagrams.failGeneration(message); } else { this.notifications.error(message); }
 		}
 		finally { cancellation.dispose(); operation.dispose(); this.busy = false; this.diagrams.finishOperation(); this.changes.fire(); }
@@ -208,7 +220,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		const self = this;
 		const workflow: AdeAiWorkflow = {
 			get busy() { return self.busy; }, set busy(value) { self.busy = value; },
-			get activityStatus() { return self.activityStatus; }, set activityStatus(value) { self.activityStatus = value; },
+			get activityStatus() { return self.activityStatus; }, set activityStatus(value) { if (value === undefined) { self.activityStatus = undefined; } else { self.report(value); } },
 			changed: () => this.changes.fire(), report: message => this.report(message), info: message => this.info(message),
 			request: (request, token) => this.request(request, token), run: (task, options) => this.run(task, options),
 			clearImplementation: () => { this.implementation.clear(); }, buildDiagrams: () => this.diagrams.buildDiagrams(),
@@ -230,6 +242,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			this.diagrams.followCodeContext();
 			this.implementation.followCodeContext();
 		}));
+		this.diagrams.followCodeContext();
 
 	}
 }
@@ -246,6 +259,7 @@ for (const [id, title, method] of [
 	['ade.ai.cli', localize2('ade.ai.cliCommand', "A.D.E: Open AI CLI"), 'openCli'],
 	['ade.ai.reviewDiagramProposal', localize2('ade.explore.reviewCommand', "A.D.E: Review Diagram Draft"), 'reviewDiagramProposal'],
 	['ade.ai.configureDiagramBudget', localize2('ade.explore.budgetCommand', "A.D.E: Configure Exploration Budget"), 'configureDiagramBudget'],
+	['ade.ai.configureRequestBudget', localize2('ade.ai.requestBudgetCommand', "A.D.E: Configure AI Request Budget"), 'configureRequestBudget'],
 	['ade.ai.chooseDiagramModel', localize2('ade.ai.diagramModelCommand', "Choose Diagram Model"), 'chooseDiagramModel'],
 	['ade.ai.returnToDiagrams', localize2('ade.ai.returnToDiagramsCommand', "A.D.E: Back to Diagrams"), 'returnToDiagrams'],
 	['ade.ai.chat', localize2('ade.ai.chatCommand', "A.D.E: Chat with Codex"), 'chat'],

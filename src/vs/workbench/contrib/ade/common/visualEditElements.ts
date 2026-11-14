@@ -7,7 +7,7 @@ import { type SemanticModel } from './modelTypes.js';
 import { isSequenceMessage } from './sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from './stateDiagram.js';
 import { type VisualEditContext, type VisualEditOf } from './visualEditTypes.js';
-import { getDeletionImpact } from './visualEditSupport.js';
+import { getDeletionImpact, includeElement } from './visualEditSupport.js';
 
 /** Elements edits share the caller's transaction and validation boundary. */
 export function applyElementsVisualEdit(context: VisualEditContext, edit: VisualEditOf<'feature' | 'resource' | 'element' | 'relation' | 'rename' | 'description' | 'renameRelation' | 'parent' | 'elementDetails' | 'relationDetails' | 'condition' | 'behavior' | 'relationError' | 'updateRelation' | 'deleteRelation' | 'deleteElement'>): SemanticModel | undefined {
@@ -21,10 +21,16 @@ export function applyElementsVisualEdit(context: VisualEditContext, edit: Visual
 			break;
 		case 'element': {
 			const diagram = view(edit.viewId);
-			const parentId = edit.parentId ?? diagram.featureId;
+			const scopedC4 = (candidate.version === 4 || candidate.version === 5) && ['c4Context', 'c4Container', 'c4Component'].includes(diagram.kind) && !!diagram.subjectId;
+			const contextContainer = scopedC4 && diagram.kind === 'c4Component' && edit.elementKind === 'container';
+			const scopedClass = (candidate.version === 4 || candidate.version === 5) && diagram.kind === 'class' && !!diagram.subjectId;
+			const contextElement = scopedClass || scopedC4 && (edit.elementKind === 'actor' || edit.elementKind === 'system' || contextContainer);
+			const subjectOwner = contextContainer && (candidate.version === 4 || candidate.version === 5) ? candidate.foundation.ownership.find(entry => entry.elementId === diagram.subjectId && entry.role === 'architecture')?.ownerId : undefined;
+			const parentId = edit.parentId ?? (contextContainer ? subjectOwner : scopedC4 && !contextElement && diagram.kind !== 'c4Context' ? diagram.subjectId : diagram.featureId);
 			if (diagram.kind === 'state' && edit.elementKind === 'state' && !getStateDiagram(candidate, diagram).groups.some(group => group.resource.id === parentId)) { throw new Error(`Resource is outside this state diagram: ${parentId}`); }
-			candidate.semantics.elements.push({ id: edit.id, kind: edit.elementKind, name: edit.name, ...(parentId ? { parentId } : {}) });
-			diagram.nodes.push({ elementId: edit.id, x: (diagram.nodes.length % 3) * 260, y: Math.floor(diagram.nodes.length / 3) * 180 });
+			candidate.semantics.elements.push({ id: edit.id, kind: edit.elementKind, name: edit.name, ...(parentId ? { parentId } : {}), ...(contextElement && edit.elementKind === 'system' ? { scope: 'external' as const } : {}) });
+			if (contextElement) { diagram.contextIds = [...new Set([...(diagram.contextIds ?? []), edit.id])]; }
+			includeElement(diagram, edit.id, candidate);
 			break;
 		}
 		case 'relation': {

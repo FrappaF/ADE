@@ -85,14 +85,15 @@ suite('A.D.E imported diagram review', () => {
 		assert.deepStrictEqual(f.called, ['apply']);
 		button('Return to Exploration').click();
 		assert.deepStrictEqual([!!button(reviewLabel), project.section, project.model], [true, 'home', model]);
-		button('Project').click();
-		assert.deepStrictEqual([...root.querySelectorAll('.ade-action-group h2')].map(node => node.textContent), ['Open and Save', 'Explore and Review']);
-		assert.equal(root.querySelector('.ade-tools details'), null, 'project actions no longer occupy the footer');
-		editor.showWorkspace(); assert.ok(button(reviewLabel), 'explicit diagram navigation returns from the settings tabs');
+		button('Project Settings').click();
+		assert.ok(root.textContent?.includes('Open and Save'));
+		assert.equal(root.querySelector('.ade-tools'), null, 'settings do not duplicate document status');
+		editor.showWorkspace(); assert.ok(button(reviewLabel), 'explicit diagram navigation returns from project settings');
 		button('AI Settings').click();
-		assert.deepStrictEqual([...root.querySelectorAll('.ade-action-group h2')].map(node => node.textContent), ['Account and Model', 'Diagram Generation']);
-		root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
-		assert.ok(button(reviewLabel), 'the first tab returns to the existing diagram workflow');
+		assert.deepStrictEqual([...root.querySelectorAll('.ade-action-group h2')].map(node => node.textContent), ['Account and Model', 'AI Requests', 'Diagram Generation']);
+		assert.ok(button('Configure AI Request Budget'));
+		editor.showWorkspace();
+		assert.ok(button(reviewLabel), 'returning to the workspace preserves the saved review');
 
 		// Applying the saved review must leave the diagram usable, including after reopening the editor.
 		model.id = 'semantic:imported';
@@ -109,19 +110,10 @@ suite('A.D.E imported diagram review', () => {
 			assert.equal(root.querySelector('.ade-workflow, .ade-floating-workflow'), null, 'generation history never overlays the diagram');
 			assert.equal(root.querySelector('.ade-floating-menu .ade-primary-action'), null, 'applied work does not request more generation');
 			assert.equal(button('Continue Exploration'), undefined); assert.equal(button('Continue Generation'), undefined);
-			assert.ok(button('Chat with Codex'), 'further AI changes remain optional');
+			assert.ok(button('Code'), 'code workflows have their own destination');
 		};
 		assertAppliedCanvas();
-		const menu = [...root.querySelectorAll('details')].find(details => details.querySelector('summary')?.textContent === 'More Actions')!;
-		root.style.setProperty('--vscode-editorWidget-background', '#252526'); root.style.setProperty('--vscode-sideBar-background', '#181818');
-		menu.open = true;
-		const iconRows = ['.ade-menu-items .ade-navigation', '.ade-menu-items .ade-editing-history'].map(selector => {
-			const buttons = [...root.querySelectorAll<HTMLButtonElement>(`${selector} > button`)];
-			return { labels: buttons.map(button => button.getAttribute('aria-label')), aligned: buttons.every(button => Math.abs(button.getBoundingClientRect().top - buttons[0].getBoundingClientRect().top) < 1) };
-		});
-		assert.deepStrictEqual({ iconRows, background: dom.getWindow(menu).getComputedStyle(menu.querySelector<HTMLElement>(':scope > .ade-options-content')!).backgroundColor }, { iconRows: [{ labels: ['Back', 'Forward', 'Home'], aligned: true }, { labels: ['Save', 'Undo', 'Redo'], aligned: true }], background: 'rgb(37, 37, 38)' }, 'compact icon rows sit on an opaque floating menu');
-		menu.open = false;
-		button('Project').click();
+		button('Code').click();
 		assert.ok(root.textContent?.includes('All Diagram Changes Applied'));
 		assert.equal(button('Review All Changes'), undefined, 'a completed review does not leave a disabled review action');
 		if (projectWorkflow) {
@@ -130,17 +122,17 @@ suite('A.D.E imported diagram review', () => {
 			assert.ok(plan.textContent?.includes('Overview · Structure · Applied'));
 		}
 		editor.showWorkspace(); assertAppliedCanvas();
-		Object.assign(code, { changed: true }); changed.fire();
+		Object.assign(code, { changed: true }); changed.fire(); button('Code').click();
 		assert.ok(button('Update Diagrams').classList.contains('ade-primary-action'), 'source changes have a specific action');
 		Object.assign(code, { changed: false });
 		exploration.proposals[0].status = 'invalid';
 		if (projectWorkflow) { exploration.batch!.blockers = ['invalidDraft:draft']; exploration.tasks[0].status = 'running'; }
 		changed.fire();
 		assert.ok(button(projectWorkflow ? 'Continue Generation' : 'Continue Exploration').classList.contains('ade-primary-action'));
-		assert.equal(root.querySelector('.ade-workflow'), null, 'unfinished work also keeps the canvas clear');
+		editor.showWorkspace(); assert.equal(root.querySelector('.ade-workflow'), null, 'unfinished work also keeps the canvas clear');
 		exploration.proposals[0].status = 'ready';
 		if (projectWorkflow) { exploration.batch!.blockers = []; exploration.tasks[0].status = 'ready'; }
-		changed.fire();
+		changed.fire(); button('Code').click();
 		assert.ok(button(reviewLabel).classList.contains('ade-primary-action'), 'prepared drafts lead directly to review');
 		apply(); editor.dispose(); root.textContent = '';
 		const restored = store.add(instantiation.createInstance(AdeEditor, Object.assign(new (mock<IEditorGroup>())(), { id: 1, windowId: 1 })));
@@ -157,6 +149,19 @@ suite('A.D.E imported diagram review', () => {
 			f.render(); root.querySelector('button')!.click();
 			assert.deepStrictEqual([root.querySelector('button')!.disabled, f.called, !!root.querySelector('[role="alert"]'), root.querySelector('details')!.open], [true, [], true, false]);
 		}
+	});
+
+	test('nested source-staleness failures show one readable reason without evidence identifiers', () => {
+		const f = fixture();
+		f.review.problem = 'projectNotReady:staleEvidence:evidence:opaque-hash';
+		f.review.proposal.status = 'invalid';
+		f.review.proposal.diagnostics = [{ code: 'contract', path: '/review', args: ['staleEvidence:evidence:opaque-hash'] }];
+		f.render();
+		const alert = root.querySelector('[role="alert"]')!;
+		assert.strictEqual(alert.querySelectorAll('li').length, 1);
+		assert.ok(alert.textContent?.includes('Source Files Changed After Analysis'));
+		assert.ok(!alert.textContent?.includes('opaque-hash'));
+		assert.ok(!alert.textContent?.includes('projectNotReady'));
 	});
 
 	test('hostile review labels remain text; busy operations disable mutation and refresh', () => {

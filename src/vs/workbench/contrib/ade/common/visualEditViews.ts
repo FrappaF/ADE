@@ -7,7 +7,7 @@ import { type SemanticModel } from './modelTypes.js';
 import { getStateDiagram } from './stateDiagram.js';
 import { arrangeDiagram } from './diagramLayout.js';
 import { type VisualEditContext, type VisualEditOf } from './visualEditTypes.js';
-import { includeElement, excludeFromView } from './visualEditSupport.js';
+import { includeElement, excludeFromView, isDiagramContextElement } from './visualEditSupport.js';
 
 /** Views edits share the caller's transaction and validation boundary. */
 export function applyViewsVisualEdit(context: VisualEditContext, edit: VisualEditOf<'c4View' | 'diagram' | 'include' | 'exclude' | 'position' | 'layout' | 'deleteDiagram'>): SemanticModel | undefined {
@@ -22,7 +22,8 @@ export function applyViewsVisualEdit(context: VisualEditContext, edit: VisualEdi
 			const diagram = view(edit.viewId);
 			const element = candidate.semantics.elements.find(element => element.id === edit.id);
 			if (diagram.kind === 'state' && element?.kind === 'state' && !getStateDiagram(candidate, diagram).groups.some(group => group.resource.id === element.parentId)) { throw new Error(`Resource is outside this state diagram: ${element.parentId}`); }
-			includeElement(diagram, edit.id);
+			if (isDiagramContextElement(candidate, diagram, edit.id)) { diagram.contextIds = [...new Set([...(diagram.contextIds ?? []), edit.id])]; }
+			includeElement(diagram, edit.id, candidate);
 			break;
 		}
 		case 'exclude':

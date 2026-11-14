@@ -10,7 +10,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IAdeProjectService } from '../browser/adeProjectService.js';
 import { canonicalJson } from '../common/modelSerialization.js';
@@ -36,10 +36,11 @@ export class AdeAiCodeUpdates extends Disposable {
 	private enabled(): boolean { return !this.host.busy && !this.opening && this.configuration.getValue<boolean>('chat.disableAIFeatures') !== true && this.project.projectRoot?.scheme === 'file' && this.project.modelUri?.scheme === 'file' && this.project.editable && !this.project.error && !this.project.hasStructuralErrors; }
 	private current(change: SavedModelChange): boolean { return change.modelUri === this.project.modelUri?.toString() && canonicalJson(codeUpdateContent(change.model)) === canonicalJson(codeUpdateContent(this.project.model)); }
 	private async suggest(change: SavedModelChange): Promise<void> {
-		if (!this.enabled() || !this.current(change)) { return; }
+		if (!this.enabled() || !this.current(change) || this.configuration.getValue<boolean>('ade.codeUpdates.suggestAfterSave') === false) { return; }
 		this.opening = true;
 		try {
-			const result = await this.dialogs.confirm({ message: localize('ade.codeUpdate.suggest', "Update the Codebase from Your Saved Diagram Changes?"), detail: localize('ade.codeUpdate.suggestDetail', "{0} model changes saved in {1}. The assistant will receive the exact changes and saved model to implement them in this project's codebase.", change.changes.length, change.model.name), primaryButton: localize('ade.codeUpdate.button', "Update Codebase from Diagrams") });
+			const result = await this.dialogs.confirm({ message: localize('ade.codeUpdate.suggest', "Update the Codebase from Your Saved Diagram Changes?"), detail: localize('ade.codeUpdate.suggestDetail', "{0} model changes saved in {1}. The assistant will receive the exact changes and saved model to implement them in this project's codebase.", change.changes.length, change.model.name), primaryButton: localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), checkbox: { label: localize('ade.codeUpdate.dontAsk', "Don't Ask Again in This Workspace") } });
+			if (result.checkboxChecked) { await this.configuration.updateValue('ade.codeUpdates.suggestAfterSave', false, ConfigurationTarget.WORKSPACE); }
 			if (!result.confirmed || !this.current(change)) { return; }
 		} finally { this.opening = false; }
 		await this.update(change);

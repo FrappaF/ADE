@@ -35,6 +35,28 @@ export class AdeAiConnection extends Disposable {
 	get connectionStatus(): string { return this._connectionStatus ?? localize('ade.ai.unchecked', "CLI Account Not Checked Yet"); }
 
 	private _config: CliConfig | undefined;
+	get requestStatus(): string {
+		return !this._config ? localize('ade.ai.requestsUnconfigured', "AI Requests Are Not Configured") : !this._config.maxCalls ? localize('ade.ai.requestsDisabled', "AI Requests Disabled · Context Preparation Only") : localize('ade.ai.requestsEnabled', "AI Requests Enabled · Agent Run Budget: {0}", this._config.maxCalls);
+	}
+
+	private requestBudgets() {
+		return [
+			{ label: localize('ade.ai.budgetTwo', "Plan and Implementation"), detail: localize('ade.ai.budgetTwo.detail', "Up to 2 Agent Runs"), maxCalls: 2 },
+			{ label: localize('ade.ai.budgetOne', "Plan or Reconciliation"), detail: localize('ade.ai.budgetOne.detail', "Up to 1 Agent Run"), maxCalls: 1 },
+			{ label: localize('ade.ai.budgetZero', "Prepare Context Only"), detail: localize('ade.ai.budgetZero.detail', "No AI Requests"), maxCalls: 0 }
+		];
+	}
+
+	async configureRequestBudget(): Promise<void> {
+		if (this.host.busy || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { this.notifications.info(localize('ade.ai.connectionBlocked', "AI Setup Is Unavailable While an Operation Is Running or AI Features Are Disabled.")); return; }
+		if (!await this.ensureConfigured()) { return; }
+		const choices = this.requestBudgets();
+		const budget = await this.quick.pick(choices, { title: localize('ade.ai.budget', "Agent Run Budget · Provider Usage Is Managed by Its CLI"), activeItem: choices.find(choice => choice.maxCalls === this._config!.maxCalls) });
+		if (!budget) { return; }
+		this.configure({ ...this._config!, maxCalls: budget.maxCalls });
+		this.host.changed();
+	}
+
 
 	async ensureConfigured(): Promise<boolean> {
 		if (!this._config) { this.host.info(localize('ade.ai.configurationNeeded', "Choose an AI Model, CLI and Budget to Continue. An Existing CLI Login Does Not Need to Be Repeated.")); await this.connect(); }
@@ -232,11 +254,8 @@ export class AdeAiConnection extends Disposable {
 		if (!model) { this.host.info(localize('ade.ai.noModel', "No Model Selected. Choose Model and CLI Before Implementing a Feature.")); return; }
 		const executable = await this.chooseCliExecutable(provider, this._config?.provider === provider ? this._config.executable : provider, model);
 		if (!executable) { return; }
-		const budget = await this.quick.pick([
-			{ label: localize('ade.ai.budgetTwo', "Plan and Implementation · At Most Two Agent Runs"), maxCalls: 2 },
-			{ label: localize('ade.ai.budgetOne', "Plan or Reconciliation Proposal · At Most One Agent Run"), maxCalls: 1 },
-			{ label: localize('ade.ai.budgetZero', "Prepare Context Only · No AI Requests"), maxCalls: 0 }
-		], { title: localize('ade.ai.budget', "Agent Run Budget · Provider Usage Is Managed by Its CLI") });
+		const budgets = this.requestBudgets();
+		const budget = await this.quick.pick(budgets, { title: localize('ade.ai.budget', "Agent Run Budget · Provider Usage Is Managed by Its CLI"), activeItem: budgets.find(choice => choice.maxCalls === this._config?.maxCalls) });
 		if (!budget) { this.host.info(localize('ade.ai.noBudget', "No Budget Selected. AI Configuration Was Not Saved.")); return; }
 		this._config = { version: 1, provider, connection: 'cli', model, executable, timeoutMs: 180000, maxContextBytes: 262144, maxCalls: budget.maxCalls };
 		this.loginWatch.clear(); this.accountGeneration++;

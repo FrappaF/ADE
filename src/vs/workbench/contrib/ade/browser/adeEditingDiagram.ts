@@ -8,6 +8,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { ElementKind, RelationKind, SemanticElement } from '../common/modelTypes.js';
 import { acceptsNotationElement, acceptsNotationRelation } from '../common/modelNotation.js';
 import { isCompatibleRelation } from '../common/modelValidation.js';
+import { isDiagramContextElement } from '../common/visualEditSupport.js';
 import { VisualEdit } from '../common/visualEditing.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 import { isSequenceMessage } from '../common/sequenceDiagram.js';
@@ -27,7 +28,23 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 		const feature = chooseFeature ? await ui.feature(id) : undefined;
 		if (chooseFeature && !feature) { return; }
 		const creationLabels: Partial<typeof viewLabels> = { structure: localize('ade.structure', "Structure Diagram"), activity: localize('ade.activity', "Activity Flow"), sequence: localize('ade.sequence', "Sequence Diagram"), state: localize('ade.stateDiagram', "State Diagram") };
-		const kind = await ui.quickInput.pick((Object.keys(viewLabels) as (keyof typeof viewLabels)[]).map(kind => ({ label: creationLabels[kind] ?? viewLabels[kind], kind })), { title: localize('ade.diagramType', "Diagram Type") });
+		const types = (Object.keys(viewLabels) as (keyof typeof viewLabels)[]).map(kind => ({ label: creationLabels[kind] ?? viewLabels[kind], kind }));
+		const title = localize('ade.diagramType', "Diagram Type");
+		const common = await ui.quickInput.pick([...types.filter(item => ['structure', 'activity', 'sequence', 'state'].includes(item.kind)), { label: localize('ade.diagram.more', "More Diagram Types"), kind: undefined }], { title });
+		if (!common) { return; }
+		let kind: { kind: keyof typeof viewLabels } | undefined = common.kind ? { kind: common.kind } : undefined;
+		while (!kind) {
+			const area = await ui.quickInput.pick([
+				{ label: localize('ade.element.architecture', "Architecture"), kinds: ['c4Context', 'c4Container', 'c4Component'] },
+				{ label: localize('ade.element.data', "Data"), kinds: ['erd', 'databaseSchema', 'class'] },
+				{ label: localize('ade.diagram.implementation', "Implementation"), kinds: ['component', 'package', 'deployment', 'network'] },
+				{ label: localize('ade.element.behavior', "Behavior"), kinds: ['useCase', 'dataFlow'] }
+			], { title });
+			if (!area) { return; }
+			const picked = await ui.quickInput.pick([...types.filter(item => area.kinds.includes(item.kind)), { label: localize('ade.element.back', "Back"), kind: undefined }], { title: area.label });
+			if (!picked) { return; }
+			if (picked.kind) { kind = { kind: picked.kind }; }
+		}
 		if (!kind) { return; }
 		const edits: VisualEdit[] = [];
 		let resourceId: string | undefined;
@@ -53,7 +70,40 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 		ui.project.showDiagram(viewId);
 	}
 	if (command === 'addElement' && view) {
-		const kind = view.kind === 'state' ? { kind: 'state' as const } : await ui.quickInput.pick((Object.keys(elementLabels) as ElementKind[]).filter(kind => kind !== 'feature' && acceptsNotationElement(view.kind, { kind })).map(kind => ({ label: elementLabels[kind], kind })), { title: localize('ade.elementType', "Element Type") });
+		const scopedC4 = (model.version === 4 || model.version === 5) && !!view.subjectId && ['c4Context', 'c4Container', 'c4Component'].includes(view.kind);
+		const candidates = (Object.keys(elementLabels) as ElementKind[])
+			.filter(kind => kind !== 'feature' && acceptsNotationElement(view.kind, { kind }))
+			.map(kind => ({
+				label: kind === 'system' && scopedC4 ? localize('ade.externalSystemElement', "External Software System") : elementLabels[kind],
+				description: kind === 'container' && scopedC4 && view.kind === 'c4Component' ? localize('ade.contextContainerElement', "Context Container") : (model.version === 4 || model.version === 5) && view.kind === 'class' && view.subjectId ? localize('ade.contractContextElement', "Contract Diagram Context") : undefined,
+				kind
+			}));
+		const title = localize('ade.elementType', "Element Type");
+		let kind: { kind: ElementKind } | undefined;
+		if (view.kind === 'state') { kind = { kind: 'state' }; }
+		else if (candidates.length <= 6) { kind = await ui.quickInput.pick(candidates, { title }); }
+		else {
+			const common = candidates.filter(item => ['actor', 'component', 'resource', 'view'].includes(item.kind));
+			const choice = await ui.quickInput.pick([...common, { label: localize('ade.element.more', "More Element Types"), kind: undefined }], { title });
+			if (!choice) { return; }
+			if (choice.kind) { kind = { kind: choice.kind }; }
+			else {
+				const areas = [
+					{ label: localize('ade.element.architecture', "Architecture"), kinds: ['system', 'container', 'package'] },
+					{ label: localize('ade.element.data', "Data"), kinds: ['entity', 'table', 'class', 'contract', 'dataStore'] },
+					{ label: localize('ade.element.interfaces', "Interfaces"), kinds: ['interface'] },
+					{ label: localize('ade.element.behavior', "Behavior"), kinds: ['controller', 'action', 'state', 'useCase', 'process'] },
+					{ label: localize('ade.element.flow', "Flow"), kinds: ['decision', 'start', 'end'] },
+					{ label: localize('ade.element.infrastructure', "Infrastructure"), kinds: ['deploymentNode', 'artifact', 'networkNode'] }
+				].filter(area => candidates.some(item => area.kinds.includes(item.kind)));
+				while (!kind) {
+					const area = await ui.quickInput.pick(areas, { title }); if (!area) { return; }
+					const picked = await ui.quickInput.pick([...candidates.filter(item => area.kinds.includes(item.kind)), { label: localize('ade.element.back', "Back"), kind: undefined }], { title: area.label });
+					if (!picked) { return; }
+					if (picked.kind) { kind = { kind: picked.kind }; }
+				}
+			}
+		}
 		if (!kind) { return; }
 		let parentId: string | undefined;
 		if (kind.kind === 'state') {
@@ -70,10 +120,15 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 	}
 	if ((command === 'addExisting' || command === 'addExistingState') && view) {
 		const resources = view.kind === 'state' ? new Set(getStateDiagram(model, view).groups.map(group => group.resource.id)) : undefined;
-		const picked = await ui.quickInput.pick(model.semantics.elements.filter(element => !view.nodes.some(node => node.elementId === element.id)
+		const candidates = model.semantics.elements.filter(element => !view.nodes.some(node => node.elementId === element.id)
 			&& acceptsNotationElement(view.kind, element)
 			&& (command !== 'addExistingState' || element.kind === 'state')
-			&& (!resources || element.kind !== 'state' || resources.has(element.parentId ?? ''))).map(element => ({ label: element.name, description: elementLabels[element.kind], detail: context(element), element })), { title: command === 'addExistingState' ? localize('ade.state.addExisting', "Add Existing State") : localize('ade.include', "Add Existing Element") });
+			&& (!resources || element.kind !== 'state' || resources.has(element.parentId ?? ''))).map(element => ({ label: element.name, description: isDiagramContextElement(model, view, element.id) ? localize('ade.includeContext', "Context · {0}", elementLabels[element.kind]) : elementLabels[element.kind], detail: context(element), element }));
+		if (!candidates.length) {
+			await ui.dialogs.info(command === 'addExistingState' ? localize('ade.state.noExisting', "No Existing States to Add") : localize('ade.noExisting', "No Existing Elements to Add"), localize('ade.noExistingHelp', "There are no compatible elements available to add to {0}. Use {1} to create one.", view.name, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element")));
+			return;
+		}
+		const picked = await ui.quickInput.pick(candidates, { title: command === 'addExistingState' ? localize('ade.state.addExisting', "Add Existing State") : localize('ade.include', "Add Existing Element") });
 		if (picked) {
 			ui.edit({ kind: 'include', id: picked.element.id, viewId: view.id });
 			ui.project.selectElement(picked.element.id);

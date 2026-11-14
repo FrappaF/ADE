@@ -30,9 +30,6 @@ import { AccessibilityVerbositySettingId } from '../../accessibility/browser/acc
 import { IAdeAiService } from './adeAiService.js';
 import { IAdeCodeService } from './adeCodeService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { Codicon } from '../../../../base/common/codicons.js';
-import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
-import { type ThemeIcon } from '../../../../base/common/themables.js';
 
 export const ADE_VIEW_CONTAINER_ID = 'workbench.view.ade';
 export const ADE_VIEW_ID = 'ade.systemFeatures';
@@ -140,26 +137,6 @@ export class AdeView extends ViewPane {
 		button.setAttribute('aria-current', String(this.project.section === 'diagram' && view.id === this.project.activeView?.id));
 	}
 
-	private renderProjectShortcuts(parent: HTMLElement): void {
-		const actions = dom.append(parent, dom.$('div.ade-project-shortcuts'));
-		actions.setAttribute('role', 'group'); actions.setAttribute('aria-label', localize('ade.project.diagramActions', "Diagram Actions"));
-		const blocked = this.ai.busy || this.code.busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : this.project.hasStructuralErrors ? localize('ade.shortcuts.invalid', "Correct the Draft Specification Before Changing Diagrams.") : !this.project.editable ? localize('ade.shortcuts.readonly', "Open a Writable Project to Change Its Diagrams.") : undefined;
-		const hints = new Map<string, string>();
-		const shortcut = (label: string, icon: ThemeIcon, id: string, reason: string | undefined, action: () => Promise<void>) => {
-			const button = this.controls.button(actions, label, () => { void action().catch(error => this.notifications.error(error)); }, id);
-			const glyph = renderIcon(icon); glyph.setAttribute('aria-hidden', 'true'); button.prepend(glyph);
-			button.disabled = !!reason;
-			if (reason) {
-				if (!hints.has(reason)) { hints.set(reason, `${id}-reason`); }
-				button.setAttribute('aria-describedby', hints.get(reason)!);
-			}
-		};
-		shortcut(localize('ade.shortcuts.create', "Create Diagram"), Codicon.add, 'project-create-diagram', blocked ?? (isSourceEvidenceModel(this.project.model) ? localize('ade.shortcuts.generateFirst', "Generate and Apply the Codebase Diagrams Before Adding Manual Diagrams.") : undefined), () => this.commandService.executeCommand<void>('ade.addDiagram'));
-		const updateBlocked = blocked ?? (this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true ? localize('ade.import.aiDisabled', "AI features are disabled. Your local source inventory is preserved.") : !this.code.available || !this.ai.available ? localize('ade.shortcuts.updateUnavailable', "Codebase Diagram Updates Are Unavailable in This Environment.") : undefined);
-		shortcut(localize('ade.shortcuts.update', "Update Diagrams from Codebase"), Codicon.refresh, 'project-update-diagrams', updateBlocked, () => this.commandService.executeCommand<void>('ade.ai.updateDiagrams'));
-		shortcut(localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), Codicon.code, 'project-update-codebase', updateBlocked ?? (!this.project.projectRoot ? localize('ade.codeUpdate.saveFirst', "Open or Save a Project Before Updating Its Codebase.") : undefined), () => this.commandService.executeCommand<void>('ade.ai.updateCodebase'));
-		for (const [reason, id] of hints) { const hint = dom.append(actions, dom.$('p.ade-shortcut-hint')); hint.id = id; hint.textContent = reason; }
-	}
 
 	private renderNavigation(force = false): void {
 		const body = this.navigationBody;
@@ -177,22 +154,22 @@ export class AdeView extends ViewPane {
 		body.setAttribute('aria-description', getAdeAccessibilityHint(this.configurationService, this.keybindingService));
 		this.controls.render(body, () => {
 			dom.clearNode(body);
-			this.controls.button(body, localize('ade.home', "Home"), () => { void this.commandService.executeCommand('ade.showHome'); });
-			const more = this.controls.details(body, localize('ade.navigationOptions', "Navigation Options"), 'navigation-options');
-			this.controls.button(more, localize('ade.systemMap', "System Map"), () => { void this.commandService.executeCommand('ade.showSystemMap'); }).disabled = this.project.loading || !!this.project.error;
-			this.controls.button(more, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search'); }).disabled = this.project.loading || !!this.project.error;
+			const toolbar = dom.append(body, dom.$('div.ade-outline-tools'));
+			this.controls.button(toolbar, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search').catch(error => this.notifications.error(error)); }).disabled = this.project.loading || !!this.project.error;
 			if (this.project.editable && !isSourceEvidenceModel(model)) {
-				this.controls.button(more, localize('ade.addFeature', "Add Feature"), () => { void this.commandService.executeCommand('ade.addFeature'); });
+				const create = this.controls.details(toolbar, localize('ade.outline.new', "New"), 'outline-new');
+				for (const [label, command] of [[localize('ade.addFeature', "Add Feature"), 'ade.addFeature'], [localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram']]) {
+					this.controls.button(create, label, () => { this.controls.setExpanded('outline-new', false); void this.commandService.executeCommand(command); }).disabled = this.ai.busy || this.code.busy || this.project.hasStructuralErrors;
+				}
 			}
 			if (this.project.loading || this.project.error) {
 				const status = dom.append(body, dom.$('p.ade-status'));
 				status.setAttribute('role', this.project.error ? 'alert' : 'status');
 				status.textContent = this.project.error ?? localize('ade.loading', "Loading model…");
-				this.controls.button(more, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
+				this.controls.button(body, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
 				return;
 			}
 			const project = this.group(body, 'system', model.name);
-			if (this.project.modelUri) { this.renderProjectShortcuts(project); }
 			if (this.project.hasStructuralErrors) {
 				dom.append(body, dom.$('p')).textContent = localize('ade.draft.navigation', "Correct the Draft Specification to Restore Diagram Navigation. Saving and Undo Remain Available.");
 				this.controls.button(body, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); });
@@ -233,7 +210,6 @@ export class AdeView extends ViewPane {
 					for (const view of related) { this.diagramButton(context, view, `related:${JSON.stringify([group.featureId, view.id])}`); }
 				}
 			}
-			this.controls.button(more, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
 		});
 	}
 }

@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { notationNodeSize } from '../../common/diagramLayout.js';
+import { messagingFixture } from '../common/messagingFixture.js';
+import { blueprintFixture } from '../common/blueprintFixture.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { IQuickInputService, type IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
@@ -18,6 +21,45 @@ import { validateSemanticModel } from '../../common/modelValidation.js';
 
 suite('A.D.E project diagram creation', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
+	test('a new class in a scoped contract diagram is declared context and keeps the contract intact', async () => {
+		const model = structuredClone(blueprintFixture), view = model.views.find(view => view.kind === 'class')!, contracts = structuredClone(model.foundation.blueprint);
+		const project = Object.assign(new (mock<AdeProjectService>())(), { model, selectedId: '', activeView: view, selectElement: (id: string) => { project.selectedId = id; } });
+		const ui = Object.assign(new (mock<AdeEditingContext>())(), { project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { kind?: string })[]) => items.find(item => item.kind === 'class') }), name: async () => 'QA Class', edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
+		await runAdeDiagramCommand(ui, 'addElement'); assert.deepStrictEqual(validateSemanticModel(project.model), []);
+		assert.ok(project.model.views.find(candidate => candidate.id === view.id)!.contextIds?.includes(project.selectedId)); assert.deepStrictEqual(project.model.foundation.blueprint, contracts);
+	});
+
+	test('including an existing sibling container declares context without changing its ownership', async () => {
+		const model = structuredClone(blueprintFixture), owners = structuredClone(model.foundation.ownership);
+		const project = Object.assign(new (mock<AdeProjectService>())(), { model, selectedId: '', activeView: model.views.find(view => view.id === 'c4.l3'), selectElement: (id: string) => { project.selectedId = id; } });
+		const before = structuredClone(project.activeView!.nodes);
+		const ui = Object.assign(new (mock<AdeEditingContext>())(), { project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { element?: { id: string } })[]) => items.find(item => item.element?.id === 'container.store') }), edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
+		await runAdeDiagramCommand(ui, 'addExisting');
+		assert.deepStrictEqual(validateSemanticModel(project.model), []); assert.deepStrictEqual(project.model.foundation.ownership, owners);
+		const view = project.model.views.find(view => view.id === 'c4.l3')!; assert.ok(view.contextIds?.includes('container.store'));
+		assert.deepStrictEqual(view.nodes.filter(node => node.elementId !== 'container.store'), before);
+	});
+
+	test('a new wide card avoids existing geometry without rearranging authored positions', () => {
+		const model = structuredClone(messagingFixture), before = structuredClone(model.views[0].nodes);
+		const next = applyVisualEdit(model, { kind: 'element', id: 'wide', viewId: model.views[0].id, name: 'A deliberately long container name that needs the widest supported card', elementKind: 'container' });
+		const view = next.views[0], node = view.nodes.find(node => node.elementId === 'wide')!, size = notationNodeSize(next.semantics.elements.find(element => element.id === 'wide')!);
+		assert.deepStrictEqual(view.nodes.filter(node => node.elementId !== 'wide'), before);
+		for (const previous of before) { const box = { ...previous, ...notationNodeSize(next.semantics.elements.find(element => element.id === previous.elementId)!) }; assert.ok(node.x >= box.x + box.width || node.x + size.width <= box.x || node.y >= box.y + box.height || node.y + size.height <= box.y, previous.elementId); }
+	});
+	for (const [viewId, kind, ownerId] of [['c4.l2', 'container', 'system.shop'], ['c4.l2', 'resource', 'system.shop'], ['c4.l2', 'dataStore', 'system.shop'], ['c4.l3', 'container', 'system.shop'], ['c4.l3', 'component', 'container.api'], ['c4.l1', 'actor', undefined], ['c4.l1', 'system', undefined], ['c4.l2', 'actor', undefined]] as const) {
+		test(`adding ${kind} to ${viewId} keeps the scoped architecture usable`, async () => {
+			const model = structuredClone(blueprintFixture);
+			const project = Object.assign(new (mock<AdeProjectService>())(), { model, selectedId: '', activeView: model.views.find(view => view.id === viewId), selectElement: (id: string) => { project.selectedId = id; } });
+			const ui = Object.assign(new (mock<AdeEditingContext>())(), { project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { kind?: string })[]) => items.find(item => item.kind === kind) }), name: async () => 'QA Scoped Element', edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
+			await runAdeDiagramCommand(ui, 'addElement');
+			assert.deepStrictEqual(validateSemanticModel(project.model), []);
+			const element = project.model.semantics.elements.find(element => element.id === project.selectedId)!;
+			assert.strictEqual(element.kind, kind);
+			assert.strictEqual(project.model.foundation.ownership.find(entry => entry.elementId === element.id)?.ownerId, ownerId);
+			if (!ownerId || viewId === 'c4.l3' && kind === 'container') { assert.ok(project.model.views.find(view => view.id === viewId)!.contextIds?.includes(element.id)); if (kind === 'system') { assert.strictEqual(element.scope, 'external'); } }
+		});
+	}
 	for (const kind of ['structure', 'state'] as const) {
 		test(`an empty project can create a ${kind} diagram without requiring a preexisting feature`, async () => {
 			const model: SemanticModel = { version: 5, id: 'project', name: 'Project', semantics: { elements: [], relations: [] }, views: [], foundation: emptyFoundation(), codeMappings: [], verifications: [] };

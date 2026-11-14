@@ -10,14 +10,14 @@ import { getGenerationScope, getModelReadiness } from '../common/modelReadiness.
 import { type BlueprintEditMode } from './adeBlueprintEditing.js';
 
 /** Metadata shared by visual Properties and Read Diagram; unknown facts retain their reason. */
-export function specificationRows(model: SemanticModelV4, elementId: string): string[] {
+export function specificationRows(model: SemanticModelV4, elementId: string, options: { includeOwner?: boolean } = {}): string[] {
 	const scope = getGenerationScope(model, elementId), lines: string[] = [];
 	let profile; try { profile = modelProjectProfile(model).profile; } catch { /* Incomplete bindings remain visible below. */ }
 	const readiness = getModelReadiness(model, elementId, profile);
 	lines.push(readiness.state === 'generationReady' ? localize('ade.spec.ready', "Specification: Ready for the Selected Profile") : readiness.state === 'draft' ? localize('ade.spec.draft', "Specification: Draft") : localize('ade.spec.structured', "Specification: Structurally Valid"));
 	for (const binding of model.foundation.platform.bindings.filter(binding => scope.has(binding.elementId) && binding.technology.state === 'unknown')) { if (binding.technology.state === 'unknown') { lines.push(localize('ade.spec.technologyUnknown', "Technology Unknown: {0}", binding.technology.reason)); } }
 	const owner = model.foundation.ownership.find(entry => entry.elementId === elementId);
-	lines.push(owner ? localize('ade.spec.owner', "Owner: {0}", model.semantics.elements.find(element => element.id === owner.ownerId)?.name ?? '') : localize('ade.spec.noOwner', "Owner: Not Declared"));
+	if (options.includeOwner !== false) { lines.push(owner ? localize('ade.spec.owner', "Owner: {0}", model.semantics.elements.find(element => element.id === owner.ownerId)?.name ?? '') : localize('ade.spec.noOwner', "Owner: Not Declared")); }
 	const operations = new Set(model.foundation.blueprint?.operations.filter(operation => scope.has(operation.ownerId)).map(operation => operation.id));
 	const relevant = (id: string) => scope.has(id) || operations.has(id) || model.foundation.interactions.some(entry => entry.id === id && entry.ownerId && scope.has(entry.ownerId)) || model.foundation.stateMachines?.some(entry => entry.id === id && scope.has(entry.ownerId)) || model.foundation.messaging?.some(entry => entry.id === id && [...entry.publishers, ...entry.subscriptions].some(binding => scope.has(binding.ownerId)));
 	for (const assertion of model.foundation.assertions.filter(assertion => relevant(assertion.subject.id))) {

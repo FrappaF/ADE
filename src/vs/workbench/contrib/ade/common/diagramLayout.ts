@@ -96,6 +96,19 @@ export function arrangeDiagram(model: SemanticModel, view: ModelView, density: D
 			rowY += Math.max(...row.map(band => band.height)) + rowGap;
 		}
 	}
+	// Context dependencies must not appear inside the subject's ownership boundary.
+	if (view.subjectId && (view.kind === 'c4Container' || view.kind === 'c4Component')) {
+		const owned = notationGroupMembers(model, view, view.subjectId);
+		const internal = view.nodes.filter(node => node.elementId !== view.subjectId && owned.has(node.elementId));
+		if (internal.length) {
+			const right = Math.max(...internal.map(node => positions.get(node.elementId)!.x + notationNodeSize(elements.get(node.elementId)!).width)) + gap;
+			let y = Math.min(...internal.map(node => positions.get(node.elementId)!.y));
+			for (const node of view.nodes.filter(node => !owned.has(node.elementId))) {
+				positions.set(node.elementId, { x: right, y });
+				y += notationNodeSize(elements.get(node.elementId)!).height + rowGap;
+			}
+		}
+	}
 	return view.nodes.map(node => ({ ...node, ...positions.get(node.elementId)! }));
 }
 

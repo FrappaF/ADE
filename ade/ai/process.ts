@@ -6,6 +6,13 @@
 import { spawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 
+/** A parent node:test worker marker must not suppress a separately reviewed test run. */
+export function nodeTestEnvironment(): NodeJS.ProcessEnv {
+	const environment: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+	delete environment.NODE_TEST_CONTEXT;
+	return environment;
+}
+
 /** Argument vectors only; bounded output, deadline and process-group cancellation. */
 export async function runProcess(executable: string, args: string[], cwd: string, options: { input?: string; signal?: AbortSignal; timeoutMs?: number; maxBytes?: number; env?: NodeJS.ProcessEnv; gracefulShutdownMs?: number; onOutput?: (text: string, stream: 'stdout' | 'stderr') => void; startupTimeoutMs?: number; idleTimeoutMs?: number } = {}) {
 	options.signal?.throwIfAborted();

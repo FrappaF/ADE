@@ -15,7 +15,12 @@ import { type SemanticModelV4 } from '../../common/modelTypes.js';
 suite('A.D.E second runtime editing', () => {
 	function fixture() { let id = 0; return createPureProject('Quantity', () => 'native.' + ++id).model; }
 	async function edit(model: SemanticModelV4, answers: (string | undefined)[]) {
-		const before = structuredClone(model), dialogs = new ScriptedDialogs(answers), edits = await editAdeStack(dialogs, model); dialogs.assertComplete(); assert.deepStrictEqual(model, before);
+		const before = structuredClone(model), dialogs = new ScriptedDialogs(answers), edits = await editAdeStack(dialogs, model, { confirm: async confirmation => {
+			const detail = typeof confirmation.detail === 'string' ? confirmation.detail : confirmation.detail?.value;
+			for (const section of ['Implementation', 'Dependencies', 'Storage and Data', 'Tests', 'Deployment', 'Recovery']) { assert.ok(detail?.includes(section), section); }
+			assert.ok(detail?.includes('unchanged independent business criteria'));
+			return { confirmed: !!await dialogs.pick([{ label: 'Change Runtime Bindings' }]) };
+		} }); dialogs.assertComplete(); assert.deepStrictEqual(model, before);
 		return edits?.reduce((current, edit) => applyVisualEdit(current, edit) as SemanticModelV4, model);
 	}
 	test('runtime plan changes only the existing PSM bindings and is reversible', async () => {

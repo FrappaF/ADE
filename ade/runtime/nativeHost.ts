@@ -6,11 +6,13 @@ import { randomUUID, createHash } from 'node:crypto';
 import { readFile, realpath, readdir, stat } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 import { type CodeContext, type CodePreview, type CodeResponse, type CodeEngine } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 import { importCode, type CodeImport } from '../code-import/importCode.ts';
 import { bindReconciliationIdentities, verifyReconciliationStructure } from '../code-import/reconciliationIdentity.ts';
 import { readSnapshot, writeSnapshot, type ImportSnapshot } from '../code-import/snapshot.ts';
 import { managed, active, activate, lock } from './projectStore.ts';
+import { prepareSync } from '../code-import/syncCode.ts';
 import { prepareReconciliation, type Reconciliation } from '../code-import/reconciliation.ts';
 import { contentHash, sourceFile } from './sourceChanges.ts';
 import { prepareAiReconciliation, proposeAiReconciliation, reconciliationSchema, type PreparedReconciliation, type ReconciliationProposal } from '../ai/reconciliation.ts';
@@ -28,7 +30,7 @@ import { prepareDiagramImport, advanceDiagramImport, readDiagramJob, approveDiag
 import { validateCodeRequest } from './codeProtocol.ts';
 export { codeBridgeProtocol } from './codeProtocol.ts';
 
-interface Preview { previous: ImportSnapshot; next: CodeImport; result: Reconciliation; prepared?: PreparedReconciliation; calls?: number; active?: string; created: number; bindings?: ReconciliationProposal['bindings']; ai?: CodePreview['ai'] }
+interface Preview { inventoryOnly?: boolean; previous: ImportSnapshot; next: CodeImport; result: Reconciliation; prepared?: PreparedReconciliation; calls?: number; active?: string; created: number; bindings?: ReconciliationProposal['bindings']; ai?: CodePreview['ai'] }
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 async function json(path: string): Promise<unknown> {
 	if ((await stat(path)).size > 64 * 1024 * 1024) { throw new Error('Artifact exceeds 64 MiB'); }
@@ -38,7 +40,7 @@ async function json(path: string): Promise<unknown> {
 function context(snapshot: string, state: CodeImport, model = state.model): CodeContext {
 	return {
 		snapshot, model: join(snapshot, 'model.ade.json'), sourceRoot: state.sourceRoot, revision: state.revision, scope: state.scope ?? structuredClone(defaultScope),
-		files: state.files.map(file => ({ path: file.file, elementId: file.moduleId, language: file.language ?? '', status: file.status, diagnostics: file.diagnostics.map(item => `${item.code}${item.syntaxKind ? ': ' + item.syntaxKind : ''} (${item.count})`) })),
+		files: state.files.map(file => ({ path: file.file, elementId: file.moduleId, revision: file.revision, language: file.language ?? '', status: file.status, diagnostics: file.diagnostics.map(item => `${item.code}${item.syntaxKind ? ': ' + item.syntaxKind : ''} (${item.count})`) })),
 		declarations: state.files.flatMap(file => file.declarations.map(item => ({ id: item.id, sourceId: item.sourceId!, name: item.name, kind: item.kind, evidence: item.nameEvidence ?? item.evidence }))),
 		providers: state.semantic?.providers.map(provider => `${provider.name} ${provider.version}`) ?? [],
 		diagramState: model.version === 5 ? model.views.some(view => view.nodes.length > 0) ? 'diagrams' : 'index' : model.semantics.elements.some(element => element.kind === 'feature') ? 'diagrams' : 'index',
@@ -157,7 +159,7 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 				if (request.operation === 'reconciliationPrepare') {
 					if (preview.calls) { throw new Error('This review already used its AI request; prepare a fresh Sync to retry'); }
 					preview.prepared = await prepareAiReconciliation(preview.previous, preview.next, JSON.parse(request.config), request.sourceFiles, request.resolutions, signal, request.clarification);
-					result = { reviewId: preview.prepared.reviewId, contents: JSON.stringify({ prompt: preview.prepared.prompt, schema: reconciliationSchema, metrics: preview.prepared.metrics }, null, '\t'), metrics: preview.prepared.metrics };
+					result = { reviewId: preview.prepared.reviewId, contents: JSON.stringify({ prompt: preview.prepared.prompt, schema: reconciliationSchema, metrics: preview.prepared.metrics }, null, '\t'), metrics: preview.prepared.metrics, designContents: preview.prepared.reviewContents, sourceWindows: preview.prepared.sources.map(({ file, windows, commonWindows }) => ({ file, windows, commonWindows })) };
 				} else {
 					if (!preview.prepared || preview.prepared.reviewId !== request.reviewId || preview.calls) { throw new Error('Review the exact reconciliation context before calling the model'); }
 					preview.calls = 1;
@@ -174,10 +176,16 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 				}
 			} else if (request.operation === 'apply') {
 				const preview = previews.get(request.token); previews.delete(request.token);
-				if (!preview?.result.aiReviewed || !preview.result.model || Date.now() - preview.created > 30 * 60 * 1000) { throw new Error('Sync preview expired or has conflicts'); }
+				if ((!preview?.inventoryOnly && !preview?.result.aiReviewed) || !preview?.result.model || Date.now() - preview.created > 30 * 60 * 1000) { throw new Error('Sync preview expired or has conflicts'); }
 				result = await lock(preview.next.sourceRoot, async () => {
 					await assertPreviewCurrent(preview, signal);
 					const destination = join(await managed(preview.next.sourceRoot), randomUUID());
+					if (preview.inventoryOnly) {
+						await assertNoInterruptedOperation(preview.next.sourceRoot);
+						await writeSnapshot(destination, preview.next, preview.result.model!, preview.result.report, preview.previous, signal, true);
+						await activate(preview.next.sourceRoot, destination);
+						return context(destination, preview.next, preview.result.model!);
+					}
 					let state = preview.next;
 					await applyReconciliation(preview.previous, destination, preview.result.origin, preview.result.mutations, async () => {
 						let model = preview.result.model!;
@@ -237,7 +245,13 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 					await assertNoInterruptedOperation(previous.state.sourceRoot);
 					let next = await importCode(previous.state.sourceRoot, previous.state.projectId, { previous: previous.state, scope: request.scope, renameHints: request.renames ? readRenameHints(request.renames) : undefined, signal });
 					next = await analyze(next, request.bundles ?? [], previous.state, false, signal);
-					const prepared = prepareReconciliation(previous, next, request.resolutions);
+					const inventoryOnly = request.inventoryOnly === true;
+					const prepared: Reconciliation = inventoryOnly ? {
+						report: { ...prepareSync(previous.state, previous.state.model, next).report, conflicts: [] },
+						// Refresh raw projections only when untouched; preserve every authored diagram and contract.
+						model: isDeepStrictEqual(previous.model, previous.state.model) ? next.model : previous.model,
+						mutations: [], status: 'pending', origin: 'code', diagnostics: [], aiReviewed: false
+					} : prepareReconciliation(previous, next, request.resolutions);
 					for (const [file, source] of Object.entries(previous.commonSources)) {
 						if (previous.state.files.find(item => item.file === file)?.status === 'parsed') { continue; }
 						let changed = false;
@@ -247,7 +261,7 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 					}
 					const token = randomUUID();
 					while (previews.size >= 5) { previews.delete(previews.keys().next().value!); }
-					previews.set(token, { previous, next, result: prepared, active: await active(next.sourceRoot), created: Date.now() });
+					previews.set(token, { inventoryOnly, previous, next, result: prepared, active: await active(next.sourceRoot), created: Date.now() });
 					result = previewResponse(token, previews.get(token)!);
 				} else if (request.operation === 'source') {
 					if (!isSourcePath(request.file) || request.start > request.end) { throw new Error('Invalid evidence path or range'); }
@@ -266,10 +280,10 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 					for (const entry of await readdir(parent, { withFileTypes: true })) {
 						if (!entry.isDirectory() || !/^[a-f0-9-]{36}$/.test(entry.name)) { continue; }
 						const path = join(parent, entry.name);
-						try { const snapshot = await readSnapshot(path); snapshots.push({ directory: path, revision: snapshot.state.revision }); } catch { /* Interrupted snapshots are never offered for recovery. */ }
+						try { const snapshot = await readSnapshot(path); snapshots.push({ directory: path, revision: snapshot.state.revision, created: (await stat(join(path, 'snapshot.json'))).mtime.toISOString(), files: snapshot.state.files.length, declarations: snapshot.state.files.reduce((count, file) => count + file.declarations.length, 0) }); } catch { /* Interrupted snapshots are never offered for recovery. */ }
 					}
 					const operations = (await operationHistory(previous.state.sourceRoot)).map(({ id, created, status, origin, fromRevision, toRevision, from, to }) => ({ id, created, status, origin, fromRevision, toRevision, from, to }));
-					result = { snapshots, operations };
+					result = { snapshots: snapshots.sort((a, b) => b.created.localeCompare(a.created)), operations };
 				} else if (request.operation === 'undoSync' || request.operation === 'recoverSync') {
 					result = await lock(previous.state.sourceRoot, async () => {
 						const restored = request.operation === 'undoSync' ? await undoReconciliation(previous.state.sourceRoot, request.id) : await recoverReconciliation(previous.state.sourceRoot, request.id);

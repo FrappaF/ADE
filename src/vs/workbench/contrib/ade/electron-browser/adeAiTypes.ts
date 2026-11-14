@@ -14,13 +14,14 @@ export interface CliConfig {
 
 export interface PreparedReview { reviewId: string; request: { snapshot: string }; context: { sources: { file: string }[] } }
 
-export interface Proposal { planId: string; usage?: { inputTokens: number | null; outputTokens: number | null }; plan: { summary: string; questions: { question: string; reason: string }[]; changes: { file: string; kind: string; reason: string }[]; steps: { description: string }[] } }
+export interface Proposal { planId: string; usage?: { inputTokens: number | null; outputTokens: number | null }; plan: { summary: string; questions: { question: string; reason: string }[]; changes: { file: string; kind: string; reason: string }[]; steps: { description: string }[]; tests?: { description: string }[]; limitations?: string[] } }
 
 export interface CollaborationSession {
+	plan?: Proposal['plan']; planId?: string;
 	id: string; root: string; worktree: string; reviewId: string; status: 'staged' | 'passed' | 'failed' | 'applied' | 'undone';
 	generated: { summary: string; files: { file: string; content: string | null }[] };
 	before: { file: string; content: string | null }[];
-	verification?: { code: number; output: string; durationMs: number };
+	verification?: { code: number; output: string; durationMs: number; outcome?: 'incomplete' | 'passed' | 'failed' | 'cancelled' };
 	usage: { inputTokens: number | null; outputTokens: number | null }; cost: number | null;
 }
 
@@ -48,4 +49,4 @@ export interface AdeAiWorkflow {
 }
 
 /** Names the execution policy instead of positional boolean flags. */
-export interface AdeAiRunOptions { kind?: 'ai' | 'diagram' | 'local'; review?: AdeDiagramReview }
+export interface AdeAiRunOptions { kind?: 'ai' | 'diagram' | 'local'; interactive?: boolean; review?: AdeDiagramReview }

@@ -25,6 +25,8 @@ import { AgentHostCodexAgentEnabledSettingId, AgentHostCodexAgentCodexHomeSettin
 import { ICodexAccountService } from '../../../services/agentHost/browser/codexAccountService.js';
 import { parseCodexModelSelection } from '../../../../platform/agentHost/common/codexModelSelection.js';
 import { IAgentSdkSetupService } from '../../../services/agentHost/browser/agentSdkSetupService.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { IFilesConfigurationService } from '../../../services/filesConfiguration/common/filesConfigurationService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IAdeAiDialogService, type AdeAiMessage } from '../browser/adeAiDialog.js';
 import { getNewChatSessionResource } from '../../chat/common/model/chatUri.js';
@@ -62,6 +64,8 @@ export class AdeAiDiagrams extends Disposable {
 	private _diagramProgress: CodeDiagramProgress | undefined;
 
 	private _diagramExploration: CodeDiagramExploration | undefined;
+
+	private restoringExploration: string | undefined;
 
 	private exploration: { root: string; id: string; snapshot: string; resource?: string; selectedModel?: string } | undefined;
 
@@ -217,9 +221,9 @@ export class AdeAiDiagrams extends Disposable {
 	private async refreshExploration(live = false): Promise<void> {
 		await this.discardMissingExploration();
 		if (!this.exploration || this.exploration.root !== this.code.context?.sourceRoot) { return; }
-		const session = this.exploration;
+		const session = this.exploration, snapshot = this.code.context?.snapshot;
 		const result = await this.explorationRequest({ action: live ? 'status' : 'open', sessionId: session.id });
-		if (this.exploration !== session || this.code.context?.sourceRoot !== session.root) { return; }
+		if (this.exploration !== session || this.code.context?.sourceRoot !== session.root || this.code.context?.snapshot !== snapshot) { return; }
 		this._diagramExploration = result.data; this.host.changed();
 		if (this.conversation) {
 			const issues = result.data.batch?.blockers.length ?? 0;
@@ -276,8 +280,9 @@ export class AdeAiDiagrams extends Disposable {
 			{ label: localize('ade.explore.budgetMedium', "Explore Several Scenarios"), description: localize('ade.explore.budgetMediumDetail', "16 Reported Turns · 160 Local Tool Calls · 2 MiB Retrieved · 60 Minutes"), calls: 160, bytes: 2097152, turns: 16, duration: 3600000 }
 		], { title: localize('ade.explore.budget', "Add Exploration Budget"), placeHolder: localize('ade.explore.budgetHint', "Evidence and Drafts Are Retained. Provider Turns and Tokens Are Counted Only When Reported.") });
 		if (!selected || !this._diagramExploration) { return; }
-		const usage = this._diagramExploration.usage;
-		await this.host.run(async token => { await this.explorationRequest({ action: 'budget', sessionId: this.exploration!.id, budget: { maxToolCalls: Math.min(1000, usage.toolCalls + selected.calls), maxReadBytes: Math.min(33554432, usage.readBytes + selected.bytes), maxModelTurns: Math.min(100, usage.modelTurns.length + selected.turns), maxDurationMs: selected.duration } }, token); await this.refreshExploration(); }, { kind: 'local' });
+		const { usage, budget: current, budgetWindow } = this._diagramExploration;
+		const remainingMs = Math.max(0, current.maxDurationMs - (budgetWindow ? Math.max(0, Date.now() - budgetWindow.started) : 0));
+		await this.host.run(async token => { await this.explorationRequest({ action: 'budget', sessionId: this.exploration!.id, budget: { maxToolCalls: Math.min(1000, Math.max(current.maxToolCalls, usage.toolCalls) + selected.calls), maxReadBytes: Math.min(33554432, Math.max(current.maxReadBytes, usage.readBytes) + selected.bytes), maxModelTurns: Math.min(100, Math.max(current.maxModelTurns, usage.modelTurns.length) + selected.turns), maxDurationMs: Math.min(86400000, Math.floor(remainingMs) + selected.duration) } }, token); await this.refreshExploration(); }, { kind: 'local' });
 	}
 
 	async reviewDiagramProposal(id?: string): Promise<void> {
@@ -307,7 +312,13 @@ export class AdeAiDiagrams extends Disposable {
 
 	async inspectDiagramReview(): Promise<void> {
 		const review = this._diagramReview;
-		if (review) { await this.editors.openEditor({ contents: review.contents, languageId: 'json', options: { pinned: true } }); }
+		if (review) {
+			const resource = URI.joinPath(URI.file(review.root), '.ade', 'reports', generateUuid(), localize('ade.explore.reviewReportFile', "Diagram Review.json"));
+			await this.files.createFolder(URI.joinPath(resource, '..'));
+			await this.files.writeFile(resource, VSBuffer.fromString(review.contents + '\n'));
+			await this.filesConfiguration.updateReadonly(resource, { value: localize('ade.explore.readonlyReview', "This is a diagram review snapshot. Refresh the review to create an updated version.") });
+			await this.editors.openEditor({ resource, options: { pinned: true } });
+		}
 	}
 
 	async applyDiagramReview(): Promise<void> {
@@ -434,6 +445,7 @@ export class AdeAiDiagrams extends Disposable {
 		@IDialogService private readonly dialogs: IDialogService,
 		@IFileService private readonly files: IFileService,
 		@IEditorService private readonly editors: IEditorService,
+		@IFilesConfigurationService private readonly filesConfiguration: IFilesConfigurationService,
 		@IAdeAiDialogService private readonly aiDialog: IAdeAiDialogService,
 		@ICodexAccountService private readonly codexAccount: ICodexAccountService,
 		@IAgentSdkSetupService private readonly setup: IAgentSdkSetupService,
@@ -449,6 +461,7 @@ export class AdeAiDiagrams extends Disposable {
 		try { this.exploration = JSON.parse(this.storage.get('ade.ai.exploration', StorageScope.WORKSPACE) ?? 'null') ?? undefined; } catch { /* Invalid session must be reopened. */ }
 		const saved = this.storage.get('ade.ai.diagramJob', StorageScope.WORKSPACE);
 		if (saved) { try { this._diagramProgress = JSON.parse(saved); } catch { /* Invalid saved progress. */ } }
+
 	}
 
 	get diagramReview(): AdeDiagramReview | undefined { return this._diagramReview; }
@@ -468,5 +481,15 @@ export class AdeAiDiagrams extends Disposable {
 		if (this.conversation && context && this.conversation.root !== context.sourceRoot) { void this.aiDialog.close(); this.conversation = undefined; this.conversationWatch.clear(); this.host.activityStatus = undefined; this.host.changed(); }
 		if (this.exploration && context && this.exploration.root !== context.sourceRoot) { this.explorationTools.clear(); this.explorationBinding = undefined; this._diagramExploration = undefined; }
 		if (this._diagramProgress && context && this._diagramProgress.sourceRoot !== context.sourceRoot) { this._diagramProgress = undefined; this.host.changed(); }
+		const session = this.exploration;
+		if (session && context?.sourceRoot === session.root && !this._diagramExploration && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) {
+			const key = JSON.stringify([session.root, session.id, context.snapshot]);
+			if (this.restoringExploration === key) { return; }
+			this.restoringExploration = key;
+			void this.refreshExploration(true).catch(error => {
+				if (this.exploration === session && this.code.context?.sourceRoot === session.root && !isCancellationError(error)) { this.notifications.error(localize('ade.explore.restoreFailed', "Could Not Restore Saved Diagram Work: {0}", error instanceof Error ? error.message : String(error))); }
+			}).finally(() => { if (this.restoringExploration === key) { this.restoringExploration = undefined; } });
+		}
+
 	}
 }

@@ -6,13 +6,15 @@
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { type ModelField, type SemanticModelV4 } from '../common/modelTypes.js';
+import { type SemanticModelV4 } from '../common/modelTypes.js';
 import { compileModelInteraction, type InteractionReplies } from '../common/modelInteractions.js';
-import { resolveValueType, type ModelValue } from '../common/modelValues.js';
+import { adeTypedValues as adeCriteriaData } from './adeTypedValues.js';
 import { type InteractionCase, type ProjectCriteria } from '../common/modelProject.js';
 
+export { adeTypedValues as adeCriteriaData } from './adeTypedValues.js';
+
 type Dialogs = Pick<IQuickInputService, 'pick' | 'input'>;
-/** Collect authored JSON data through typed native controls; expectations never come from execution. */
+/** Collect authored data through typed native controls; expectations never come from execution. */
 export async function editAdeInteractionCriteria(quick: Dialogs, model: SemanticModelV4, previous: ProjectCriteria): Promise<ProjectCriteria | undefined> {
 	const interaction = await quick.pick(model.foundation.interactions.filter(entry => entry.execution).map(interaction => ({ label: interaction.id, interaction })), { title: localize('ade.criteria.interaction', "Independent Interaction Expectations") }); if (!interaction) { return; }
 	const operation = model.foundation.blueprint!.operations.find(operation => operation.id === interaction.interaction.execution!.operationId)!;
@@ -31,30 +33,6 @@ export async function editAdeInteractionCriteria(quick: Dialogs, model: Semantic
 	}
 	const entry: InteractionCase = { id: name.trim() + '.' + generateUuid(), interactionId: interaction.interaction.id, criterionId: criterion.criterion.id, input, replies, expected: { outcome: outcome.value, outputs, calls, ...(error ? { error } : {}) } };
 	return { ...structuredClone(previous), revision: generateUuid(), interactions: [...previous.interactions ?? [], entry] };
-}
-
-/** Shared typed data authoring for interaction and state criteria. */
-export function adeCriteriaData(quick: Dialogs, model: SemanticModelV4) {
-	const scalar = async (typeId: string, title: string, depth = 0): Promise<ModelValue | undefined> => {
-		if (depth > 16) { throw new Error(localize('ade.criteria.depth', "This Input Exceeds the Supported Depth.")); }
-		const type = resolveValueType(model, typeId); if (!type) { return; }
-		if (type.kind === 'enum') { return (await quick.pick(type.values!.map(value => ({ label: value, value })), { title }))?.value; }
-		if (type.kind === 'record') { return fields(type.fields, depth + 1); }
-		if (type.kind === 'collection') {
-			const values: ModelValue[] = []; while (values.length < 100) { const action = await quick.pick([{ label: localize('ade.criteria.add', "Add Item"), add: true }, { label: localize('ade.criteria.done', "Finish Collection"), add: false }], { title }); if (!action) { return; } if (!action.add) { return values; } const value = await scalar(type.itemTypeId!, title, depth + 1); if (value === undefined) { return; } values.push(value); } return values;
-		}
-		if (type.primitive === 'boolean') { return (await quick.pick([{ label: localize('ade.criteria.true', "True"), value: true }, { label: localize('ade.criteria.false', "False"), value: false }], { title }))?.value; }
-		const answer = await quick.input({ title, validateInput: async value => type.primitive !== 'integer' || /^-?\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? undefined : localize('ade.criteria.integer', "Enter a safe integer.") }); return answer === undefined ? undefined : type.primitive === 'integer' ? Number(answer) : answer;
-	};
-	const fields = async (parameters: ModelField[], depth = 0): Promise<Record<string, ModelValue> | undefined> => {
-		const result: Record<string, ModelValue> = Object.create(null);
-		for (const field of parameters) {
-			const nullable = field.nullable?.state === 'known' && field.nullable.value === true;
-			const choice = await quick.pick([{ label: localize('ade.criteria.value', "Value for {0}", field.name), value: 'set' }, ...(!field.required ? [{ label: localize('ade.criteria.absent', "Absent"), value: 'absent' }] : []), ...(nullable ? [{ label: localize('ade.criteria.null', "Null"), value: 'null' }] : [])], { title: field.name }); if (!choice) { return; } if (choice.value === 'absent') { continue; } if (choice.value === 'null') { result[field.id!] = null; continue; }
-			const value = await scalar(field.typeId!, field.name, depth); if (value === undefined) { return; } result[field.id!] = value;
-		} return { ...result };
-	};
-	return { fields, scalar };
 }
 
 export async function readAdeInteractionReplies(quick: Dialogs, model: SemanticModelV4, interactionId: string): Promise<InteractionReplies | undefined> {

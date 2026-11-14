@@ -37,7 +37,7 @@ suite('A.D.E project entrances and truthful status', () => {
 		const called: string[] = [];
 		renderAdeProjectStart(root, store.add(new AdeControls()), '<img src=x>', () => called.push('template'), () => called.push('manual'));
 		for (const button of root.querySelectorAll('button')) { button.click(); }
-		assert.deepStrictEqual([called, root.querySelector('img'), root.querySelectorAll('.ade-primary-action').length], [['template', 'manual'], null, 1]);
+		assert.deepStrictEqual([called, root.querySelector('img'), root.querySelectorAll('.ade-primary-action').length], [['manual', 'template'], null, 1]);
 		root.textContent = '';
 		renderAdeProjectStart(root, store.add(new AdeControls()), 'Unsupported', undefined, () => called.push('manual'));
 		assert.strictEqual(root.querySelectorAll('button').length, 1);
@@ -50,7 +50,9 @@ suite('A.D.E project entrances and truthful status', () => {
 			adeDocumentStatus({ ...base, saveError: 'disk full', dirty: true }),
 			adeDocumentStatus({ ...base, draft: true }),
 			adeDocumentStatus(base),
+			adeDocumentStatus({ ...base, hasDocument: false, readOnly: true }),
+			adeDocumentStatus({ ...base, readOnly: true, error: 'broken' }),
 			adeDocumentStatus({ ...base, hasDocument: false })
-		], ['Project Could Not Be Opened', 'Changes Could Not Be Saved', 'Draft Saved · Corrections Required', 'Model Saved Locally', 'Choose a Project to Begin']);
+		], ['Project Could Not Be Opened', 'Changes Could Not Be Saved', 'Draft Saved · Corrections Required', 'Model Saved Locally', 'Read-Only Model', 'Project Could Not Be Opened', 'Choose a Project to Begin']);
 	});
 });

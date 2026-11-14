@@ -8,7 +8,7 @@ import { type AdeControls } from './adeControls.js';
 import { adeInteractionRows } from './adeInteractionContent.js';
 
 /** Frames and operands follow the semantic hierarchy; measured text never changes execution order. */
-export function renderAdeInteractionSequence(canvas: HTMLElement, model: SemanticModelV4, id: string, controls: AdeControls, select: (id: string) => void): { width: number; height: number } {
+export function renderAdeInteractionSequence(canvas: HTMLElement, model: SemanticModelV4, id: string, controls: AdeControls, select: (id: string) => void, selectedId?: string): { width: number; height: number } {
 	const rows = adeInteractionRows(model, id), interaction = model.foundation.interactions.find(entry => entry.id === id)!;
 	const calls = model.foundation.occurrences.filter(call => interaction.occurrenceIds.includes(call.id));
 	const participants = [...new Set([...(interaction.description?.participantIds ?? []), ...calls.flatMap(call => [call.from, call.to])])];
@@ -18,6 +18,7 @@ export function renderAdeInteractionSequence(canvas: HTMLElement, model: Semanti
 	const headers = participants.map(id => {
 		const header = controls.button(canvas, model.semantics.elements.find(element => element.id === id)?.name ?? id, () => select(id), `participant:${id}`);
 		header.classList.add('ade-node', 'ade-sequence-participant'); header.dataset.elementId = id;
+		header.setAttribute('aria-pressed', String(selectedId === id));
 		header.style.left = `${centers.get(id)! - 96}px`; header.style.top = '32px'; header.style.width = '192px';
 		return header;
 	});
@@ -30,8 +31,9 @@ export function renderAdeInteractionSequence(canvas: HTMLElement, model: Semanti
 		const frame = model.foundation.frames.find(frame => frame.id === row.id);
 		const operand = model.foundation.frames.flatMap(frame => frame.kind === 'unspecified' && frame.description ? frame.description.operands : []).find(operand => operand.id === row.id);
 		const text = call?.profile === 'descriptive' ? call.name ?? call.id : frame?.kind === 'unspecified' && frame.description ? frame.description.operator : operand ? `[${operand.condition.state === 'known' ? String(operand.condition.value) : '?'}]` : row.label;
-		const label = controls.button(canvas, text, () => { const target = call?.to ?? interaction.ownerId ?? participants[0]; if (target) { select(target); } }, `interaction:${row.id}`);
+		const label = controls.button(canvas, text, () => select(row.id), `interaction:${row.id}`);
 		label.classList.add('ade-sequence-message'); label.dataset.interactionStepId = row.id; label.dataset.sequenceKind = row.kind;
+		label.setAttribute('aria-pressed', String(selectedId === row.id));
 		label.style.left = `${24 + row.depth * 20}px`; label.style.top = `${top}px`; label.style.width = `${width - 48 - row.depth * 40}px`; label.setAttribute('aria-label', row.text);
 		if (frame || row.kind === 'operand') { label.style.maxWidth = label.style.width; label.style.width = 'max-content'; }
 		if (frame) { label.classList.add('ade-sequence-frame-label'); }

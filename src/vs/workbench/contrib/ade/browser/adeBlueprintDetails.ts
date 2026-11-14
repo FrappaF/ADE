@@ -30,7 +30,7 @@ export function renderBlueprintDetails(parent: HTMLElement, model: SemanticModel
 		controls.button(parent, localize('ade.blueprint.sharedModuleText', "Module: {0}", model.semantics.elements.find(element => element.id === module.elementId)?.name ?? ''), () => inspect(module.elementId), `module:${module.id}`);
 	}
 	for (const predicate of model.foundation.predicates?.filter(predicate => model.foundation.blueprint?.operations.some(operation => operation.id === predicate.operationId && operation.ownerId === elementId)) ?? []) { text(parent, localize('ade.predicate.read', "Pure Predicate: {0}", validateModelPredicate(model, predicate).length ? localize('ade.predicate.incomplete', "Incomplete Expression") : describeModelPredicate(model, predicate))); }
-	for (const row of specificationRows(model, elementId)) { text(parent, row); }
+	for (const row of specificationRows(model, elementId, { includeOwner: !owner })) { text(parent, row); }
 	const projection = getContractProjection(model, elementId);
 
 	for (const port of projection.ports) {
@@ -41,20 +41,7 @@ export function renderBlueprintDetails(parent: HTMLElement, model: SemanticModel
 	if (projection.operations.length) {
 		const contracts = controls.details(parent, localize('ade.blueprint.sharedContracts', "Shared Contract Definitions"), `contracts:${elementId}`);
 		for (const contract of projection.contracts) { text(contracts, localize('ade.blueprint.contractRevision', "Contract Version: {0}", contract.version)); for (const invariant of contract.invariants) { text(contracts, localize('ade.blueprint.invariantText', "Invariant (descriptive): {0}", invariant)); } }
-		for (const operation of projection.operations) {
-			const detail = controls.details(contracts, operation.name, `operation:${operation.id}`);
-			for (const field of operation.inputs) { text(detail, localize('ade.blueprint.inputField', "Input · {0}", blueprintFieldLabel(model, field))); }
-			for (const field of operation.outputs) { text(detail, localize('ade.blueprint.outputField', "Result · {0}", blueprintFieldLabel(model, field))); }
-			for (const error of operation.errors) { text(detail, localize('ade.blueprint.typedError', "Error {0}: {1} · {2}", error.code, model.foundation.types.find(type => type.id === error.typeId)?.name ?? '', error.description)); }
-			for (const effect of operation.effects) { text(detail, localize('ade.blueprint.effectText', "Declared Effect: {0}", effect)); }
-			for (const condition of operation.preconditions) { text(detail, localize('ade.blueprint.preText', "Precondition (descriptive): {0}", condition)); }
-			for (const condition of operation.postconditions) { text(detail, localize('ade.blueprint.postText', "Postcondition (descriptive): {0}", condition)); }
-			for (const permission of operation.permissions) { text(detail, localize('ade.blueprint.permissionText', "Permission: {0} · {1}", model.semantics.elements.find(element => element.id === permission.actorId)?.name ?? '', permission.capability)); }
-			for (const criterion of operation.acceptanceCriteria) { text(detail, localize('ade.blueprint.criterionText', "Given {0}; when {1}; then {2}", criterion.given, criterion.when, criterion.then)); }
-			const impact = getContractImpact(model, operation.id);
-			for (const consumerId of impact.consumerIds) { controls.button(detail, localize('ade.blueprint.consumerText', "Consumer: {0}", model.semantics.elements.find(element => element.id === consumerId)?.name ?? ''), () => inspect(consumerId), `contract-consumer:${operation.id}:${consumerId}`); }
-			if (impact.occurrenceIds.length) { text(detail, localize('ade.blueprint.scenarioImpact', "Referenced by {0} call occurrences. A signature change requires checking these scenarios.", impact.occurrenceIds.length)); }
-		}
+		for (const operation of projection.operations) { renderBlueprintOperation(contracts, model, operation, controls, inspect); }
 		for (const type of projection.types) { const detail = controls.details(contracts, type.name, `type:${type.id}`); for (const field of type.fields) { text(detail, blueprintFieldLabel(model, field)); } if (type.values) { text(detail, type.values.join(', ')); } if (type.primitive) { text(detail, type.primitive); } for (const constraint of type.constraints ?? []) { text(detail, localize('ade.blueprint.typeConstraintText', "Constraint: {0} · {1}", constraint.kind, String(constraint.value))); } }
 	}
 	const scope = getGenerationScope(model, elementId);
@@ -69,4 +56,21 @@ export function renderBlueprintDetails(parent: HTMLElement, model: SemanticModel
 			text(detail, localize('ade.blueprint.proseReview', "Structured constraints are checked automatically. Prose requires review."));
 		}
 	}
+}
+
+/** Render the shared definition for one selected call without copying or narrowing the model. */
+export function renderBlueprintOperation(parent: HTMLElement, model: SemanticModelV4, operation: NonNullable<SemanticModelV4['foundation']['blueprint']>['operations'][number], controls: AdeControls, inspect: (id: string) => void): void {
+	const text = (container: HTMLElement, value: string) => { dom.append(container, dom.$('p')).textContent = value; };
+	const detail = controls.details(parent, operation.name, `operation:${operation.id}`);
+	for (const field of operation.inputs) { text(detail, localize('ade.blueprint.inputField', "Input · {0}", blueprintFieldLabel(model, field))); }
+	for (const field of operation.outputs) { text(detail, localize('ade.blueprint.outputField', "Result · {0}", blueprintFieldLabel(model, field))); }
+	for (const error of operation.errors) { text(detail, localize('ade.blueprint.typedError', "Error {0}: {1} · {2}", error.code, model.foundation.types.find(type => type.id === error.typeId)?.name ?? '', error.description)); }
+	for (const effect of operation.effects) { text(detail, localize('ade.blueprint.effectText', "Declared Effect: {0}", effect)); }
+	for (const condition of operation.preconditions) { text(detail, localize('ade.blueprint.preText', "Precondition (descriptive): {0}", condition)); }
+	for (const condition of operation.postconditions) { text(detail, localize('ade.blueprint.postText', "Postcondition (descriptive): {0}", condition)); }
+	for (const permission of operation.permissions) { text(detail, localize('ade.blueprint.permissionText', "Permission: {0} · {1}", model.semantics.elements.find(element => element.id === permission.actorId)?.name ?? '', permission.capability)); }
+	for (const criterion of operation.acceptanceCriteria) { text(detail, localize('ade.blueprint.criterionText', "Given {0}; when {1}; then {2}", criterion.given, criterion.when, criterion.then)); }
+	const impact = getContractImpact(model, operation.id);
+	for (const consumerId of impact.consumerIds) { controls.button(detail, localize('ade.blueprint.consumerText', "Consumer: {0}", model.semantics.elements.find(element => element.id === consumerId)?.name ?? ''), () => inspect(consumerId), `contract-consumer:${operation.id}:${consumerId}`); }
+	if (impact.occurrenceIds.length) { text(detail, impact.occurrenceIds.length === 1 ? localize('ade.blueprint.oneScenarioImpact', "Referenced by 1 call occurrence. A signature change requires checking this scenario.") : localize('ade.blueprint.scenarioImpact', "Referenced by {0} call occurrences. A signature change requires checking these scenarios.", impact.occurrenceIds.length)); }
 }

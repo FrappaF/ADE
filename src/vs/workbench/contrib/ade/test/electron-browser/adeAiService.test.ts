@@ -7,8 +7,8 @@ import assert from 'assert';
 import sinon from 'sinon';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { DeferredPromise } from '../../../../../base/common/async.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
@@ -24,6 +24,7 @@ import { InMemoryStorageService, IStorageService, StorageScope, StorageTarget } 
 import { IWorkspaceTrustRequestService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { IAgentHostService } from '../../../../../platform/agentHost/common/agentService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IFilesConfigurationService } from '../../../../services/filesConfiguration/common/filesConfigurationService.js';
 import { ICodexAccountService, ICodexAccountViewInfo } from '../../../../services/agentHost/browser/codexAccountService.js';
 import { IAgentSdkSetupService } from '../../../../services/agentHost/browser/agentSdkSetupService.js';
 import { ILanguageModelsService } from '../../../chat/common/languageModels.js';
@@ -45,7 +46,7 @@ import { nodeOrdersFixture } from '../common/nodeOrdersFixture.js';
 import { diagramToolDefinitions } from '../../common/diagramTools.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 
-interface Choice { label?: string; id?: string; provider?: string; maxCalls?: number; picked?: boolean }
+interface Choice { description?: string; value?: unknown; label?: string; id?: string; provider?: string; maxCalls?: number; picked?: boolean; send?: boolean; generate?: boolean; propose?: boolean }
 const config = { version: 1, provider: 'codex', connection: 'cli', executable: 'codex', model: 'native-model', timeoutMs: 10000, maxContextBytes: 65536, maxCalls: 2 };
 
 suite('A.D.E native AI orchestration', () => {
@@ -79,7 +80,9 @@ suite('A.D.E native AI orchestration', () => {
 		const chats: { resource: string; attachments: string[]; focused: boolean }[] = [];
 		const chatPrompts: string[] = [];
 		const pickerTitles: string[] = [];
+		const pickerOptions: { title: string; activeItem?: Choice; placeHolder?: string; ignoreFocusLost?: boolean }[] = [];
 		const editorInputs: object[] = [];
+		const readonlyResources: string[] = [];
 		let failPureApply = false;
 		let confirmed = true, failDiagram = false, hiddenPanels = 0, closedAlerts = 0;
 		const dialogDetails: string[] = [];
@@ -88,6 +91,8 @@ suite('A.D.E native AI orchestration', () => {
 		let exploratoryDraft: CodeDiagramExploration['proposals'][number] | undefined, exploratoryApplied = false;
 		const explorationActions: string[] = [];
 		let projectWorkflow = false;
+		let explorationBudget = { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 }, explorationBudgetStarted = Date.now();
+		const explorationBudgetRequests: typeof explorationBudget[] = [];
 		const explorationSessionIds: (string | undefined)[] = [];
 		let explorationId = savedExploration?.id ?? generateUuid(), explorationMissing = false, explorationReadError: Error | undefined;
 		let planApproved = false;
@@ -123,16 +128,17 @@ suite('A.D.E native AI orchestration', () => {
 		Object.assign(project, { projectRoot: URI.file(root), revert: async () => { reverted++; } });
 		const projectService = stub(IAdeProjectService, project);
 		const codeService = stub(IAdeCodeService, code);
-		stub(IQuickInputService, { pick: async (items: Choice[], options?: { title: string }) => { if (options) { pickerTitles.push(options.title); } return picks.shift()?.(items); }, input: async (options?: IInputOptions) => { if (options) { inputOptions.push(options); } return inputs.shift(); } });
+		stub(IQuickInputService, { pick: async (items: Choice[], options?: { title: string; activeItem?: Choice; placeHolder?: string; ignoreFocusLost?: boolean }) => { if (options) { pickerTitles.push(options.title); pickerOptions.push(options); } if (options?.title === 'Review Implementation Context' || options?.title === 'Review Implementation Plan' || options?.title === 'Review Sync Context') { return (confirmations.shift() ?? confirmed) ? items.find(item => item.send || item.generate || item.propose) : undefined; } return picks.shift()?.(items); }, input: async (options?: IInputOptions) => { if (options) { inputOptions.push(options); } return inputs.shift(); } });
 		stub(INotificationService, { notify: (notification: { message: string }) => { errors.push(notification.message); return { close: () => { closedAlerts++; } }; }, error: (message: string) => errors.push(message), info: (message: string) => infos.push(message) });
-		stub(IProgressService, { withProgress: async (_options: object, task: () => Promise<void>) => task() });
+		stub(IProgressService, { withProgress: async (_options: object, task: (progress: { report(step: { message: string }): void }) => Promise<void>) => task({ report: () => {} }) });
 		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed: confirmations.shift() ?? confirmed }; } });
 		let stateData: string | undefined;
 		const fileChanges = store.add(new Emitter<{ contains(resource: URI): boolean }>());
 		stub(IFileService, { createWatcher: () => ({ onDidChange: fileChanges.event, dispose: () => {} }), createFolder: async () => {}, writeFile: async (resource: URI, content: VSBuffer) => { contextFiles.set(resource.fsPath, content.toString()); }, exists: async () => stateData !== undefined,
 			stat: async () => { if (explorationReadError) { throw explorationReadError; } if (explorationMissing) { throw new FileOperationError('Exploration session was removed', FileOperationResult.FILE_NOT_FOUND); } return { isFile: true }; },
 			readFile: async (resource: URI) => ({ value: VSBuffer.fromString(resource?.path.endsWith('/review-fixture.json') ? '{"changes":[{"before":null,"after":{"name":"Reviewed responsibility"}}]}' : stateData ?? '') }) });
-		stub(IEditorService, { openEditor: async (input: object) => { editorInputs.push(input); return undefined; } });
+		stub(IFilesConfigurationService, { updateReadonly: async (resources: URI | URI[]) => { readonlyResources.push(...(Array.isArray(resources) ? resources : [resources]).map(resource => resource.toString())); } });
+		stub(IEditorService, { editors: [], onDidVisibleEditorsChange: Event.None, openEditor: async (input: object) => { editorInputs.push(input); return undefined; } });
 		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => { await focusRequested.complete(); await terminalFocus; }, onExit: terminalExit.event }; }, setActiveInstance: () => {} });
 		stub(ITerminalGroupService, { showPanel: async () => {}, hidePanel: () => { hiddenPanels++; } });
 		stub(IChatWidgetService, { openSession: async (resource: URI) => {  const chat = { resource: resource.toString(), attachments: [] as string[], focused: false }; chats.push(chat); return { input: { setCurrentLanguageModel: (model: { identifier: string }) => selectedChatModels.push(model.identifier) }, attachmentModel: { get fileAttachments() { return attachmentFiles.get(resource.toString()) ?? []; }, delete: (id: string) => { deletedAttachments.push(id); attachmentFiles.set(resource.toString(), (attachmentFiles.get(resource.toString()) ?? []).filter(uri => uri.toString() !== id)); }, addFile: async (uri: URI) => { chat.attachments.push(uri.toString()); attachmentFiles.set(resource.toString(), [...(attachmentFiles.get(resource.toString()) ?? []), uri]); }, updateContext: (_deleted: string[], entries: { value: string }[]) => { diagramContexts.push(entries[0].value); } }, setInput: (value: string) => { chatPrompts.push(value); }, setInputPlaceholder: () => {}, focusInput: () => { chat.focused = true; } }; } });
@@ -152,6 +158,7 @@ suite('A.D.E native AI orchestration', () => {
 					case 'exploration': {
 						const input = JSON.parse((JSON.parse(inputText) as { request: string }).request);
 						explorationActions.push(input.tool ?? input.action);
+						if (input.action === 'budget') { explorationBudget = structuredClone(input.budget); explorationBudgetRequests.push(explorationBudget); explorationBudgetStarted = Date.now(); }
 						if (input.action === 'open') {
 							explorationSessionIds.push(input.sessionId);
 							if (input.sessionId && explorationMissing) { throw new Error('ENOENT: saved exploration session was removed'); }
@@ -160,7 +167,7 @@ suite('A.D.E native AI orchestration', () => {
 						if (input.action === 'review') { return JSON.stringify({ sessionId: explorationId, data: { reviewId: 'whole-project-review', proposal: { id: 'whole-project-review', status: 'ready', diagnostics: [], views: checkoutModel.views.slice(0, 2) }, reviewFile: root + '/.ade/exploration/review-fixture.json', images: checkoutModel.views.slice(0, 2).map(view => ({ viewId: view.id, path: root + '/.ade/exploration/' + view.id + '.svg' })) }, diagnostics: [] }); }
 						if (input.action === 'publish' || input.action === 'publishAll') { exploratoryApplied = true; return JSON.stringify({ sessionId: explorationId, data: { snapshot: root + '/.ade/imports/published' }, diagnostics: [] }); }
 						if (input.action === 'tool') { return JSON.stringify({ sessionId: explorationId, data: input.tool === 'ade_view_preview' ? { reviewFile: root + '/.ade/exploration/review-fixture.json', images: [{ path: root + '/.ade/exploration/preview.svg', viewId: 'overview' }] } : { files: [] }, diagnostics: [] }); }
-						return JSON.stringify({ sessionId: explorationId, data: { sessionId: explorationId, model: 'chat-selected', ...(projectWorkflow ? { workflow: 'project', batch: { blockers: [] } } : {}), budget: { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 }, usage: { toolCalls: 0, readBytes: 0, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, tasks: [], proposals: exploratoryDraft ? [{ ...exploratoryDraft, status: exploratoryApplied ? 'applied' : exploratoryDraft.status }] : [], mcp: { command: 'node', args: ['adeDiagramMcp.js', root] } }, diagnostics: [] });
+						return JSON.stringify({ sessionId: explorationId, data: { sessionId: explorationId, model: 'chat-selected', ...(projectWorkflow ? { workflow: 'project', batch: { blockers: [] } } : {}), budget: explorationBudget, budgetWindow: { started: explorationBudgetStarted, measuredAt: Date.now(), elapsedMs: Date.now() - explorationBudgetStarted, remainingMs: Math.max(0, explorationBudget.maxDurationMs - (Date.now() - explorationBudgetStarted)) }, usage: { toolCalls: 0, readBytes: 0, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, tasks: [], proposals: exploratoryDraft ? [{ ...exploratoryDraft, status: exploratoryApplied ? 'applied' : exploratoryDraft.status }] : [], mcp: { command: 'node', args: ['adeDiagramMcp.js', root] } }, diagnostics: [] });
 					}
 					case 'inspect': return JSON.stringify({ ...context, snapshot: root + '/.ade/imports/published', diagramState: 'diagrams' });
 					case 'structuralPrepare': return JSON.stringify(pureAligned ? { status: 'aligned', calls: 0 } : { status: 'staged', calls: 0, session: pure });
@@ -170,7 +177,7 @@ suite('A.D.E native AI orchestration', () => {
 					case 'structuralSession': return JSON.stringify(pure);
 					case 'structuralRecover': return JSON.stringify({ ...pure, status: 'rolledBack' });
 					case 'prepare': return JSON.stringify({ reviewId: 'context', request: { snapshot: context.snapshot }, context: { sources: [{ file: 'checkout.mjs' }] } });
-					case 'plan': return JSON.stringify({ planId: 'plan', plan: { summary: 'Payment refusal', questions: [], steps: [{ description: 'Implement refusal' }], changes: [{ file: 'checkout.mjs', kind: 'modify', reason: 'Handle refused payments' }] } });
+					case 'plan': return JSON.stringify({ planId: 'plan', plan: { summary: 'Payment refusal', questions: [], steps: [{ description: 'Implement refusal' }], changes: [{ file: 'checkout.mjs', kind: 'modify', reason: 'Handle refused payments' }], tests: [{ description: 'Assert the refused-payment boundary' }], limitations: ['No behavior has been executed yet'] } });
 					case 'stage': return JSON.stringify(session);
 					case 'verify': return JSON.stringify({ ...session, status: 'passed', verification: { code: 0, output: 'Passed', durationMs: 1 } });
 					case 'apply': return JSON.stringify({ ...session, status: 'applied' });
@@ -190,7 +197,7 @@ suite('A.D.E native AI orchestration', () => {
 				}
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
-		return { savedModel, contextFiles, chatRequests, prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+		return { explorationBudgetRequests, setExplorationBudget: (budget: typeof explorationBudget, elapsedMs = 0) => { explorationBudget = structuredClone(budget); explorationBudgetStarted = Date.now() - elapsedMs; }, setCriteria: (value: unknown) => { stateData = JSON.stringify(value); }, pickerOptions, readonlyResources, setPureRoot: (value: string) => { pure.root = value; }, setProjectRoot: (value: URI) => { Object.assign(projectService, { projectRoot: value }); }, savedModel, contextFiles, chatRequests, prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			holdProjectContext: (pending: Promise<boolean>) => { projectContext = pending; }, holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -324,6 +331,14 @@ suite('A.D.E native AI orchestration', () => {
 		const preview: CodePreview = { token: 'preview', context: f.code.context, files: { added: [], changed: ['checkout.mjs'], removed: [], unchanged: [] }, declarations: { added: [], changed: [], removed: [] }, dependencies: { added: [], changed: [], removed: [] }, conflicts: [], impact: { elementIds: [], viewIds: [] }, parsed: [], reused: [], semanticAnalyzed: [], semanticReused: [] };
 		const result = await f.service.reconcile(preview);
 		assert.deepStrictEqual({ requests: f.requests, token: result?.token, errors: f.errors }, { requests: ['reconciliationPrepare', 'reconciliationPropose'], token: 'proposal', errors: [] });
+		assert.strictEqual(f.pickerOptions.find(options => options.title === 'Review Sync Context')?.ignoreFocusLost, true);
+		assert.ok(f.editorInputs.every(input => (input as { resource?: URI }).resource instanceof URI));
+		assert.ok(f.readonlyResources.some(resource => URI.parse(resource).path.endsWith('/Reconciliation Context.json')));
+		assert.ok(f.readonlyResources.some(resource => URI.parse(resource).path.endsWith('/Reconciliation Proposal.json')));
+		assert.ok(f.readonlyResources.some(resource => URI.parse(resource).path.endsWith('/Sync Proposal.md')));
+		const summary = [...f.contextFiles.entries()].find(([path]) => path.endsWith('/Sync Proposal.md'))?.[1];
+		assert.ok(summary?.includes('No Changes Have Been Applied.'));
+		assert.ok(summary?.includes('Sync Has Not Run Runtime Tests or Builds.'));
 	});
 	for (const state of ['index', 'legacyIndex', 'emptyViews'] as const) {
 		test(`Sync generates diagrams when the design is ${state}, even with no code changes`, async () => {
@@ -357,6 +372,21 @@ suite('A.D.E native AI orchestration', () => {
 		assert.match(f.service.connectionStatus, /CLI Account Connected.*native-model/);
 		assert.deepStrictEqual({ signIns: f.signIns, terminals: f.terminals, requests: f.requests }, { signIns: 0, terminals: [], requests: [] });
 	});
+	test('request budget can be enabled, canceled and disabled without changing account settings or starting a provider', async () => {
+		const f = fixture(true, '/qa/codex', 0);
+		const before = JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!);
+		assert.match(f.service.requestStatus, /Requests Disabled/);
+		await f.service.configureRequestBudget();
+		assert.deepStrictEqual(JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!), before);
+		f.picks.push(items => items.find(item => item.maxCalls === 1)); await f.service.configureRequestBudget();
+		assert.deepStrictEqual(JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!), { ...before, maxCalls: 1 });
+		assert.match(f.service.requestStatus, /Requests Enabled.*1/);
+		f.picks.push(items => items.find(item => item.maxCalls === 0)); await f.service.configureRequestBudget();
+		assert.deepStrictEqual(JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!), before);
+		assert.match(f.service.requestStatus, /Requests Disabled/);
+		assert.deepStrictEqual({ requests: f.requests, signIns: f.signIns, terminals: f.terminals }, { requests: [], signIns: 0, terminals: [] });
+	});
+
 	test('logout blocks inference and a later external login is recognized on refresh', async () => {
 		const f = fixture();
 		f.setAccountState({ status: 'signedOut' });
@@ -393,7 +423,49 @@ suite('A.D.E native AI orchestration', () => {
 		await f.service.implement();
 		assert.deepStrictEqual({ requests: f.requests, errors: f.errors }, { requests: ['prepare'], errors: [] });
 		assert.match(f.service.status, /No AI Request Was Made/);
+		const report = f.editorInputs[0] as { resource: URI };
+		assert.ok(report.resource.path.endsWith('/Implementation Context.json'));
+		assert.ok(f.readonlyResources.includes(report.resource.toString()));
 	});
+	test('implementation context can be inspected while the explicit send choice remains open', async () => {
+		const f = fixture(true, 'codex', 1);
+		f.setConfirmed(false); f.picks.push(items => items.find(item => item.id === 'purchase'), items => [...items]); f.inputs.push('Preserve the accepted boundary');
+		await f.service.implement();
+		const choice = f.pickerOptions.find(options => options.title === 'Review Implementation Context')!;
+		assert.strictEqual(choice.ignoreFocusLost, true);
+		assert.match(choice.placeHolder!, /Inspect Report/);
+		assert.deepStrictEqual(f.requests, ['prepare']);
+		assert.match(f.service.status, /Cancelled During Review/);
+	});
+
+	test('plan review stays inspectable and cancellation preserves source without staging', async () => {
+		const f = fixture();
+		f.picks.push(items => items.find(item => item.id === 'purchase'), items => [...items]); f.inputs.push('Preserve the accepted boundary'); f.confirmations.push(true, false);
+		await f.service.implement();
+		const choice = f.pickerOptions.find(options => options.title === 'Review Implementation Plan')!;
+		assert.strictEqual(choice.ignoreFocusLost, true);
+		assert.deepStrictEqual(f.requests, ['prepare', 'plan']);
+		const report = f.editorInputs.at(-1) as { resource: URI };
+		assert.ok(report.resource.path.endsWith('/Implementation Plan.md'));
+		assert.ok(f.readonlyResources.includes(report.resource.toString()));
+		const contents = f.contextFiles.get(report.resource.fsPath)!;
+		assert.match(contents, /Planned Tests[\s\S]*Assert the refused-payment boundary/);
+		assert.match(contents, /Open Questions[\s\S]*No Clarifications Requested/);
+		assert.match(contents, /Limitations[\s\S]*No behavior has been executed yet/);
+		assert.match(f.service.status, /Generation Cancelled/);
+	});
+
+	test('blank implementation intent is rejected before source disclosure and the input explains how to continue', async () => {
+		const f = fixture(true, 'codex', 0);
+		f.picks.push(items => items.find(item => item.id === 'purchase')); f.inputs.push('   ');
+		await f.service.implement();
+		assert.deepStrictEqual(f.requests, []);
+		const field = f.inputOptions.find(options => options.title === 'Requested Behavior')!;
+		assert.ok(await field.validateInput!(''));
+		assert.ok(await field.validateInput!('  \n '));
+		assert.strictEqual(await field.validateInput!('Preserve the accepted boundary'), undefined);
+	});
+
 	test('one-run budget reports that the plan is ready without silently stopping before generation', async () => {
 		const f = fixture(true, 'codex', 1);
 		f.picks.push(items => items.find(item => item.id === 'purchase'), items => [...items]); f.inputs.push('Handle refusal');
@@ -422,6 +494,19 @@ suite('A.D.E native AI orchestration', () => {
 		const saved = JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!);
 		assert.deepStrictEqual({ model: saved.model, connection: saved.connection, maxCalls: saved.maxCalls }, { model: 'native-model', connection: 'cli', maxCalls: 1 });
 	});
+	test('editing a connection prefocuses the saved request budget and cancellation preserves it', async () => {
+		for (const maxCalls of [0, 1, 2]) {
+			const f = fixture(true, 'codex', maxCalls);
+			const before = f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE);
+			f.picks.push(items => items.find(item => item.provider === 'codex'), items => items.find(item => item.id === 'configure'), items => items[0], () => undefined); f.inputs.push('codex');
+			await f.service.connect();
+			const budget = f.pickerOptions.find(options => options.title.startsWith('Agent Run Budget'))!;
+			assert.strictEqual(budget.activeItem?.maxCalls, maxCalls);
+			assert.strictEqual(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE), before);
+			assert.deepStrictEqual(f.requests, []);
+		}
+	});
+
 	test('a model ID cannot be saved as the CLI executable', async () => {
 		const f = fixture(false);
 		f.setCliResolver(async executable => executable === 'codex' ? '/installed/codex' : undefined);
@@ -492,13 +577,22 @@ suite('A.D.E native AI orchestration', () => {
 		f.inputs.push('Handle payment refusal');
 		await f.service.implement();
 		assert.deepStrictEqual({ errors: f.errors, requests: f.requests, verify: f.service.canVerify, apply: f.service.canApply }, { errors: [], requests: ['prepare', 'plan', 'stage'], verify: true, apply: false });
+		assert.ok(f.readonlyResources.some(resource => resource.includes('/review/before/')));
+		assert.ok(f.readonlyResources.some(resource => resource.includes('/review/after/')));
+		assert.ok(f.readonlyResources.some(resource => URI.parse(resource).path.endsWith('/Implementation Review.md')));
+		const reviewResource = (f.editorInputs.at(-1) as { resource: URI }).resource;
+		assert.match(f.contextFiles.get(reviewResource.fsPath)!, /Worktree Verification: Not Run/);
 		await f.service.apply();
 		assert.deepStrictEqual(f.requests, ['prepare', 'plan', 'stage']);
 		await f.service.verify();
 		assert.strictEqual(f.service.canApply, true);
 		await f.service.apply();
 		assert.strictEqual(f.service.canUndo, true);
+		assert.strictEqual((f.editorInputs.at(-1) as { resource: URI }).resource.toString(), reviewResource.toString());
+		assert.match(f.contextFiles.get(reviewResource.fsPath)!, /Applied · Undo Available/);
+		assert.ok(f.dialogDetails.some(detail => detail.startsWith('Tests Passed · Ready to Apply')));
 		await f.service.undo();
+		assert.match(f.contextFiles.get(reviewResource.fsPath)!, /Changes Undone/);
 		assert.deepStrictEqual({ errors: f.errors, requests: f.requests, undo: f.service.canUndo }, { errors: [], requests: ['prepare', 'plan', 'stage', 'verify', 'apply', 'undo'], undo: false });
 	});
 	test('disabling AI prevents CLI launches and inference requests', async () => {
@@ -628,6 +722,17 @@ suite('A.D.E native AI orchestration', () => {
 		assert.deepStrictEqual([f.requests, f.reverted, f.errors], [['structuralPrepare', 'structuralVerify', 'structuralApply', 'structuralUndo'], 2, []]);
 	});
 
+	test('canonical worker roots preserve verification and publication for the selected symlink path', async () => {
+		const f = fixture(false); f.usePureModel(); f.setPureRoot('/canonical/ade-ai-fixture');
+		await f.service.implement(); assert.strictEqual(f.service.canVerify, true);
+		await f.service.structuralResume(); assert.strictEqual(f.service.canVerify, true);
+		await f.service.verify(); assert.strictEqual(f.service.canApply, true);
+		await f.service.apply(); assert.strictEqual(f.service.canUndo, true);
+		await f.service.undo(); assert.deepStrictEqual(f.errors, []);
+		f.setProjectRoot(URI.file('/unrelated/project'));
+		assert.strictEqual(f.service.canVerify, false); assert.strictEqual(f.service.canApply, false);
+	});
+
 	test('aligned v4 target uses no inference, proposal or review editor', async () => {
 		const f = fixture(false); f.usePureModel(); f.setPureAligned(); await f.service.implement();
 		assert.deepStrictEqual([f.requests, f.editorInputs, f.errors], [['structuralPrepare'], [], []]); assert.ok(f.infos.some(message => /No AI Calls/.test(message)));
@@ -649,9 +754,34 @@ suite('A.D.E native AI orchestration', () => {
 		assert.strictEqual(f.service.canApply, false); assert.match(f.service.status, /Prepare a New Review/);
 	});
 
+	test('independent predicate expectations show field names and retain the current value without rewriting an unchanged oracle', async () => {
+		const f = fixture(false); f.usePureModel(); f.disable();
+		const predicate = nodeOrdersFixture.foundation.predicates![0], operation = nodeOrdersFixture.foundation.blueprint!.operations.find(operation => operation.id === predicate.operationId)!, field = operation.inputs.find(field => field.name === 'quantity')!;
+		const criteria = { version: 1, revision: '1', cases: [{ id: 'zero', predicateId: predicate.id, input: { [field.id!]: 0 }, expected: false }] }; f.setCriteria(criteria);
+		let description: string | undefined;
+		f.picks.push(items => { const item = items.find(item => item.label === 'zero'); description = item?.description; return item; }, items => items.find(item => item.value === 'expected'), items => items.find(item => item.value === false));
+		await f.service.editPureCriteria();
+		assert.strictEqual(description, 'quantity: 0');
+		assert.strictEqual(f.pickerOptions.at(-1)?.activeItem?.value, false); assert.match(f.pickerOptions.at(-1)?.placeHolder ?? '', /Not Satisfied/);
+		assert.strictEqual(f.contextFiles.size, 0);
+		f.picks.push(items => items.find(item => item.label === 'zero'), items => items.find(item => item.value === 'expected'), items => items.find(item => item.value === true)); await f.service.editPureCriteria();
+		const saved = JSON.parse(f.contextFiles.get(f.root + '/.ade/criteria.json')!);
+		assert.deepStrictEqual(saved.cases[0].input, criteria.cases[0].input); assert.strictEqual(saved.cases[0].expected, true);
+		assert.deepStrictEqual([f.requests, f.errors], [[], []]);
+	});
+
+	test('changing an independent expectation immediately invalidates an active structural review; retaining it does not', async () => {
+		const f = fixture(false); f.usePureModel();
+		const predicate = nodeOrdersFixture.foundation.predicates![0], field = nodeOrdersFixture.foundation.blueprint!.operations.find(operation => operation.id === predicate.operationId)!.inputs[0];
+		f.setCriteria({ version: 1, revision: '1', cases: [{ id: 'zero', predicateId: predicate.id, input: { [field.id!]: 0 }, expected: false }] });
+		await f.service.implement(); await f.service.verify(); assert.strictEqual(f.service.canApply, true);
+		f.picks.push(items => items.find(item => item.label === 'zero'), items => items.find(item => item.value === 'expected'), items => items.find(item => item.value === false)); await f.service.editPureCriteria(); assert.strictEqual(f.service.canApply, true);
+		f.picks.push(items => items.find(item => item.label === 'zero'), items => items.find(item => item.value === 'expected'), items => items.find(item => item.value === true)); await f.service.editPureCriteria();
+		assert.strictEqual(f.service.canApply, false); assert.strictEqual(f.service.canVerify, false); assert.match(f.service.structuralProblem ?? '', /expectations changed/);
+	});
 	test('native state simulation reads authored criteria and explains phases with zero provider requests', async () => {
 		const f = fixture(false); f.useStateModel(); f.disable(); f.picks.push(items => items.find(item => item.label === 'checkout.failed-charge')); await f.service.simulateStates();
-		assert.deepStrictEqual([f.requests, f.errors, f.editorInputs.length], [[], [], 1]); const opened = f.editorInputs[0] as { contents: string }; for (const part of ['Draft', 'denied', 'doCancelled · action.watch', 'Zero AI Calls']) { assert.ok(opened.contents.includes(part)); }
+		assert.deepStrictEqual([f.requests, f.errors, f.editorInputs.length], [[], [], 1]); const opened = f.editorInputs[0] as { resource: URI }; assert.match(opened.resource.path, /\/.ade\/reports\//); const contents = f.contextFiles.get(opened.resource.fsPath)!; for (const part of ['Draft', 'denied', 'doCancelled · action.watch', 'Zero AI Calls']) { assert.ok(contents.includes(part)); }
 	});
 
 	test('continuous preparation is off by default and coalesces native semantic edits without provider setup', async () => {
@@ -672,11 +802,29 @@ suite('A.D.E native AI orchestration', () => {
 			const f = fixture(false); f.usePureModel(); f.inputs.push('1'); await f.service.configureContinuity(); await clock.tickAsync(650);
 			Object.assign(f.project.model, { name: 'More' }); f.projectChanged.fire(); await clock.tickAsync(650);
 			assert.deepStrictEqual(f.requests, ['structuralPrepare']); assert.match(f.service.continuityStatus, /Budget Exhausted/);
-			await f.service.configureContinuity(); f.picks.push(items => items[0]); await f.service.configureContinuity(); await clock.tickAsync(650);
+			f.picks.push(items => { assert.deepStrictEqual(items.map(item => item.label), ['Set New Budget']); return undefined; });
+			await f.service.configureContinuity(); await clock.tickAsync(650);
+			assert.match(f.service.continuityStatus, /Paused/);
 			assert.deepStrictEqual(f.requests, ['structuralPrepare']); assert.equal(JSON.parse(f.storage.get('ade.structural.continuity', StorageScope.WORKSPACE)!).attempted, 1);
+			f.picks.push(items => items[0]); f.inputs.push('2'); f.confirmations.push(false); await f.service.configureContinuity(); await clock.tickAsync(650);
+			assert.deepStrictEqual(f.requests, ['structuralPrepare'], 'canceling the new budget must not start work or refill consumption');
+			f.picks.push(items => items[0]); f.inputs.push('2'); await f.service.configureContinuity(); await clock.tickAsync(650);
+			assert.deepStrictEqual(f.requests, ['structuralPrepare', 'structuralPrepare']); assert.match(f.service.continuityStatus, /1\/2 Jobs/);
 			await f.service.configureContinuity();
 		} finally { clock.restore(); }
 	});
+	test('a saved preparation budget is displayed as paused after restart without starting jobs or leaking across project roots', async () => {
+		const clock = sinon.useFakeTimers();
+		try {
+			const f = fixture(false); f.usePureModel();
+			f.storage.store('ade.structural.continuity', JSON.stringify({ version: 1, revision: 'saved', root: f.root, maxPreparations: 3, attempted: 2, maxInputBytes: 196608, outputReserveBytes: 65536, review: 'manual', providerCalls: 0 }), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			assert.match(f.service.continuityStatus, /Paused.*2\/3 Jobs/);
+			f.projectChanged.fire(); await clock.tickAsync(650); assert.deepStrictEqual(f.requests, []);
+			f.setProjectRoot(URI.file('/different-project')); assert.match(f.service.continuityStatus, /Off.*0\/0 Jobs/);
+			f.setProjectRoot(URI.file(f.root)); assert.match(f.service.continuityStatus, /Paused.*2\/3 Jobs/);
+		} finally { clock.restore(); }
+	});
+
 	test('continuous preparation ignores layout, blocks incomplete specifications and pauses on project replacement', async () => {
 		const clock = sinon.useFakeTimers();
 		try {
@@ -695,6 +843,9 @@ suite('A.D.E native AI orchestration', () => {
 		const f = fixture(false); f.usePureModel(); f.disable(); await f.service.implement();
 		assert.ok(Object.hasOwn(f.editorInputs[0], 'resource')); assert.equal(f.editorInputs.length, 1);
 		await f.service.structuralTechnicalReview(); assert.equal(f.editorInputs.length, 3);
+		const diff = f.editorInputs[1] as { original: { resource: URI }; modified: { resource: URI } }, report = f.editorInputs[2] as { resource: URI };
+		assert.deepStrictEqual(f.readonlyResources, [diff.original.resource.toString(), diff.modified.resource.toString(), report.resource.toString()]);
+		assert.ok(f.contextFiles.has(report.resource.fsPath));
 		assert.deepStrictEqual(f.requests, ['structuralPrepare']); assert.deepStrictEqual(f.errors, []);
 	});
 
@@ -713,6 +864,46 @@ suite('A.D.E native AI orchestration', () => {
 		await f.service.resumeDiagrams();
 		assert.deepStrictEqual([f.chats[0].resource, f.diagramTools.size], [f.chats[1].resource, diagramToolDefinitions.length]);
 	});
+	test('adding exploration budget preserves unused capacity, remaining time and consumption without starting a provider', async () => {
+		const f = fixture(true, 'codex', 0); f.prepareProjectReview();
+		f.setExplorationBudget({ maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 }, 600000);
+		await f.service.buildDiagrams();
+		const before = structuredClone(f.service.diagramExploration!.usage);
+		f.picks.push(items => items[0]); await f.service.configureDiagramBudget();
+		const budget = f.explorationBudgetRequests[0];
+		assert.deepStrictEqual([budget.maxToolCalls, budget.maxReadBytes, budget.maxModelTurns], [480, 9437184, 40]);
+		assert.ok(budget.maxDurationMs >= 6599000 && budget.maxDurationMs <= 6600000, 'ten elapsed minutes leave eighty, plus thirty added minutes');
+		assert.deepStrictEqual(f.service.diagramExploration!.usage, before);
+		assert.deepStrictEqual(f.chatRequests, []);
+	});
+
+	test('complete diagram review data opens as a named protected report without changing the review', async () => {
+		const f = fixture(); f.prepareProjectReview(); await f.service.buildDiagrams(); await f.service.reviewDiagramProposal();
+		const review = f.service.diagramReview; await f.service.inspectDiagramReview();
+		const resource = (f.editorInputs.at(-1) as { resource: URI }).resource;
+		assert.match(resource.path, /\/\.ade\/reports\/[a-f0-9-]+\/Diagram Review\.json$/);
+		assert.ok(f.readonlyResources.includes(resource.toString()));
+		assert.deepStrictEqual(JSON.parse(f.contextFiles.get(resource.fsPath)!), JSON.parse(review!.contents));
+		assert.strictEqual(f.service.diagramReview, review);
+	});
+
+	test('matching saved diagram work restores locally without opening a conversation or starting AI', async () => {
+		const id = generateUuid();
+		const f = fixture(true, 'codex', 0, { id }); f.prepareProjectReview();
+		f.changed.fire();
+		await timeout(0);
+		assert.strictEqual(f.service.diagramExploration?.sessionId, id);
+		assert.strictEqual(f.service.diagramExploration?.proposals[0]?.status, 'ready');
+		assert.deepStrictEqual(f.explorationActions, ['status']);
+		assert.deepStrictEqual([f.chats, f.dialogs, f.terminals, f.chatRequests], [[], [], [], []]);
+		f.code.context.sourceRoot = '/another-project'; f.changed.fire();
+		const afterProjectChange = f.service.diagramExploration;
+		assert.strictEqual(afterProjectChange, undefined);
+		f.code.context.sourceRoot = f.root; f.changed.fire(); await timeout(0);
+		assert.strictEqual(f.service.diagramExploration?.sessionId, id);
+		assert.deepStrictEqual(f.explorationActions, ['status', 'status']);
+	});
+
 	test('a removed persisted exploration starts a new session after reimporting the same root', async () => {
 		const oldId = generateUuid();
 		const f = fixture(true, 'codex', 2, { id: oldId, resource: 'agent-host-codex:/removed-session' });

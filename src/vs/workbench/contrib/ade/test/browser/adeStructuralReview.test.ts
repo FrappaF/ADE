@@ -39,6 +39,13 @@ suite('A.D.E visual structural review', () => {
 		for (const part of ['8 Derived Cases', '8 Independent Cases', 'Custom Code and Live Broker Execution', 'Zero AI Calls']) { assert.ok(root.textContent?.includes(part), part); }
 		assert.ok(root.querySelector('[role="status"]')); assert.strictEqual(root.querySelector('pre')?.tabIndex, 0);
 	});
+	test('the actionable review-change reason is visible without opening technical details', () => {
+		const f = fixture(); f.actions.canVerify = false;
+		f.actions.problem = 'Independent business expectations changed. Prepare a new review before running verification or applying.';
+		f.render(); assert.strictEqual(root.querySelector('[role="alert"]')?.textContent, f.actions.problem);
+		assert.ok(!root.textContent?.includes('The operation could not finish'));
+	});
+
 	test('failed real checks remain visible and publication stays blocked', () => {
 		const f = fixture(); f.session.status = 'failed'; f.session.verification!.output = 'Independent boundary case failed'; f.render();
 		assert.ok(root.textContent?.includes('Real Verification Failed · Application Blocked')); assert.strictEqual(root.querySelectorAll('button')[1].disabled, true);

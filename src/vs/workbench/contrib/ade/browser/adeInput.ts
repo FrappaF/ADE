@@ -13,6 +13,7 @@ import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 export class AdeInput extends EditorInput {
 	static readonly ID = 'workbench.editor.ade';
 	static readonly RESOURCE = URI.from({ scheme: 'ade-home', path: '/home' });
+	private restoredName: string | undefined;
 	constructor(@IAdeProjectService private readonly project: AdeProjectService) {
 		super();
 		this._register(project.onDidChange(() => {
@@ -31,7 +32,9 @@ export class AdeInput extends EditorInput {
 	override async saveAs(): Promise<EditorInput | undefined> { return await this.project.saveAs() ? this : undefined; }
 	override async revert(): Promise<void> { await this.project.revert(); }
 	readonly resource = AdeInput.RESOURCE;
+	restoreName(name: string): void { this.restoredName = name; }
 	override getName(): string {
+		if (this.project.restoringContext) { return this.restoredName ?? localize('ade.home', "A.D.E Home"); }
 		if (!this.project.loading && !this.project.error && isSourceEvidenceModel(this.project.model)) { return localize('ade.import.title', "Create Diagrams: {0}", this.project.model.name); }
 		if (this.project.section === 'map' && !this.project.error && !this.project.loading) { return localize('ade.map.name', "System Map: {0}", this.project.model.name); }
 		if (this.project.section === 'impact' && !this.project.error && !this.project.loading) {

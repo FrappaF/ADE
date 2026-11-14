@@ -13,6 +13,13 @@ import { interpretModelInteraction, validateModelInteraction } from '../../commo
 import { describeAdeDiagram } from '../../browser/adeAccessibleContent.js';
 
 suite('A.D.E executable interaction editing', () => {
+	test('an explicit interaction destination opens its existing hierarchy without unrelated contract choices', async () => {
+		const model = structuredClone(interactionFixture), dialogs = new ScriptedDialogs(['Validate and Save Interaction']);
+		const edits = await editAdeInteraction(dialogs, model, 'interaction.checkout'); dialogs.assertComplete();
+		assert.strictEqual(edits?.length, 1); assert.strictEqual(edits?.[0].kind, 'interaction');
+		if (edits?.[0].kind === 'interaction') { assert.strictEqual(edits[0].entry.interaction.id, 'interaction.checkout'); assert.deepStrictEqual(edits[0].entry.occurrences, model.foundation.occurrences.filter(call => model.foundation.interactions[0].occurrenceIds.includes(call.id))); }
+	});
+
 	test('canceling inside a child operand leaves the complete hierarchy untouched', async () => {
 		const model = structuredClone(interactionFixture), before = structuredClone(model), dialogs = new ScriptedDialogs(['checkout', 'interaction.checkout', 'alt', 'Open Child Steps', 'Else · All Other Outcomes', undefined]);
 		assert.strictEqual(await editAdeInteraction(dialogs, model), undefined); dialogs.assertComplete(); assert.deepStrictEqual(model, before);
@@ -40,8 +47,8 @@ suite('A.D.E executable interaction editing', () => {
 	test('native typed controls author an independent checkout case without executing the generator', async () => {
 		const criteria = { version: 1 as const, revision: '1', cases: [] }, dialogs = new ScriptedDialogs([
 			'interaction.checkout', 'The authored outcome and ordered calls hold', 'Declined Checkout',
-			'Value for total', '100', 'Value for correlation', 'order-1', 'Value for notify', 'False',
-			'Add Successful Reply', '0', 'Value for status', 'declined', 'Finish Replies for This Occurrence',
+			'100', 'order-1', 'False',
+			'Add Successful Reply', '0', 'declined', 'Finish Replies for This Occurrence',
 			'Add Successful Reply', '0', 'Finish Replies for This Occurrence',
 			'Add Successful Reply', '0', 'Finish Replies for This Occurrence',
 			'Finish Replies for This Occurrence', 'Expected Completion', 'charge', 'handleOther', 'Finish Expected Call Order'

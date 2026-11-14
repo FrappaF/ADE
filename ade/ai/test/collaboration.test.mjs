@@ -74,7 +74,10 @@ test('missing criteria, unanswered questions, unapproved plans and changed workt
 	await assert.rejects(stageImplementation(f.prepared, questions, planReviewId(f.prepared, questions), undefined, f.provider), /questions/);
 	const stage = await stageImplementation(f.prepared, f.plan, planReviewId(f.prepared, f.plan), undefined, f.provider);
 	await writeFile(join(stage.worktree, 'checkout.mjs'), 'changed');
-	await assert.rejects(verifyImplementation(f.root, stage.id, stage.reviewId), /changed after review/);
+	const invalid = await verifyImplementation(f.root, stage.id, stage.reviewId);
+	assert.equal(invalid.status, 'failed');
+	assert.match(invalid.verification.output, /changed after review/);
+	await assert.rejects(applyImplementation(f.root, stage.id, stage.reviewId), /passing/);
 });
 
 test('undo preserves later manual edits instead of overwriting them', async t => {

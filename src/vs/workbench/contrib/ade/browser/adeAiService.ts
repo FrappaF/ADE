@@ -27,6 +27,8 @@ export interface IAdeAiService {
 	readonly busy: boolean;
 	readonly status: string;
 	readonly connectionStatus: string;
+	readonly requestStatus: string;
+	configureRequestBudget(): Promise<void>;
 	readonly canVerify: boolean;
 	readonly canApply: boolean;
 	readonly canUndo: boolean;
@@ -96,6 +98,8 @@ class UnavailableAiService implements IAdeAiService {
 	async configureDiagramBudget(): Promise<void> { }
 	async chat(): Promise<void> { }
 	async chooseDiagramModel(): Promise<void> { }
+	readonly requestStatus = '';
+	async configureRequestBudget(): Promise<void> { }
 	async buildDiagrams(): Promise<void> { }
 	async resumeDiagrams(): Promise<void> { }
 	async updateDiagrams(): Promise<void> { }

@@ -138,7 +138,7 @@ test('capture verifies source revisions before and after the selected producer r
 test('source and configuration changes invalidate semantic evidence until a new bundle is supplied', async t => {
 	const { directory, root, state, bundle } = await fixture(t);
 	const legacy = structuredClone(state);
-	legacy.adapter = legacy.adapter.replace('syntax-v4', 'syntax-v2');
+	legacy.adapter = legacy.adapter.replace(/syntax-v\d+/, 'syntax-v2');
 	for (const file of legacy.files) { for (const declaration of file.declarations) { delete declaration.nameEvidence; } }
 	const migrated = await importCode(root, state.projectId, { previous: readImportState(legacy) });
 	assert.deepEqual(migrated.model.semantics.elements.map(item => item.id), state.model.semantics.elements.map(item => item.id));

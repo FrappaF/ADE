@@ -51,6 +51,28 @@ test('every registered language parses a real declaration and reports unresolved
 	}
 });
 
+test('Dart mixin names and members survive unchanged-source adapter upgrades', async t => {
+	const root = await workspace(t, [['trackable.dart', 'mixin Trackable { String trackedId() => "qa"; }\n']]);
+	const first = await importCode(root, 'mixins');
+	const indexed = first.files[0];
+	assert.deepEqual(indexed.declarations.map(item => item.name), ['Trackable', 'trackedId']);
+	assert.equal(indexed.declarations[1].parentId, indexed.declarations[0].id);
+	assert.deepEqual(indexed.diagnostics, []);
+	const previous = structuredClone(first);
+	previous.adapter = 'previous-adapter';
+	const updated = await importCode(root, 'mixins', { previous });
+	assert.deepEqual(updated.analysis.parsed, ['trackable.dart']);
+	assert.deepEqual(updated.analysis.reused, []);
+	assert.deepEqual(updated.files[0].declarations, indexed.declarations);
+});
+
+test('partial Kotlin parses retain diagnostics for missing anonymous tokens', async t => {
+	const root = await workspace(t, [['order.kt', 'class Order { fun total(): Int = 1']]);
+	const result = await importCode(root, 'partial');
+	assert.equal(result.files[0].status, 'partial');
+	assert.ok(result.files[0].diagnostics.some(item => item.code === 'syntaxError'));
+});
+
 test('imports, contracts, arrows, scope, unicode and source revisions remain inspectable', async t => {
 	const source = '// 😀 checkout\nimport type { Receipt } from "./contracts";\nexport interface Payment { pay(amount: number): Receipt; }\nexport class Checkout { pay(amount: number): Receipt { return gateway.pay(amount); } }\nexport const refund = (amount: number) => gateway.refund(amount);\n';
 	const root = await workspace(t, [['src/checkout.ts', source]]);

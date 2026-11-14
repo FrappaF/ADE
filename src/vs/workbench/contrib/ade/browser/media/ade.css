@@ -107,11 +107,13 @@
 }
 
 .ade-shell h1 {
+	line-height: 1.25;
 	font-size: var(--vscode-fontSize-heading1);
 	font-weight: var(--vscode-fontWeight-semiBold);
 }
 
 .ade-shell h2 {
+	line-height: 1.25;
 	font-size: var(--vscode-fontSize-heading2);
 	font-weight: var(--vscode-fontWeight-semiBold);
 }
@@ -123,6 +125,8 @@
 }
 
 .ade-shell .ade-breadcrumbs {
+	min-width: 0;
+	max-width: 100%;
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -131,6 +135,9 @@
 }
 
 .ade-shell .ade-breadcrumbs button {
+	white-space: normal;
+	box-sizing: border-box;
+	min-width: 0;
 	margin: 0;
 	background: transparent;
 	color: var(--vscode-textLink-foreground);
@@ -313,6 +320,7 @@
 .ade-shell .ade-canvas .ade-connection-leader {
 	stroke: var(--vscode-descriptionForeground);
 	stroke-dasharray: 4 4;
+	pointer-events: none;
 }
 
 .ade-shell .ade-connection {
@@ -675,8 +683,9 @@
 	background: var(--vscode-editorWidget-background);
 	top: calc(100% + 8px);
 	left: 0;
-	width: min(360px, calc(100vw - 72px));
-	max-height: min(65vh, 560px);
+	box-sizing: border-box;
+	width: min(386px, calc(100% - 24px));
+	max-height: min(560px, var(--ade-canvas-menu-max-height, 65vh));
 	overflow: auto;
 	padding: var(--vscode-spacing-size120);
 	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, var(--vscode-panel-border));
@@ -786,6 +795,35 @@
 
 .ade-canvas-mode.ade-narrow .ade-canvas-title {
 	max-width: 100px;
+}
+
+.ade-canvas-mode.ade-narrow .ade-floating-menu:has(> .ade-breadcrumbs) > .ade-canvas-title {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+}
+
+.ade-canvas-mode.ade-narrow .ade-floating-menu > .ade-breadcrumbs {
+	flex-basis: auto;
+	flex-wrap: nowrap;
+	margin-bottom: 0;
+	overflow-x: auto;
+	white-space: nowrap;
+	scrollbar-width: thin;
+}
+
+.ade-canvas-mode.ade-compact .ade-floating-menu > .ade-breadcrumbs {
+	flex-basis: 100%;
+}
+
+.ade-canvas-mode.ade-narrow .ade-floating-menu > .ade-breadcrumbs > * {
+	flex: 0 0 auto;
+	max-width: none;
+	white-space: nowrap;
 }
 
 .ade-canvas-mode.ade-narrow aside.ade-properties {
@@ -1092,6 +1130,20 @@
 
 .ade-review-preview figcaption {
 	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-review-preview-actions {
+	margin: var(--vscode-spacing-size120) 0;
+}
+
+.ade-review-preview-viewport {
+	max-width: 100%;
+	overflow: auto;
+	overscroll-behavior-inline: contain;
+}
+
+.ade-review-preview-viewport.ade-preview-full-size img {
+	max-width: none;
 }
 
 .ade-review-preview img {
@@ -1406,5 +1458,238 @@
 @media (prefers-reduced-motion: reduce) {
 	.ade-ai-composer .codicon-modifier-spin {
 		animation: none;
+	}
+}
+
+/* The workspace carries three destinations; drawing tools belong to the canvas. */
+.ade-workspace-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	min-width: 0;
+	position: relative;
+	z-index: 8;
+	background: var(--vscode-editor-background);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-workspace-bar button,
+.ade-workspace-bar summary {
+	margin: 0;
+	background: transparent;
+	white-space: nowrap;
+}
+
+.ade-workspace-bar .ade-project-menu {
+	max-width: 30%;
+}
+
+.ade-workspace-bar .ade-project-menu > summary {
+	display: block;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-workspace-bar .ade-project-menu > summary::after {
+	content: '⌄';
+	margin-inline-start: var(--vscode-spacing-size80);
+}
+
+.ade-workspace-bar .ade-project-menu > .ade-options-content {
+	position: absolute;
+	left: var(--vscode-spacing-size120);
+	top: 100%;
+	width: min(260px, calc(100% - 24px));
+	display: flex;
+	flex-direction: column;
+	padding: var(--vscode-spacing-size80);
+	background: var(--vscode-editorWidget-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-large);
+	box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+}
+
+.ade-workspace-bar .ade-project-menu:not([open]) > .ade-options-content {
+	display: none;
+}
+
+.ade-workspace-bar .ade-diagram-picker {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-workspace-trailing {
+	margin-inline-start: auto;
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	flex-shrink: 0;
+}
+
+.ade-shell .ade-workspace-trailing .ade-document-state {
+	max-width: 180px;
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ade-shell .ade-floating-menu {
+	top: var(--vscode-spacing-size120);
+	left: var(--vscode-spacing-size120);
+	right: auto;
+	max-width: calc(100% - 24px);
+	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-large);
+	background: var(--vscode-editorWidget-background);
+	box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+	padding: var(--vscode-spacing-size80);
+}
+
+.ade-shell .ade-floating-menu > .ade-options > .ade-options-content {
+	width: min(300px, calc(100cqw - 24px));
+}
+
+.ade-shell .ade-floating-menu > .ade-options > .ade-options-content > .ade-options > summary {
+	width: 100%;
+}
+
+.ade-shell .ade-floating-menu .ade-options-content button {
+	display: block;
+	width: 100%;
+	white-space: normal;
+	text-align: start;
+}
+
+.ade-shell .ade-floating-menu > .ade-options > .ade-options-content > .ade-options,
+.ade-shell .ade-floating-menu > .ade-options > .ade-options-content > button {
+	margin-block-end: var(--vscode-spacing-size80);
+}
+
+.ade-shell .ade-content > .ade-options {
+	max-width: 720px;
+	margin-block: var(--vscode-spacing-size120);
+}
+
+.ade-shell .ade-content > .ade-options > summary {
+	width: 100%;
+	padding: var(--vscode-spacing-size160);
+	background: var(--vscode-editorWidget-background);
+	font-size: var(--vscode-fontSize-body1);
+}
+
+.ade-shell .ade-content > .ade-options .ade-options-content button {
+	margin-block: var(--vscode-spacing-size40);
+}
+
+.ade-outline-tools {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size40);
+}
+
+.ade-outline-tools > button,
+.ade-outline-tools > .ade-options > summary {
+	background: transparent;
+	margin: 0;
+}
+
+.ade-shell.ade-compact .ade-workspace-trailing > .ade-document-state {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	clip-path: inset(50%);
+	overflow: hidden;
+}
+
+.ade-shell.ade-compact .ade-workspace-bar {
+	gap: var(--vscode-spacing-size40);
+	padding-inline: var(--vscode-spacing-size80);
+}
+
+.ade-shell .ade-welcome-task {
+	padding: 0;
+	border: 0;
+}
+
+.ade-shell .ade-welcome-task > button {
+	width: 100%;
+	padding: var(--vscode-spacing-size160) var(--vscode-spacing-size240);
+}
+
+.ade-canvas-history {
+	display: flex;
+	gap: var(--vscode-spacing-size40);
+	border-inline-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	padding-inline-start: var(--vscode-spacing-size80);
+}
+
+.ade-empty-canvas {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	pointer-events: none;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-shell .ade-floating-zoom,
+.ade-shell .ade-floating-menu {
+	box-sizing: border-box;
+}
+
+.ade-shell .ade-floating-zoom {
+	flex-wrap: wrap;
+}
+
+.ade-workspace-bar .ade-diagram-picker[aria-haspopup="listbox"]::after {
+	content: '⌄';
+	margin-inline-start: var(--vscode-spacing-size80);
+}
+
+/* Native window controls and dragging remain available; diagram work has its own navigation. */
+.monaco-workbench.ade-diagram-focus .part.titlebar .titlebar-center,
+.monaco-workbench.ade-diagram-focus .part.titlebar .center-adjacent-toolbar-container,
+.monaco-workbench.ade-diagram-focus .part.titlebar .action-toolbar-container,
+.monaco-workbench.ade-diagram-focus .part.titlebar .update-toolbar-container {
+	visibility: hidden;
+	pointer-events: none;
+}
+
+/* On narrow workspaces, keep project identity and the current diagram readable. */
+.ade-shell.ade-compact .ade-workspace-bar {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.ade-shell.ade-compact .ade-workspace-bar .ade-project-menu {
+	max-width: 100%;
+}
+
+.ade-shell.ade-compact .ade-workspace-trailing {
+	grid-column: 2;
+	grid-row: 1;
+}
+
+.ade-shell.ade-compact .ade-workspace-bar > .ade-diagram-picker {
+	grid-column: 1 / -1;
+	grid-row: 2;
+	max-width: 100%;
+	justify-self: start;
+	text-align: start;
+}
+
+@media (max-width: 640px) {
+	.monaco-workbench.ade-diagram-focus .quick-input-widget {
+		box-sizing: border-box;
+		width: calc(100% - 24px) !important;
+		left: 12px !important;
 	}
 }

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fixture, original } from './fixtures.mjs';
-const { stageImplementation, verifyImplementation, planReviewId, recoverImplementation } = await import('../implementation.ts');
+const { stageImplementation, verifyImplementation, planReviewId, recoverImplementation, readSession, applyImplementation } = await import('../implementation.ts');
 const { interpretResiduals } = await import('../interpretation.ts');
 
 test('interrupted application rolls back only exact applied preimages after restart', async t => {
@@ -38,4 +38,28 @@ test('interpretation skips AI entirely when deterministic evidence has no residu
 	const f = await fixture(t);
 	const result = await interpretResiduals(f.prepared, f.prepared.reviewId, undefined, { complete: async () => { throw new Error('Must not call AI'); } });
 	assert.deepEqual({ status: result.status, calls: result.calls, hypotheses: result.hypotheses }, { status: 'not-needed', calls: 0, hypotheses: [] });
+});
+
+
+test('verification invalidates a prior pass before execution and retains cancellation across restart', async t => {
+	const f = await fixture(t);
+	f.generated.files[1].content = "import test from 'node:test';test('delayed local verification',async()=>new Promise(resolve=>setTimeout(resolve,1000)));\n";
+	const session = await stageImplementation(f.prepared, f.plan, planReviewId(f.prepared, f.plan), undefined, f.provider);
+	assert.equal((await verifyImplementation(f.root, session.id, session.reviewId)).status, 'passed');
+	const controller = new AbortController();
+	const pending = verifyImplementation(f.root, session.id, session.reviewId, controller.signal);
+	let checkpoint;
+	for (let attempt = 0; attempt < 100; attempt++) {
+		checkpoint = await readSession(f.root, session.id);
+		if (checkpoint.verification?.outcome === 'incomplete') { break; }
+		await new Promise(resolve => setTimeout(resolve, 10));
+	}
+	assert.equal(checkpoint.status, 'failed');
+	assert.equal(checkpoint.verification.outcome, 'incomplete');
+	assert.notEqual(checkpoint.verification.code, 0);
+	controller.abort();
+	const cancelled = await pending;
+	assert.equal(cancelled.verification.outcome, 'cancelled');
+	assert.equal((await readSession(f.root, session.id)).verification.outcome, 'cancelled');
+	await assert.rejects(applyImplementation(f.root, session.id, session.reviewId), /passing/);
 });

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { toDisposable } from '../../../../../base/common/lifecycle.js';
 import { IChannel, IPCClient } from '../../../../../base/parts/ipc/common/ipc.js';
@@ -18,14 +18,15 @@ import { ServiceIdentifier } from '../../../../../platform/instantiation/common/
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
-import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, type IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
+import { IFilesConfigurationService } from '../../../../services/filesConfiguration/common/filesConfigurationService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IShellEnvironmentService } from '../../../../services/environment/electron-browser/shellEnvironmentService.js';
 import { IUtilityProcessWorker, IUtilityProcessWorkerWorkbenchService } from '../../../../services/utilityProcess/electron-browser/utilityProcessWorkerWorkbenchService.js';
 import { IAdeOperationService, AdeOperationService } from '../../browser/adeOperationService.js';
 import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeProjectWorkspaceService } from '../../browser/adeProjectWorkspace.js';
-import { adeCodeProtocolVersion, CodeBridgeProtocol, CodeContext, type CodeRequest } from '../../common/codeBridge.js';
+import { adeCodeProtocolVersion, CodeBridgeProtocol, CodeContext, type CodePreview, type CodeRequest } from '../../common/codeBridge.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 import { AdeCodeService } from '../../electron-browser/adeCodeService.js';
 
@@ -35,15 +36,20 @@ suite('A.D.E native code bridge compatibility', () => {
 	function fixture(initial: CodeBridgeProtocol | undefined | Error) {
 		const instantiation = store.add(new TestInstantiationService());
 		const stub = <T extends object>(id: ServiceIdentifier<T>, values: object = {}) => { const service = Object.assign(new (mock<T>())(), values); instantiation.stub(id, service); return service; };
-		let protocol = initial, created = 0, disposed = 0;
+		let protocol = initial, created = 0, disposed = 0, failInspect = false;
+		const projectChanged = store.add(new Emitter<void>());
 		const calls: string[] = [];
 		const commands: string[] = [];
 		const requests: CodeRequest[] = [], pickers: string[] = [], opened: string[] = [];
+		const editorInputs: object[] = [];
+		const reportWrites = new Map<string, string>(), readonlyReports: string[] = [];
+		let previewResult: CodePreview | undefined;
+		let choose: ((items: readonly IQuickPickItem[]) => IQuickPickItem | undefined) | undefined;
 		const context: CodeContext = { snapshot: '/project/.ade/imports/index', model: '/project/.ade/imports/index/model.ade.json', sourceRoot: '/project', revision: 'fixture', scope: { include: ['**'], exclude: [], excludedDirectories: [], respectGitignore: true, languageOverrides: {} }, files: [], declarations: [], dependencies: [], providers: [], diagnostics: [], diagramState: 'index' };
 		const channel: IChannel = { listen: () => Event.None, async call<T>(command: string, argument?: string): Promise<T> {
 			calls.push(command);
 			if (command === 'protocol') { if (protocol instanceof Error) { throw protocol; } return protocol as T; }
-			if (command === 'execute') { requests.push(JSON.parse(argument!)); return JSON.stringify(context) as T; }
+			if (command === 'execute') { const request = JSON.parse(argument!); requests.push(request); if (request.operation === 'inspect' && failInspect) { throw new Error('Unavailable snapshot'); } return JSON.stringify(request.operation === 'preview' ? previewResult ?? { token: 'inventory', context, parsed: [], reused: [], files: { added: [], changed: [], removed: [] }, declarations: { added: [], changed: [], removed: [] }, dependencies: { added: [], changed: [], removed: [] } } : request.operation === 'source' ? { path: '/project/app.rb', stale: false, startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 } : context) as T; }
 			return '/cli/codex' as T;
 		} };
 		stub(IUtilityProcessWorkerWorkbenchService, { createWorker: async () => {
@@ -51,19 +57,88 @@ suite('A.D.E native code bridge compatibility', () => {
 			return Object.assign(new (mock<IUtilityProcessWorker>())(), { client: Object.assign(new (mock<IPCClient<string>>())(), { getChannel: () => channel }), onDidTerminate: new Promise<never>(() => {}), dispose: () => { disposed++; } });
 		} });
 		const model = structuredClone(checkoutModel);
-		const project = stub(IAdeProjectService, { onDidChange: Event.None, model, save: async () => true, openModelResource: async (resource: URI) => { opened.push(resource.fsPath); Object.assign(project, { modelUri: resource }); return true; }, showHome: () => {} });
+		const project = stub(IAdeProjectService, { onDidChange: projectChanged.event, model, save: async () => true, openModelResource: async (resource: URI) => { opened.push(resource.fsPath); Object.assign(project, { modelUri: resource }); return true; }, showHome: () => {} });
 		instantiation.stub(IAdeOperationService, store.add(new AdeOperationService()));
 		stub(IShellEnvironmentService, { getShellEnv: async () => ({ PATH: '/cli' }) });
-		stub(IFileDialogService, { showOpenDialog: async () => { pickers.push('folder'); return undefined; } });
-		stub(IQuickInputService, { pick: async () => { pickers.push('mode'); return undefined; } });
+		const fileDialogs = stub(IFileDialogService, { showOpenDialog: async () => { pickers.push('folder'); return undefined; } });
+		const quick = stub(IQuickInputService, { pick: async (items: readonly IQuickPickItem[]) => { pickers.push('mode'); return choose?.(items); } });
 		stub(INotificationService);
 		stub(IProgressService, { withProgress: async (_options: object, task: () => Promise<void>) => task() });
-		stub(IFileService, { watch: () => toDisposable(() => {}), onDidFilesChange: Event.None });
-		stub(IEditorService, { openEditor: async () => undefined }); stub(IAdeProjectWorkspaceService); stub(IConfigurationService);
+		stub(IFileService, { watch: () => toDisposable(() => {}), onDidFilesChange: Event.None, createFolder: async () => {}, writeFile: async (resource: URI, contents: { toString(): string }) => { reportWrites.set(resource.path, contents.toString()); } });
+		stub(IFilesConfigurationService, { updateReadonly: async (resource: URI) => { readonlyReports.push(resource.path); } });
+		stub(IEditorService, { openEditor: async (input: object) => { editorInputs.push(input); } }); stub(IAdeProjectWorkspaceService); stub(IConfigurationService);
 		stub(ICommandService, { executeCommand: async (command: string) => { commands.push(command); } });
 		const service = store.add(instantiation.createInstance(AdeCodeService));
-		return { service, calls, commands, model, context, project, requests, pickers, opened, stats: () => ({ created, disposed }), setProtocol: (value: CodeBridgeProtocol) => { protocol = value; } };
+		return { service, projectChanged, failInspect: (value: boolean) => { failInspect = value; }, calls, commands, model, context, project, requests, pickers, opened, editorInputs, reportWrites, readonlyReports, setPreview: (value: CodePreview) => { previewResult = value; }, quick, fileDialogs, setChoice: (value: typeof choose) => { choose = value; }, stats: () => ({ created, disposed }), setProtocol: (value: CodeBridgeProtocol) => { protocol = value; } };
 	}
+	test('a repaired imported model restores source context without reimporting the project', async () => {
+		const f = fixture(compatible);
+		Object.assign(f.project, { modelUri: URI.file(f.context.model), loading: true }); f.projectChanged.fire();
+		Object.assign(f.project, { loading: false, error: 'Invalid model' }); f.projectChanged.fire();
+		assert.deepStrictEqual(f.requests, []);
+		const ready = Event.toPromise(Event.filter(f.service.onDidChange, () => !f.service.busy));
+		Object.assign(f.project, { error: undefined }); f.projectChanged.fire(); await ready;
+		assert.deepStrictEqual(f.service.context, f.context);
+		assert.deepStrictEqual(f.requests, [{ operation: 'inspect', snapshot: f.context.snapshot }]);
+	});
+
+	test('a failed snapshot read is retried on the next project refresh at the same path', async () => {
+		const f = fixture(compatible); Object.assign(f.project, { modelUri: URI.file(f.context.model) }); f.failInspect(true);
+		let ready = Event.toPromise(Event.filter(f.service.onDidChange, () => !f.service.busy));
+		f.projectChanged.fire(); await ready; assert.strictEqual(f.service.context, undefined);
+		f.failInspect(false); ready = Event.toPromise(Event.filter(f.service.onDidChange, () => !f.service.busy));
+		f.projectChanged.fire(); await ready;
+		assert.deepStrictEqual(f.service.context, f.context);
+		assert.deepStrictEqual(f.requests.map(request => request.operation), ['inspect', 'inspect']);
+	});
+
+	test('attaching an index to a source inventory prepares local evidence without starting AI', async () => {
+		const f = fixture(compatible); f.service.context = f.context;
+		Object.assign(f.fileDialogs, { showOpenDialog: async () => [URI.file('/indexes/python.json')] });
+		f.setChoice(items => items.find(item => item.label === 'Apply Source Inventory'));
+		await f.service.attachIndex();
+		assert.deepStrictEqual(f.commands, []);
+		assert.deepStrictEqual(f.requests, [{ operation: 'preview', snapshot: f.context.snapshot, scope: f.context.scope, inventoryOnly: true, bundles: ['/indexes/python.json'] }, { operation: 'apply', token: 'inventory' }]);
+	});
+	test('scope configuration previews and applies inventory without starting diagram generation', async () => {
+		const f = fixture(compatible); f.service.context = f.context;
+		const inputs = ['src/**', '**/generated/**'];
+		Object.assign(f.quick, { input: async () => inputs.shift() });
+		f.setChoice(items => items.find(item => item.label === 'Apply Source Inventory'));
+		await f.service.configure();
+		assert.deepStrictEqual(f.commands, []);
+		assert.deepStrictEqual(f.requests, [{ operation: 'preview', snapshot: f.context.snapshot, scope: { ...f.context.scope, include: ['src/**'], exclude: ['**/generated/**'] }, inventoryOnly: true }, { operation: 'apply', token: 'inventory' }]);
+	});
+	test('project file coverage opens the indexed source at its start', async () => {
+		const f = fixture(compatible); f.service.context = f.context;
+		f.context.files.push({ path: 'app.rb', revision: 'source-hash', language: 'ruby', status: 'parsed', diagnostics: [] });
+		f.setChoice(items => items.find(item => item.label === 'app.rb'));
+		await f.service.inspect();
+		assert.deepStrictEqual(f.requests, [{ operation: 'source', snapshot: f.context.snapshot, file: 'app.rb', revision: 'source-hash', start: 0, end: 0 }]);
+		assert.deepStrictEqual(f.editorInputs, [{ resource: URI.file('/project/app.rb'), options: { pinned: true, selection: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 } } }]);
+	});
+	test('excluded source coverage never becomes a source navigation request', async () => {
+		const f = fixture(compatible); f.service.context = f.context;
+		f.context.files.push({ path: 'outside.rb', revision: 'untrusted', language: '', status: 'excluded', diagnostics: ['symlink (1)'] });
+		f.setChoice(items => {
+			const choice = items.find(item => item.label === 'outside.rb');
+			assert.equal(choice?.description, 'excluded');
+			assert.match(choice?.detail ?? '', /not read during analysis/);
+			return undefined;
+		});
+		await f.service.inspect();
+		assert.deepStrictEqual([f.requests, f.editorInputs], [[], []]);
+	});
+	test('semantic coverage labels explain index gaps and retain the diagnostic code', async () => {
+		const f = fixture(compatible); f.service.context = f.context;
+		f.context.diagnostics.push('app.rb: missingDocument');
+		f.setChoice(items => {
+			assert.deepStrictEqual(items.filter(item => item.label !== 'Open Full Analysis Details'), [{ label: 'app.rb: No Static Reference Index for This File', detail: 'app.rb: missingDocument' }]);
+			return undefined;
+		});
+		await f.service.inspect();
+	});
+
 	test('updating an unlinked saved project uses its own codebase and preserves its model without asking for a folder or mode', async () => {
 		const f = fixture(compatible);
 		Object.assign(f.project, { projectRoot: URI.file('/project'), modelUri: URI.file('/project/.ade/model.json') });
@@ -96,6 +171,29 @@ suite('A.D.E native code bridge compatibility', () => {
 			assert.deepStrictEqual({ commands: f.commands, calls: f.calls }, { commands: ['ade.ai.buildDiagrams'], calls: [] });
 		});
 	}
+	for (const [label, file, contents] of [
+		['Inspect Code Changes', 'Sync Code Changes.md', 'return 10;'],
+		['Questions and Validation', 'Sync Questions and Validation.md', 'Provide the regression test results.']
+	]) {
+		test(`${label} opens a named protected report without starting clarification or another AI request`, async () => {
+			const f = fixture(compatible); f.context.diagramState = 'diagrams'; f.service.context = f.context;
+			f.setPreview({ token: 'sync-review', context: f.context, files: { added: [], changed: [], removed: [], unchanged: [] }, declarations: { added: [], changed: [], removed: [] }, dependencies: { added: [], changed: [], removed: [] }, conflicts: [], impact: { elementIds: [], viewIds: [] }, parsed: [], reused: [], semanticAnalyzed: [], semanticReused: [], ai: { summary: 'Bound quantity', questions: ['Provide the regression test results.'], usage: { inputTokens: 10, outputTokens: 10 }, cost: null, modelEdits: [], bindings: [], sourceEdits: [{ file: 'quantity.js', search: 'return 0;', replacement: 'return 10;' }] }, reconciliation: { status: 'pending', origin: 'model', commonRevision: 'base', sourceEdits: [], diagnostics: [] } });
+			let picked = false;
+			f.setChoice(items => {
+				assert.ok(items.some(item => item.label === 'Answer Sync Questions'));
+				assert.ok(!items.some(item => item.label === 'Apply Sync'));
+				if (picked) { return undefined; } picked = true; return items.find(item => item.label === label);
+			});
+			await f.service.sync();
+			const resource = URI.file(`/project/.ade/reports/sync-review/${file}`);
+			assert.deepStrictEqual(f.commands, []);
+			assert.deepStrictEqual(f.requests.map(request => request.operation), ['preview']);
+			assert.deepStrictEqual(f.readonlyReports, [resource.path]);
+			assert.ok(f.reportWrites.get(resource.path)?.includes(contents));
+			assert.deepStrictEqual(f.editorInputs, [{ resource, options: { pinned: true, override: 'default' } }]);
+		});
+	}
+
 	test('checks the bundled engine before requests and reuses a compatible worker', async () => {
 		const f = fixture(compatible);
 		assert.strictEqual(await f.service.resolveCli('codex'), '/cli/codex');

@@ -14,7 +14,7 @@ import { readSnapshot } from '../code-import/snapshot.ts';
 import { assertPreparedCurrent, hash, isDisclosableSource, type PreparedImplementation } from './context.ts';
 import { readImplementationPlan } from './plan.ts';
 import { createCliProvider } from './providers.ts';
-import { runProcess } from './process.ts';
+import { nodeTestEnvironment, runProcess } from './process.ts';
 import { readBoundedText } from './io.ts';
 import type { ImplementationPlan, StructuredProvider, PlanResult } from './contracts.ts';
 
@@ -30,7 +30,7 @@ export interface ImplementationSession {
 	generated: GeneratedImplementation; reviewId: string;
 	before: { file: string; content: string | null; mode: number | null }[];
 	usage: PlanResult['usage']; cost: number | null;
-	verification?: { code: number; output: string; testFiles: string[]; durationMs: number };
+	verification?: { code: number; output: string; testFiles: string[]; durationMs: number; outcome?: 'incomplete' | 'passed' | 'failed' | 'cancelled' };
 }
 
 const implementationSchema = object({
@@ -199,17 +199,21 @@ async function checkWorktree(session: ImplementationSession): Promise<void> {
 export async function verifyImplementation(root: string, id: string, approvedReviewId: string, signal?: AbortSignal): Promise<ImplementationSession> {
 	const session = await readSession(root, id);
 	if (!['staged', 'passed', 'failed'].includes(session.status) || session.reviewId !== approvedReviewId) { throw new Error('Review the staged changes before executing tests'); }
-	await checkWorktree(session);
 	const testFiles = [...new Set(session.generated.tests.map(test => test.file))];
 	const started = performance.now();
+	// Invalidate any prior pass before starting a process that may be terminated externally.
+	session.status = 'failed';
+	session.verification = { code: -1, output: 'Test execution was cancelled or interrupted before completion. Run verification again.', testFiles, durationMs: 0, outcome: 'incomplete' };
+	await save(session);
 	try {
-		const result = await runProcess(process.execPath, ['--test', ...testFiles.map(file => './' + file)], session.worktree, { signal, timeoutMs: 120000, maxBytes: 1024 * 1024, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
-		session.verification = { code: result.code, output: result.stdout + result.stderr, testFiles, durationMs: Math.round(performance.now() - started) };
+		await checkWorktree(session);
+		const result = await runProcess(process.execPath, ['--test', ...testFiles.map(file => './' + file)], session.worktree, { signal, timeoutMs: 120000, maxBytes: 1024 * 1024, env: nodeTestEnvironment() });
+		session.verification = { code: result.code, output: result.stdout + result.stderr, testFiles, durationMs: Math.round(performance.now() - started), outcome: result.code === 0 ? 'passed' : 'failed' };
 		session.status = result.code === 0 ? 'passed' : 'failed';
 		await checkWorktree(session);
 	} catch (error) {
 		session.status = 'failed';
-		session.verification = { code: -1, output: error instanceof Error ? error.message : 'Verification failed', testFiles, durationMs: Math.round(performance.now() - started) };
+		session.verification = { code: -1, output: error instanceof Error ? error.message : 'Verification failed', testFiles, durationMs: Math.round(performance.now() - started), outcome: signal?.aborted ? 'cancelled' : 'failed' };
 	}
 	await save(session);
 	return session;

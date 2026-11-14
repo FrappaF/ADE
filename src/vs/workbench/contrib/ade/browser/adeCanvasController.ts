@@ -44,9 +44,23 @@ export class AdeCanvasController extends Disposable {
 
 	canvasContent: HTMLElement | undefined;
 
+	private visibleViewport(): { x: number; y: number; width: number; height: number } | undefined {
+		if (!this.canvasViewport) { return undefined; }
+		const viewport = this.canvasViewport.getBoundingClientRect();
+		const menu = this.floatingMenu?.getBoundingClientRect();
+		const zoom = this.zoomReadout?.parentElement?.getBoundingClientRect();
+		const top = menu ? Math.max(0, menu.bottom - viewport.top + 12) : 0;
+		const bottom = zoom ? Math.max(0, viewport.bottom - zoom.top + 12) : 0;
+		return { x: 0, y: top, width: this.canvasViewport.clientWidth, height: Math.max(1, this.canvasViewport.clientHeight - top - bottom) };
+	}
+
 	fitDiagram(): void {
-		if (!this.canvasViewport) { return; }
-		this.camera = fitDiagramCamera(this.worldBounds, { width: this.canvasViewport.clientWidth, height: this.canvasViewport.clientHeight });
+		const viewport = this.visibleViewport();
+		if (!viewport) { return; }
+		const padding = Math.min(72, viewport.width / 8, viewport.height / 6);
+		this.camera = fitDiagramCamera(this.worldBounds, viewport, padding);
+		this.camera.x += viewport.x;
+		this.camera.y += viewport.y;
 		this.applyCamera();
 	}
 
@@ -61,6 +75,7 @@ export class AdeCanvasController extends Disposable {
 		if (this.zoomReadout) { this.zoomReadout.textContent = `${Math.round(this.zoom * 100)}%`; }
 		const menu = this.floatingMenu;
 		const inspector = this.floatingInspector;
+		if (menu) { menu.style.setProperty('--ade-canvas-menu-max-height', `${Math.max(48, this.canvasViewport.clientHeight - menu.offsetTop - menu.offsetHeight - 88)}px`); }
 		if (menu && inspector) { inspector.style.top = menu.offsetLeft + menu.offsetWidth + inspector.offsetWidth + 24 > this.host.root.clientWidth ? `${menu.offsetTop + menu.offsetHeight + 12}px` : ''; }
 		if (this.cameraKey) { this.cameras.set(this.cameraKey, { ...this.camera }); }
 	}
@@ -102,10 +117,13 @@ export class AdeCanvasController extends Disposable {
 		this.interactions.add(dom.addDisposableListener(parent, 'focusin', (event: FocusEvent) => {
 			const target = event.target as HTMLElement;
 			if (!target.classList.contains('ade-node')) { return; }
-			const bounds = target.getBoundingClientRect(), viewport = parent.getBoundingClientRect();
-			if (bounds.right < viewport.left + 24 || bounds.left > viewport.right - 24 || bounds.bottom < viewport.top + 80 || bounds.top > viewport.bottom - 64) {
-				this.camera.x += viewport.left + viewport.width / 2 - (bounds.left + bounds.width / 2);
-				this.camera.y += viewport.top + viewport.height / 2 - (bounds.top + bounds.height / 2); this.applyCamera();
+			const bounds = target.getBoundingClientRect(), parentBounds = parent.getBoundingClientRect();
+			const viewport = this.visibleViewport();
+			if (!viewport) { return; }
+			const left = parentBounds.left + viewport.x, top = parentBounds.top + viewport.y;
+			if (bounds.right < left + 24 || bounds.left > left + viewport.width - 24 || bounds.bottom < top + 24 || bounds.top > top + viewport.height - 24) {
+				this.camera.x += left + viewport.width / 2 - (bounds.left + bounds.width / 2);
+				this.camera.y += top + viewport.height / 2 - (bounds.top + bounds.height / 2); this.applyCamera();
 			}
 		}));
 	}

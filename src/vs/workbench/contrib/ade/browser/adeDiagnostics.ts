@@ -8,22 +8,35 @@ import { type ReadinessDiagnostic } from '../common/modelReadiness.js';
 import { ModelDiagnostic, SemanticModel } from '../common/modelTypes.js';
 
 /** Localized presentation of domain diagnostics, also usable by later editor adapters. */
-export function diagnosticMessage(diagnostic: ModelDiagnostic): string {
+export function diagnosticMessage(diagnostic: ModelDiagnostic, model?: SemanticModel): string {
 	const args = diagnostic.args;
 	switch (diagnostic.code) {
 		case 'c4Scope': return localize('ade.c4ScopeDiagnostic', "C4 scope needs correction: {0}.", args.slice(1).join(' · '));
-		case 'contract': return localize('ade.contractDiagnostic', "Contract needs correction: {0}.", args.slice(1).join(' · '));
+		case 'contract': {
+			if (args[1] === 'requiredInterfaceUnsatisfied') {
+				const blueprint = model && (model.version === 4 || model.version === 5) ? model.foundation.blueprint : undefined;
+				const port = blueprint?.ports.find(port => port.id === args[0]);
+				const owner = model?.semantics.elements.find(element => element.id === port?.elementId)?.name ?? args[0];
+				const contract = blueprint?.interfaces.find(contract => contract.id === port?.interfaceId);
+				const name = model?.semantics.elements.find(element => element.id === contract?.elementId)?.name ?? port?.interfaceId ?? '';
+				return localize('ade.requiredInterfaceUnsatisfied', "The required interface {0} on {1} has no provider connection. Open Edit Blueprint → Interface Connection, choose a provider and map its operations. ({2})", name, owner, diagnostic.path);
+			}
+			return localize('ade.contractDiagnostic', "Contract needs correction: {0}.", args.slice(1).join(' · '));
+		}
 		case 'decisionHistory': return localize('ade.decisionHistoryDiagnostic', "Decision history or replacement needs correction: {0}.", args[1] ?? '');
 		case 'shape': return localize('ade.shape', "Invalid value at {0}. Expected: {1}.", diagnostic.path, args[0]);
 		case 'duplicateId': return localize('ade.duplicate', "Duplicate identifier {0} at {1}.", args[0], diagnostic.path);
-		case 'missingReference': return localize('ade.missing', "Element or relation {0} does not exist ({1}).", args[0], diagnostic.path);
+		case 'missingReference': return /\/(?:typeId|itemTypeId|targetTypeId|payloadTypeId)$/.test(diagnostic.path) ? localize('ade.missingType', "Type {0} does not exist ({1}).", args[0], diagnostic.path) : localize('ade.missing', "Element or relation {0} does not exist ({1}).", args[0], diagnostic.path);
 		case 'incompatibleRelation': return localize('ade.incompatible', "A {0} relation cannot connect {1} to {2} ({3}).", args[0], args[1], args[2], diagnostic.path);
 		case 'containmentCycle': return localize('ade.cycle', "Element {0} contains itself through its parents ({1}).", args[0], diagnostic.path);
 		case 'invalidParent': return localize('ade.parent', "Element {0} of kind {1} is not allowed at {2}.", args[0], args[1], diagnostic.path);
 		case 'missingCriterion': return localize('ade.criterion', "Acceptance criterion {0} does not exist on {1}.", args[0], args[1]);
 		case 'missingError': return localize('ade.errorCode', "Error {0} is not declared by {1}.", args[0], args[1]);
 		case 'viewEndpoint': return localize('ade.endpoint', "Both endpoints of relation {0} must be present in this view.", args[0]);
-		case 'ownership': return localize('ade.ownershipDiagnostic', "Ownership or feature membership needs correction ({0}).", args[1] ?? args[0]);
+		case 'ownership': {
+			const name = model?.semantics.elements.find(element => element.id === args[0])?.name ?? args[0];
+			return args[1] === 'invalidOwner' ? localize('ade.invalidOwnership', "Ownership of {0} is invalid. Use an architectural owner for a structural element, or a resource, entity or class as the owner of a lifecycle state. ({1})", name, diagnostic.path) : localize('ade.ownershipDiagnostic', "Ownership or feature membership of {0} needs correction ({1}; {2}).", name, args[1] ?? args[0], diagnostic.path);
+		}
 		case 'assertionConflict': return localize('ade.assertionConflict', "Accepted assertions disagree. Resolve the conflict before generating this target.");
 		case 'legacyClassification': return localize('ade.legacy', "Imported relation {0} needs semantic classification.", args[0]);
 	}

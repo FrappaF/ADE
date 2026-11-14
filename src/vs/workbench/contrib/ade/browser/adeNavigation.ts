@@ -9,7 +9,6 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { ElementKind } from '../common/modelTypes.js';
 import { getDiagramGroups, getElementPath } from '../common/visualNavigation.js';
 import { AdeInput } from './adeInput.js';
 import { elementLabels } from './adeLabels.js';
@@ -47,22 +46,17 @@ registerAction2(class extends Action2 {
 		if (project.loading || project.error) { return; }
 		const resource = project.modelUri?.toString();
 		const model = project.model;
-		const filter = await quickInput.pick([
-			{ label: localize('ade.search.all', "All Elements and Diagrams"), kind: undefined },
-			{ label: localize('ade.search.diagrams', "Diagrams"), kind: 'diagram' },
-			...(Object.keys(elementLabels) as ElementKind[]).map(kind => ({ label: elementLabels[kind], kind }))
-		], { title: localize('ade.search.filter', "Search Filter") });
-		if (!filter) { return; }
+
 		const items: SearchItem[] = [];
-		if (filter.kind !== 'diagram') {
-			for (const element of model.semantics.elements.filter(element => !filter.kind || element.kind === filter.kind)) {
+		{
+			for (const element of model.semantics.elements) {
 				const views = model.views.filter(view => view.nodes.some(node => node.elementId === element.id));
 				items.push({ label: element.name, elementId: element.id, description: elementLabels[element.kind],
 					detail: localize('ade.search.context', "{0} · {1}", [model.name, ...getElementPath(model, element.id).slice(0, -1).map(parent => parent.name)].join(' / '),
 						views.length ? views.map(view => view.name).join(', ') : localize('ade.search.unplaced', "Element Details — Not in a Diagram")) });
 			}
 		}
-		if (!filter.kind || filter.kind === 'diagram') {
+		{
 			for (const group of getDiagramGroups(model)) {
 				for (const view of group.views) { items.push({ label: view.name, viewId: view.id, description: localize('ade.search.diagramKind', "Diagram"), detail: group.name }); }
 			}

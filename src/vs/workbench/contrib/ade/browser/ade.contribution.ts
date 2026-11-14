@@ -35,6 +35,9 @@ import { AdeAccessibilityHelp, AdeAccessibleView, registerAdeAccessibleStartup }
 import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
 import { IWorkingCopyIdentifier, NO_TYPE_ID } from '../../../services/workingCopy/common/workingCopy.js';
+import { AdeDiagramLayout } from './adeDiagramLayout.js';
+import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 
 class AdeWorkingCopyEditor extends Disposable {
 	static readonly ID = 'workbench.contrib.adeWorkingCopyEditor';
@@ -103,8 +106,15 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 
 class AdeSerializer implements IEditorSerializer {
 	canSerialize(): boolean { return true; }
-	serialize(): string { return ''; }
-	deserialize(instantiationService: IInstantiationService): EditorInput { return instantiationService.createInstance(AdeInput); }
+	serialize(editor: EditorInput): string { return JSON.stringify({ name: editor.getName() }); }
+	deserialize(instantiationService: IInstantiationService, serialized: string): EditorInput {
+		const input = instantiationService.createInstance(AdeInput);
+		try {
+			const saved = JSON.parse(serialized);
+			if (typeof saved?.name === 'string' && saved.name.trim()) { input.restoreName(saved.name); }
+		} catch { /* Older sessions did not persist a caption. */ }
+		return input;
+	}
 }
 Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(AdeInput.ID, AdeSerializer);
 
@@ -189,14 +199,36 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	{ overrides: {
 		'workbench.startupEditor': 'adeHome',
 		'workbench.welcomePage.experimentalOnboarding': false,
-		'workbench.secondarySideBar.defaultVisibility': 'hidden'
+		'workbench.secondarySideBar.defaultVisibility': 'hidden',
+		'files.readonlyInclude': { '**/.ade/reports/**': true, '**/.ade/structural/sessions/*/review/**': true, '**/.ade/collaboration/*/review/**': true }
 	} }
 ]);
 
 registerWorkbenchContribution2(AdeStartup.ID, AdeStartup, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(AdeDiagramLayout.ID, AdeDiagramLayout, WorkbenchPhase.AfterRestored);
+
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.toggleWorkbench', title: localize2('ade.toggleWorkbench', "A.D.E: Toggle IDE Tools"), f1: true }); }
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const configuration = accessor.get(IConfigurationService);
+		await configuration.updateValue('ade.focusDiagrams', configuration.getValue<boolean>('ade.focusDiagrams') === false, ConfigurationTarget.WORKSPACE);
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.toggleNavigation', title: localize2('ade.toggleNavigation', "A.D.E: Toggle Diagram Navigation"), f1: true }); }
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const layout = accessor.get(IWorkbenchLayoutService);
+		if (layout.isVisible(Parts.SIDEBAR_PART)) { layout.setPartHidden(true, Parts.SIDEBAR_PART); }
+		else { await accessor.get(IViewsService).openView(ADE_VIEW_ID, true); }
+	}
+});
+
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	id: 'ade', title: 'A.D.E', type: 'object', properties: {
+		'ade.focusDiagrams': { type: 'boolean', default: true, description: localize('ade.focusDiagrams', "Keep diagram work focused. IDE tools return when you open another editor or choose Show IDE.") },
+		'ade.codeUpdates.suggestAfterSave': { type: 'boolean', default: true, description: localize('ade.codeUpdates.suggestAfterSave', "Offer a codebase update after saving significant diagram changes. Disable in Workspace Settings to save without this prompt. Update Codebase from Diagrams remains available manually.") },
 		'ade.diagramImport.incremental': { type: 'boolean', default: true, description: localize('ade.incremental.setting', "Explore architecture in a persistent Codex conversation with local tools and independent diagram drafts. Disable to use the legacy import pipeline.") }
 	}
 });

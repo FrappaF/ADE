@@ -13,7 +13,7 @@ import { proposeImplementation } from './collaboration.ts';
 import { stageImplementation, verifyImplementation, planReviewId } from './implementation.ts';
 import { createCliProvider, createPlanProvider } from './providers.ts';
 import { readProviderConfig, type ProviderConfig, type StructuredProvider } from './contracts.ts';
-import { runProcess } from './process.ts';
+import { nodeTestEnvironment, runProcess } from './process.ts';
 
 const cases = [
 	{
@@ -107,7 +107,7 @@ export async function benchmarkModels(candidates: BenchmarkCandidate[], signal?:
 				const verified = await verifyImplementation(root, session.id, session.reviewId, signal);
 				const oraclePath = join(session.worktree, 'ade-benchmark-oracle.test.mjs');
 				await writeFile(oraclePath, `import assert from 'node:assert/strict';\n` + item.oracle);
-				try { result.passed = verified.status === 'passed' && (await runProcess(process.execPath, ['--test', './ade-benchmark-oracle.test.mjs'], session.worktree, { signal, timeoutMs: 30000, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } })).code === 0; }
+				try { result.passed = verified.status === 'passed' && (await runProcess(process.execPath, ['--test', './ade-benchmark-oracle.test.mjs'], session.worktree, { signal, timeoutMs: 30000, env: nodeTestEnvironment() })).code === 0; }
 				finally { await unlink(oraclePath); }
 			} catch (error) {
 				signal?.throwIfAborted();

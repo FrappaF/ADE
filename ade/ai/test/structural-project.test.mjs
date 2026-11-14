@@ -38,6 +38,21 @@ test('P01/P02 empty project creates reviewed worktree, actual independent bounda
 	assert.deepEqual([await physicalImage(f.root, 'package.json'), await physicalImage(f.root, session.next.artifacts[0].file)], [null, null]);
 });
 
+
+test('native collaboration resolves the selected symlink for session resume, verification and undo', async t => {
+	const f = await fixture(t), aliasRoot = await mkdtemp(join(tmpdir(), 'ade-dai-alias-'));
+	t.after(() => rm(aliasRoot, { recursive: true, force: true }));
+	const alias = join(aliasRoot, 'project'); await symlink(f.root, alias, 'dir');
+	const { executeCollaboration } = await import('../engine.ts');
+	const request = async (operation, fields = {}) => JSON.parse(await executeCollaboration(JSON.stringify({ operation, root: alias, ...fields })));
+	const { session } = await request('structuralPrepare');
+	const identity = { id: session.id, reviewId: session.reviewId };
+	assert.equal((await request('structuralSession', identity)).id, session.id);
+	assert.equal((await request('structuralVerify', identity)).status, 'passed');
+	assert.equal((await request('structuralApply', identity)).status, 'applied');
+	assert.equal((await request('structuralUndo', identity)).status, 'undone');
+});
+
 test('P03 semantic edit is immediate, derived tests pass but independent oracle blocks incorrect ge', async t => {
 	const f = await fixture(t); await applied(f); const changed = structuredClone(f.model); changed.foundation.predicates[0].nodes[2].operator = 'ge'; await model(f, changed);
 	const session = await stage(f); assert.equal(session.mutations.filter(edit => edit.file.startsWith('src/')).length, 1);

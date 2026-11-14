@@ -7,6 +7,8 @@ import { localize, localize2 } from '../../../../nls.js';
 import { Disposable, DisposableStore, MutableDisposable, type IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { URI } from '../../../../base/common/uri.js';
 import { dirname, basename, isEqualOrParent, relativePath } from '../../../../base/common/resources.js';
 import { getCaseInsensitive } from '../../../../base/common/objects.js';
@@ -23,6 +25,7 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IUtilityProcessWorkerWorkbenchService } from '../../../services/utilityProcess/electron-browser/utilityProcessWorkerWorkbenchService.js';
+import { IFilesConfigurationService } from '../../../services/filesConfiguration/common/filesConfigurationService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IShellEnvironmentService } from '../../../services/environment/electron-browser/shellEnvironmentService.js';
 import { IAdeProjectService, AdeProjectService } from '../browser/adeProjectService.js';
@@ -31,7 +34,7 @@ import { AdeInput } from '../browser/adeInput.js';
 import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { IAdeProjectWorkspaceService, AdeProjectWorkspace } from '../browser/adeProjectWorkspace.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
-import { adeCodeChannel, adeCodeProtocolVersion, CliAccountState, CliRuntimeEnvironment, CodeBridgeProtocol, CodeAiProgress, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeSource } from '../common/codeBridge.js';
+import { adeCodeChannel, adeCodeProtocolVersion, CliAccountState, CliRuntimeEnvironment, CodeBridgeProtocol, CodeAiProgress, CodeContext, CodeEvidence, CodeHistory, CodePreview, CodeRename, CodeRequest, CodeResolution, CodeScope, CodeSource } from '../common/codeBridge.js';
 
 /** Native orchestration: deterministic evidence, reviewed AI proposals and recoverable paired publication. */
 export class AdeCodeService extends Disposable implements IAdeCodeService {
@@ -51,6 +54,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 	changed = false;
 	private channel: Promise<IChannel> | undefined;
 	private observed = '';
+	private contextGeneration = 0;
 	private readonly bundles = new Map<string, string[]>();
 
 	constructor(
@@ -66,7 +70,8 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		@IAdeProjectWorkspaceService private readonly workspace: AdeProjectWorkspace,
 		@IConfigurationService private readonly configuration: IConfigurationService,
 		@IAdeOperationService private readonly operations: AdeOperationService,
-		@ICommandService private readonly commands: ICommandService
+		@ICommandService private readonly commands: ICommandService,
+		@IFilesConfigurationService private readonly filesConfiguration: IFilesConfigurationService
 	) {
 		super();
 		this._register(operations.onDidChange(() => this.changes.fire()));
@@ -139,8 +144,13 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 	private async refresh(): Promise<void> {
 		const resource = this.project.modelUri;
 		const key = resource?.toString() ?? '';
+		if (this.project.loading || this.project.error) {
+			++this.contextGeneration; this.observed = ''; this.contextLoading = false; this.refreshing = undefined; this.setContext(undefined); return;
+		}
 		if (key === this.observed) { await this.refreshing; return; }
 		this.observed = key;
+		const generation = ++this.contextGeneration;
+		const current = () => this.observed === key && this.contextGeneration === generation;
 		if (!resource || resource.scheme !== 'file' || basename(resource) !== 'model.ade.json') { this.contextLoading = false; this.refreshing = undefined; this.status = localize('ade.code.notLinked', "Import a Codebase to Enable Project Sync"); this.setContext(undefined); return; }
 		this.contextLoading = true;
 		this.status = localize('ade.code.loadingContext', "Reading the Linked Codebase…");
@@ -148,9 +158,9 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		this.refreshing = (async () => {
 			try {
 				const context = await this.request<CodeContext>({ operation: 'inspect', snapshot: dirname(resource).fsPath });
-				if (this.observed === key) { this.status = localize('ade.code.contextReady', "Linked Codebase Ready · Sync Project Reviews the Entire Configured Scope"); this.setContext(context); }
-			} catch { if (this.observed === key) { this.setContext(undefined); } }
-			finally { if (this.observed === key) { this.contextLoading = false; this.changes.fire(); } }
+				if (current()) { this.status = localize('ade.code.contextReady', "Linked Codebase Ready · Sync Project Reviews the Entire Configured Scope"); this.setContext(context); }
+			} catch { if (current()) { this.observed = ''; this.setContext(undefined); } }
+			finally { if (this.contextGeneration === generation) { this.contextLoading = false; this.changes.fire(); } }
 		})();
 		await this.refreshing;
 	}
@@ -205,6 +215,14 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		}
 		await this.reviewSync([], this.context?.scope, [], undefined, direction);
 	}
+	private async openSyncReport(root: string, token: string, name: string, contents: string): Promise<void> {
+		const identity = /^[\w-]+$/.test(token) ? token : generateUuid();
+		const resource = URI.joinPath(URI.file(root), '.ade', 'reports', identity, name);
+		await this.files.createFolder(URI.joinPath(resource, '..'));
+		await this.files.writeFile(resource, VSBuffer.fromString(contents + '\n'));
+		await this.filesConfiguration.updateReadonly(resource, { value: localize('ade.code.review.readonly', "This is a saved Sync review. Prepare a new context to change its inputs.") });
+		await this.editors.openEditor({ resource, options: { pinned: true, override: 'default' } });
+	}
 	private async reviewSync(renames: CodeRename[] = [], scope = this.context?.scope, resolutions: CodeResolution[] = [], reviewed?: CodePreview, direction?: 'model' | 'code'): Promise<void> {
 		const current = this.context;
 		if (!current || this.busy) { this.notifications.info(localize('ade.code.syncBusy', "Wait for the active A.D.E operation to finish before preparing Sync.")); return; }
@@ -234,26 +252,32 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		this.changes.fire();
 		const summary = localize('ade.code.summary', "Files: {0} added, {1} changed, {2} removed; {3} parsed, {4} reused. Symbols: +{5} / ~{6} / −{7}. Dependencies: +{8} / ~{9} / −{10}. Review {11} views.", result.files.added.length, result.files.changed.length, result.files.removed.length, result.parsed.length, result.reused.length, result.declarations.added.length, result.declarations.changed.length, result.declarations.removed.length, result.dependencies.added.length, result.dependencies.changed.length, result.dependencies.removed.length, result.impact.viewIds.length);
 		const options: (IQuickPickItem & { action: string })[] = [];
-		if (!result.ai) { options.push({ label: localize('ade.code.proposeAI', "Reconcile with AI"), detail: localize('ade.code.proposeAI.detail', "Review a compact context and request one proposal using the configured model, in either direction."), action: 'ai' }); }
-		if (result.ai && !result.ai.questions.length && result.reconciliation?.status === 'pending') { options.push({ label: direction === 'model' ? localize('ade.code.applyCode', "Apply Code Changes") : localize('ade.code.apply', "Apply Sync"), detail: localize('ade.code.applyChecks', "{0}\nModel references, exact source edits and configured parsers are checked. Sync does not run runtime tests.", [result.ai.summary, ...result.reconciliation.sourceEdits.map(edit => edit.file)].join('\n')), action: 'apply' }); }
+		if (!result.ai || result.reconciliation?.status === 'verificationFailed' && !result.ai.questions.length) { options.push({ label: localize('ade.code.proposeAI', "Review Sync Context"), detail: localize('ade.code.proposeAI.detail', "No AI Request Yet"), action: 'ai' }); }
+		if (result.ai && !result.ai.questions.length && result.reconciliation?.status === 'pending') { options.push({ label: direction === 'model' ? localize('ade.code.applyCode', "Apply Code Changes") : localize('ade.code.apply', "Apply Sync"), description: localize('ade.code.applyFiles', "Files: {0}", new Set(result.reconciliation.sourceEdits.map(edit => edit.file)).size), detail: localize('ade.code.runtimeTestsNotRun', "Runtime Tests Not Run"), action: 'apply' }); }
 		if (result.ai?.sourceEdits.length) { options.push({ label: localize('ade.code.inspectDiff', "Inspect Code Changes"), action: 'diff' }); }
 		if (result.conflicts.length) { options.push({ label: localize('ade.code.blocked', "Sync Blocked — Review Conflicts"), detail: result.conflicts.map(item => `${item.code}: ${item.path}`).join('; '), action: 'conflicts' }); }
-		if (result.ai?.questions.length || result.reconciliation?.diagnostics.length) { options.push({ label: localize('ade.code.questions', "Review Questions and Verification Results"), detail: [...(result.ai?.questions ?? []), ...(result.reconciliation?.diagnostics ?? [])].join('\n'), action: 'questions' }); }
+		if (result.ai?.questions.length || result.reconciliation?.diagnostics.length) { options.push({ label: localize('ade.code.questions', "Questions and Validation"), detail: [result.ai?.questions.length ? localize('ade.code.questionCount', "Questions: {0}", result.ai.questions.length) : '', result.reconciliation?.diagnostics.length ? localize('ade.code.diagnosticCount', "Diagnostics: {0}", result.reconciliation.diagnostics.length) : ''].filter(Boolean).join(' · '), action: 'questions' }); }
+		if (result.ai?.questions.length) { options.push({ label: localize('ade.code.clarify', "Answer Sync Questions"), detail: localize('ade.code.clarify.detail', "No AI Request Yet"), action: 'clarify' }); }
 		if (result.declarations.removed.length && result.declarations.added.length) { options.push({ label: localize('ade.code.rename', "Confirm a Symbol Rename"), detail: localize('ade.code.rename.detail', "Choose the previous and current declaration to preserve its identity."), action: 'rename' }); }
-		options.push({ label: localize('ade.code.coverage', "Inspect Coverage and Evidence"), detail: summary, action: 'inspect' }, { label: localize('ade.code.cancel', "Cancel"), action: 'cancel' });
-		const scopeSummary = localize('ade.code.scopeSummary', "Project: {0}. Include: {1}. Exclude: {2}. Excluded directories: {3}. Git ignore: {4}.", current.sourceRoot, scope?.include.join(', ') ?? '**', scope?.exclude.join(', ') ?? '', scope?.excludedDirectories.join(', ') ?? '', String(scope?.respectGitignore ?? true));
-		for (const option of options) { option.detail = [option.detail, scopeSummary].filter(Boolean).join('\n'); }
-		const choice = await this.quickInput.pick(options, { ignoreFocusLost: true, title: direction === 'model' ? localize('ade.code.reviewCode', "Review Code Changes") : localize('ade.code.preview', "Sync Preview"), placeHolder: summary });
+		options.push({ label: localize('ade.code.coverage', "Coverage and Evidence"), detail: localize('ade.code.coverageCounts', "Files: {0} · Views: {1}", result.context.files.length, result.impact.viewIds.length), action: 'inspect' }, { label: localize('ade.code.cancel', "Cancel"), action: 'cancel' });
+		const choice = await this.quickInput.pick(options, { ignoreFocusLost: true, title: direction === 'model' ? localize('ade.code.reviewCode', "Review Code Changes") : localize('ade.code.preview', "Sync Preview"), placeHolder: localize('ade.code.chooseReview', "Choose a Review") });
 		if (choice?.action === 'diff') {
 			const edits = result.ai?.sourceEdits as { file: string; search: string; replacement: string }[];
-			const contents = [result.ai?.summary, ...edits.map(edit => `${edit.file}\n\n${localize('ade.code.before', "Before")}\n${edit.search}\n\n${localize('ade.code.after', "After")}\n${edit.replacement}`)].join('\n\n────────────────────\n\n');
-			await this.editors.openEditor({ contents, languageId: 'plaintext', options: { pinned: true } });
+			const codeBlock = (text: string) => {
+				const fence = '`'.repeat(Math.max(3, ...[...text.matchAll(/`+/g)].map(match => match[0].length + 1)));
+				return `${fence}\n${text}\n${fence}`;
+			};
+			const contents = ['# ' + localize('ade.code.diff.title', "Sync Code Changes"), result.ai?.summary, ...edits.flatMap(edit => [`## ${edit.file}`, '### ' + localize('ade.code.before', "Before"), codeBlock(edit.search), '### ' + localize('ade.code.after', "After"), codeBlock(edit.replacement)])].join('\n\n');
+			await this.openSyncReport(current.sourceRoot, result.token, localize('ade.code.diff.file', "Sync Code Changes.md"), contents);
 			await this.reviewSync(renames, scope, resolutions, result, direction);
 		} else if (choice?.action === 'ai') {
 			const proposal = await this.commands.executeCommand<CodePreview | undefined>('ade.ai.reconcile', result, resolutions, direction);
 			if (proposal && version === this.project.documentVersion && this.context?.snapshot === current.snapshot) { await this.reviewSync(renames, scope, resolutions, proposal, direction); }
 		} else if (choice?.action === 'questions') {
-			await this.editors.openEditor({ contents: [...(result.ai?.questions ?? []), ...(result.reconciliation?.diagnostics ?? [])].join('\n\n'), languageId: 'plaintext', options: { pinned: true } });
+			const contents = ['# ' + localize('ade.code.questions.title', "Sync Questions and Validation"), '## ' + localize('ade.code.questions.open', "Open Questions"), (result.ai?.questions ?? []).map(question => `- ${question}`).join('\n') || localize('ade.code.questions.none', "No Open Questions."), '## ' + localize('ade.code.questions.validation', "Validation Results"), (result.reconciliation?.diagnostics ?? []).map(diagnostic => `- ${diagnostic}`).join('\n') || localize('ade.code.questions.noDiagnostics', "No Validation Diagnostics Reported.")].join('\n\n');
+			await this.openSyncReport(current.sourceRoot, result.token, localize('ade.code.questions.file', "Sync Questions and Validation.md"), contents);
+			await this.reviewSync(renames, scope, resolutions, result, direction);
+		} else if (choice?.action === 'clarify') {
 			const proposal = await this.commands.executeCommand<CodePreview | undefined>('ade.ai.reconcile', result, resolutions, direction);
 			if (proposal && this.context?.snapshot === current.snapshot) { await this.reviewSync(renames, scope, resolutions, proposal, direction); }
 		} else if (choice?.action === 'rename') {
@@ -284,23 +308,48 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		} else if (choice?.action === 'inspect') { await this.showEvidence(result.context); }
 		else { this.status = localize('ade.code.cancelled', "Sync Cancelled · Model Unchanged"); this.changes.fire(); }
 	}
+	private async reviewInventory(scope: CodeScope, bundles?: string[]): Promise<void> {
+		const current = this.context;
+		if (!current || this.busy || this.project.dirty && !await this.project.save()) { return; }
+		const version = this.project.documentVersion;
+		let preview: CodePreview | undefined;
+		await this.run(localize('ade.code.inventoryPreparing', "Preparing Source Inventory Preview"), async token => { preview = await this.request<CodePreview>({ operation: 'preview', snapshot: current.snapshot, scope, inventoryOnly: true, bundles: bundles ?? this.bundles.get(current.sourceRoot) }, token); });
+		if (!preview) { return; }
+		const result = preview;
+		const summary = localize('ade.code.inventorySummary', "Files: +{0} / ~{1} / −{2}; {3} moved. Symbols: +{4} / ~{5} / −{6}. Dependencies: +{7} / ~{8} / −{9}. {10} files parsed; {11} reused. Include: {12}. Exclude: {13}.", result.files.added.length, result.files.changed.length, result.files.removed.length, result.files.renamed?.length ?? 0, result.declarations.added.length, result.declarations.changed.length, result.declarations.removed.length, result.dependencies.added.length, result.dependencies.changed.length, result.dependencies.removed.length, result.parsed.length, result.reused.length, scope.include.join(', ') || localize('ade.code.noSources', "None (No Source Paths)"), scope.exclude.join(', ') || localize('ade.code.none', "None"));
+		let choice: { action: string } | undefined;
+		do {
+			choice = await this.quickInput.pick([
+				{ label: localize('ade.code.inventoryApply', "Apply Source Inventory"), detail: localize('ade.code.inventoryApply.detail', "Save a new analysis snapshot. Authored diagrams and source files are preserved."), action: 'apply' },
+				{ label: localize('ade.code.coverage', "Coverage and Evidence"), detail: summary, action: 'inspect' },
+				{ label: localize('ade.code.cancel', "Cancel"), action: 'cancel' }
+			], { title: localize('ade.code.inventoryPreview', "Source Inventory Preview"), placeHolder: summary, ignoreFocusLost: true });
+			if (choice?.action === 'inspect') { await this.showEvidence(result.context); }
+		} while (choice?.action === 'inspect');
+		if (choice?.action !== 'apply') { return; }
+		if (version !== this.project.documentVersion || this.context?.snapshot !== current.snapshot) { this.notifications.warn(localize('ade.code.inventoryStale', "The project changed. Prepare a fresh source inventory preview.")); return; }
+		await this.run(localize('ade.code.inventoryApplying', "Updating Source Inventory"), async token => { await this.openContext(await this.request<CodeContext>({ operation: 'apply', token: result.token }, token)); if (bundles) { this.bundles.set(current.sourceRoot, bundles); } });
+	}
 	async configure(): Promise<void> {
 		const context = this.context;
 		if (!context || this.busy) { return; }
-		const include = await this.quickInput.input({ title: localize('ade.code.scope.include', "Include Source Paths"), prompt: localize('ade.code.scope.glob', "Comma-separated glob patterns relative to the codebase"), value: context.scope.include.join(', ') });
+		const include = await this.quickInput.input({ title: localize('ade.code.scope.include', "Include Source Paths"), prompt: localize('ade.code.scope.glob', "Comma-separated glob patterns relative to the codebase. Leave empty to include no source paths."), value: context.scope.include.join(', ') });
 		if (include === undefined) { return; }
 		const exclude = await this.quickInput.input({ title: localize('ade.code.scope.exclude', "Exclude Source Paths"), prompt: localize('ade.code.scope.ignore', "Comma-separated Git ignore patterns; .gitignore and .adeignore also apply"), value: context.scope.exclude.join(', ') });
 		if (exclude === undefined) { return; }
 		const patterns = (text: string) => text.split(',').map(item => item.trim()).filter(Boolean);
-		await this.reviewSync([], { ...context.scope, include: patterns(include), exclude: patterns(exclude) });
+		const scope = { ...context.scope, include: patterns(include), exclude: patterns(exclude) };
+		if (context.diagramState === 'index' || this.project.model.version === 4 || this.project.model.version === 5 || isSourceEvidenceModel(this.project.model)) { await this.reviewInventory(scope); }
+		else { await this.reviewSync([], scope); }
 	}
 	async attachIndex(): Promise<void> {
 		const context = this.context;
 		if (!context || this.busy) { return; }
 		const paths = await this.dialogs.showOpenDialog({ title: localize('ade.code.index', "Attach Fresh SCIP Bundles"), canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: [{ name: localize('ade.code.scipFilter', "SCIP JSON"), extensions: ['json'] }] });
 		if (!paths?.length || paths.some(path => path.scheme !== 'file')) { return; }
-		this.bundles.set(context.sourceRoot, paths.map(path => path.fsPath));
-		await this.sync();
+		const bundles = paths.map(path => path.fsPath);
+		if (context.diagramState === 'index' || this.project.model.version === 4 || this.project.model.version === 5 || isSourceEvidenceModel(this.project.model)) { await this.reviewInventory(context.scope, bundles); }
+		else { this.bundles.set(context.sourceRoot, bundles); await this.sync(); }
 	}
 	async recover(): Promise<void> {
 		const context = this.context;
@@ -312,7 +361,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			if (operation) { await this.run(localize('ade.code.recoveringTransaction', "Recovering Model and Source Changes"), async token => { await this.openContext(await this.request<CodeContext>({ operation: 'recoverSync', snapshot: context.snapshot, id: operation.id }, token)); }); }
 			return;
 		}
-		const choice = await this.quickInput.pick(history.snapshots.filter(item => item.directory !== context.snapshot).map(item => ({ label: item.directory.split(/[\\/]/).pop()!, description: item.revision.slice(0, 12), directory: item.directory })), { ignoreFocusLost: true, title: localize('ade.code.recover', "Restore Model Snapshot"), placeHolder: localize('ade.code.recover.detail', "Restores the model and index. Source files keep their current contents.") });
+		const choice = await this.quickInput.pick(history.snapshots.filter(item => item.directory !== context.snapshot).map(item => ({ label: item.created ? new Date(item.created).toLocaleString() : item.directory.split(/[\\/]/).pop()!, description: item.files === undefined ? item.revision.slice(0, 12) : localize('ade.code.snapshotSummary', "Files: {0} · Declarations: {1} · Revision: {2}", item.files, item.declarations ?? 0, item.revision.slice(0, 12)), detail: item.directory, directory: item.directory })), { ignoreFocusLost: true, title: localize('ade.code.recover', "Restore Model Snapshot"), placeHolder: localize('ade.code.recover.detail', "Restores the model and index. Source files keep their current contents.") });
 		if (!choice || this.project.dirty && !await this.project.save()) { return; }
 		await this.run(localize('ade.code.restoring', "Restoring Snapshot"), async token => { await this.openContext(await this.request<CodeContext>({ operation: 'restore', snapshot: context.snapshot, target: choice.directory }, token)); });
 	}
@@ -327,8 +376,10 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 	}
 	async inspect(elementId?: string): Promise<void> { if (this.context) { await this.showEvidence(this.context, elementId); } }
 	private async showEvidence(context: CodeContext, elementId?: string): Promise<void> {
-		const items: (IQuickPickItem & { evidence?: CodeEvidence })[] = [];
-		const names = new Map(context.declarations.map(item => [item.id, item.name]));
+		const items: (IQuickPickItem & { evidence?: CodeEvidence; analysis?: boolean })[] = [];
+		if (!elementId) { items.push({ label: localize('ade.code.fullAnalysis', "Open Full Analysis Details"), detail: localize('ade.code.fullAnalysis.detail', "Saved inventory, parser counts, textual contracts, imports, revisions and analysis providers"), analysis: true }); }
+		const names = new Map([...context.files.filter(file => file.elementId).map(file => [file.elementId!, file.path] as const), ...context.declarations.map(item => [item.id, item.name] as const)]);
+		const definitions = new Set<string>();
 		if (this.project.model.version === 5 && elementId) {
 			const foundation = this.project.model.foundation;
 			const ids = new Set(foundation.assertions.filter(assertion => assertion.subject.id === elementId).flatMap(assertion => assertion.evidenceIds ?? []));
@@ -347,7 +398,11 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			const name = (id: string) => names.get(id) ?? id;
 			for (const reference of edge.references) {
 				items.push({ label: `${name(edge.from)} → ${name(edge.to)}`, description: `${reference.source.file}:${reference.source.line}`, detail: localize('ade.code.reference', "Static reference · {0} · target {1}:{2}", reference.provider, reference.target.file, reference.target.line), evidence: reference.source });
-				items.push({ label: localize('ade.code.definition', "Target Definition: {0}", name(edge.to)), description: `${reference.target.file}:${reference.target.line}`, evidence: reference.target });
+				const key = JSON.stringify(reference.target);
+				if (!definitions.has(key)) {
+					definitions.add(key);
+					items.push({ label: localize('ade.code.definition', "Target Definition: {0}", name(edge.to)), description: `${reference.target.file}:${reference.target.line}`, evidence: reference.target });
+				}
 			}
 		}
 		if (elementId) {
@@ -359,12 +414,43 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			}
 		}
 		if (!elementId) {
-			for (const file of context.files) { items.push({ label: file.path, description: `${file.language} · ${file.status}`, detail: file.diagnostics.join('; ') }); }
-			for (const diagnostic of context.diagnostics) { items.push({ label: diagnostic }); }
+			for (const file of context.files) {
+				const revision = file.status === 'excluded' ? undefined : file.revision ?? context.declarations.find(item => item.evidence.file === file.path)?.evidence.revision;
+				items.push({ label: file.path, description: [file.language, file.status].filter(Boolean).join(' · '), detail: [revision ? localize('ade.code.openSource', "Open Source File") : localize('ade.code.unreadSource', "Source navigation is unavailable because this file was not read during analysis."), ...file.diagnostics].join('; '), ...(revision ? { evidence: { file: file.path, revision, start: 0, end: 0, line: 1, endLine: 1 } } : {}) });
+			}
+			const diagnosticNames: Record<string, string> = {
+				outsideScope: localize('ade.code.outsideScope', "Outside Analysis Scope"),
+				missingDocument: localize('ade.code.missingDocument', "No Static Reference Index for This File"),
+				missingDefinition: localize('ade.code.missingDefinition', "Static Reference Has No Definition"),
+				unboundDefinition: localize('ade.code.unboundDefinition', "Compiler Definition Has No Extracted Declaration"),
+				unboundReference: localize('ade.code.unboundReference', "Static Reference Has No Mapped Declaration"),
+				ambiguousSymbol: localize('ade.code.ambiguousSymbol', "Ambiguous Static Symbol"),
+				unresolvedRelationship: localize('ade.code.unresolvedRelationship', "Unresolved Static Relationship")
+			};
+			for (const diagnostic of context.diagnostics) {
+				const match = /^(.*): (\w+)$/.exec(diagnostic);
+				items.push(match && diagnosticNames[match[2]] ? { label: `${match[1]}: ${diagnosticNames[match[2]]}`, detail: diagnostic } : { label: diagnostic });
+			}
 		}
 		if (!items.length) { items.push({ label: localize('ade.code.noEvidence', "No Extracted Code Evidence for This Element") }); }
 		const choice = await this.quickInput.pick(items, { ignoreFocusLost: true, title: localize('ade.code.evidence', "Code Coverage and Evidence"), matchOnDescription: true, matchOnDetail: true, placeHolder: localize('ade.code.evidence.detail', "{0} files · {1} declarations · {2} dependencies. Extracted facts; runtime behavior and responsibilities are unobserved.", context.files.length, context.declarations.length, context.dependencies.length) });
-		if (!choice?.evidence) { return; }
+		if (!choice) { return; }
+		if (choice.analysis) {
+			if (context.revision !== this.context?.revision) { this.notifications.info(localize('ade.code.analysisPreview', "Apply the source inventory preview before opening its saved analysis details.")); return; }
+			let resource = URI.joinPath(URI.file(context.snapshot), 'code-index.json');
+			if (((await this.files.stat(resource)).size ?? 0) <= 8 * 1024 * 1024) {
+				const index = JSON.parse((await this.files.readFile(resource)).value.toString());
+				const changes = URI.joinPath(URI.file(context.snapshot), 'sync-report.json');
+				if (await this.files.exists(changes)) { index.changes = JSON.parse((await this.files.readFile(changes)).value.toString()); }
+				resource = URI.joinPath(URI.file(context.sourceRoot), '.ade', 'reports', generateUuid(), localize('ade.code.analysisFile', "Source Analysis.json"));
+				await this.files.createFolder(dirname(resource));
+				await this.files.writeFile(resource, VSBuffer.fromString(JSON.stringify(index, null, '\t') + '\n'));
+			} else { this.notifications.info(localize('ade.code.largeAnalysis', "The large analysis index is opened in its compact format. Use editor search and Outline to navigate its details.")); }
+			await this.filesConfiguration.updateReadonly(resource, { value: localize('ade.code.analysisReadonly', "This is a saved analysis snapshot. Update the source inventory to create a new version.") });
+			await this.editors.openEditor({ resource, options: { pinned: true } });
+			return;
+		}
+		if (!choice.evidence) { this.notifications.info(choice.detail ?? choice.label); return; }
 		if (context.revision !== this.context?.revision) { this.notifications.info(localize('ade.code.previewEvidence', "Apply Sync before navigating to the updated source positions.")); return; }
 		const source = await this.request<CodeSource>({ operation: 'source', snapshot: context.snapshot, file: choice.evidence.file, revision: choice.evidence.revision, start: choice.evidence.start, end: choice.evidence.end });
 		if (source.stale) { this.notifications.warn(localize('ade.code.sourceStale', "The source changed since this evidence was recorded. Run Sync to update positions.")); }

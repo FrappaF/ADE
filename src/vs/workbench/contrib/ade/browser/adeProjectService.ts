@@ -6,6 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { equals } from '../../../../base/common/objects.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { basename, dirname, isEqualOrParent } from '../../../../base/common/resources.js';
@@ -20,7 +21,7 @@ import { InvalidSemanticModelError, readSemanticDraft, validateSemanticModel } f
 import { migrateSemanticModel } from '../common/modelLegacyMigration.js';
 import { emptyFoundation } from '../common/modelFoundation.js';
 import { SemanticModelService } from '../common/semanticModelService.js';
-import { DiagramContext, normalizeDiagramContext, resolveElementLocation, SemanticLocation, SemanticNavigationHistory } from '../common/visualNavigation.js';
+import { DiagramContext, getViewSelectionIds, normalizeDiagramContext, resolveElementLocation, SemanticLocation, SemanticNavigationHistory } from '../common/visualNavigation.js';
 import { modelProjectProfile } from '../common/modelProfiles.js';
 import { modelTaskIntent } from '../common/modelWorkflow.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
@@ -69,6 +70,7 @@ export class AdeProjectService extends Disposable {
 	private inspectionId = '';
 	private readonly navigation = new SemanticNavigationHistory();
 	private _modelUri: URI | undefined;
+	private workspaceFilesPending = false;
 	private _loading = false;
 	private _error: string | undefined;
 	private _diagnostics: string[] = [];
@@ -110,7 +112,12 @@ export class AdeProjectService extends Disposable {
 		this.context = { viewId, selections };
 		this.navigation.reset(this.location);
 		const resource = storageService.get('ade.shell.model', StorageScope.WORKSPACE);
-		if (resource) {
+		const folders = this.workspace.getWorkspace().folders;
+		const active = storageService.get('ade.project.activeRoot', StorageScope.PROFILE);
+		const handoffFolder = folders.find(folder => folder.uri.toString() === active) ?? (folders.length === 1 ? folders[0] : undefined);
+		const handoff = handoffFolder && storageService.get(`ade.project.openContext:${handoffFolder.uri.toString()}`, StorageScope.PROFILE);
+		// An explicit folder handoff supersedes that folder's older editor selection.
+		if (resource && !handoff) {
 			try {
 				const candidate = URI.parse(resource);
 				const owner = storageService.get('ade.shell.workspace', StorageScope.WORKSPACE);
@@ -198,6 +205,7 @@ export class AdeProjectService extends Disposable {
 		}
 		return dirname(this.modelUri);
 	}
+	get restoringContext(): boolean { return !this.initialized || this._loading; }
 	get loading(): boolean { return this._loading; }
 	get error(): string | undefined { return this.workspaceChangePending ? localize('ade.workspace.pending', "The workspace folder changed. Save or discard changes to the previous project before continuing. Choose Retry to continue opening the current folder.") : this._error; }
 	get hasStructuralErrors(): boolean { return this._hasStructuralErrors; }
@@ -266,11 +274,48 @@ export class AdeProjectService extends Disposable {
 		return this.restoring ?? Promise.resolve();
 	}
 
+	/** Carry the current visual document through a native folder-window reload. */
+	prepareWorkspaceOpen(showFiles = false): void {
+		const root = this.projectRoot;
+		if (!root || !this.modelUri) { return; }
+		this.storageService.store(`ade.project.openContext:${root.toString()}`, JSON.stringify({ model: this.modelUri.toString(), diagram: this.context, location: this.location, showFiles }), StorageScope.PROFILE, StorageTarget.MACHINE);
+	}
+
+	/** A folder handoff requests the Files surface only once, after model restoration. */
+	takeWorkspaceFilesRequest(): boolean {
+		const pending = this.workspaceFilesPending;
+		this.workspaceFilesPending = false;
+		return pending;
+	}
+
 	private async restoreWorkspaceProject(): Promise<void> {
 		const generation = this.generation;
 		const folders = this.workspace?.getWorkspace().folders ?? [];
 		const active = this.storageService.get('ade.project.activeRoot', StorageScope.PROFILE);
 		const folder = folders.find(folder => folder.uri.toString() === active) ?? (folders.length === 1 ? folders[0] : undefined);
+		if (folder && generation === this.generation && !this._modelUri) {
+			const key = `ade.project.openContext:${folder.uri.toString()}`;
+			const pending = this.storageService.get(key, StorageScope.PROFILE);
+			if (pending) {
+				this.storageService.remove(key, StorageScope.PROFILE);
+				try {
+					const context: { model?: string; diagram?: Partial<DiagramContext>; location?: SemanticLocation; showFiles?: boolean } = JSON.parse(pending);
+					if (typeof context.model === 'string' && typeof context.diagram?.viewId === 'string' && context.diagram.selections && typeof context.diagram.selections === 'object' && !Array.isArray(context.diagram.selections)) {
+						const resource = URI.parse(context.model);
+						if (isEqualOrParent(resource, folder.uri)) {
+							const diagram = { viewId: context.diagram.viewId, selections: Object.fromEntries(Object.entries(context.diagram.selections).filter(([, value]) => typeof value === 'string')) };
+							await this.loadModel(resource, { diagram, location: { section: 'diagram', viewId: diagram.viewId } });
+							if (context.location?.section === 'map') { this.showSystemMap(); }
+							else if (context.location?.section === 'home') { this.showHome(); }
+							else if (context.location?.section === 'element' && typeof context.location.elementId === 'string') { this.inspectElement(context.location.elementId); }
+							else if (context.location?.section === 'impact' && typeof context.location.elementId === 'string') { this.showImpact(context.location.elementId); }
+							this.workspaceFilesPending = context.showFiles === true;
+							return;
+						}
+					}
+				} catch { /* Ignore obsolete or corrupt handoffs and restore the folder normally. */ }
+			}
+		}
 		if (folder && (await this.fileService.exists(URI.joinPath(folder.uri, '.ade', 'code-project.json')) || await this.fileService.exists(URI.joinPath(folder.uri, '.ade', 'model.json'))) && generation === this.generation && !this._modelUri) {
 			await this.openProject(folder.uri);
 		} else if (folders.length && generation === this.generation && !this._modelUri) { this.clearWorkspaceModel(); }
@@ -295,7 +340,7 @@ export class AdeProjectService extends Disposable {
 	}
 
 	selectElement(elementId: string): void {
-		if (!this.activeView?.nodes.some(node => node.elementId === elementId)) { return; }
+		if (!this.activeView || !getViewSelectionIds(this.model, this.activeView).includes(elementId)) { return; }
 		this.context.selections[this.context.viewId] = elementId;
 		this.publishNavigation();
 	}
@@ -406,6 +451,7 @@ export class AdeProjectService extends Disposable {
 	editBatch(edits: readonly VisualEdit[]): void {
 		if (!this.editable || !this.document) { return; }
 		const next = edits.reduce((model, edit) => applyVisualEdit(model, edit), this.model);
+		if (equals(next, this.model)) { return; }
 		this.replaceDocument(next);
 	}
 
@@ -509,6 +555,9 @@ export class AdeProjectService extends Disposable {
 	private readDocument(document: IResolvedTextFileEditorModel): void {
 		try {
 			const value = JSON.parse(document.textEditorModel.getValue());
+			if (value && typeof value === 'object' && Object.hasOwn(value, 'version') && ![1, 2, 3, 4, 5].includes(value.version)) {
+				throw new Error(localize('ade.unsupportedModelVersion', "Model version {0} is not supported. Supported model versions are 1, 2, 3, 4 and 5.", String(value.version)));
+			}
 			const draft = value?.version === 4 || value?.version === 5 ? readSemanticDraft(value) : undefined;
 			const result = draft ? { model: draft, diagnostics: validateSemanticModel(draft) } : migrateSemanticModel(value);
 			this.semantics.replace(result.model);
@@ -519,10 +568,10 @@ export class AdeProjectService extends Disposable {
 				this.inspectionId = '';
 			}
 			this.navigation.replace(this.location);
-			this._diagnostics = result.diagnostics.map(diagnosticMessage);
+			this._diagnostics = result.diagnostics.map(diagnostic => diagnosticMessage(diagnostic, result.model));
 			this._error = undefined;
 		} catch (error) {
-			this._error = error instanceof InvalidSemanticModelError ? error.diagnostics.map(diagnosticMessage).join('\n')
+			this._error = error instanceof InvalidSemanticModelError ? error.diagnostics.map(diagnostic => diagnosticMessage(diagnostic)).join('\n')
 				: localize('ade.loadFailed', "Could not read the selected model: {0}", String(error.message ?? error));
 		}
 		this.changeEmitter.fire();

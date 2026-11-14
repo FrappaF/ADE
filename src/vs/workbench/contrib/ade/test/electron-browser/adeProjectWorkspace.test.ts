@@ -28,7 +28,7 @@ suite('A.D.E project workspace tools', () => {
 		const storage = store.add(new InMemoryStorageService());
 		let root = URI.file('/projects/project with spaces');
 		const updates: object[] = [], terminals: object[] = [], commands: object[] = [], terminalSteps: string[] = [];
-		stub(IAdeProjectService, { get projectRoot() { return root; } });
+		stub(IAdeProjectService, { get projectRoot() { return root; }, prepareWorkspaceOpen: () => {} });
 		// Retain the getter through the mock rather than copying its current value.
 		Object.defineProperty(instantiation.get(IAdeProjectService), 'projectRoot', { get: () => root });
 		stub(IWorkspaceContextService, { getWorkspace: () => testWorkspace(...initialFolders), getWorkbenchState: () => initialFolders.length > 1 ? WorkbenchState.WORKSPACE : initialFolders.length ? WorkbenchState.FOLDER : WorkbenchState.EMPTY });

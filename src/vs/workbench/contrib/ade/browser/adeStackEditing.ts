@@ -5,14 +5,15 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { type IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { modelProjectProfile } from '../common/modelProfiles.js';
-import { switchModelStack } from '../common/modelStack.js';
+import { modelStackPlan, switchModelStack } from '../common/modelStack.js';
 import { type SemanticModelV4 } from '../common/modelTypes.js';
 import { type VisualEdit } from '../common/visualEditing.js';
 
 /** One detached atomic binding edit; source, test and data publication still require the shared review. */
-export async function editAdeStack(quickInput: Pick<IQuickInputService, 'pick'>, model: SemanticModelV4): Promise<VisualEdit[] | undefined> {
+export async function editAdeStack(quickInput: Pick<IQuickInputService, 'pick'>, model: SemanticModelV4, dialogs: Pick<IDialogService, 'confirm'>): Promise<VisualEdit[] | undefined> {
 	const selected = await quickInput.pick([
 		{ label: 'Node ESM 24.22.1', profileId: 'node.esm', technology: 'node-esm' },
 		{ label: 'Bun ESM 1.3.2', profileId: 'bun.esm', technology: 'bun-esm' }
@@ -28,7 +29,12 @@ export async function editAdeStack(quickInput: Pick<IQuickInputService, 'pick'>,
 		return [{ kind: 'platformBinding', entry: { id: bindings[0]?.id ?? generateUuid(), elementId: element.element.id, profileId: selected.profileId, technology: { state: 'known', value: selected.technology } } }];
 	}
 	if (current.profile.id === selected.profileId) { return []; }
-	const confirmation = await quickInput.pick([{ label: localize('ade.stack.applyBindings', "Change Runtime Bindings"), description: selected.label }], { title: localize('ade.stack.plan', "Preserve Model and IDs · Verify Code and Business Tests Again · Stop/Back Up Data Before Manual Restart") });
-	if (!confirmation) { return; }
-	return switchModelStack(model, selected.profileId).foundation.platform.bindings.map(entry => ({ kind: 'platformBinding', entry }));
+	const next = switchModelStack(model, selected.profileId), plan = await modelStackPlan(model, next);
+	const confirmation = await dialogs.confirm({
+		message: localize('ade.stack.plan', "Review Runtime Change · {0} → {1}", `${current.toolchain.runtime === 'bun' ? 'Bun' : 'Node'} ESM ${current.toolchain.version}`, selected.label),
+		detail: localize('ade.stack.planDetail', "Implementation\n{0}\n\nDependencies\n{1}\n\nStorage and Data\n{2}\n\nTests\n{3}\n\nDeployment\n{4}\n\nRecovery\n{5}", plan.implementation, plan.dependencies, plan.storage, plan.tests, plan.deployment, plan.recovery),
+		primaryButton: localize('ade.stack.applyBindings', "Change Runtime Bindings")
+	});
+	if (!confirmation.confirmed) { return; }
+	return next.foundation.platform.bindings.map(entry => ({ kind: 'platformBinding', entry }));
 }

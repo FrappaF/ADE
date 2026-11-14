@@ -41,47 +41,39 @@ suite('A.D.E sidebar project shortcuts', () => {
 		instantiation.stub(IViewDescriptorService, { onDidChangeLocation: Event.None, onDidChangeContainer: Event.None, getViewLocationById: () => ViewContainerLocation.Sidebar, getViewDescriptorById: () => null, getViewContainerByViewId: () => container, getViewContainerModel: () => Object.assign(new (mock<IViewContainerModel>())(), { title: 'System and Features', onDidChangeContainerInfo: Event.None }), getDefaultContainerById: () => container });
 		const view = store.add(instantiation.createInstance(AdeView, { id: 'ade-shortcuts-test', title: 'System and Features' }));
 		view.render(); root.appendChild(view.element);
-		const buttons = () => [...root.querySelectorAll<HTMLButtonElement>('.ade-project-shortcuts > button')];
+		const buttons = () => [...root.querySelectorAll<HTMLButtonElement>('.ade-outline-tools .ade-options-content > button')];
 		return { view, project, ai, code, changed, aiChanged, codeChanged, commands, configuration, buttons };
 	}
 
-	test('empty projects expose diagram shortcuts under a single project title and dispatch their commands', async () => {
+	test('the outline contains only search and creation; implementation belongs to Code', async () => {
 		const f = fixture();
-		assert.deepStrictEqual({ title: root.querySelector('.ade-navigation-group > summary')?.textContent, actions: f.buttons().map(button => button.textContent), duplicateTitle: root.querySelector('.ade-sidebar > h3'), empty: root.textContent?.includes('No diagrams in this context.') }, { title: 'ecommerce-ade', actions: ['Create Diagram', 'Update Diagrams from Codebase', 'Update Codebase from Diagrams'], duplicateTitle: null, empty: true });
 		for (const button of f.buttons()) { button.click(); }
 		await Promise.resolve();
-		assert.deepStrictEqual(f.commands, ['ade.addDiagram', 'ade.ai.updateDiagrams', 'ade.ai.updateCodebase']);
+		assert.deepStrictEqual({ actions: f.buttons().map(button => button.textContent), commands: f.commands, hasCodeActions: root.textContent?.includes('Update Codebase'), title: root.querySelector('.ade-navigation-group > summary')?.textContent }, { actions: ['Add Feature', 'Add Diagram'], commands: ['ade.addFeature', 'ade.addDiagram'], hasCodeActions: false, title: 'ecommerce-ade' });
 	});
 
-	test('an unlinked open project delegates updates without opening a codebase picker', async () => {
-		const f = fixture(false);
-		f.buttons()[1].click(); await Promise.resolve(); await Promise.resolve();
-		assert.deepStrictEqual(f.commands, ['ade.ai.updateDiagrams']);
-		assert.equal(root.textContent?.includes('Choose a Codebase'), false);
-	});
-
-	test('busy and readonly states update both shortcuts without losing the collapsed project', () => {
+	test('busy state blocks creation and preserves the collapsed project', () => {
 		const f = fixture();
-		const group = root.querySelector<HTMLDetailsElement>('.ade-navigation-group')!; group.open = false;
+		root.querySelector<HTMLDetailsElement>('.ade-navigation-group')!.open = false;
 		f.ai.busy = true; f.aiChanged.fire();
-		assert.deepStrictEqual([f.buttons().every(button => button.disabled), root.querySelector<HTMLDetailsElement>('.ade-navigation-group')!.open], [true, false]);
-		f.ai.busy = false; f.aiChanged.fire(); assert.ok(f.buttons().every(button => !button.disabled));
-		Object.assign(f.project, { editable: false }); f.changed.fire();
 		for (const button of f.buttons()) { button.click(); }
-		assert.deepStrictEqual([f.buttons().every(button => button.disabled), f.commands, !!root.querySelector(`#${f.buttons()[0].getAttribute('aria-describedby')}`)?.textContent?.includes('Writable Project')], [true, [], true]);
+		assert.deepStrictEqual([f.buttons().every(button => button.disabled), root.querySelector<HTMLDetailsElement>('.ade-navigation-group')!.open, f.commands], [true, false, []]);
+		f.ai.busy = false; f.aiChanged.fire();
+		assert.ok(f.buttons().every(button => !button.disabled));
 	});
 
-	test('source inventories offer generation while manual editing waits for published diagrams', () => {
+	test('source inventories and readonly projects do not offer manual creation', () => {
 		const f = fixture(); f.project.model.id = 'code:inventory'; f.changed.fire();
-		assert.deepStrictEqual(f.buttons().map(button => button.disabled), [true, false, false]);
-		assert.ok(root.textContent?.includes('Source inventory ready'));
+		assert.deepStrictEqual([f.buttons().length, root.textContent?.includes('Source inventory ready')], [0, true]);
+		f.project.model.id = 'project'; Object.assign(f.project, { editable: false }); f.changed.fire();
+		assert.strictEqual(f.buttons().length, 0);
 	});
 
-	test('turning off AI explains the unavailable update and keeps manual diagram creation usable', async () => {
-		const f = fixture();
+	test('manual creation remains available with AI disabled', async () => {
+		const f = fixture(false);
 		await f.configuration.setUserConfiguration('chat.disableAIFeatures', true);
 		f.configuration.onDidChangeConfigurationEmitter.fire(Object.assign(new (mock<IConfigurationChangeEvent>())(), { affectsConfiguration: (key: string) => key === 'chat.disableAIFeatures' }));
-		f.buttons()[1].click();
-		assert.deepStrictEqual([f.buttons().map(button => button.disabled), f.commands, root.textContent?.includes('AI features are disabled')], [[false, true, true], [], true]);
+		f.buttons()[1].click(); await Promise.resolve();
+		assert.deepStrictEqual([f.buttons().map(button => button.disabled), f.commands], [[false, false], ['ade.addDiagram']]);
 	});
 });

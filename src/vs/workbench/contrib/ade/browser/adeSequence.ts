@@ -12,7 +12,7 @@ import { elementLabels, relationLabels } from './adeLabels.js';
 
 /** Measured message rows keep labels apart; geometry never changes semantic or manual-layout data. */
 export function renderAdeSequence(canvas: HTMLElement, model: SemanticModel, view: ModelView, controls: AdeControls, selectedId: string, select: (id: string) => void, context?: { selectRelation?(id: string): void; selectedRelation?: string; element(target: HTMLElement, id: string): void; relation(target: HTMLElement | SVGElement, id: string): void }): { width: number; height: number } {
-	if ((model.version === 4 || model.version === 5) && view.interactionId && model.foundation.interactions.some(entry => entry.id === view.interactionId)) { canvas.classList.add('ade-sequence'); return renderAdeInteractionSequence(canvas, model, view.interactionId, controls, select); }
+	if ((model.version === 4 || model.version === 5) && view.interactionId && model.foundation.interactions.some(entry => entry.id === view.interactionId)) { canvas.classList.add('ade-sequence'); return renderAdeInteractionSequence(canvas, model, view.interactionId, controls, select, selectedId); }
 	const sequence = getSequenceDiagram(model, view);
 	canvas.classList.add('ade-sequence');
 	const svg = canvas.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');

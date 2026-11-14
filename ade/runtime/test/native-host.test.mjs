@@ -6,7 +6,7 @@
 import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, realpath, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 const { engine: productionEngine, createCodeEngine, codeBridgeProtocol } = await import('../../runtime/nativeHost.ts');
@@ -32,7 +32,7 @@ const call = async request => {
 	return JSON.parse(await engine.execute(JSON.stringify({ operation: 'reconciliationPropose', token: result.token, reviewId: prepared.reviewId })));
 };
 async function workspace(t, files) {
-	const root = await mkdtemp(join(tmpdir(), 'ade-native-code-'));
+	const root = await realpath(await mkdtemp(join(tmpdir(), 'ade-native-code-')));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	for (const [file, text] of Object.entries(files)) { await mkdir(join(root, file, '..'), { recursive: true }); await writeFile(join(root, file), text); }
 	return root;

@@ -104,6 +104,42 @@ suite('A.D.E project context', () => {
 		await project.openModelResource(snapshot);
 		assert.strictEqual(project.projectRoot?.toString(), folder.toString());
 	});
+	test('Files handoff restores a standalone document and its per-diagram selections in the new folder', async () => {
+		const folder = URI.parse('test:/standalone'), model = URI.joinPath(folder, 'model.json');
+		await files.writeFile(model, VSBuffer.fromString(JSON.stringify(checkoutModel)));
+		contextFolders = [URI.parse('test:/old')];
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(model);
+		project.showDiagram('purchase-outcome'); project.selectElement('declined');
+		project.showDiagram('cart-structure'); project.selectElement('cart');
+		project.prepareWorkspaceOpen(true);
+		project.dispose();
+		contextFolders = [folder];
+		const restored = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await restored.restore();
+		assert.deepStrictEqual([restored.modelUri?.toString(), restored.activeView?.id, restored.selectedId, restored.takeWorkspaceFilesRequest(), restored.takeWorkspaceFilesRequest()], [model.toString(), 'cart-structure', 'cart', true, false]);
+		restored.showDiagram('purchase-outcome'); assert.strictEqual(restored.selectedId, 'declined');
+	});
+
+
+	for (const missingPreviousModel of [false, true]) {
+		test(`explicit folder handoff supersedes ${missingPreviousModel ? 'missing' : 'valid'} older workspace model selection`, async () => {
+			const folder = URI.parse('test:/returning-project');
+			const previous = URI.joinPath(folder, 'previous.json');
+			const target = URI.joinPath(folder, '.ade', 'model.json');
+			contextFolders = [folder];
+			if (!missingPreviousModel) { await files.writeFile(previous, VSBuffer.fromString(JSON.stringify(libraryModel))); }
+			await files.writeFile(target, VSBuffer.fromString(JSON.stringify(checkoutModel)));
+			storage.store('ade.shell.model', previous.toString(), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			storage.store('ade.shell.workspace', JSON.stringify([folder.toString()]), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			storage.store(`ade.project.openContext:${folder.toString()}`, JSON.stringify({ model: target.toString(), diagram: { viewId: 'cart-structure', selections: { 'cart-structure': 'cart' } }, showFiles: true }), StorageScope.PROFILE, StorageTarget.MACHINE);
+			const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+			await project.restore();
+			assert.deepStrictEqual([project.modelUri?.toString(), project.model.id, project.selectedId, project.error, project.takeWorkspaceFilesRequest()], [target.toString(), checkoutModel.id, 'cart', undefined, true]);
+			assert.strictEqual(storage.get(`ade.project.openContext:${folder.toString()}`, StorageScope.PROFILE), undefined);
+		});
+	}
+
 	test('native workspace changes replace the active project and empty folders clear the old model', async () => {
 		const first = URI.parse('test:/first'), second = URI.parse('test:/second');
 		contextFolders = [first];
@@ -268,7 +304,7 @@ suite('A.D.E project context', () => {
 		dialogs.selected = resource;
 		await files.writeFile(resource, VSBuffer.fromString('{"version":99}'));
 		await project.chooseModel();
-		assert.ok(project.error?.includes('Expected:'));
+		assert.ok(project.error?.includes('Model version 99 is not supported. Supported model versions are 1, 2, 3, 4 and 5.'));
 		assert.strictEqual((await files.readFile(resource)).value.toString(), '{"version":99}');
 		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(checkoutModel)));
 		await project.retry();
@@ -777,6 +813,20 @@ suite('A.D.E project context', () => {
 		assert.strictEqual((await files.readFile(resource)).value.toString(), '{"version":5,"semantics":null}');
 	});
 
+	test('unchanged visual edits preserve the saved document version and undo the last actual change directly', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(nodeOrdersFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		const before = project.model, element = before.semantics.elements[0], version = project.documentVersion;
+		project.editBatch([]); project.edit({ kind: 'rename', target: 'element', id: element.id, name: element.name });
+		assert.strictEqual(project.documentVersion, version); assert.strictEqual(project.dirty, false);
+		project.edit({ kind: 'rename', target: 'element', id: element.id, name: 'Actual Change' });
+		const changedVersion = project.documentVersion;
+		project.edit({ kind: 'rename', target: 'element', id: element.id, name: 'Actual Change' });
+		assert.strictEqual(project.documentVersion, changedVersion);
+		await project.undo(); assert.deepStrictEqual(project.model, before); assert.strictEqual(project.dirty, false);
+	});
+
 	test('blueprint operations and ADR revisions round-trip in one native undo transaction', async () => {
 		const model = structuredClone(blueprintFixture);
 		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
@@ -851,6 +901,18 @@ suite('A.D.E project context', () => {
 	test('pure starter never replaces an existing specification', async () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs)); await project.openModelResource(resource);
 		await assert.rejects(project.createPureFeature(), /empty version 4/); assert.deepStrictEqual(project.model, checkoutModel);
+	});
+
+	test('linked sequence selections use projected participants and exact steps without manual nodes', async () => {
+		const model = structuredClone(interactionFixture); model.views = [{ id: 'sequence', name: 'Checkout Sequence', kind: 'sequence', nodes: [], relationIds: [], interactionId: 'interaction.checkout' }];
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs)); await project.openModelResource(resource);
+		project.showDiagram('sequence');
+		for (const id of ['checkout.4', 'message.charge', 'frame.outcome', 'branch.approved']) { project.selectElement(id); assert.strictEqual(project.selectedId, id); }
+		project.selectElement('unrelated'); assert.strictEqual(project.selectedId, 'branch.approved');
+		project.showSystemMap(); project.goBack(); assert.strictEqual(project.selectedId, 'branch.approved');
+		await project.openModelResource(resource); assert.strictEqual(project.selectedId, 'branch.approved');
+		assert.strictEqual(project.dirty, false); assert.deepStrictEqual(project.model, model);
 	});
 
 	test('executable interaction edits preserve hierarchy, save, reopen and participate in native undo/redo', async () => {

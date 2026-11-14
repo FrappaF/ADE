@@ -147,15 +147,19 @@ export function emitModelExpression(model: SemanticModelV4, expression: ModelExp
 export function describeModelVariable(model: SemanticModelV4, id: string): string {
 	const call = model.foundation.occurrences.find(call => call.execution?.resultId === id);
 	if (call) { const operation = model.foundation.blueprint?.operations.find(operation => operation.id === call.operationId); return `${operation?.name ?? call.operationId}() #${model.foundation.occurrences.filter(entry => entry.operationId === call.operationId).indexOf(call) + 1}`; }
+	const loops = model.foundation.frames.filter(frame => frame.kind === 'loop');
+	const loopIndex = loops.findIndex(frame => frame.kind === 'loop' && frame.iterationId === id);
+	if (loopIndex >= 0) { return `Loop ${loopIndex + 1} Counter`; }
 	return [...model.foundation.types.flatMap(type => type.fields), ...model.foundation.blueprint?.operations.flatMap(operation => [...operation.inputs, ...operation.outputs]) ?? []].find(field => field.id === id)?.name ?? id;
 }
 
 /** Presentation is derived from the AST; labels never become code or hidden predicates. */
 export function describeModelExpression(model: SemanticModelV4, expression: ModelExpression): string {
+	const operators = { eq: '=', ne: '≠', lt: '<', le: '≤', gt: '>', ge: '≥', add: '+', subtract: '−', multiply: '×', divide: '÷', remainder: '%' };
 	const values = new Map<string, string>();
 	for (const node of expression.nodes) {
 		const operand = (id: string) => values.get(id) ?? id;
-		const text = node.kind === 'literal' ? JSON.stringify(node.value) : node.kind === 'reference' ? [node.fieldId, ...node.path].map(id => describeModelVariable(model, id)).join('.') : node.kind === 'compare' || node.kind === 'arithmetic' ? `(${operand(node.left)} ${node.operator} ${operand(node.right)})` : node.kind === 'logic' ? `${node.operator}(${node.operands.map(operand).join(', ')})` : node.kind === 'collection' && node.operator !== 'count' ? `${node.operator}(${operand(node.operand)} ${node.comparison} ${operand(node.value)})` : `${node.operator}(${operand(node.operand)})`;
+		const text = node.kind === 'literal' ? JSON.stringify(node.value) : node.kind === 'reference' ? [node.fieldId, ...node.path].map(id => describeModelVariable(model, id)).join('.') : node.kind === 'compare' || node.kind === 'arithmetic' ? `(${operand(node.left)} ${operators[node.operator]} ${operand(node.right)})` : node.kind === 'logic' ? `${node.operator}(${node.operands.map(operand).join(', ')})` : node.kind === 'collection' && node.operator !== 'count' ? `${node.operator}(${operand(node.operand)} ${operators[node.comparison]} ${operand(node.value)})` : `${node.operator}(${operand(node.operand)})`;
 		values.set(node.id, text);
 	}
 	return values.get(expression.rootId) ?? expression.rootId;

@@ -26,9 +26,22 @@ suite('A.D.E executable state editing', () => {
 	});
 	test('canceled independent state criteria do not create generated oracles', async () => { const previous = structuredClone(stateCriteriaFixture), dialogs = new ScriptedDialogs(['Checkout', undefined]); assert.strictEqual(await editAdeStateCriteria(dialogs, stateFixture, previous), undefined); dialogs.assertComplete(); assert.deepStrictEqual(previous, stateCriteriaFixture); });
 	test('native controls author independent state outcomes and ordered phases before simulation', async () => {
-		const answers = ['Checkout', 'The independently authored state and action order hold', 'Settled Draft', 'Value for order.id', '42', ...Array.from({ length: 6 }, () => ['Add Successful Reply', '0', 'Finish Replies for This Occurrence']).flat(), 'Finish Event Sequence', 'Draft', '', 'completed', 'message.draftEntry', 'message.watch', 'Finish Expected Order', 'entry: draftEntry', 'doStart: watch', 'doCompleted: watch', 'Finish Expected Order'];
+		const answers = ['Checkout', 'The independently authored state and action order hold', 'Settled Draft', '42', ...Array.from({ length: 6 }, () => ['Add Successful Reply', '0', 'Finish Replies for This Occurrence']).flat(), 'Finish Event Sequence', 'Draft', '', 'completed', 'message.draftEntry', 'message.watch', 'Finish Expected Order', 'entry: draftEntry', 'doStart: watch', 'doCompleted: watch', 'Finish Expected Order'];
 		const dialogs = new ScriptedDialogs(answers), result = await editAdeStateCriteria(dialogs, stateFixture, { version: 1, revision: '1', cases: [] }); dialogs.assertComplete();
 		assert.deepStrictEqual(result?.states?.[0].expected, { stateId: 'Draft', error: null, doStatus: 'completed', statuses: [], errors: [], transitions: [], calls: ['message.draftEntry', 'message.watch'], phases: ['entry:draftEntry', 'doStart:watch', 'doCompleted:watch'] });
+	});
+	test('event replies can explicitly reuse initialization data or remain independently authored', async () => {
+		for (const reuse of [true, false]) {
+			const previous = { version: 1 as const, revision: '1', cases: [] };
+			const answers = ['Checkout', 'The independently authored state and action order hold', 'Paid case', '42', ...Array.from({ length: 6 }, () => ['Add Successful Reply', '0', 'Finish Replies for This Occurrence']).flat(), 'pay', 'payment-1', '10', reuse ? 'Reuse Initialization Replies' : 'Author Replies for This Event', ...(reuse ? [] : Array(6).fill('Finish Replies for This Occurrence')), 'Checkpoint and Reopen', 'accepted', 'transition.pay', 'Finish Event Sequence', 'Paid', '', 'none', 'Finish Expected Order', 'Finish Expected Order'];
+			const dialogs = new ScriptedDialogs(answers), result = await editAdeStateCriteria(dialogs, stateFixture, previous); dialogs.assertComplete();
+			const scenario = result!.states![0].scenario;
+			assert.strictEqual(scenario.events[0].reopen, true);
+			assert.notStrictEqual(scenario.events[0].replies, scenario.replies);
+			if (reuse) { assert.deepStrictEqual(scenario.events[0].replies, scenario.replies); }
+			else { assert.notDeepStrictEqual(scenario.events[0].replies, scenario.replies); }
+			assert.deepStrictEqual(previous, { version: 1, revision: '1', cases: [] });
+		}
 	});
 	test('accessible reading and simulation describe policy, order and exact failures', () => {
 		const text = describeAdeDiagram({ model: stateFixture, activeView: stateFixture.views[0], selectedId: '', section: 'diagram', loading: false, error: undefined, saveError: undefined, dirty: false, editable: true, diagnostics: [] }); for (const row of adeStateRows(stateFixture, 'checkout.lifecycle')) { assert.ok(text.includes(row.text)); }

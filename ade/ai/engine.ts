@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Ajv2020 } from 'ajv/dist/2020.js';
+import { realpath } from 'node:fs/promises';
 import { object, text } from '../runtime/schemas.ts';
 import { prepareImplementation, type PreparedImplementation } from './context.ts';
 import { proposeImplementation } from './collaboration.ts';
@@ -39,11 +40,12 @@ export async function executeCollaboration(input: string, signal?: AbortSignal):
 	switch (request.operation) {
 		case 'structuralPrepare': case 'structuralVerify': case 'structuralApply': case 'structuralUndo': case 'structuralSession': case 'structuralRecover': {
 			const adapter = await import('./structuralProject.ts');
-			if (request.operation === 'structuralPrepare') { result = await adapter.prepareStructuralProject(request.root!, request.direction, request.paths, request.maxInputBytes, signal); }
-			else if (request.operation === 'structuralVerify') { result = await adapter.verifyStructuralProject(request.root!, request.id!, request.reviewId ?? '', signal); }
-			else if (request.operation === 'structuralSession') { result = await adapter.readStructuralSession(request.root!, request.id!); }
-			else if (request.operation === 'structuralRecover') { result = await adapter.recoverStructuralProject(request.root!, request.id!); }
-			else { result = await adapter.publishStructuralProject(request.root!, request.id!, request.reviewId ?? '', request.operation === 'structuralUndo'); }
+			const root = await realpath(request.root!);
+			if (request.operation === 'structuralPrepare') { result = await adapter.prepareStructuralProject(root, request.direction, request.paths, request.maxInputBytes, signal); }
+			else if (request.operation === 'structuralVerify') { result = await adapter.verifyStructuralProject(root, request.id!, request.reviewId ?? '', signal); }
+			else if (request.operation === 'structuralSession') { result = await adapter.readStructuralSession(root, request.id!); }
+			else if (request.operation === 'structuralRecover') { result = await adapter.recoverStructuralProject(root, request.id!); }
+			else { result = await adapter.publishStructuralProject(root, request.id!, request.reviewId ?? '', request.operation === 'structuralUndo'); }
 			break;
 		}
 		case 'prepare': result = await prepareImplementation(request.request, request.config, signal); break;

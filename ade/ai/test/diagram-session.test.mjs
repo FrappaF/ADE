@@ -123,6 +123,8 @@ test('session budget increases keep evidence and IDs; tool calls are not model i
 	const before = await readExplorationSession(f.root, f.opened.sessionId);
 	const resumed = await executeDiagramExploration(f.context.snapshot, { action: 'budget', sessionId: f.opened.sessionId, budget: { ...before.budget, maxToolCalls: 120 } });
 	const after = await readExplorationSession(f.root, f.opened.sessionId);
+	assert.equal(resumed.data.budgetWindow.started, after.created);
+	assert.ok(resumed.data.budgetWindow.elapsedMs >= 0 && resumed.data.budgetWindow.remainingMs <= after.budget.maxDurationMs);
 	assert.deepEqual([after.evidence, after.proposals[0].aliases, after.usage.inputTokens, after.usage.modelTurns, resumed.data.budget.maxToolCalls], [before.evidence, proposal.data.aliases, null, [], 120]);
 	await executeDiagramExploration(f.context.snapshot, { action: 'budget', sessionId: f.opened.sessionId, budget: { ...after.budget, maxToolCalls: after.usage.toolCalls } });
 	assert.equal((await f.tool('ade_project_inspect', {})).diagnostics[0].code, 'sessionBudgetExhausted');

@@ -113,7 +113,7 @@
 
 .modern-ui-notifications-dialogs .monaco-dialog-box {
 	padding: var(--vscode-spacing-size40);
-	min-width: 440px;
+	min-width: min(440px, calc(90vw - 16px));
 }
 
 .modern-ui-notifications-dialogs .monaco-dialog-box:not(.align-vertical) .dialog-message-row .dialog-message-container {

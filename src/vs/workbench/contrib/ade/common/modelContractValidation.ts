@@ -89,7 +89,7 @@ export function validateBlueprint(model: SemanticModelV4): ModelDiagnostic[] {
 	for (const [section, entries] of Object.entries(b)) { const ids = entries.map((entry: { id: string }) => entry.id); if (new Set(ids).size !== ids.length) { report('duplicateId', `/foundation/blueprint/${section}`, section); } }
 	for (const entry of f.ownership.filter(entry => entry.role === 'architecture')) {
 		const child = elements.get(entry.elementId); const parent = elements.get(entry.ownerId);
-		if (parent?.scope === 'external' || child?.kind === 'system' || child?.kind === 'container' && parent?.kind !== 'system' || ['component', 'controller', 'dataStore'].includes(child?.kind ?? '') && parent?.kind !== 'container') { report('ownership', `/foundation/ownership/${entry.id}`, entry.elementId, 'c4Owner'); }
+		if (parent?.scope === 'external' || child?.kind === 'system' || child?.kind === 'container' && parent?.kind !== 'system' || ['component', 'controller'].includes(child?.kind ?? '') && parent?.kind !== 'container' || child?.kind === 'dataStore' && parent?.kind !== 'container' && parent?.kind !== 'system') { report('ownership', `/foundation/ownership/${entry.id}`, entry.elementId, 'c4Owner'); }
 	}
 	for (const occurrence of f.occurrences) { if (occurrence.errorId) { reference('error', occurrence.errorId, `/foundation/occurrences/${occurrence.id}/errorId`); if (!b.operations.find(operation => operation.id === occurrence.operationId)?.errors.some(error => error.id === occurrence.errorId)) { report('contract', `/foundation/occurrences/${occurrence.id}`, occurrence.id, 'undeclaredError'); } } }
 	for (const operation of b.operations) {

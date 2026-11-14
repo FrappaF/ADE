@@ -213,7 +213,7 @@ export const blueprintFixture: SemanticModelV4 = {
 				},
 				{
 					"elementId": "component.stock",
-					"x": 260,
+					"x": 800,
 					"y": 180
 				},
 				{

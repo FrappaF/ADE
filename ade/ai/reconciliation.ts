@@ -80,6 +80,8 @@ export interface PreparedReconciliation {
 	sourceFiles: string[];
 	/** Complete, stable provider input. Only this reviewed payload is disclosed. */
 	prompt: string;
+	/** Readable projection of the same context; never part of the provider input or review hash. */
+	reviewContents?: string;
 	metrics: { inputBytes: number; schemaBytes: number; sourceBytes: number; disclosedBytes: number; estimatedTokens: number };
 	reviewId: string;
 	handles: Record<string, string>;
@@ -184,7 +186,7 @@ export async function prepareAiReconciliation(previous: ImportSnapshot, next: Co
 	const { inputBytes, schemaBytes } = measureContextPayload(prompt, reconciliationSchema);
 	if (inputBytes + schemaBytes > config.maxContextBytes) { throw new Error('Reconciliation input exceeds the saved byte budget; narrow the scope'); }
 	const payload = { version: 1 as const, config, snapshotHash: previous.inputHash, sourceRevision: next.revision, sourceFiles: [...sourceFiles].sort(), prompt, metrics: { inputBytes, schemaBytes, sourceBytes, disclosedBytes: sources.reduce((sum, item) => sum + [...item.windows, ...(item.commonWindows ?? [])].reduce((count, window) => count + Buffer.byteLength(window.text), 0), 0), estimatedTokens: Math.ceil((inputBytes + schemaBytes) / 4) }, handles, editableIds: [...impact], sources, resolutions, clarification };
-	return { ...payload, reviewId: contentHash(JSON.stringify(payload)) };
+	return { ...payload, reviewId: contentHash(JSON.stringify(payload)), reviewContents: JSON.stringify(context, null, '\t') };
 }
 
 /** Accept only exact disclosed anchors. Neither a provider nor an edited review can widen the write scope. */

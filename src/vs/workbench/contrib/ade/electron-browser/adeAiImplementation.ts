@@ -7,6 +7,8 @@ import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { localize } from '../../../../nls.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { IFilesConfigurationService } from '../../../services/filesConfiguration/common/filesConfigurationService.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isDiffEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
@@ -27,6 +29,64 @@ import { AdeAiConnection } from './adeAiConnection.js';
 export class AdeAiImplementation extends Disposable {
 	private _session: CollaborationSession | undefined;
 
+	private async openReport(root: string, name: string, contents: string, identity?: string, show = true): Promise<void> {
+		const directory = identity && /^[\w-]+$/.test(identity) ? identity : generateUuid();
+		const report = URI.joinPath(URI.file(root), '.ade', 'reports', directory, name);
+		await this.files.createFolder(URI.joinPath(report, '..'));
+		await this.files.writeFile(report, VSBuffer.fromString(contents + '\n'));
+		await this.filesConfiguration.updateReadonly(report, { value: localize('ade.ai.report.readonly', "This is a saved implementation review. Prepare a new review to change its inputs.") });
+		if (show) { await this.editors.openEditor({ resource: report, options: { pinned: true, override: 'default' } }); }
+	}
+
+	private planContents(plan: Proposal['plan'], usage?: Proposal['usage']): string {
+		return ['# ' + localize('ade.ai.plan.title', "Implementation Plan"), plan.summary,
+			'## ' + localize('ade.ai.plan.steps', "Implementation Steps"), plan.steps.map((step, index) => `${index + 1}. ${step.description}`).join('\n'),
+			'## ' + localize('ade.ai.plan.files', "Planned File Changes"), plan.changes.map(change => `- ${change.kind}: ${change.file} · ${change.reason}`).join('\n'),
+			'## ' + localize('ade.ai.plan.tests', "Planned Tests"), (plan.tests ?? []).map(test => `- ${test.description}`).join('\n') || localize('ade.ai.plan.noTests', "No Tests Declared."),
+			'## ' + localize('ade.ai.plan.questions', "Open Questions"), plan.questions.map(item => `- ${item.question} · ${item.reason}`).join('\n') || localize('ade.ai.plan.noQuestions', "No Clarifications Requested."),
+			'## ' + localize('ade.ai.plan.limitations', "Limitations"), (plan.limitations ?? []).map(item => `- ${item}`).join('\n') || localize('ade.ai.plan.noLimitations', "No Limitations Declared."),
+			usage ? localize('ade.ai.planTokens', "Reported Plan Tokens · Input: {0} · Output: {1}", usage.inputTokens ?? localize('ade.ai.unknown', "Unavailable"), usage.outputTokens ?? localize('ade.ai.unknown', "Unavailable")) : ''
+		].filter(Boolean).join('\n\n');
+	}
+
+
+	private sourceReviewContents(prepared: CodeReconciliationContext): string {
+		const lines = ['# ' + localize('ade.ai.sync.sourcesTitle', "Sync Source Review"),
+			localize('ade.ai.sync.reviewHelp', "Review model changes in Reconciliation Design.json and the exact request and schema in Reconciliation Context.json. Source ranges omitted from these windows remain unknown.")];
+		const append = (title: string, windows: { start: number; text: string }[] | undefined | null) => {
+			lines.push('### ' + title);
+			if (!windows?.length) { lines.push(localize('ade.ai.sync.noSourceWindow', "No Source Window Available.")); return; }
+			for (const window of windows) {
+				const fence = '`'.repeat(Math.max(3, ...[...window.text.matchAll(/`+/g)].map(match => match[0].length + 1)));
+				lines.push(localize('ade.ai.sync.offset', "Source Offset: {0}", window.start), fence + 'text\n' + window.text + '\n' + fence);
+			}
+		};
+		for (const source of prepared.sourceWindows ?? []) {
+			lines.push('## ' + source.file);
+			append(localize('ade.ai.sync.common', "Common Baseline"), source.commonWindows);
+			append(localize('ade.ai.sync.current', "Current Source"), source.windows);
+		}
+		return lines.join('\n\n');
+	}
+
+	private syncProposalContents(result: CodePreview): string {
+		const ai = result.ai;
+		const edits = (ai?.sourceEdits ?? []) as { file: string }[];
+		const modelEdits = (ai?.modelEdits ?? []) as { collection: string; id: string; value: { name?: string } | null }[];
+		const bindings = (ai?.bindings ?? []) as { name: string; file: string; elementId: string }[];
+		return ['# ' + localize('ade.ai.sync.proposal.title', "Sync Proposal"), ai?.summary,
+			'## ' + localize('ade.ai.sync.proposal.status', "Review Status"),
+			ai?.questions.length ? localize('ade.ai.sync.proposal.blocked', "Apply Is Blocked Until the Open Questions Are Resolved.") : localize('ade.ai.sync.proposal.ready', "Ready for Review. No Changes Have Been Applied."),
+			localize('ade.ai.sync.proposal.runtime', "Sync Has Not Run Runtime Tests or Builds."),
+			'## ' + localize('ade.ai.sync.proposal.files', "Proposed Source Files"), [...new Set(edits.map(edit => edit.file))].map(file => `- ${file}`).join('\n') || localize('ade.ai.sync.proposal.noFiles', "No Source Changes Proposed."),
+			'## ' + localize('ade.ai.sync.proposal.model', "Model Changes"), modelEdits.map(edit => `- ${edit.value === null ? localize('ade.ai.sync.proposal.remove', "Remove") : localize('ade.ai.sync.proposal.update', "Update")} · ${edit.collection} · ${edit.value?.name ?? edit.id}`).join('\n') || localize('ade.ai.sync.proposal.noModel', "No Model Changes Proposed."),
+			'## ' + localize('ade.ai.sync.proposal.questions', "Open Questions"), (ai?.questions ?? []).map(question => `- ${question}`).join('\n') || localize('ade.ai.sync.proposal.noQuestions', "No Open Questions."),
+			'## ' + localize('ade.ai.sync.proposal.bindings', "AI Identity Mapping Proposals"),
+			localize('ade.ai.sync.proposal.bindingNature', "These are AI-proposed textual mappings. Static index bindings are reviewed separately in Coverage and Evidence."), bindings.map(binding => `- ${binding.name} · ${binding.file} · ${binding.elementId}`).join('\n') || localize('ade.ai.sync.proposal.noBindings', "No AI Identity Mappings Proposed."),
+			'## ' + localize('ade.ai.sync.proposal.details', "Full Proposal"), `[${localize('ade.ai.sync.proposal.json', "Open the Structured Proposal")}](${encodeURIComponent(localize('ade.ai.sync.proposalFile', "Reconciliation Proposal.json"))})`
+		].join('\n\n');
+	}
+
 	async interpret(): Promise<void> {
 		await this.collaborate('interpret');
 	}
@@ -46,22 +106,31 @@ export class AdeAiImplementation extends Disposable {
 			const needsSourceReview = !!preview.ai?.questions.length;
 			let clarification: string | undefined;
 			if (preview.ai?.questions.length) {
-				clarification = await this.quick.input({ title: localize('ade.ai.reconcileClarify', "Clarify the Reconciliation"), prompt: preview.ai.questions.join(' '), ignoreFocusLost: true });
-				if (!clarification) { return; }
+				clarification = (await this.quick.input({ title: localize('ade.ai.reconcileClarify', "Clarify the Reconciliation"), prompt: preview.ai.questions.join(' '), ignoreFocusLost: true, validateInput: async value => value.trim() ? undefined : localize('ade.ai.reconcileClarify.required', "Enter an Answer Before Preparing a New Context.") }))?.trim();
+				if (!clarification) { this.host.info(localize('ade.ai.reconcileClarify.cancelled', "Sync Clarification Cancelled · No AI Request Was Made.")); return; }
 			}
 			if (preview.ai || preview.reconciliation?.status === 'verificationFailed') { preview = JSON.parse(await this.code.executeReconciliation({ operation: 'preview', snapshot: context.snapshot, scope: context.scope }, token)); }
 			const changed = new Set([...preview.files.added, ...preview.files.changed]);
 			for (const file of preview.context.files.filter(file => preview.context.declarations.some(item => item.evidence.file === file.path && preview.impact.elementIds.includes(item.id)))) { changed.add(file.path); }
 			const suggested = preview.context.files.filter(file => changed.has(file.path) && file.status !== 'excluded' && file.status !== 'configuration');
 			const selected = direction && suggested.length > 0 && !needsSourceReview ? suggested.map(file => ({ label: file.path })) : await this.quick.pick(preview.context.files.filter(file => file.status !== 'excluded' && file.status !== 'configuration').map(file => ({ label: file.path, picked: changed.has(file.path) })), { title: localize('ade.ai.reconcileSources', "Review Source Files for Bidirectional Sync"), placeHolder: localize('ade.ai.reconcileSourcesHint', "Select the affected implementation and callers in any language. Only bounded windows of selected files are sent."), canPickMany: true });
-			if (!selected) { return; }
+			if (!selected) { this.host.info(localize('ade.ai.sync.cancelled', "Sync Context Review Cancelled · No AI Request Was Made.")); return; }
 			const prepared: CodeReconciliationContext = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPrepare', token: preview.token, config: JSON.stringify(config), sourceFiles: selected.map(item => item.label), resolutions, clarification: [direction === 'model' ? 'Update the implementation to satisfy the edited diagrams and preserve unrelated code. Ask about concurrent changes.' : '', clarification].filter(Boolean).join('\n') }, token));
-			if (!direction) { await this.editors.openEditor({ contents: prepared.contents, languageId: 'json', options: { pinned: true } }); }
+			await this.openReport(context.sourceRoot, localize('ade.ai.sync.contextFile', "Reconciliation Context.json"), prepared.contents, prepared.reviewId);
+			if (prepared.designContents) { await this.openReport(context.sourceRoot, localize('ade.ai.sync.designFile', "Reconciliation Design.json"), prepared.designContents, prepared.reviewId); }
+			if (prepared.sourceWindows) { await this.openReport(context.sourceRoot, localize('ade.ai.sync.sourceFile', "Sync Source Review.md"), this.sourceReviewContents(prepared), prepared.reviewId); }
 			if (!config.maxCalls) { this.host.info(localize('ade.ai.reconcileContextOnly', "Reconciliation Context Prepared · The Saved Budget Allows No AI Calls.")); return; }
-			const consent = await this.dialogs.confirm({ message: localize('ade.ai.reconcileDisclose', "Prepare Code Changes with {0}?", config.model), detail: localize('ade.ai.reconcileBytes', "{0} input bytes including schema; {1} source bytes disclosed from {2} available. One CLI invocation, with the saved model and budget. Token estimate: {3}; actual usage is reported separately. No source or model is changed until Apply Sync.", prepared.metrics.inputBytes + prepared.metrics.schemaBytes, prepared.metrics.disclosedBytes, prepared.metrics.sourceBytes, prepared.metrics.estimatedTokens), primaryButton: localize('ade.ai.reconcileSend', "Propose Reconciliation") });
-			if (!consent.confirmed) { return; }
+			this.host.activityStatus = localize('ade.ai.sync.waiting', "Waiting for Sync Context Review · No Request Sent");
+			const consent = await this.quick.pick([
+				{ label: localize('ade.ai.reconcileSend', "Request Sync Proposal"), detail: localize('ade.ai.sync.oneRun', "1 Agent Run"), tooltip: localize('ade.ai.reconcileBytes', "{0} input bytes including schema; {1} source bytes disclosed from {2} available. One CLI invocation, with the saved model and budget. Token estimate: {3}; actual usage is reported separately. No source or model is changed until Apply Sync.", prepared.metrics.inputBytes + prepared.metrics.schemaBytes, prepared.metrics.disclosedBytes, prepared.metrics.sourceBytes, prepared.metrics.estimatedTokens), propose: true },
+				{ label: localize('ade.ai.context.cancel', "Cancel"), propose: false }
+			], { title: localize('ade.ai.sync.review', "Review Sync Context"), placeHolder: localize('ade.ai.sync.inspect', "Inspect Reports"), ignoreFocusLost: true });
+			if (!consent?.propose) { this.host.info(localize('ade.ai.sync.cancelled', "Sync Context Review Cancelled · No AI Request Was Made.")); return; }
+			this.host.activityStatus = localize('ade.ai.sync.proposing', "Waiting for the Sync Proposal");
 			result = JSON.parse(await this.code.executeReconciliation({ operation: 'reconciliationPropose', token: preview.token, reviewId: prepared.reviewId }, token));
-			if (!direction) { await this.editors.openEditor({ contents: JSON.stringify(result?.ai ?? result?.reconciliation, null, '\t'), languageId: 'json', options: { pinned: true } }); }
+			this.host.activityStatus = result?.ai?.cached ? localize('ade.ai.sync.cached', "Cached Sync Proposal · No New AI Request") : localize('ade.ai.sync.ready', "Sync Proposal Ready · Review Before Applying");
+			await this.openReport(context.sourceRoot, localize('ade.ai.sync.proposalFile', "Reconciliation Proposal.json"), JSON.stringify(result?.ai ?? result?.reconciliation, null, '\t'), prepared.reviewId, false);
+			if (result) { await this.openReport(context.sourceRoot, localize('ade.ai.sync.summaryFile', "Sync Proposal.md"), this.syncProposalContents(result), prepared.reviewId); }
 		});
 		return result;
 	}
@@ -85,7 +154,7 @@ export class AdeAiImplementation extends Disposable {
 			};
 			const feature = await this.quick.pick(this.project.model.semantics.elements.filter(element => element.kind === 'feature').map(element => ({ label: element.name, id: element.id })), { title: localize('ade.ai.feature', "Implement Feature") });
 			if (!feature) { this.host.info(localize('ade.ai.featureCancelled', "No Feature Selected · AI Operation Cancelled. Add a Feature if the Project Is Empty.")); return; }
-			const intent = await this.quick.input({ title: localize('ade.ai.intent', "Requested Behavior"), prompt: localize('ade.ai.intentHint', "Describe the implementation change. Acceptance criteria come from the feature's behavioral contract."), ignoreFocusLost: true });
+			const intent = (await this.quick.input({ title: localize('ade.ai.intent', "Requested Behavior"), prompt: localize('ade.ai.intentHint', "Describe the implementation change. Acceptance criteria come from the feature's behavioral contract."), ignoreFocusLost: true, validateInput: async value => value.trim() ? undefined : localize('ade.ai.intentRequired', "Describe the requested behavior before continuing.") }))?.trim();
 			if (!intent) { this.host.info(localize('ade.ai.intentCancelled', "No Behavior Entered · AI Operation Cancelled.")); return; }
 			const impact = getModelImpact(this.project.model, feature.id);
 			const relatedIds = new Set([...impact.scope.map(element => element.id), ...impact.dependents.map(entry => entry.element.id)]);
@@ -93,10 +162,14 @@ export class AdeAiImplementation extends Disposable {
 			const selected = await this.quick.pick(context.files.filter(file => ['parsed', 'partial'].includes(file.status)).map(file => ({ label: file.path, picked: suggested.has(file.path) })), { title: localize('ade.ai.sources', "Review Source Files to Share · Suggested from Model Evidence"), canPickMany: true });
 			if (!selected) { this.host.info(localize('ade.ai.filesCancelled', "File Review Cancelled · No AI Request Was Made.")); return; }
 			const prepared = await this.host.request<PreparedReview>({ operation: 'prepare', config, request: { version: 1, snapshot: context.snapshot, featureId: feature.id, intent, constraints: [], sourceFiles: selected.map(file => file.label) } }, token);
-			await this.editors.openEditor({ contents: JSON.stringify(prepared.context, null, '\t'), languageId: 'json', options: { pinned: true } });
+			await this.openReport(context.sourceRoot, localize('ade.ai.context.file', "Implementation Context.json"), JSON.stringify(prepared.context, null, '\t'), prepared.reviewId);
 			if (!config.maxCalls) { this.host.info(localize('ade.ai.contextOnly', "Context Prepared · No AI Request Was Made Because the Budget Is Zero.")); return; }
-			const consent = await this.dialogs.confirm({ message: localize('ade.ai.disclose', "Send the reviewed feature context to {0}?", this.connection.config!.provider === 'codex' ? 'Codex' : 'Claude Code'), detail: localize('ade.ai.disclosure', "Includes the selected model elements, contracts, impact, source evidence and {0} selected files. The original CLI uses its own account and configuration. Review the open context before continuing.", selected.length), primaryButton: localize('ade.ai.send', "Send Context") });
-			if (!consent.confirmed) { this.host.info(localize('ade.ai.reviewCancelled', "Operation Cancelled During Review.")); return; }
+			this.host.activityStatus = localize('ade.ai.context.waiting', "Waiting for Context Review · No Request Sent");
+			const consent = await this.quick.pick([
+				{ label: localize('ade.ai.sendTo', "Send Context to {0}", config.provider === 'codex' ? 'Codex' : 'Claude Code'), detail: localize('ade.ai.context.summary', "{0} Sources + Model Context", selected.length), tooltip: localize('ade.ai.disclosure', "Includes the selected model elements, contracts, impact, source evidence and {0} selected files. The original CLI uses its own account and configuration.", selected.length), send: true },
+				{ label: localize('ade.ai.context.cancel', "Cancel"), send: false }
+			], { title: localize('ade.ai.context.review', "Review Implementation Context"), placeHolder: localize('ade.ai.context.inspect', "Inspect Report"), ignoreFocusLost: true });
+			if (!consent?.send) { this.host.info(localize('ade.ai.reviewCancelled', "Operation Cancelled During Review.")); return; }
 			if (!await saveCurrent()) { return; }
 			if (operation === 'interpret') {
 				const result = await this.host.request<{ status: string; hypotheses: { description: string; rationale: string }[]; questions: string[] }>({ operation, prepared, reviewId: prepared.reviewId }, token);
@@ -105,11 +178,15 @@ export class AdeAiImplementation extends Disposable {
 				return;
 			}
 			const proposal = await this.host.request<Proposal>({ operation, prepared, reviewId: prepared.reviewId }, token);
-			await this.editors.openEditor({ contents: proposal.plan.summary + '\n\n' + proposal.plan.steps.map((step, index) => `${index + 1}. ${step.description}`).join('\n') + '\n\n' + proposal.plan.changes.map(change => `${change.file} · ${change.reason}`).join('\n') + '\n\n' + localize('ade.ai.planTokens', "Reported Plan Tokens · Input: {0} · Output: {1}", proposal.usage?.inputTokens ?? localize('ade.ai.unknown', "Unavailable"), proposal.usage?.outputTokens ?? localize('ade.ai.unknown', "Unavailable")), languageId: 'plaintext', options: { pinned: true } });
+			await this.openReport(context.sourceRoot, localize('ade.ai.plan.file', "Implementation Plan.md"), this.planContents(proposal.plan, proposal.usage), proposal.planId);
 			if (proposal.plan.questions.length) { this.notifications.info(proposal.plan.questions.map(item => item.question).join('\n')); return; }
 			if (config.maxCalls < 2) { this.host.info(localize('ade.ai.planOnly', "Plan Ready · Generation Is Not Included in the Saved One-Run Budget.")); return; }
-			const accepted = await this.dialogs.confirm({ message: proposal.plan.summary, detail: proposal.plan.changes.map(change => `${change.kind}: ${change.file} · ${change.reason}`).join('\n'), primaryButton: localize('ade.ai.generate', "Generate in Worktree") });
-			if (!accepted.confirmed) { this.host.info(localize('ade.ai.generationCancelled', "Plan Ready · Generation Cancelled. Project Sources Are Unchanged.")); return; }
+			this.host.activityStatus = localize('ade.ai.plan.waiting', "Plan Ready · Waiting for Review");
+			const accepted = await this.quick.pick([
+				{ label: localize('ade.ai.generate', "Generate in Worktree"), detail: localize('ade.ai.plan.fileCount', "{0} Planned File Changes", proposal.plan.changes.length), tooltip: proposal.plan.summary, generate: true },
+				{ label: localize('ade.ai.context.cancel', "Cancel"), generate: false }
+			], { title: localize('ade.ai.plan.review', "Review Implementation Plan"), placeHolder: localize('ade.ai.plan.inspect', "Inspect Plan"), ignoreFocusLost: true });
+			if (!accepted?.generate) { this.host.info(localize('ade.ai.generationCancelled', "Plan Ready · Generation Cancelled. Project Sources Are Unchanged.")); return; }
 			if (!await saveCurrent()) { return; }
 			this._session = await this.host.request<CollaborationSession>({ operation: 'stage', prepared, plan: proposal.plan, reviewId: proposal.planId }, token);
 			this.host.activityStatus = undefined;
@@ -121,6 +198,7 @@ export class AdeAiImplementation extends Disposable {
 	async reviewCurrent(): Promise<void> {
 		if (!this._session) { this.host.info(localize('ade.ai.sessionRequired', "No Implementation Is Open. Implement a Feature or Resume a Saved Session First.")); return; }
 		const session = this._session;
+		if (session.plan) { await this.openReport(session.root, localize('ade.ai.plan.file', "Implementation Plan.md"), this.planContents(session.plan), session.planId ?? session.id); }
 		for (const file of session.generated.files) {
 			const directory = URI.joinPath(URI.file(session.root), '.ade', 'collaboration', session.id, 'review');
 			const original = URI.joinPath(directory, 'before', file.file);
@@ -129,20 +207,21 @@ export class AdeAiImplementation extends Disposable {
 			await this.files.createFolder(URI.joinPath(modified, '..'));
 			await this.files.writeFile(original, VSBuffer.fromString(session.before.find(before => before.file === file.file)?.content ?? ''));
 			await this.files.writeFile(modified, VSBuffer.fromString(file.content ?? ''));
+			await this.filesConfiguration.updateReadonly([original, modified], { value: localize('ade.ai.diff.readonly', "This is a saved implementation comparison. Edit the worktree and prepare a new review to change its contents.") });
 			const pane = await this.editors.openEditor({ original: { resource: original }, modified: { resource: modified }, label: file.file, options: { pinned: true } });
 			const control = pane?.getControl();
 			if (isDiffEditor(control)) { control.updateOptions({ readOnly: true, originalEditable: false }); }
 		}
-		if (session.verification) { await this.editors.openEditor({ contents: session.verification.output, languageId: 'plaintext', options: { pinned: true } }); }
-		await this.editors.openEditor({
-			contents: [session.generated.summary, this.status,
+		if (session.verification) { await this.openReport(session.root, localize('ade.ai.verification.file', "Implementation Verification.txt"), session.verification.output, session.id); }
+		await this.openReport(session.root, localize('ade.ai.review.file', "Implementation Review.md"), ['# ' + localize('ade.ai.review.title', "Implementation Review"), this.status,
+			session.verification?.outcome === 'incomplete' || session.verification?.outcome === 'cancelled' ? localize('ade.ai.verification.interrupted', "Worktree Verification: Cancelled or Interrupted · No Completed Result") : session.verification ? localize('ade.ai.verification.summary', "Worktree Verification: {0} · {1} ms", session.verification.code === 0 ? localize('ade.ai.verification.passed', "Passed") : localize('ade.ai.verification.failed', "Failed"), session.verification.durationMs) : localize('ade.ai.verification.notRun', "Worktree Verification: Not Run"),
 			localize('ade.ai.resultProject', "Project: {0}", session.root),
 			localize('ade.ai.resultFiles', "Changed files: {0}", session.generated.files.map(file => file.file).join(', ')),
+			'## ' + localize('ade.ai.generation.summary', "Generation Summary · Before Verification"), session.generated.summary,
 			localize('ade.ai.resultTokens', "Reported Generation Tokens · Input: {0} · Output: {1}", session.usage.inputTokens ?? localize('ade.ai.unknown', "Unavailable"), session.usage.outputTokens ?? localize('ade.ai.unknown', "Unavailable")),
 			localize('ade.ai.actualCost', "Actual charge: unavailable. Subscription quota and token counts are distinct."),
 			localize('ade.ai.sourceState', "Generated tests describe this reviewed worktree revision. Use Sync after applying or undoing source changes.")
-			].join('\n\n'), languageId: 'plaintext', options: { pinned: true }
-		});
+			].join('\n\n'), session.id);
 	}
 
 	async verify(): Promise<void> {
@@ -151,7 +230,18 @@ export class AdeAiImplementation extends Disposable {
 			if (!this._session) { this.host.info(localize('ade.ai.sessionRequired', "No Implementation Is Open. Implement a Feature or Resume a Saved Session First.")); return; }
 			const consent = await this.dialogs.confirm({ message: localize('ade.ai.runTests', "Run the Reviewed Tests in the Worktree?"), detail: localize('ade.ai.runTestsDetail', "Node.js runs the generated test files on this computer. The main project stays unchanged."), primaryButton: localize('ade.ai.verify', "Run Tests") });
 			if (!consent.confirmed) { this.host.info(localize('ade.ai.reviewCancelled', "Operation Cancelled During Review.")); return; }
-			this._session = await this.host.request<CollaborationSession>({ operation: 'verify', root: this._session.root, id: this._session.id, reviewId: this._session.reviewId }, token);
+			const session = this._session;
+			try {
+				this._session = await this.host.request<CollaborationSession>({ operation: 'verify', root: session.root, id: session.id, reviewId: session.reviewId }, token);
+			} catch (error) {
+				if (token.isCancellationRequested && this._session === session && this.code.context?.sourceRoot === session.root) {
+					try {
+						this._session = await this.host.request<CollaborationSession>({ operation: 'session', root: session.root, id: session.id });
+						await this.reviewCurrent();
+					} catch { /* The persisted incomplete result remains recoverable through Resume. */ }
+				}
+				throw error;
+			}
 			this.host.activityStatus = undefined;
 			await this.reviewCurrent();
 		});
@@ -162,11 +252,12 @@ export class AdeAiImplementation extends Disposable {
 		await this.host.run(async token => {
 			if (!this._session) { this.host.info(localize('ade.ai.sessionRequired', "No Implementation Is Open. Implement a Feature or Resume a Saved Session First.")); return; }
 			if (this.code.context?.sourceRoot !== this._session.root) { throw new Error(localize('ade.ai.wrongProject', "Open the code project associated with this implementation before changing its source files.")); }
-			const consent = await this.dialogs.confirm({ message: undo ? localize('ade.ai.undo', "Undo This Implementation?") : localize('ade.ai.apply', "Apply the Verified Changes to the Project?"), detail: this._session.generated.summary, primaryButton: undo ? localize('ade.ai.undoButton', "Undo Implementation") : localize('ade.ai.applyButton', "Apply Changes") });
+			const consent = await this.dialogs.confirm({ message: undo ? localize('ade.ai.undo', "Undo This Implementation?") : localize('ade.ai.apply', "Apply the Verified Changes to the Project?"), detail: [this.status, localize('ade.ai.resultFiles', "Changed files: {0}", this._session.generated.files.map(file => file.file).join(', ')), localize('ade.ai.generation.summary', "Generation Summary · Before Verification") + ': ' + this._session.generated.summary].join('\n\n'), primaryButton: undo ? localize('ade.ai.undoButton', "Undo Implementation") : localize('ade.ai.applyButton', "Apply Changes") });
 			if (!consent.confirmed) { this.host.info(localize('ade.ai.reviewCancelled', "Operation Cancelled During Review.")); return; }
 			if (!undo && !await this.project.save()) { this.host.info(localize('ade.ai.saveCancelled', "The Model Was Not Saved. The AI Operation Was Cancelled.")); return; }
 			this._session = await this.host.request<CollaborationSession>({ operation: undo ? 'undo' : 'apply', root: this._session.root, id: this._session.id, reviewId: this._session.reviewId }, token);
 			this.host.activityStatus = undefined;
+			await this.reviewCurrent();
 		});
 	}
 
@@ -234,6 +325,7 @@ export class AdeAiImplementation extends Disposable {
 
 	get status(): string {
 		if (!this._session) { return ''; }
+		if (this._session.status === 'failed' && (this._session.verification?.outcome === 'incomplete' || this._session.verification?.outcome === 'cancelled')) { return localize('ade.ai.verification.retry', "Verification Cancelled or Interrupted · Run Tests Again"); }
 		const labels = { staged: localize('ade.ai.staged', "Changes Ready for Review"), passed: localize('ade.ai.passed', "Tests Passed · Ready to Apply"), failed: localize('ade.ai.failed', "Verification Failed · Changes Not Applied"), applied: localize('ade.ai.applied', "Applied · Undo Available"), undone: localize('ade.ai.undone', "Changes Undone") };
 		return labels[this._session.status];
 	}
@@ -248,6 +340,7 @@ export class AdeAiImplementation extends Disposable {
 		@IDialogService private readonly dialogs: IDialogService,
 		@IFileService private readonly files: IFileService,
 		@IEditorService private readonly editors: IEditorService,
+		@IFilesConfigurationService private readonly filesConfiguration: IFilesConfigurationService,
 		@IStorageService private readonly storage: IStorageService,
 		@IAdeOperationService private readonly operations: AdeOperationService
 	) {

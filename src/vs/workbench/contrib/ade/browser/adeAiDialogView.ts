@@ -61,10 +61,12 @@ export class AdeAiDialog extends Disposable {
 		input.value = this.options.prompt ?? '';
 		const send = dom.append(form, dom.$<HTMLButtonElement>('button')); send.type = 'submit'; send.textContent = localize('ade.ai.dialog.send', "Send");
 		const setSending = (active: boolean) => {
-			send.disabled = active; send.setAttribute('aria-busy', String(active)); dom.clearNode(send);
+			send.disabled = active || !input.value.trim() || !this.options.send; send.setAttribute('aria-busy', String(active)); dom.clearNode(send);
 			if (active) { const icon = renderIcon(ThemeIcon.modify(Codicon.loading, 'spin')); icon.setAttribute('aria-hidden', 'true'); send.appendChild(icon); }
 			dom.append(send, dom.$('span')).textContent = active ? localize('ade.ai.dialog.sending', "Working…") : localize('ade.ai.dialog.send', "Send");
 		};
+		this._register(dom.addDisposableListener(input, 'input', () => { send.disabled = this.turnActive || !input.value.trim() || !this.options.send; }));
+		setSending(false);
 		this._register(dom.addDisposableListener(input, 'keydown', (event: KeyboardEvent) => {
 			if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) { return; }
 			event.preventDefault(); event.stopPropagation();

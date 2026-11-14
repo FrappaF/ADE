@@ -88,7 +88,7 @@ export interface ImportOptions {
 }
 
 const require = createRequire(import.meta.url);
-const adapterVersion = 'tree-sitter-syntax-v4:web-tree-sitter@0.27.1:grammars@0.1.17';
+const adapterVersion = 'tree-sitter-syntax-v5:web-tree-sitter@0.27.1:grammars@0.1.17';
 const loadedLanguages = new Map<string, Promise<Language>>();
 let parserInitialization: Promise<void> | undefined;
 const knownSourceExtensions = new Set(['.kt', '.kts', '.scala', '.sc', '.vb', '.sql', '.sh', '.bash', '.ps1', '.r', '.lua', '.ex', '.exs', '.vue', '.svelte', '.html', '.css', '.m', '.mm']);
@@ -113,6 +113,7 @@ function evidence(file: string, revision: string, node: Node): SourceEvidence {
 function declarationName(node: Node, adapter: LanguageAdapter): Node | null {
 	let current: Node | null = node;
 	if (adapter.id === 'kotlin') { return node.namedChildren.find(child => ['type_identifier', 'simple_identifier'].includes(child.type)) ?? null; }
+	if (adapter.id === 'dart' && node.type === 'mixin_declaration') { return node.namedChildren.find(child => child.type === 'identifier') ?? null; }
 	if (adapter.id === 'dart' && node.type === 'method_signature') {
 		current = node.namedChildren.find(child => child.type === 'function_signature') ?? null;
 	}
@@ -187,6 +188,8 @@ async function parseFile(file: string, source: string, adapter: LanguageAdapter,
 				const projectChildren = project && kind !== 'contract' && !(adapter.id === 'dart' && node.type === 'method_signature');
 				for (const child of node.namedChildren.reverse()) { pending.push({ node: child, parentId: childParentId, project: projectChildren }); }
 			}
+			// Some grammars report missing anonymous tokens only on the root. Keep partial coverage explainable.
+			if (tree.rootNode.hasError && ![...counts.values()].some(item => item.code === 'syntaxError')) { report('syntaxError', tree.rootNode); }
 			result.syntaxKinds = Object.fromEntries(syntaxKinds);
 			result.diagnostics = [...counts.values()];
 		} finally { tree.delete(); }

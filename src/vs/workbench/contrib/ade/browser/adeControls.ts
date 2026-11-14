@@ -62,13 +62,21 @@ export class AdeControls extends Disposable {
 	}
 
 	/** Keep secondary actions available to keyboard users without crowding the diagram. */
-	details(parent: HTMLElement, label: string, id: string): HTMLElement {
+	details(parent: HTMLElement, label: string, id: string, options: { popup?: boolean } = {}): HTMLElement {
 		const details = dom.append(parent, dom.$<HTMLDetailsElement>('details.ade-options'));
 		details.open = this.expanded.has(id);
 		const summary = dom.append(details, dom.$('summary'));
 		summary.textContent = label;
 		this.trackFocus(id, summary);
 		this.disclosures.set(id, details);
+		if (options.popup) {
+			this.listeners.add(dom.addDisposableListener(parent.ownerDocument, 'pointerdown', (event: PointerEvent) => {
+				if (details.open && (dom.isHTMLElement(event.target) || dom.isSVGElement(event.target)) && !details.contains(event.target)) { this.setExpanded(id, false); }
+			}));
+		}
+		this.listeners.add(dom.addDisposableListener(details, 'keydown', (event: KeyboardEvent) => {
+			if (event.key === 'Escape' && details.open) { event.preventDefault(); event.stopPropagation(); this.setExpanded(id, false); summary.focus(); }
+		}));
 		return dom.append(details, dom.$('.ade-options-content'));
 	}
 

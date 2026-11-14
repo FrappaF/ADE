@@ -44,9 +44,10 @@ export function renderStructuralReview(parent: HTMLElement, model: SemanticModel
 	dom.append(body, dom.$('p.ade-supporting-text')).textContent = localize('ade.review.local', "Changes apply to this project on your computer. Commit and push are separate Git actions.");
 	if (actions.problem) {
 		const problem = dom.append(body, dom.$('p')); problem.setAttribute('role', 'alert');
-		problem.textContent = localize('ade.review.recovery', "The operation could not finish. Your review is preserved. Check the cause in Technical Details, resolve it, then prepare a new review.");
+		problem.textContent = actions.problem;
+		dom.append(body, dom.$('p.ade-supporting-text')).textContent = localize('ade.review.preserved', "Reviewed files and context have been preserved.");
 	}
-	dom.append(body, dom.$('p')).textContent = localize('ade.review.scope', "{0} · {1} File Changes · Zero AI Calls", session.direction === 'forward' ? localize('ade.review.forward', "Model to Code") : localize('ade.review.reverse', "Code to Model"), session.mutations.length);
+	dom.append(body, dom.$('p')).textContent = localize('ade.review.scope', "{0} · {1} · Zero AI Calls", session.direction === 'forward' ? localize('ade.review.forward', "Model to Code") : localize('ade.review.reverse', "Code to Model"), session.mutations.length === 1 ? localize('ade.review.oneFile', "1 File Change") : localize('ade.review.files', "{0} File Changes", session.mutations.length));
 	const proposedModel = session.next?.model;
 	if (proposedModel && (proposedModel.version === 4 || proposedModel.version === 5)) {
 		const behavior = dom.append(body, dom.$('section.ade-review-behavior'));
@@ -58,7 +59,7 @@ export function renderStructuralReview(parent: HTMLElement, model: SemanticModel
 			dom.append(behavior, dom.$('p')).textContent = localize('ade.review.rule', "{0} · {1}: {2}", owner?.name ?? proposedModel.name, operation?.name ?? localize('ade.review.ruleLabel', "Rule"), rule);
 		}
 		for (const interaction of proposedModel.foundation.interactions.filter(interaction => interaction.execution)) {
-			dom.append(behavior, dom.$('p')).textContent = localize('ade.review.interaction', "Executable Interaction · {0}", proposedModel.semantics.elements.find(element => element.id === interaction.ownerId)?.name ?? proposedModel.name);
+			dom.append(behavior, dom.$('p')).textContent = localize('ade.review.interactionContract', "Executable Interaction · {0} · {1}", proposedModel.semantics.elements.find(element => element.id === interaction.ownerId)?.name ?? proposedModel.name, proposedModel.foundation.blueprint?.operations.find(operation => operation.id === interaction.execution?.operationId)?.name ?? interaction.id);
 		}
 		for (const machine of proposedModel.foundation.stateMachines ?? []) {
 			dom.append(behavior, dom.$('p')).textContent = localize('ade.review.machine', "State Machine · {0}", proposedModel.semantics.elements.find(element => element.id === machine.ownerId)?.name ?? proposedModel.name);

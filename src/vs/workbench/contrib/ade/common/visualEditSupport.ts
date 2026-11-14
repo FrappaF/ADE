@@ -5,6 +5,7 @@
 
 import { readSemanticDraft, readSemanticModel } from './modelValidation.js';
 import { type ModelView, type SemanticModel } from './modelTypes.js';
+import { notationNodeSize } from './diagramLayout.js';
 import { getDiagramGroups } from './visualNavigation.js';
 
 export function upgradeVisualModel(model: SemanticModel): SemanticModel {
@@ -44,10 +45,28 @@ export function getDeletionImpact(model: SemanticModel, id: string) {
 	};
 }
 
-export function includeElement(view: ModelView, id: string): void {
+/** Inclusion in a scoped perspective preserves ownership and declares outside elements as context. */
+export function isDiagramContextElement(model: SemanticModel, view: ModelView, id: string): boolean {
+	if ((model.version !== 4 && model.version !== 5) || !view.subjectId || id === view.subjectId || !['c4Context', 'c4Container', 'c4Component', 'class'].includes(view.kind)) { return false; }
+	return view.kind === 'class' || !!view.contextIds?.includes(id) || model.foundation.ownership.find(entry => entry.elementId === id && entry.role === 'architecture')?.ownerId !== view.subjectId;
+}
+
+export function includeElement(view: ModelView, id: string, model?: SemanticModel): void {
 	if (!view.nodes.some(node => node.elementId === id)) {
 		const index = view.nodes.length;
-		view.nodes.push({ elementId: id, x: view.kind === 'sequence' ? index * 260 : (index % 3) * 260, y: view.kind === 'sequence' ? 0 : Math.floor(index / 3) * 180 });
+		const point = { x: view.kind === 'sequence' ? index * 260 : (index % 3) * 260, y: view.kind === 'sequence' ? 0 : Math.floor(index / 3) * 180 };
+		const element = model?.semantics.elements.find(element => element.id === id);
+		if (model && element && view.kind !== 'sequence') {
+			const size = notationNodeSize(element);
+			const boxes = view.nodes.flatMap(node => { const element = model.semantics.elements.find(element => element.id === node.elementId); return element ? [{ ...node, ...notationNodeSize(element) }] : []; });
+			// Move only the new card past collisions; authored positions stay unchanged.
+			while (true) {
+				const collision = boxes.find(box => point.x < box.x + box.width + 24 && point.x + size.width + 24 > box.x && point.y < box.y + box.height + 24 && point.y + size.height + 24 > box.y);
+				if (!collision) { break; }
+				point.x = collision.x + collision.width + 48;
+			}
+		}
+		view.nodes.push({ elementId: id, ...point });
 	}
 }
 

@@ -86,3 +86,18 @@ test('architecture communication can return information to an external actor', (
 	document = applyVisualEdit(document, { kind: 'relation', viewId: 'context', id: 'notify', relationKind: 'communication', from: 'c:system', to: 'c:person', name: 'Sends task notifications' });
 	assert.deepEqual(validateSemanticModel(document), []);
 });
+
+
+test('C4 layout keeps external context outside the declared ownership boundary at both detail levels', () => {
+	for (const kind of ['c4Container', 'c4Component']) {
+		const document = model();
+		const view = { id: 'owned-context', name: 'Owned and external', kind, subjectId: 'c:system', contextIds: ['c:person'], relationIds: [], nodes: ['c:api', 'c:person', 'c:db', 'c:system'].map(elementId => ({ elementId, x: 0, y: 0 })) };
+		const arranged = { ...view, nodes: arrangeDiagram(document, view, 'compact') };
+		const boundary = notationBoundaries(document, arranged).find(item => item.elementId === 'c:system');
+		const external = arranged.nodes.find(node => node.elementId === 'c:person');
+		assert.ok(boundary && external.x > boundary.x + boundary.width);
+		assert.deepEqual(arranged.nodes.map(node => node.elementId), view.nodes.map(node => node.elementId));
+		assert.deepEqual(arrangeDiagram(document, view, 'compact'), arranged.nodes);
+		assert.deepEqual(notationGroupMembers(document, arranged, 'c:system'), notationGroupMembers(document, view, 'c:system'));
+	}
+});

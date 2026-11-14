@@ -4,6 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { type ModelView, type SemanticElement, type SemanticModel } from './modelTypes.js';
+import { describeModelInteraction } from './modelInteractions.js';
+
+/** A linked behavior owns its participants and steps independently of manual diagram nodes. */
+export function getProjectedInteraction(model: SemanticModel, view: ModelView) {
+	if ((model.version !== 4 && model.version !== 5) || view.kind !== 'sequence' && !(model.version === 5 && view.kind === 'activity')) { return undefined; }
+	return model.foundation.interactions.find(interaction => interaction.id === view.interactionId);
+}
+
+export function getViewSelectionIds(model: SemanticModel, view: ModelView): string[] {
+	const ids = view.nodes.map(node => node.elementId);
+	const interaction = getProjectedInteraction(model, view);
+	if (interaction && (model.version === 4 || model.version === 5)) {
+		ids.push(...(interaction.description?.participantIds ?? []));
+		for (const call of model.foundation.occurrences.filter(call => interaction.occurrenceIds.includes(call.id))) { ids.push(call.from, call.to); }
+		ids.push(...describeModelInteraction(model, interaction.id).map(row => row.id));
+	}
+	return [...new Set(ids)];
+}
 
 export interface DiagramGroup {
 	featureId?: string;
@@ -22,7 +40,7 @@ export function getFeatureViews(model: SemanticModel, feature: SemanticElement):
 		for (const id of ids) {
 			for (const entry of children.get(id) ?? []) { ids.add(entry.elementId); }
 		}
-		return model.views.filter(view => view.featureId === feature.id || view.nodes.some(node => ids.has(node.elementId)));
+		return model.views.filter(view => view.featureId === feature.id || getViewSelectionIds(model, view).some(id => ids.has(id)));
 	}
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
 	return model.views.filter(view => view.featureId === feature.id || view.nodes.some(node => {
@@ -78,7 +96,8 @@ export function normalizeDiagramContext(model: SemanticModel, context: DiagramCo
 	const selections: Record<string, string> = {};
 	for (const view of model.views) {
 		const saved = context.selections[view.id];
-		selections[view.id] = view.nodes.some(node => node.elementId === saved) ? saved : view.nodes[0]?.elementId ?? '';
+		const ids = getViewSelectionIds(model, view);
+		selections[view.id] = ids.includes(saved) ? saved : ids[0] ?? '';
 	}
 	return {
 		viewId: model.views.some(view => view.id === context.viewId) ? context.viewId : model.views[0]?.id ?? '',
@@ -107,7 +126,7 @@ export function getElementPath(model: SemanticModel, id: string): SemanticElemen
 /** Keep the current perspective where possible; unplaced elements have a real detail destination. */
 export function resolveElementLocation(model: SemanticModel, elementId: string, preferredViewId?: string): SemanticLocation | undefined {
 	if (!model.semantics.elements.some(element => element.id === elementId)) { return undefined; }
-	const views = model.views.filter(view => view.nodes.some(node => node.elementId === elementId));
+	const views = model.views.filter(view => getViewSelectionIds(model, view).includes(elementId));
 	const view = views.find(view => view.id === preferredViewId) ?? views[0];
 	return view ? { section: 'diagram', viewId: view.id, elementId } : { section: 'element', elementId };
 }
@@ -117,7 +136,8 @@ function normalizeLocation(model: SemanticModel, location: SemanticLocation): Se
 	if (location.section === 'element' || location.section === 'impact') { return model.semantics.elements.some(element => element.id === location.elementId) ? location : undefined; }
 	const view = model.views.find(view => view.id === location.viewId);
 	if (!view) { return undefined; }
-	const elementId = view.nodes.some(node => node.elementId === location.elementId) ? location.elementId : view.nodes[0]?.elementId;
+	const ids = getViewSelectionIds(model, view);
+	const elementId = location.elementId && ids.includes(location.elementId) ? location.elementId : ids[0];
 	return { section: 'diagram', viewId: view.id, ...(elementId ? { elementId } : {}) };
 }
 

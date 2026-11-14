@@ -9,6 +9,7 @@
 		]
 	},
 	"include": [
-		"*.ts"
+		"*.ts",
+		"../../src/typings/vscode-globals-nls.d.ts"
 	]
 }

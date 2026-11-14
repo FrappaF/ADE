@@ -21,6 +21,7 @@ function blockedReasons(review: AdeDiagramReview, actions: DiagramReviewActions)
 	if (actions.busy) { reasons.push(localize('ade.review.busy', "An Operation Is Running. Wait for It to Finish Before Applying.")); }
 	if (!actions.current) { reasons.push(localize('ade.draft.changed', "The Model Changed After This Review. Refresh the Review Before Applying.")); }
 	const explain = (value: string): string => {
+		if (value.startsWith('projectNotReady:')) { return explain(value.slice('projectNotReady:'.length)); }
 		if (value.endsWith(': invalidProposal')) { return localize('ade.review.previousInvalid', "An Earlier Draft Is Invalid. Continue Generation to Repair It or Archive It If It Was Replaced."); }
 		const [code, ...parts] = value.split(':');
 		const id = parts.join(':');
@@ -80,9 +81,24 @@ export function renderAdeDiagramReview(parent: HTMLElement, review: AdeDiagramRe
 		if (view.spec?.intent) { dom.append(figure, dom.$('p.ade-supporting-text')).textContent = view.spec.intent; }
 		const image = review.images.find(image => image.viewId === view.id);
 		if (image) {
-			const preview = dom.append(figure, dom.$<HTMLImageElement>('img'));
+			const previewActions = dom.append(figure, dom.$('div.ade-review-preview-actions'));
+			const viewport = dom.append(figure, dom.$('div.ade-review-preview-viewport'));
+			viewport.tabIndex = 0; viewport.setAttribute('role', 'region'); viewport.setAttribute('aria-label', localize('ade.draft.preview', "Diagram Preview: {0}", view.name));
+			const preview = dom.append(viewport, dom.$<HTMLImageElement>('img'));
 			preview.src = FileAccess.uriToBrowserUri(URI.file(image.path)).toString(true);
 			preview.alt = localize('ade.draft.preview', "Diagram Preview: {0}", view.name);
+			const hint = dom.append(previewActions, dom.$('p.ade-supporting-text')); hint.hidden = true;
+			hint.textContent = localize('ade.review.previewScrollHint', "Scroll Within the Preview to Read the Full-Size Diagram. Use Tab and Arrow Keys for Keyboard Navigation.");
+			const fullLabel = localize('ade.review.previewFullSize', "View Full Size"), fitLabel = localize('ade.review.previewFit', "Fit Preview to Width");
+			const toggle = controls.button(previewActions, fullLabel, () => {
+				const fullSize = viewport.classList.toggle('ade-preview-full-size');
+				toggle.textContent = fullSize ? fitLabel : fullLabel; toggle.setAttribute('aria-pressed', String(fullSize));
+				toggle.setAttribute('aria-label', localize('ade.review.previewSizeLabel', "{0}: {1}", fullSize ? fitLabel : fullLabel, view.name));
+				hint.hidden = !fullSize;
+				if (!fullSize) { viewport.scrollLeft = 0; viewport.scrollTop = 0; }
+			}, `preview-size:${view.id}`);
+			toggle.setAttribute('aria-pressed', 'false'); toggle.setAttribute('aria-label', localize('ade.review.previewSizeLabel', "{0}: {1}", fullLabel, view.name));
+			previewActions.insertBefore(toggle, hint);
 		} else { dom.append(figure, dom.$('p')).textContent = localize('ade.review.previewMissing', "Preview Is Unavailable. Refresh the Review or Continue Generation to Correct the Draft."); }
 	}
 	const details = controls.details(body, localize('ade.review.supportingDetails', "Change Details, Sources and Diagnostics ({0})", review.changes.length), 'diagram-review-details');

@@ -16,6 +16,7 @@ suite('A.D.E transient assistant dialog', () => {
 	let root: HTMLElement;
 	setup(() => { root = dom.append(document.body, dom.$('section')); });
 	teardown(() => root.remove());
+	function enterText(input: HTMLTextAreaElement, text: string): void { input.value = text; input.dispatchEvent(new Event('input', { bubbles: true })); }
 
 	test('conversation is usable in the dialog and resets on every close; Escape restores focus', async () => {
 		const trigger = dom.append(root, dom.$<HTMLButtonElement>('button')); trigger.textContent = 'Assistant'; trigger.focus();
@@ -25,7 +26,7 @@ suite('A.D.E transient assistant dialog', () => {
 			dialog.showConversation(); return dialog;
 		};
 		const first = open();
-		const input = first.element.querySelector('textarea')!; input.value = 'Generate all diagrams';
+		const input = first.element.querySelector('textarea')!; enterText(input, 'Generate all diagrams');
 		first.element.querySelector('form')!.requestSubmit(); await timeout(0);
 		assert.deepStrictEqual([first.element.open, first.element.querySelectorAll('article').length, first.element.querySelector('script'), sent], [true, 2, null, [[{ role: 'user', text: 'Generate all diagrams' }]]]);
 		first.element.dispatchEvent(new Event('cancel', { cancelable: true })); await timeout(0);
@@ -41,7 +42,7 @@ suite('A.D.E transient assistant dialog', () => {
 			const listener = token.onCancellationRequested(() => { cancelled = true; });
 			try { return await response.p; } finally { listener.dispose(); }
 		} }));
-		first.showConversation(); first.element.querySelector('textarea')!.value = 'Generate'; first.element.querySelector('form')!.requestSubmit();
+		first.showConversation(); enterText(first.element.querySelector('textarea')!, 'Generate'); first.element.querySelector('form')!.requestSubmit();
 		assert.equal(first.element.querySelector('textarea')!.disabled, true);
 		await first.close();
 		const next = store.add(new AdeAiDialog(root, { onClose: async () => {}, send: async () => 'New session' })); next.showConversation();
@@ -63,7 +64,7 @@ suite('A.D.E transient assistant dialog', () => {
 	test('live CLI responses appear before completion and saved counters do not hide the current activity', async () => {
 		const response = new DeferredPromise<string>();
 		const dialog = store.add(new AdeAiDialog(root, { onClose: async () => {}, send: async () => response.p })); dialog.showConversation();
-		dialog.element.querySelector('textarea')!.value = 'Repair the saved drafts'; dialog.element.querySelector('form')!.requestSubmit();
+		enterText(dialog.element.querySelector('textarea')!, 'Repair the saved drafts'); dialog.element.querySelector('form')!.requestSubmit();
 		dialog.updateConversation({ requestId: 'turn', kind: 'connecting' });
 		dialog.updateProgress('10 Planned Diagrams · 6 Review Issues · 69 Source Tool Calls');
 		assert.ok(dialog.element.textContent?.includes('Connecting to the Assistant'));
@@ -83,19 +84,30 @@ suite('A.D.E transient assistant dialog', () => {
 		input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
 		assert.deepStrictEqual({ prevented: enter.defaultPrevented, sent, busy: button.getAttribute('aria-busy'), disabled: button.disabled, spinner: !!button.querySelector('.codicon-loading.codicon-modifier-spin'), label: button.textContent }, { prevented: true, sent: [[{ role: 'user', text: 'Update the diagrams' }]], busy: 'true', disabled: true, spinner: true, label: 'Working…' });
 		await response.complete('Prepared'); await timeout(0);
-		assert.deepStrictEqual([button.disabled, button.getAttribute('aria-busy'), button.querySelector('.codicon'), button.textContent, document.activeElement], [false, 'false', null, 'Send', input]);
+		assert.deepStrictEqual([button.disabled, button.getAttribute('aria-busy'), button.querySelector('.codicon'), button.textContent, document.activeElement], [true, 'false', null, 'Send', input]);
+		await dialog.close();
+	});
+
+	test('blank messages disable Send and typing a meaningful request enables it', async () => {
+		let sent = 0;
+		const dialog = store.add(new AdeAiDialog(root, { prompt: 'Initial request', onClose: async () => {}, send: async () => { sent++; return 'Done'; } })); dialog.showConversation();
+		const input = dialog.element.querySelector('textarea')!, button = dialog.element.querySelector<HTMLButtonElement>('form button')!;
+		assert.equal(button.disabled, false);
+		enterText(input, ' \n '); assert.equal(button.disabled, true);
+		dialog.element.querySelector('form')!.requestSubmit(); await timeout(0); assert.equal(sent, 0);
+		enterText(input, 'Follow up'); assert.equal(button.disabled, false);
 		await dialog.close();
 	});
 
 	test('Shift+Enter, composition and repeated keys never submit; whitespace stays unsent', async () => {
 		let sent = 0;
 		const dialog = store.add(new AdeAiDialog(root, { onClose: async () => {}, send: async () => { sent++; return 'Done'; } })); dialog.showConversation();
-		const input = dialog.element.querySelector('textarea')!; input.value = 'A multiline request';
+		const input = dialog.element.querySelector('textarea')!; enterText(input, 'A multiline request');
 		for (const options of [{ shiftKey: true }, { isComposing: true }, { keyCode: 229 }]) {
 			const event = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true, ...options }); input.dispatchEvent(event); assert.equal(event.defaultPrevented, false);
 		}
 		input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', repeat: true, cancelable: true, bubbles: true }));
-		input.value = ' \n '; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true }));
+		enterText(input, ' \n '); input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true }));
 		assert.deepStrictEqual([sent, dialog.element.querySelectorAll('article').length], [0, 0]); await dialog.close();
 	});
 
@@ -103,9 +115,9 @@ suite('A.D.E transient assistant dialog', () => {
 		let sent = 0;
 		const dialog = store.add(new AdeAiDialog(root, { onClose: async () => {}, send: async () => { if (++sent === 1) { throw new Error('Provider stopped responding'); } return 'Recovered'; } })); dialog.showConversation();
 		const input = dialog.element.querySelector('textarea')!, button = dialog.element.querySelector<HTMLButtonElement>('form button')!;
-		input.value = 'First attempt'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await timeout(0);
-		assert.deepStrictEqual([button.disabled, button.querySelector('.codicon-modifier-spin'), dialog.element.querySelector('[role="alert"]')?.textContent], [false, null, 'Provider stopped responding']);
-		input.value = 'Continue'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await timeout(0);
-		assert.deepStrictEqual([sent, button.disabled, dialog.element.querySelector('[role="alert"]'), dialog.element.textContent?.includes('Recovered')], [2, false, null, true]); await dialog.close();
+		enterText(input, 'First attempt'); input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await timeout(0);
+		assert.deepStrictEqual([button.disabled, button.querySelector('.codicon-modifier-spin'), dialog.element.querySelector('[role="alert"]')?.textContent], [true, null, 'Provider stopped responding']);
+		enterText(input, 'Continue'); input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await timeout(0);
+		assert.deepStrictEqual([sent, button.disabled, dialog.element.querySelector('[role="alert"]'), dialog.element.textContent?.includes('Recovered')], [2, true, null, true]); await dialog.close();
 	});
 });

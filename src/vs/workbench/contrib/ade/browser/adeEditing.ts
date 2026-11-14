@@ -11,6 +11,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { SemanticElement } from '../common/modelTypes.js';
+import { getProjectedInteraction } from '../common/visualNavigation.js';
 import { getDeletionImpact, upgradeVisualModel, VisualEdit } from '../common/visualEditing.js';
 import { AdeInput } from './adeInput.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
@@ -63,6 +64,9 @@ class EditingUI implements AdeEditingContext {
 			case 'reload': return runAdeProjectCommand(this, command);
 		}
 		if (!this.project.editable) { return; }
+		if (this.project.activeView && getProjectedInteraction(this.project.model, this.project.activeView) && ['addElement', 'addExisting', 'addSequenceMessage', 'connect', 'removeElementFromDiagram', 'removeRelationFromDiagram', 'layout'].includes(command)) {
+			throw new Error(localize('ade.interaction.derivedEdit', "This diagram is derived from its linked behavior. Edit the interaction or scenario to change its participants and messages."));
+		}
 		switch (command) {
 			case 'taskIntent':
 			case 'createPureFeature':

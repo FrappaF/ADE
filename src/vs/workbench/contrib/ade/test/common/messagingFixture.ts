@@ -644,7 +644,7 @@ export const messagingFixture: SemanticModelV4 = {
 				},
 				{
 					"elementId": "broker",
-					"x": 360,
+					"x": 440,
 					"y": 100
 				}
 			],

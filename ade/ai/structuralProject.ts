@@ -368,10 +368,10 @@ export async function publishStructuralProject(root: string, id: string, reviewI
 		if (!undo) { await assertCurrent(session); }
 		else if (canonicalJson(await baseline(root)) !== canonicalJson(session.next)) { throw new Error('Later baseline prevents undo'); }
 		const mutations = undo ? [...session.mutations].reverse().map(edit => ({ ...edit, before: edit.after, after: edit.before })) : session.mutations;
-		for (const edit of mutations) { if (!samePhysicalImage(await physicalImage(root, edit.file), edit.before)) { throw new Error('Manual edits prevent publication or undo'); } }
+		for (const edit of mutations) { if (!samePhysicalImage(await physicalImage(root, edit.file), edit.before)) { throw new Error(`Manual edits in ${edit.file} prevent publication or undo. Restore the reviewed file or prepare a new review.`); } }
 		// Also protect unchanged executable sources, model and criteria on undo.
-		if (undo) { for (const entry of session.observed) { const edit = session.mutations.find(edit => edit.file === entry.file); if (!samePhysicalImage(await physicalImage(root, entry.file), edit ? edit.after : entry.value)) { throw new Error('Manual input edits prevent undo'); } } }
-		if (undo) { for (const artifact of session.next.artifacts) { if (!session.mutations.some(edit => edit.file === artifact.file) && ownedRegion((await physicalImage(root, artifact.file))?.content ?? '', artifact).region !== artifact.region) { throw new Error('Manual source edits prevent undo'); } } }
+		if (undo) { for (const entry of session.observed) { const edit = session.mutations.find(edit => edit.file === entry.file); if (!samePhysicalImage(await physicalImage(root, entry.file), edit ? edit.after : entry.value)) { throw new Error(`Manual input edits in ${entry.file} prevent undo. Restore the reviewed file before retrying.`); } } }
+		if (undo) { for (const artifact of session.next.artifacts) { if (!session.mutations.some(edit => edit.file === artifact.file) && ownedRegion((await physicalImage(root, artifact.file))?.content ?? '', artifact).region !== artifact.region) { throw new Error(`Manual source edits in ${artifact.file} prevent undo. Restore the reviewed file before retrying.`); } } }
 		session.status = undo ? 'undoing' : 'publishing'; await save(session);
 		try {
 			for (const mutation of mutations) { await replacePhysicalImage(root, mutation.file, mutation.before, mutation.after); }
