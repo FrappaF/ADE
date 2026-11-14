@@ -2,7 +2,7 @@
 
 A.D.E è un ambiente di sviluppo visuale e collaborativo con l'IA, costruito come **derivazione dei sorgenti Code OSS**, la base open source di Visual Studio Code.
 
-Il prodotto è un **IDE desktop autonomo**: sistema e feature sono nella sidebar nativa, con i diagrammi al centro e proprietà contestuali. Il primo editor consente di creare un sistema, disegnarne struttura e flusso e salvarlo senza modificare JSON. Codice, terminale e debugger sono viste secondarie su richiesta; vedi la [decisione UI/UX](ade/docs/decisions/0002-visual-workbench.md).
+Il prodotto è un **IDE desktop autonomo**: i diagrammi occupano l’area principale, con navigazione su richiesta e proprietà contestuali. Il primo editor consente di creare un sistema, disegnarne struttura e flusso e salvarlo senza modificare JSON. Codice, terminale e debugger sono viste secondarie su richiesta; vedi la [decisione UI/UX](ade/docs/decisions/0002-visual-workbench.md).
 
 Il software engineer progetta struttura, diagrammi, flussi e interazioni fra attori e sistema; l'IA collabora alla realizzazione del codice e alla gestione dei dettagli tecnologici. L'obiettivo è esplorare feature, risorse, viste e controller e mantenere modello e codebase sincronizzati in entrambe le direzioni.
 
@@ -24,7 +24,7 @@ Le segnalazioni dei test manuali del 5 novembre sono raccolte nella [roadmap del
 
 Dopo **Import Codebase**, **Explore Architecture** avvia la [generazione completa dei diagrammi](ade/docs/diagram-workflow.md): Codex consulta il catalogo delle notazioni, pianifica le viste pertinenti dall'overview ai dettagli e prepara tutte le bozze senza approvazioni intermedie. **Review All Changes** riunisce piano, esclusioni, modifiche ed anteprime; **Apply All Changes** applica l'insieme revisionato in una sola operazione locale. **Continue Generation** riprende il lavoro se restano lacune o il budget è esaurito. Le viste di stato descrittive restano non supportate.
 
-L'assistente vive in una modale temporanea: la chiusura azzera la conversazione, conserva le bozze e aggiorna automaticamente la pagina. La review mostra prima i diagrammi; i dettagli delle modifiche sono espandibili in fondo e gli impedimenti all'applicazione restano visibili. **Project** e **AI Settings** sono schede dedicate con comandi raggruppati.
+L'assistente vive in una modale temporanea: la chiusura azzera la conversazione, conserva le bozze e aggiorna automaticamente la pagina. La review mostra prima i diagrammi; i dettagli delle modifiche sono espandibili in fondo e gli impedimenti all'applicazione restano visibili. **Project Settings** e **AI Settings** si raggiungono dal menu del progetto, con comandi raggruppati.
 
 ## Dopo il pull di main: preparazione del PC
 
@@ -75,112 +75,18 @@ GOMEMLIMIT=3GiB GOMAXPROCS=2 node node_modules/@typescript/native/bin/tsc --proj
 
 Per gli avvii successivi, dalla radice del clone bastano `nvm use` e `./ade/scripts/dev.sh`, oppure `./ade/scripts/dev.sh "/percorso/del/tuo/progetto"` per aprire una cartella specifica. Dopo ulteriori pull, selezionare nuovamente Node dalla `.nvmrc` e rieseguire `npm run ade:setup` per aggiornare dipendenze e output: un semplice riavvio non ricompila sorgenti cambiati se `out/` esiste già. Per iterare sui soli sorgenti del client con dipendenze già aggiornate basta `npm run build-fast -- --client-only`.
 
-## Creare e usare un nuovo progetto visuale
+## Imparare a usare ADE
 
-1. Dalla home scegliere **Create Project**, assegnare un nome e selezionare una cartella per il proprio sistema. Viene creato `.ade/model.json`. Se l'avvio ripristina un progetto precedente, aprire la palette comandi con `Cmd+Shift+P` su macOS o `Ctrl+Shift+P` su Linux e cercare **A.D.E: Open Home**.
-2. Scegliere **Add Feature**: si creano una feature e due diagrammi vuoti, struttura e flusso.
-3. Con **Add Element** inserire attori, interfacce, componenti, controller, risorse o azioni. Con **Connect Selection** scegliere tipo, destinazione, nome e condizione del collegamento. Le proprietà consentono di modificare nomi, descrizioni e relazioni.
-4. Usare **Edit Behavioral Contract** per input, output, precondizioni, postcondizioni ed errori. **Add Existing Element** riusa la stessa identità in un'altra vista.
-5. Con **Add Diagram** aggiungere sequenze o diagrammi di stato. Le sequenze riusano le interazioni; gli stati appartengono a una risorsa. Ricerca e **System Map** permettono di esplorare il sistema; **Show Change Impact** mostra i riferimenti del modello da rivedere.
-6. Salvare con `Cmd+S`/`Ctrl+S`. Undo/redo, zoom e **Fit Diagram** sono disponibili nell'editor. Dopo aver chiuso A.D.E, usare **Open Project** sulla stessa cartella per riprendere il lavoro.
+La [guida completa per utenti esterni](ade/docs/guida-utente/README.md) accompagna dalla prima apertura a diagrammi, contratti, casi indipendenti, codice e collaborazione IA. Include 28 capitoli, screenshot dell’interfaccia corrente e sei versioni progressive del caso di studio Bottega Ordini.
 
-Queste operazioni non richiedono account IA. Disegni, condizioni e contratti descrivono il progetto: non generano automaticamente sorgenti e non eseguono il flusso. Per questo percorso non è necessario modificare il JSON. I costrutti supportati e i limiti delle viste sono nella [guida M3](ade/docs/semantic-explorer.md).
+- [Guida PDF](ade/docs/guida-utente/Guida-ADE.pdf), con indice e collegamenti.
+- [Guida HTML da scaricare e aprire nel browser](ade/docs/guida-utente/Guida-ADE.html), consultabile offline con ricerca e immagini ingrandibili.
+- [Progetti di esempio pronti da estrarre](ade/docs/guida-utente/progetti-esempio.zip).
+- [Esempi in cartelle](ade/examples/guida/INIZIA-QUI.md), per chi usa il clone.
 
-### Interazioni e strumenti del progetto
+Copia le cartelle degli esempi in uno spazio di lavoro separato dal clone dell’IDE. Inizia con **Open Project** su `01-bottega-visuale`; prosegui con il template `02-quantita-ordine`. La modellazione e il laboratorio eseguibile non richiedono account IA o modifiche manuali al JSON. Per provare importazione ed evidenze usa **Import Codebase** su `03-codebase-ordini`.
 
-- **Files** mostra la cartella scelta con Create Project, Open Project o Import Codebase. La cartella viene aperta nel workspace nativo; i workspace con più cartelle conservano quelle esistenti. Un modello aperto singolarmente resta un documento fino all’apertura esplicita dei suoi strumenti.
-- **Terminal** crea un nuovo terminale nella radice del progetto; i terminali già attivi conservano directory e processi. La CLI di una revisione AI viene aperta nel relativo worktree, indicato nel nome.
-- **Sync Project**, nella barra globale e nella palette, considera tutto il perimetro configurato della codebase collegata. Mostra anteprima, inclusioni/esclusioni, conflitti ed esito. La [riconciliazione M6](ade/docs/reconciliation.md) confronta baseline, modello e codice e propone modifiche in entrambe le direzioni con review e recupero. Le modifiche fisiche create/move/delete e la verifica dei nuovi comportamenti sono incrementi DAI ancora da sviluppare.
-- Le connessioni mostrano il tipo, il nome e la condizione. Clic destro o **Shift+F10** su un nodo apre creazione di relazioni, proprietà e azioni di rimozione; sulle relazioni apre modifica, navigazione agli estremi e rimozione. La creazione sul canvas si annulla con **Esc**. Rimuovere dalla vista mantiene l’identità nel modello; eliminare dal sistema richiede conferma.
-- **Arrange Diagram** offre **Compact**, **Balanced** e **Spacious**; considera collegamenti, cicli e larghezza dei nomi. La modifica riguarda la vista corrente ed è annullabile. **Fit Diagram** rimane un comando separato.
-- **AI Collaboration** è nel pannello contestuale del diagramma. Mostra account CLI e avanzamento come stati distinti; **Choose Model and CLI** configura modello, eseguibile e budget senza richiedere di ripetere un login già valido. **Refresh Account and Models** riconosce anche un login effettuato esternamente. Revisione, test, applicazione, recupero e confronto sono nel gruppo delle altre azioni AI, con i relativi prerequisiti.
-
-## Provare l'implementazione IA su un nuovo progetto Node.js
-
-Il percorso IA richiede una **codebase Git importata**, almeno un commit e sorgenti senza modifiche pendenti. **Create Project** da solo prepara il modello visuale: non inizializza Git, non crea una base applicativa e non collega automaticamente un modello progettato separatamente a una nuova codebase. Per la prima prova partire da un piccolo progetto JavaScript con moduli `.mjs` e test Node integrati, senza dipendenze da installare nel worktree.
-
-### 1. Preparare una base di codice separata dal clone A.D.E
-
-Creare una cartella nuova, con il genitore già esistente, e inizializzare una funzione dimostrativa da correggere:
-
-```sh
-mkdir "/percorso/nuovo-progetto-node"
-cd "/percorso/nuovo-progetto-node"
-git init
-printf '%s\n' '.ade/' > .gitignore
-printf '%s\n' "export function checkout(approved) { return 'paid'; }" > checkout.mjs
-git add .gitignore checkout.mjs
-git commit -m "Initial Node project"
-git status --short
-```
-
-Se Git richiede nome ed email, configurare la propria identità Git e ripetere il commit. L'ultimo comando deve avere output vuoto. `.ade/` contiene modelli importati, registri e worktree gestiti da A.D.E; nell'esempio è esclusa dalla baseline Git dei sorgenti.
-
-### 2. Importare e completare il modello
-
-1. Tornare nella radice del clone A.D.E e avviare `./ade/scripts/dev.sh "/percorso/nuovo-progetto-node"`.
-2. Dalla home scegliere **Import Codebase**, selezionare la **radice Git** del nuovo progetto e scegliere **Structure and Available Semantic Analysis**. L'importazione è locale e non chiama l'IA.
-3. Esplorare **System Map** e le dichiarazioni importate. Nel modello importato usare **Add Feature** per creare, per esempio, «Gestione esito pagamento». Salvare. La selezione dei file da condividere con l'IA sarà esplicita: nella prova scegliere `checkout.mjs` anche se non è suggerito automaticamente.
-4. Aggiungere i criteri di accettazione con il passaggio manuale seguente. La sola descrizione dell'intento o una precondizione non sostituisce questi criteri.
-
-### 3. Inserire i criteri di accettazione nel modello
-
-**Limite attuale:** l'editor visuale modifica input/output, precondizioni, postcondizioni ed errori, ma non `acceptanceCriteria`. M5 richiede criteri dichiarati cui collegare i test. Per un modello nuovo occorre quindi una modifica manuale del JSON prima di avviare l'implementazione.
-
-Salvare prima tutte le modifiche visuali. Nel terminale, dalla cartella del progetto Node appena importato, ricavare il percorso del modello attivo:
-
-```sh
-cd "/percorso/nuovo-progetto-node"
-node -e 'const fs = require("node:fs"); const project = JSON.parse(fs.readFileSync(".ade/code-project.json", "utf8")); console.log(".ade/imports/" + project.active + "/model.ade.json");'
-```
-
-Aprire il file indicato in un editor di testo. In `semantics.elements` trovare la feature appena creata, identificata da `kind: "feature"` e dal suo nome. Aggiungere alla feature la proprietà `behavior` seguente. Se `behavior` esiste già, conservarne gli altri campi e aggiungere i criteri al suo array `acceptanceCriteria`, con ID univoci per quell'elemento:
-
-```json
-{
-  "inputs": [],
-  "outputs": [],
-  "preconditions": [],
-  "postconditions": [],
-  "errors": [],
-  "permissions": [],
-  "acceptanceCriteria": [
-    {
-      "id": "payment-declined",
-      "given": "approved è false",
-      "when": "viene chiamata checkout(approved)",
-      "then": "restituisce la stringa declined"
-    },
-    {
-      "id": "payment-approved",
-      "given": "approved è true",
-      "when": "viene chiamata checkout(approved)",
-      "then": "restituisce la stringa paid"
-    }
-  ]
-}
-```
-
-Questo oggetto è il **valore di `behavior` nella feature**, non un sostituto dell'intero documento. Conservare ID, dichiarazioni importate e gli altri campi del modello. Salvare il JSON; A.D.E ricarica gli aggiornamenti esterni del documento pulito. Se necessario riaprire la cartella con **Open Project** e controllare nelle proprietà della feature che i criteri siano visibili. Non modificare `code-index.json`, `import-state.json` o `snapshot.json`.
-
-### 4. Collegare il provider e scegliere il modello
-
-1. Installare la CLI originale del provider sul proprio computer: seguire le istruzioni ufficiali di [Codex](https://developers.openai.com/codex/cli) oppure [Claude Code](https://code.claude.com/docs/en/setup). Per Codex è disponibile `npm install -g @openai/codex`. Verificare nel terminale `codex --version` oppure `claude --version`.
-2. Dalla palette di A.D.E eseguire **A.D.E: Connect Claude Code or Codex**, scegliere il provider e **Sign In**. A.D.E verifica prima la CLI: se non la trova, mostra istruzioni di installazione e di configurazione del percorso. Completare il login originale nel browser/terminale. Codex può usare il login ChatGPT nativo quando il relativo SDK è pronto; altrimenti viene aperto `codex login`. Il login nativo mostra il proprio stato e segnala una mancata risposta dopo 15 secondi. Per aprire direttamente `codex login` nel terminale scegliere **Sign In with CLI**. Claude usa `claude auth login`. Non è richiesta una chiave API per questo percorso.
-3. Riaprire il comando e scegliere **Refresh Account and Models** se necessario; quindi riaprirlo e scegliere **Choose Model and CLI**. Selezionare un modello disponibile nel proprio account oppure indicare un ID esatto verificato nella CLI. Specificare `codex`/`claude` o il percorso assoluto dell'eseguibile, utile se l'app non eredita il `PATH` del terminale.
-4. Per generare codice scegliere **Plan and Implementation · At Most Two Agent Runs**. Le altre opzioni si fermano al piano o alla sola preparazione del contesto. Il limite riguarda le invocazioni della CLI, non i suoi token, retry o richieste interne. Non viene scelto automaticamente un modello commerciale economico senza misure e tariffe confrontabili.
-
-### 5. Generare, verificare, applicare e annullare
-
-1. Eseguire **A.D.E: Implement Feature**, selezionare la feature e descrivere l'intento: «Correggi checkout: con false restituisci declined, con true mantieni paid; conserva l'export e aggiungi test con node:test e node:assert/strict, senza dipendenze esterne».
-2. Selezionare `checkout.mjs` tra i file da condividere. Leggere l'anteprima del contesto e confermare **Send Context**. Il provider riceve quel contesto e i sorgenti selezionati.
-3. Leggere il piano, i file previsti e le eventuali domande. Se ci sono domande, aggiornare intento o contratto e preparare un nuovo piano. Quando il piano è adeguato, confermare **Generate in Worktree**.
-4. Rivedere le differenze e il riepilogo. I sorgenti principali non sono ancora modificati. Avviare **Run Tests**; dalla palette il comando è **A.D.E: Verify Implementation**. I test generati vengono eseguiti localmente con Node dopo la conferma di attendibilità del workspace.
-5. Dopo un esito positivo scegliere **Apply Verified Changes**, oppure **A.D.E: Apply Verified Implementation** dalla palette. Un test fallito impedisce l'applicazione. Controllare anche il risultato rispetto al comportamento richiesto: i test generati non sostituiscono la revisione.
-6. Per provare il ripristino scegliere **A.D.E: Undo Implementation**. Dopo un riavvio usare prima **A.D.E: Resume Implementation**. Se i file sono stati modificati manualmente nel frattempo, l'annullamento si ferma invece di sovrascriverli.
-7. Dopo applicazione o annullamento usare **Sync Project**, rivedere l'anteprima e scegliere **Apply Sync** per aggiornare il modello dal codice. Se si mantiene l'implementazione, registrare i sorgenti con un commit prima di una nuova operazione M5. Per il recupero di una transazione interrotta è disponibile **A.D.E: Recover Interrupted Implementation**.
-
-Il percorso corrente esegue direttamente test Node; non installa dipendenze né avvia automaticamente script npm, build di framework o test Python/Java. L'importazione multilinguaggio non implica un esecutore IA verificato per ogni stack. La [guida M5](ade/docs/ai-collaboration.md) descrive recupero, budget, benchmark e limiti.
+La guida distingue aggiornamento del codice tramite chat, implementazione in worktree e profili deterministici, con prerequisiti e limiti di ciascun percorso. I vecchi criteri di feature e le nuove operazioni condivise non sono intercambiabili automaticamente.
 
 ## Problemi comuni
 
@@ -190,8 +96,8 @@ Il percorso corrente esegue direttamente test Node; non installa dipendenze né 
 | Errori di compilazione nativa su Mac | Verificare Command Line Tools, `xcode-select -p`, `xcrun --find clang`, Python e architettura Node; poi ripetere installazione e build. |
 | App aperta ma funzioni nuove assenti | Chiudere l'app, aggiornare dipendenze e ricompilare gli output; riavviare con `ade/scripts/dev.sh` dal clone aggiornato. |
 | Collaborazione IA nascosta | Verificare che `chat.disableAIFeatures` non sia attivo nelle impostazioni. |
-| Richiesta di importare o sincronizzare prima dell'IA | Aprire il modello importato della codebase Git, salvarlo e completare importazione/Sync; il solo progetto visuale `.ade/model.json` non basta. |
-| Criterio sconosciuto o nessun test collegabile | Controllare `behavior.acceptanceCriteria` della feature, ID univoci e ricaricamento del modello attivo. |
+| Un percorso IA richiede prerequisiti | Controllare il percorso scelto: chat modello-codice, worktree e profilo deterministico hanno prerequisiti distinti; vedere la guida utente. |
+| Criterio sconosciuto o nessun test collegabile | Usare i form del contratto e dei casi indipendenti e controllare tipo di target e formato richiesti dal percorso. |
 | Si vede il piano ma non parte la generazione | Verificare domande aperte e budget configurato: servono due invocazioni per piano e implementazione. |
 | Baseline Git sporca o contesto superato | Salvare e registrare i cambiamenti sorgente, eseguire Sync e preparare un nuovo contesto. |
 | CLI o modello non disponibili | Verificare eseguibile, login e ID modello nell'account originale; configurare il percorso assoluto della CLI se necessario. |
@@ -208,6 +114,7 @@ npm run ade:test
 
 ## Documentazione
 
+- [Guida completa con progetto di esempio](ade/docs/guida-utente/README.md)
 - [Roadmap](ade/docs/roadmap.md)
 - [Visione](ade/docs/vision.md)
 - [Architettura](ade/docs/architecture.md)

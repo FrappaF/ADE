@@ -1,0 +1,8 @@
+GUIDA COMPLETA AD ADE
+
+1. Apri Guida-ADE.html nel browser per la versione navigabile, oppure Guida-ADE.pdf.
+2. Estrai progetti-esempio.zip in una cartella di lavoro tua.
+3. In ADE scegli Open Project sulla cartella 01-bottega-visuale.
+4. Segui i capitoli 4-8, poi il laboratorio quantitativo del capitolo 11.
+
+Il materiale comprende 28 capitoli, 14 screenshot, sei varianti del caso Bottega Ordini e una soluzione del limite da 1 a 10. Gli esercizi locali non richiedono account IA né modifiche manuali a JSON.

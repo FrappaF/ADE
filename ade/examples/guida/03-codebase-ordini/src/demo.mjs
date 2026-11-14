@@ -1,0 +1,4 @@
+// Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License.
+
+import { checkout } from './orders.mjs';
+console.log(checkout({ unitPriceCents: 1250, quantity: 2, approved: true }));

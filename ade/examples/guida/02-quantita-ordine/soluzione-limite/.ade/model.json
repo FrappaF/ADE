@@ -1,0 +1,218 @@
+{
+	"version": 4,
+	"id": "4e95ff3e-fbfe-4310-be84-66808e4eaa90",
+	"name": "Quantità ordine",
+	"semantics": {
+		"elements": [
+			{
+				"id": "85e6d280-7b39-4c6f-a694-4012b1e105c6",
+				"name": "Quantità ordine",
+				"kind": "system",
+				"scope": "governed"
+			},
+			{
+				"id": "289d70d8-3caf-42f3-89b2-1ed672c22d11",
+				"name": "Domain",
+				"kind": "container",
+				"runtimeKind": "application",
+				"description": "Evaluate pure quantity rules"
+			},
+			{
+				"id": "8bbaeaa3-5809-43fb-907c-8ddb9b3c693f",
+				"name": "Quantity Validation",
+				"kind": "component",
+				"description": "Validate submitted quantities"
+			},
+			{
+				"id": "1ce961f7-83dc-4a7a-8ffa-f95314ad217e",
+				"name": "Validate Quantity",
+				"kind": "feature"
+			}
+		],
+		"relations": []
+	},
+	"foundation": {
+		"ownership": [
+			{
+				"id": "15b2a85f-090a-42f7-ba49-70cd9a8f6bde",
+				"elementId": "289d70d8-3caf-42f3-89b2-1ed672c22d11",
+				"ownerId": "85e6d280-7b39-4c6f-a694-4012b1e105c6",
+				"role": "architecture"
+			},
+			{
+				"id": "6eff5bef-a48e-48aa-ac41-c322a5964922",
+				"elementId": "8bbaeaa3-5809-43fb-907c-8ddb9b3c693f",
+				"ownerId": "289d70d8-3caf-42f3-89b2-1ed672c22d11",
+				"role": "architecture"
+			}
+		],
+		"memberships": [
+			{
+				"id": "01f562bf-840d-4bd1-8a4e-2b4a1426ae15",
+				"elementId": "8bbaeaa3-5809-43fb-907c-8ddb9b3c693f",
+				"featureId": "1ce961f7-83dc-4a7a-8ffa-f95314ad217e"
+			}
+		],
+		"integrations": [],
+		"types": [
+			{
+				"id": "f98a5217-30b9-4b84-8a0b-e291ef8bcff3",
+				"name": "Quantity",
+				"kind": "primitive",
+				"primitive": "integer",
+				"fields": []
+			},
+			{
+				"id": "cabcbf93-1791-4f28-ae32-cc93518a1c82",
+				"name": "Boolean",
+				"kind": "primitive",
+				"primitive": "boolean",
+				"fields": []
+			}
+		],
+		"occurrences": [],
+		"frames": [],
+		"interactions": [],
+		"assertions": [],
+		"platform": {
+			"bindings": [
+				{
+					"id": "040a5e8a-ab52-4b89-a0ef-6f972904aaa8",
+					"elementId": "289d70d8-3caf-42f3-89b2-1ed672c22d11",
+					"profileId": "node.esm",
+					"technology": {
+						"state": "known",
+						"value": "node-esm"
+					}
+				}
+			]
+		},
+		"decisions": [],
+		"blueprint": {
+			"operations": [
+				{
+					"id": "7eefb698-664a-4325-9ba1-cd84f3ebfb9c",
+					"ownerId": "8bbaeaa3-5809-43fb-907c-8ddb9b3c693f",
+					"name": "validateQuantity",
+					"inputs": [
+						{
+							"id": "ed148a07-f1be-4c5d-bccb-a2a2e863b7d9",
+							"name": "quantity",
+							"type": "",
+							"typeId": "f98a5217-30b9-4b84-8a0b-e291ef8bcff3",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"outputs": [
+						{
+							"id": "3563501d-2d84-4a6e-8b7c-13e8b6fbeb6b",
+							"name": "accepted",
+							"type": "",
+							"typeId": "cabcbf93-1791-4f28-ae32-cc93518a1c82",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"errors": [],
+					"effects": [],
+					"permissions": [],
+					"preconditions": [],
+					"postconditions": [],
+					"acceptanceCriteria": [
+						{
+							"id": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+							"given": "A safe integer quantity",
+							"when": "The precondition is checked",
+							"then": "Only positive quantities satisfy the precondition"
+						}
+					]
+				}
+			],
+			"interfaces": [],
+			"ports": [],
+			"connections": [],
+			"transports": [],
+			"modules": [],
+			"fieldMappings": []
+		},
+		"predicates": [
+			{
+				"id": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+				"version": 1,
+				"operationId": "7eefb698-664a-4325-9ba1-cd84f3ebfb9c",
+				"phase": "pre",
+				"rootId": "a46f4182-d736-4246-90b7-c5747ab55c50",
+				"nodes": [
+					{
+						"id": "quantity",
+						"kind": "reference",
+						"fieldId": "ed148a07-f1be-4c5d-bccb-a2a2e863b7d9",
+						"path": []
+					},
+					{
+						"id": "zero",
+						"kind": "literal",
+						"typeId": "f98a5217-30b9-4b84-8a0b-e291ef8bcff3",
+						"value": 0
+					},
+					{
+						"id": "positive",
+						"kind": "compare",
+						"operator": "gt",
+						"left": "quantity",
+						"right": "zero"
+					},
+					{
+						"id": "b9a449cd-fda5-4974-88f0-1f0c57cc6d04",
+						"kind": "literal",
+						"typeId": "f98a5217-30b9-4b84-8a0b-e291ef8bcff3",
+						"value": 10
+					},
+					{
+						"id": "34478bf5-7822-4e59-97bc-c914016fadfd",
+						"kind": "compare",
+						"operator": "le",
+						"left": "quantity",
+						"right": "b9a449cd-fda5-4974-88f0-1f0c57cc6d04"
+					},
+					{
+						"id": "a46f4182-d736-4246-90b7-c5747ab55c50",
+						"kind": "logic",
+						"operator": "and",
+						"operands": [
+							"positive",
+							"34478bf5-7822-4e59-97bc-c914016fadfd"
+						]
+					}
+				]
+			}
+		]
+	},
+	"views": [
+		{
+			"id": "2d5dedc9-01b4-4136-a252-05274706d410",
+			"name": "Quantity Validation · Structure",
+			"kind": "structure",
+			"featureId": "1ce961f7-83dc-4a7a-8ffa-f95314ad217e",
+			"subjectId": "85e6d280-7b39-4c6f-a694-4012b1e105c6",
+			"contextIds": [],
+			"nodes": [
+				{
+					"elementId": "289d70d8-3caf-42f3-89b2-1ed672c22d11",
+					"x": 80,
+					"y": 80
+				}
+			],
+			"relationIds": []
+		}
+	],
+	"codeMappings": [],
+	"verifications": []
+}

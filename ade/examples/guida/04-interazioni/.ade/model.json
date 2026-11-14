@@ -1,0 +1,757 @@
+{
+  "version": 4,
+  "id": "checkout.1",
+  "name": "Bottega - Interazioni",
+  "semantics": {
+    "elements": [
+      {
+        "id": "checkout.2",
+        "name": "Checkout Frames",
+        "kind": "system",
+        "scope": "governed"
+      },
+      {
+        "id": "checkout.3",
+        "name": "Domain",
+        "kind": "container",
+        "runtimeKind": "application",
+        "description": "Evaluate pure quantity rules"
+      },
+      {
+        "id": "checkout.4",
+        "name": "Checkout",
+        "kind": "component",
+        "description": "Validate submitted quantities"
+      },
+      {
+        "id": "checkout.5",
+        "name": "Validate Quantity",
+        "kind": "feature"
+      },
+      {
+        "id": "component.payments",
+        "name": "Payments",
+        "kind": "component",
+        "description": "Payments contract"
+      },
+      {
+        "id": "component.orders",
+        "name": "Orders",
+        "kind": "component",
+        "description": "Orders contract"
+      },
+      {
+        "id": "component.notifications",
+        "name": "Notifications",
+        "kind": "component",
+        "description": "Notifications contract"
+      }
+    ],
+    "relations": []
+  },
+  "foundation": {
+    "ownership": [
+      {
+        "id": "checkout.13",
+        "elementId": "checkout.3",
+        "ownerId": "checkout.2",
+        "role": "architecture"
+      },
+      {
+        "id": "checkout.14",
+        "elementId": "checkout.4",
+        "ownerId": "checkout.3",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.payments",
+        "ownerId": "checkout.3",
+        "elementId": "component.payments",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.orders",
+        "ownerId": "checkout.3",
+        "elementId": "component.orders",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.notifications",
+        "ownerId": "checkout.3",
+        "elementId": "component.notifications",
+        "role": "architecture"
+      }
+    ],
+    "memberships": [
+      {
+        "id": "checkout.15",
+        "elementId": "checkout.4",
+        "featureId": "checkout.5"
+      }
+    ],
+    "integrations": [],
+    "types": [
+      {
+        "id": "checkout.9",
+        "name": "Quantity",
+        "kind": "primitive",
+        "primitive": "integer",
+        "fields": []
+      },
+      {
+        "id": "checkout.10",
+        "name": "Boolean",
+        "kind": "primitive",
+        "primitive": "boolean",
+        "fields": []
+      },
+      {
+        "id": "Money",
+        "name": "Money",
+        "kind": "primitive",
+        "primitive": "integer",
+        "fields": []
+      },
+      {
+        "id": "Text",
+        "name": "Text",
+        "kind": "primitive",
+        "primitive": "string",
+        "fields": []
+      },
+      {
+        "id": "Flag",
+        "name": "Flag",
+        "kind": "primitive",
+        "primitive": "boolean",
+        "fields": []
+      },
+      {
+        "id": "Quantity",
+        "name": "Quantity",
+        "kind": "primitive",
+        "primitive": "integer",
+        "fields": []
+      },
+      {
+        "id": "Quantities",
+        "name": "Quantities",
+        "kind": "collection",
+        "itemTypeId": "Quantity",
+        "fields": []
+      },
+      {
+        "id": "Status",
+        "name": "Payment Status",
+        "kind": "enum",
+        "values": [
+          "approved",
+          "declined",
+          "pending",
+          "unknown"
+        ],
+        "fields": []
+      }
+    ],
+    "occurrences": [
+      {
+        "id": "message.charge",
+        "operationId": "charge",
+        "from": "checkout.4",
+        "to": "component.payments",
+        "execution": {
+          "mode": "sync",
+          "arguments": [
+            {
+              "fieldId": "charge.amount",
+              "expression": {
+                "version": 1,
+                "nodes": [
+                  {
+                    "id": "reference",
+                    "kind": "reference",
+                    "fieldId": "input.total",
+                    "path": []
+                  }
+                ],
+                "rootId": "reference"
+              }
+            }
+          ],
+          "resultId": "result.message.charge",
+          "response": "required",
+          "failure": "propagate",
+          "timeoutMs": 50,
+          "correlation": {
+            "version": 1,
+            "nodes": [
+              {
+                "id": "reference",
+                "kind": "reference",
+                "fieldId": "input.correlation",
+                "path": []
+              }
+            ],
+            "rootId": "reference"
+          }
+        }
+      },
+      {
+        "id": "message.persist",
+        "operationId": "persist",
+        "from": "checkout.4",
+        "to": "component.orders",
+        "execution": {
+          "mode": "sync",
+          "arguments": [
+            {
+              "fieldId": "persist.amount",
+              "expression": {
+                "version": 1,
+                "nodes": [
+                  {
+                    "id": "reference",
+                    "kind": "reference",
+                    "fieldId": "persist.total",
+                    "path": []
+                  }
+                ],
+                "rootId": "reference"
+              }
+            }
+          ],
+          "resultId": "result.message.persist",
+          "response": "required",
+          "failure": "propagate",
+          "timeoutMs": 50,
+          "correlation": {
+            "version": 1,
+            "nodes": [
+              {
+                "id": "reference",
+                "kind": "reference",
+                "fieldId": "persist.correlation",
+                "path": []
+              }
+            ],
+            "rootId": "reference"
+          }
+        }
+      },
+      {
+        "id": "message.other",
+        "operationId": "handleOther",
+        "from": "checkout.4",
+        "to": "checkout.4",
+        "execution": {
+          "mode": "sync",
+          "arguments": [
+            {
+              "fieldId": "other.status",
+              "expression": {
+                "version": 1,
+                "nodes": [
+                  {
+                    "id": "reference",
+                    "kind": "reference",
+                    "fieldId": "result.message.charge",
+                    "path": [
+                      "payment.status"
+                    ]
+                  }
+                ],
+                "rootId": "reference"
+              }
+            }
+          ],
+          "resultId": "result.message.other",
+          "response": "required",
+          "failure": "propagate",
+          "timeoutMs": 50,
+          "correlation": {
+            "version": 1,
+            "nodes": [
+              {
+                "id": "reference",
+                "kind": "reference",
+                "fieldId": "input.correlation",
+                "path": []
+              }
+            ],
+            "rootId": "reference"
+          }
+        }
+      },
+      {
+        "id": "message.notify",
+        "operationId": "notify",
+        "from": "checkout.4",
+        "to": "component.notifications",
+        "execution": {
+          "mode": "sync",
+          "arguments": [],
+          "resultId": "result.message.notify",
+          "response": "required",
+          "failure": "propagate",
+          "timeoutMs": 50,
+          "correlation": {
+            "version": 1,
+            "nodes": [
+              {
+                "id": "reference",
+                "kind": "reference",
+                "fieldId": "input.correlation",
+                "path": []
+              }
+            ],
+            "rootId": "reference"
+          }
+        }
+      }
+    ],
+    "frames": [
+      {
+        "id": "frame.outcome",
+        "kind": "alt",
+        "occurrenceIds": [
+          "message.other"
+        ],
+        "selection": "exclusive",
+        "operands": [
+          {
+            "id": "branch.approved",
+            "guard": {
+              "version": 1,
+              "nodes": [
+                {
+                  "id": "a.reference",
+                  "kind": "reference",
+                  "fieldId": "result.message.charge",
+                  "path": [
+                    "payment.status"
+                  ]
+                },
+                {
+                  "id": "b.literal",
+                  "kind": "literal",
+                  "typeId": "Status",
+                  "value": "approved"
+                },
+                {
+                  "id": "comparison",
+                  "kind": "compare",
+                  "left": "a.reference",
+                  "right": "b.literal",
+                  "operator": "eq"
+                }
+              ],
+              "rootId": "comparison"
+            },
+            "steps": [
+              "frame.persist"
+            ]
+          },
+          {
+            "id": "branch.else",
+            "guard": null,
+            "steps": [
+              "message.other"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "frame.persist",
+        "kind": "ref",
+        "occurrenceIds": [],
+        "interactionId": "interaction.persist",
+        "revision": "1",
+        "arguments": [
+          {
+            "fieldId": "persist.total",
+            "expression": {
+              "version": 1,
+              "nodes": [
+                {
+                  "id": "reference",
+                  "kind": "reference",
+                  "fieldId": "input.total",
+                  "path": []
+                }
+              ],
+              "rootId": "reference"
+            }
+          },
+          {
+            "fieldId": "persist.correlation",
+            "expression": {
+              "version": 1,
+              "nodes": [
+                {
+                  "id": "reference",
+                  "kind": "reference",
+                  "fieldId": "input.correlation",
+                  "path": []
+                }
+              ],
+              "rootId": "reference"
+            }
+          }
+        ],
+        "resultId": "result.persist"
+      },
+      {
+        "id": "frame.notify",
+        "kind": "opt",
+        "occurrenceIds": [
+          "message.notify"
+        ],
+        "guard": {
+          "version": 1,
+          "nodes": [
+            {
+              "id": "reference",
+              "kind": "reference",
+              "fieldId": "input.notify",
+              "path": []
+            }
+          ],
+          "rootId": "reference"
+        },
+        "steps": [
+          "message.notify"
+        ]
+      }
+    ],
+    "interactions": [
+      {
+        "id": "interaction.checkout",
+        "ownerId": "checkout.4",
+        "occurrenceIds": [
+          "message.charge",
+          "message.other",
+          "message.notify"
+        ],
+        "frameIds": [
+          "frame.outcome",
+          "frame.persist",
+          "frame.notify"
+        ],
+        "execution": {
+          "version": 1,
+          "revision": "1",
+          "operationId": "checkout",
+          "steps": [
+            "message.charge",
+            "frame.outcome",
+            "frame.notify"
+          ],
+          "outputs": []
+        }
+      },
+      {
+        "id": "interaction.persist",
+        "ownerId": "checkout.4",
+        "occurrenceIds": [
+          "message.persist"
+        ],
+        "frameIds": [],
+        "execution": {
+          "version": 1,
+          "revision": "1",
+          "operationId": "persistContract",
+          "steps": [
+            "message.persist"
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "assertions": [],
+    "platform": {
+      "bindings": [
+        {
+          "id": "checkout.16",
+          "elementId": "checkout.3",
+          "profileId": "node.esm",
+          "technology": {
+            "state": "known",
+            "value": "node-esm"
+          }
+        }
+      ]
+    },
+    "decisions": [],
+    "blueprint": {
+      "operations": [
+        {
+          "id": "checkout",
+          "name": "checkout",
+          "ownerId": "checkout.4",
+          "inputs": [
+            {
+              "id": "input.total",
+              "name": "total",
+              "type": "",
+              "typeId": "Money",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            },
+            {
+              "id": "input.correlation",
+              "name": "correlation",
+              "type": "",
+              "typeId": "Text",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            },
+            {
+              "id": "input.notify",
+              "name": "notify",
+              "type": "",
+              "typeId": "Flag",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "outputs": [],
+          "errors": [],
+          "effects": [],
+          "permissions": [],
+          "preconditions": [],
+          "postconditions": [],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.checkout",
+              "given": "Authored inputs and reply data",
+              "when": "The interaction runs",
+              "then": "The authored outcome and ordered calls hold"
+            }
+          ]
+        },
+        {
+          "id": "charge",
+          "name": "charge",
+          "ownerId": "component.payments",
+          "inputs": [
+            {
+              "id": "charge.amount",
+              "name": "amount",
+              "type": "",
+              "typeId": "Money",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "payment.status",
+              "name": "status",
+              "type": "",
+              "typeId": "Status",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "errors": [],
+          "effects": [],
+          "permissions": [],
+          "preconditions": [],
+          "postconditions": [],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.charge",
+              "given": "Authored inputs and reply data",
+              "when": "The interaction runs",
+              "then": "The authored outcome and ordered calls hold"
+            }
+          ]
+        },
+        {
+          "id": "persistContract",
+          "name": "persistContract",
+          "ownerId": "checkout.4",
+          "inputs": [
+            {
+              "id": "persist.total",
+              "name": "total",
+              "type": "",
+              "typeId": "Money",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            },
+            {
+              "id": "persist.correlation",
+              "name": "correlation",
+              "type": "",
+              "typeId": "Text",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "outputs": [],
+          "errors": [],
+          "effects": [],
+          "permissions": [],
+          "preconditions": [],
+          "postconditions": [],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.persistContract",
+              "given": "Authored inputs and reply data",
+              "when": "The interaction runs",
+              "then": "The authored outcome and ordered calls hold"
+            }
+          ]
+        },
+        {
+          "id": "persist",
+          "name": "persist",
+          "ownerId": "component.orders",
+          "inputs": [
+            {
+              "id": "persist.amount",
+              "name": "amount",
+              "type": "",
+              "typeId": "Money",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "outputs": [],
+          "errors": [],
+          "effects": [
+            "orders"
+          ],
+          "permissions": [],
+          "preconditions": [],
+          "postconditions": [],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.persist",
+              "given": "Authored inputs and reply data",
+              "when": "The interaction runs",
+              "then": "The authored outcome and ordered calls hold"
+            }
+          ]
+        },
+        {
+          "id": "handleOther",
+          "name": "handleOther",
+          "ownerId": "checkout.4",
+          "inputs": [
+            {
+              "id": "other.status",
+              "name": "status",
+              "type": "",
+              "typeId": "Status",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "outputs": [],
+          "errors": [],
+          "effects": [],
+          "permissions": [],
+          "preconditions": [],
+          "postconditions": [],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.handleOther",
+              "given": "Authored inputs and reply data",
+              "when": "The interaction runs",
+              "then": "The authored outcome and ordered calls hold"
+            }
+          ]
+        },
+        {
+          "id": "notify",
+          "name": "notify",
+          "ownerId": "component.notifications",
+          "inputs": [],
+          "outputs": [],
+          "errors": [],
+          "effects": [],
+          "permissions": [],
+          "preconditions": [],
+          "postconditions": [],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.notify",
+              "given": "Authored inputs and reply data",
+              "when": "The interaction runs",
+              "then": "The authored outcome and ordered calls hold"
+            }
+          ]
+        }
+      ],
+      "interfaces": [],
+      "ports": [],
+      "connections": [],
+      "transports": [],
+      "modules": [],
+      "fieldMappings": []
+    },
+    "predicates": []
+  },
+  "views": [
+    {
+      "id": "guida-sequenza-checkout",
+      "kind": "sequence",
+      "name": "Checkout e pagamento",
+      "interactionId": "interaction.checkout",
+      "nodes": [
+        {
+          "elementId": "checkout.4",
+          "x": 0,
+          "y": 80
+        },
+        {
+          "elementId": "component.payments",
+          "x": 260,
+          "y": 80
+        },
+        {
+          "elementId": "component.orders",
+          "x": 520,
+          "y": 80
+        },
+        {
+          "elementId": "component.notifications",
+          "x": 780,
+          "y": 80
+        }
+      ],
+      "relationIds": []
+    }
+  ],
+  "codeMappings": [],
+  "verifications": []
+}
