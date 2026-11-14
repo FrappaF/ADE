@@ -1,0 +1,1971 @@
+{
+  "version": 4,
+  "id": "mercato-laboratorio",
+  "name": "Mercato - E-commerce didattico",
+  "semantics": {
+    "elements": [
+      {
+        "id": "person.buyer",
+        "kind": "actor",
+        "name": "Cliente",
+        "description": "Progetto didattico: Cliente"
+      },
+      {
+        "id": "system.shop",
+        "kind": "system",
+        "name": "Mercato",
+        "scope": "governed",
+        "description": "Progetto didattico: Mercato"
+      },
+      {
+        "id": "system.payments",
+        "kind": "system",
+        "name": "Pagamenti esterni",
+        "scope": "external",
+        "description": "Progetto didattico: Pagamenti esterni"
+      },
+      {
+        "id": "container.api",
+        "kind": "container",
+        "name": "API Mercato",
+        "runtimeKind": "service",
+        "description": "Progetto didattico: API Mercato"
+      },
+      {
+        "id": "container.store",
+        "kind": "container",
+        "name": "Archivio Mercato",
+        "runtimeKind": "store",
+        "description": "Progetto didattico: Archivio Mercato"
+      },
+      {
+        "id": "component.checkout",
+        "kind": "component",
+        "name": "Checkout",
+        "description": "Progetto didattico: Checkout"
+      },
+      {
+        "id": "component.audit",
+        "kind": "component",
+        "name": "Registro esiti",
+        "description": "Progetto didattico: Registro esiti"
+      },
+      {
+        "id": "component.stock",
+        "kind": "component",
+        "name": "Scorte",
+        "description": "Progetto didattico: Scorte"
+      },
+      {
+        "id": "contract.checkout",
+        "kind": "contract",
+        "name": "Contratto acquisto",
+        "description": "Progetto didattico: Contratto acquisto"
+      },
+      {
+        "id": "contract.stockRequired",
+        "kind": "interface",
+        "name": "Scorte richieste",
+        "description": "Progetto didattico: Scorte richieste"
+      },
+      {
+        "id": "contract.stockProvided",
+        "kind": "interface",
+        "name": "Scorte fornite",
+        "description": "Progetto didattico: Scorte fornite"
+      },
+      {
+        "id": "feature.catalog",
+        "kind": "feature",
+        "name": "Catalogo prodotti"
+      },
+      {
+        "id": "feature.purchase",
+        "kind": "feature",
+        "name": "Acquisto"
+      },
+      {
+        "id": "feature.returns",
+        "kind": "feature",
+        "name": "Resi e rimborsi"
+      },
+      {
+        "id": "person.support",
+        "kind": "actor",
+        "name": "Assistenza"
+      },
+      {
+        "id": "system.carrier",
+        "kind": "system",
+        "name": "Corriere esterno",
+        "scope": "external"
+      },
+      {
+        "id": "container.web",
+        "kind": "container",
+        "name": "Web shop",
+        "runtimeKind": "spa"
+      },
+      {
+        "id": "container.broker",
+        "kind": "container",
+        "name": "Broker eventi",
+        "runtimeKind": "messaging"
+      },
+      {
+        "id": "component.returns",
+        "kind": "component",
+        "name": "Gestione resi"
+      },
+      {
+        "id": "resource.order",
+        "kind": "resource",
+        "name": "Ordine",
+        "parentId": "feature.purchase"
+      },
+      {
+        "id": "resource.return",
+        "kind": "resource",
+        "name": "Richiesta di reso",
+        "parentId": "feature.returns"
+      },
+      {
+        "id": "entity.customer",
+        "kind": "entity",
+        "name": "Cliente",
+        "details": {
+          "technology": "",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "entity.customer.id",
+              "name": "customerId",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            },
+            {
+              "id": "entity.customer.email",
+              "name": "email",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "entity.order",
+        "kind": "entity",
+        "name": "Ordine",
+        "details": {
+          "technology": "",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "entity.order.id",
+              "name": "orderId",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            },
+            {
+              "id": "entity.order.total",
+              "name": "totalCents",
+              "type": "integer",
+              "typeId": "type.count",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "entity.line",
+        "kind": "entity",
+        "name": "Riga ordine",
+        "details": {
+          "technology": "",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "entity.line.quantity",
+              "name": "quantity",
+              "type": "integer",
+              "typeId": "type.count",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            },
+            {
+              "id": "entity.line.price",
+              "name": "unitPriceCents",
+              "type": "integer",
+              "typeId": "type.count",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "entity.product",
+        "kind": "entity",
+        "name": "Prodotto",
+        "details": {
+          "technology": "",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "entity.product.sku",
+              "name": "sku",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            },
+            {
+              "id": "entity.product.price",
+              "name": "priceCents",
+              "type": "integer",
+              "typeId": "type.count",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "entity.return",
+        "kind": "entity",
+        "name": "Reso",
+        "details": {
+          "technology": "",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "entity.return.id",
+              "name": "returnId",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            },
+            {
+              "id": "entity.return.reason",
+              "name": "reason",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "table.customers",
+        "kind": "table",
+        "name": "customers",
+        "details": {
+          "technology": "SQL progettato",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "table.customers.id",
+              "name": "id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "primary",
+              "required": true
+            },
+            {
+              "id": "table.customers.email",
+              "name": "email",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "unique",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "table.orders",
+        "kind": "table",
+        "name": "orders",
+        "details": {
+          "technology": "SQL progettato",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "table.orders.id",
+              "name": "id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "primary",
+              "required": true
+            },
+            {
+              "id": "table.orders.customer_id",
+              "name": "customer_id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "foreign",
+              "required": true
+            },
+            {
+              "id": "table.orders.total_cents",
+              "name": "total_cents",
+              "type": "integer",
+              "typeId": "type.count",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "table.lines",
+        "kind": "table",
+        "name": "order_lines",
+        "details": {
+          "technology": "SQL progettato",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "table.lines.id",
+              "name": "id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "primary",
+              "required": true
+            },
+            {
+              "id": "table.lines.order_id",
+              "name": "order_id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "foreign",
+              "required": true
+            },
+            {
+              "id": "table.lines.product_id",
+              "name": "product_id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "foreign",
+              "required": true
+            },
+            {
+              "id": "table.lines.quantity",
+              "name": "quantity",
+              "type": "integer",
+              "typeId": "type.count",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "table.products",
+        "kind": "table",
+        "name": "products",
+        "details": {
+          "technology": "SQL progettato",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "table.products.id",
+              "name": "id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "primary",
+              "required": true
+            },
+            {
+              "id": "table.products.sku",
+              "name": "sku",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "unique",
+              "required": true
+            },
+            {
+              "id": "table.products.price_cents",
+              "name": "price_cents",
+              "type": "integer",
+              "typeId": "type.count",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "table.returns",
+        "kind": "table",
+        "name": "returns",
+        "details": {
+          "technology": "SQL progettato",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "table.returns.id",
+              "name": "id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "primary",
+              "required": true
+            },
+            {
+              "id": "table.returns.order_id",
+              "name": "order_id",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "foreign",
+              "required": true
+            },
+            {
+              "id": "table.returns.reason",
+              "name": "reason",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "class.order",
+        "kind": "class",
+        "name": "Order",
+        "details": {
+          "technology": "JavaScript ESM",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "class.order.id",
+              "name": "orderId",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            },
+            {
+              "id": "class.order.total",
+              "name": "totalCents",
+              "type": "integer",
+              "typeId": "type.count",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "attribute",
+              "key": "none",
+              "required": true
+            },
+            {
+              "id": "class.order.confirm",
+              "name": "confirm",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "method",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "class.checkout",
+        "kind": "class",
+        "name": "CheckoutService",
+        "details": {
+          "technology": "JavaScript ESM",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "class.checkout.submit",
+              "name": "submit",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "method",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "interface.repository",
+        "kind": "interface",
+        "name": "OrderRepository",
+        "details": {
+          "technology": "",
+          "environment": "Didattico locale",
+          "members": [
+            {
+              "id": "repo.save",
+              "name": "save",
+              "type": "string",
+              "typeId": "type.text",
+              "nullable": {
+                "state": "known",
+                "value": false
+              },
+              "kind": "method",
+              "key": "none",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "package.domain",
+        "kind": "package",
+        "name": "Dominio"
+      },
+      {
+        "id": "package.app",
+        "kind": "package",
+        "name": "Applicazione"
+      },
+      {
+        "id": "package.adapters",
+        "kind": "package",
+        "name": "Adapter"
+      },
+      {
+        "id": "host.web",
+        "kind": "deploymentNode",
+        "name": "Host Web",
+        "details": {
+          "technology": "Processo locale progettato",
+          "environment": "Didattico locale",
+          "members": []
+        }
+      },
+      {
+        "id": "host.api",
+        "kind": "deploymentNode",
+        "name": "Host API",
+        "details": {
+          "technology": "Processo locale progettato",
+          "environment": "Didattico locale",
+          "members": []
+        }
+      },
+      {
+        "id": "host.data",
+        "kind": "deploymentNode",
+        "name": "Host dati",
+        "details": {
+          "technology": "Processo locale progettato",
+          "environment": "Didattico locale",
+          "members": []
+        }
+      },
+      {
+        "id": "artifact.web",
+        "kind": "artifact",
+        "name": "Web bundle"
+      },
+      {
+        "id": "artifact.api",
+        "kind": "artifact",
+        "name": "API ESM"
+      },
+      {
+        "id": "network.public",
+        "kind": "networkNode",
+        "name": "Rete client"
+      },
+      {
+        "id": "network.private",
+        "kind": "networkNode",
+        "name": "Rete backend"
+      },
+      {
+        "id": "uc.buy",
+        "kind": "useCase",
+        "name": "Confermare acquisto",
+        "parentId": "system.shop"
+      },
+      {
+        "id": "uc.pay",
+        "kind": "useCase",
+        "name": "Autorizzare pagamento",
+        "parentId": "system.shop"
+      },
+      {
+        "id": "uc.coupon",
+        "kind": "useCase",
+        "name": "Applicare coupon",
+        "parentId": "system.shop"
+      },
+      {
+        "id": "uc.return",
+        "kind": "useCase",
+        "name": "Richiedere reso",
+        "parentId": "system.shop"
+      },
+      {
+        "id": "process.checkout",
+        "kind": "process",
+        "name": "Elabora ordine"
+      },
+      {
+        "id": "process.return",
+        "kind": "process",
+        "name": "Valuta reso"
+      },
+      {
+        "id": "store.orders",
+        "kind": "dataStore",
+        "name": "Dati ordini"
+      },
+      {
+        "id": "store.products",
+        "kind": "dataStore",
+        "name": "Dati catalogo"
+      },
+      {
+        "id": "flow.start",
+        "kind": "start",
+        "name": "Inizio",
+        "parentId": "feature.purchase"
+      },
+      {
+        "id": "flow.validate",
+        "kind": "action",
+        "name": "Valida carrello",
+        "parentId": "feature.purchase"
+      },
+      {
+        "id": "flow.stock",
+        "kind": "decision",
+        "name": "Scorte disponibili?",
+        "parentId": "feature.purchase"
+      },
+      {
+        "id": "flow.pay",
+        "kind": "action",
+        "name": "Richiedi pagamento",
+        "parentId": "feature.purchase"
+      },
+      {
+        "id": "flow.confirm",
+        "kind": "action",
+        "name": "Conferma ordine",
+        "parentId": "feature.purchase"
+      },
+      {
+        "id": "flow.reject",
+        "kind": "action",
+        "name": "Rifiuta ordine",
+        "parentId": "feature.purchase"
+      },
+      {
+        "id": "flow.end",
+        "kind": "end",
+        "name": "Fine",
+        "parentId": "feature.purchase"
+      },
+      {
+        "id": "state.pending",
+        "kind": "state",
+        "name": "In attesa",
+        "parentId": "resource.order"
+      },
+      {
+        "id": "state.paid",
+        "kind": "state",
+        "name": "Confermato",
+        "parentId": "resource.order"
+      },
+      {
+        "id": "state.rejected",
+        "kind": "state",
+        "name": "Rifiutato",
+        "parentId": "resource.order"
+      },
+      {
+        "id": "return.view",
+        "kind": "view",
+        "name": "Pagina resi",
+        "parentId": "feature.returns"
+      },
+      {
+        "id": "return.ctrl",
+        "kind": "controller",
+        "name": "Coordinamento reso",
+        "parentId": "feature.returns"
+      },
+      {
+        "id": "return.check",
+        "kind": "action",
+        "name": "Valuta reso",
+        "parentId": "feature.returns"
+      },
+      {
+        "id": "return.refund",
+        "kind": "action",
+        "name": "Emetti rimborso",
+        "parentId": "feature.returns"
+      },
+      {
+        "id": "return.reject",
+        "kind": "action",
+        "name": "Rifiuta richiesta",
+        "parentId": "feature.returns"
+      }
+    ],
+    "relations": [
+      {
+        "id": "rel.context",
+        "from": "person.buyer",
+        "to": "system.shop",
+        "kind": "communication",
+        "name": "acquista e richiede resi"
+      },
+      {
+        "id": "rel.support",
+        "from": "person.support",
+        "to": "system.shop",
+        "kind": "communication",
+        "name": "gestisce richieste"
+      },
+      {
+        "id": "rel.payment.context",
+        "from": "system.shop",
+        "to": "system.payments",
+        "kind": "communication",
+        "name": "autorizza e rimborsa"
+      },
+      {
+        "id": "rel.carrier",
+        "from": "system.shop",
+        "to": "system.carrier",
+        "kind": "communication",
+        "name": "richiede consegna"
+      },
+      {
+        "id": "rel.web",
+        "from": "person.buyer",
+        "to": "container.web",
+        "kind": "communication",
+        "name": "naviga",
+        "details": {
+          "sourceMultiplicity": "",
+          "targetMultiplicity": "",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": "HTTPS"
+        }
+      },
+      {
+        "id": "rel.api",
+        "from": "container.web",
+        "to": "container.api",
+        "kind": "communication",
+        "name": "invia ordini",
+        "details": {
+          "sourceMultiplicity": "",
+          "targetMultiplicity": "",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": "HTTPS / JSON"
+        }
+      },
+      {
+        "id": "rel.sql",
+        "from": "container.api",
+        "to": "container.store",
+        "kind": "communication",
+        "name": "legge e scrive",
+        "details": {
+          "sourceMultiplicity": "",
+          "targetMultiplicity": "",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": "SQL"
+        }
+      },
+      {
+        "id": "rel.events",
+        "from": "container.api",
+        "to": "container.broker",
+        "kind": "communication",
+        "name": "pubblica eventi",
+        "details": {
+          "sourceMultiplicity": "",
+          "targetMultiplicity": "",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": "Messaggistica dichiarata"
+        }
+      },
+      {
+        "id": "relation.payments",
+        "from": "component.checkout",
+        "to": "system.payments",
+        "kind": "invocation",
+        "name": "autorizza pagamento"
+      },
+      {
+        "id": "relation.stock",
+        "from": "component.checkout",
+        "to": "component.stock",
+        "kind": "dependency",
+        "name": "richiede disponibilità"
+      },
+      {
+        "id": "rel.audit",
+        "from": "component.checkout",
+        "to": "component.audit",
+        "kind": "invocation",
+        "name": "registra esito"
+      },
+      {
+        "id": "rel.contract",
+        "from": "component.checkout",
+        "to": "contract.checkout",
+        "kind": "implementation",
+        "name": "espone contratto"
+      },
+      {
+        "id": "rel.returns.component",
+        "from": "component.returns",
+        "to": "component.checkout",
+        "kind": "dependency",
+        "name": "consulta acquisto"
+      },
+      {
+        "id": "erd.customer.order",
+        "from": "entity.customer",
+        "to": "entity.order",
+        "kind": "association",
+        "name": "effettua",
+        "details": {
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "0..*",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": ""
+        }
+      },
+      {
+        "id": "erd.order.line",
+        "from": "entity.order",
+        "to": "entity.line",
+        "kind": "association",
+        "name": "contiene",
+        "details": {
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "1..*",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": ""
+        }
+      },
+      {
+        "id": "erd.line.product",
+        "from": "entity.line",
+        "to": "entity.product",
+        "kind": "association",
+        "name": "riguarda",
+        "details": {
+          "sourceMultiplicity": "0..*",
+          "targetMultiplicity": "1",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": ""
+        }
+      },
+      {
+        "id": "erd.return.order",
+        "from": "entity.return",
+        "to": "entity.order",
+        "kind": "association",
+        "name": "si riferisce a",
+        "details": {
+          "sourceMultiplicity": "0..*",
+          "targetMultiplicity": "1",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": ""
+        }
+      },
+      {
+        "id": "db.order.customer",
+        "from": "table.orders",
+        "to": "table.customers",
+        "kind": "association",
+        "name": "customer_id",
+        "details": {
+          "sourceMultiplicity": "0..*",
+          "targetMultiplicity": "1",
+          "sourceMember": "customer_id",
+          "targetMember": "id",
+          "protocol": ""
+        }
+      },
+      {
+        "id": "db.line.order",
+        "from": "table.lines",
+        "to": "table.orders",
+        "kind": "association",
+        "name": "order_id",
+        "details": {
+          "sourceMultiplicity": "0..*",
+          "targetMultiplicity": "1",
+          "sourceMember": "order_id",
+          "targetMember": "id",
+          "protocol": ""
+        }
+      },
+      {
+        "id": "db.line.product",
+        "from": "table.lines",
+        "to": "table.products",
+        "kind": "association",
+        "name": "product_id",
+        "details": {
+          "sourceMultiplicity": "0..*",
+          "targetMultiplicity": "1",
+          "sourceMember": "product_id",
+          "targetMember": "id",
+          "protocol": ""
+        }
+      },
+      {
+        "id": "db.return.order",
+        "from": "table.returns",
+        "to": "table.orders",
+        "kind": "association",
+        "name": "order_id",
+        "details": {
+          "sourceMultiplicity": "0..*",
+          "targetMultiplicity": "1",
+          "sourceMember": "order_id",
+          "targetMember": "id",
+          "protocol": ""
+        }
+      },
+      {
+        "id": "class.uses",
+        "from": "class.checkout",
+        "to": "class.order",
+        "kind": "dependency",
+        "name": "valida e conferma"
+      },
+      {
+        "id": "class.port",
+        "from": "class.checkout",
+        "to": "interface.repository",
+        "kind": "dependency",
+        "name": "usa contratto"
+      },
+      {
+        "id": "class.impl",
+        "from": "component.audit",
+        "to": "interface.repository",
+        "kind": "implementation",
+        "name": "fornisce persistenza"
+      },
+      {
+        "id": "pkg.app.domain",
+        "from": "package.app",
+        "to": "package.domain",
+        "kind": "dependency",
+        "name": "usa regole"
+      },
+      {
+        "id": "pkg.adapter.domain",
+        "from": "package.adapters",
+        "to": "package.domain",
+        "kind": "dependency",
+        "name": "implementa contratti"
+      },
+      {
+        "id": "pkg.adapter.app",
+        "from": "package.adapters",
+        "to": "package.app",
+        "kind": "dependency",
+        "name": "collega esterni"
+      },
+      {
+        "id": "deploy.web",
+        "from": "host.web",
+        "to": "artifact.web",
+        "kind": "hosting",
+        "name": "ospita"
+      },
+      {
+        "id": "deploy.api",
+        "from": "host.api",
+        "to": "artifact.api",
+        "kind": "hosting",
+        "name": "ospita"
+      },
+      {
+        "id": "deploy.app",
+        "from": "host.api",
+        "to": "container.api",
+        "kind": "hosting",
+        "name": "ospita"
+      },
+      {
+        "id": "deploy.data",
+        "from": "host.data",
+        "to": "container.store",
+        "kind": "hosting",
+        "name": "ospita"
+      },
+      {
+        "id": "net.browser",
+        "from": "network.public",
+        "to": "container.web",
+        "kind": "communication",
+        "name": "accesso web",
+        "details": {
+          "sourceMultiplicity": "",
+          "targetMultiplicity": "",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": "HTTPS 443"
+        }
+      },
+      {
+        "id": "net.api",
+        "from": "network.public",
+        "to": "network.private",
+        "kind": "communication",
+        "name": "confine applicativo",
+        "details": {
+          "sourceMultiplicity": "",
+          "targetMultiplicity": "",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": "HTTPS 443"
+        }
+      },
+      {
+        "id": "net.backend",
+        "from": "network.private",
+        "to": "container.api",
+        "kind": "communication",
+        "name": "API",
+        "details": {
+          "sourceMultiplicity": "",
+          "targetMultiplicity": "",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": "HTTPS / JSON"
+        }
+      },
+      {
+        "id": "net.data",
+        "from": "container.api",
+        "to": "container.store",
+        "kind": "communication",
+        "name": "persistenza",
+        "details": {
+          "sourceMultiplicity": "",
+          "targetMultiplicity": "",
+          "sourceMember": "",
+          "targetMember": "",
+          "protocol": "SQL"
+        }
+      },
+      {
+        "id": "uc.actor.buy",
+        "from": "person.buyer",
+        "to": "uc.buy",
+        "kind": "association",
+        "name": "avvia"
+      },
+      {
+        "id": "uc.actor.return",
+        "from": "person.buyer",
+        "to": "uc.return",
+        "kind": "association",
+        "name": "richiede"
+      },
+      {
+        "id": "uc.support",
+        "from": "person.support",
+        "to": "uc.return",
+        "kind": "association",
+        "name": "gestisce"
+      },
+      {
+        "id": "uc.include",
+        "from": "uc.buy",
+        "to": "uc.pay",
+        "kind": "include",
+        "name": "include"
+      },
+      {
+        "id": "uc.extend",
+        "from": "uc.coupon",
+        "to": "uc.buy",
+        "kind": "extend",
+        "name": "extend",
+        "condition": "coupon presente"
+      },
+      {
+        "id": "df.request",
+        "from": "person.buyer",
+        "to": "process.checkout",
+        "kind": "dataFlow",
+        "name": "dati acquisto"
+      },
+      {
+        "id": "df.catalog",
+        "from": "store.products",
+        "to": "process.checkout",
+        "kind": "dataFlow",
+        "name": "prezzi e disponibilità"
+      },
+      {
+        "id": "df.order",
+        "from": "process.checkout",
+        "to": "store.orders",
+        "kind": "dataFlow",
+        "name": "ordine confermato"
+      },
+      {
+        "id": "df.result",
+        "from": "process.checkout",
+        "to": "person.buyer",
+        "kind": "dataFlow",
+        "name": "esito acquisto"
+      },
+      {
+        "id": "flow.1",
+        "from": "flow.start",
+        "to": "flow.validate",
+        "kind": "controlFlow",
+        "name": "avvia"
+      },
+      {
+        "id": "flow.2",
+        "from": "flow.validate",
+        "to": "flow.stock",
+        "kind": "controlFlow",
+        "name": "controlla"
+      },
+      {
+        "id": "flow.3",
+        "from": "flow.stock",
+        "to": "flow.pay",
+        "kind": "controlFlow",
+        "name": "prosegui",
+        "condition": "disponibili"
+      },
+      {
+        "id": "flow.4",
+        "from": "flow.stock",
+        "to": "flow.reject",
+        "kind": "controlFlow",
+        "name": "rifiuta",
+        "condition": "non disponibili"
+      },
+      {
+        "id": "flow.5",
+        "from": "flow.pay",
+        "to": "flow.confirm",
+        "kind": "controlFlow",
+        "name": "conferma",
+        "condition": "pagamento autorizzato"
+      },
+      {
+        "id": "flow.6",
+        "from": "flow.pay",
+        "to": "flow.reject",
+        "kind": "controlFlow",
+        "name": "rifiuta",
+        "condition": "pagamento rifiutato"
+      },
+      {
+        "id": "flow.7",
+        "from": "flow.confirm",
+        "to": "flow.end",
+        "kind": "controlFlow",
+        "name": "termina"
+      },
+      {
+        "id": "flow.8",
+        "from": "flow.reject",
+        "to": "flow.end",
+        "kind": "controlFlow",
+        "name": "termina"
+      },
+      {
+        "id": "seq.request",
+        "from": "person.buyer",
+        "to": "component.checkout",
+        "kind": "invocation",
+        "name": "conferma acquisto"
+      },
+      {
+        "id": "seq.save",
+        "from": "component.checkout",
+        "to": "resource.order",
+        "kind": "write",
+        "name": "registra ordine",
+        "condition": "pagamento autorizzato"
+      },
+      {
+        "id": "state.accept",
+        "from": "state.pending",
+        "to": "state.paid",
+        "kind": "transition",
+        "name": "Pagamento autorizzato",
+        "condition": "esito positivo"
+      },
+      {
+        "id": "state.reject",
+        "from": "state.pending",
+        "to": "state.rejected",
+        "kind": "transition",
+        "name": "Pagamento rifiutato",
+        "condition": "esito negativo"
+      },
+      {
+        "id": "returns.req",
+        "from": "person.buyer",
+        "to": "return.view",
+        "kind": "invocation",
+        "name": "chiede reso"
+      },
+      {
+        "id": "returns.send",
+        "from": "return.view",
+        "to": "return.ctrl",
+        "kind": "invocation",
+        "name": "invia richiesta"
+      },
+      {
+        "id": "returns.read",
+        "from": "return.ctrl",
+        "to": "resource.order",
+        "kind": "read",
+        "name": "verifica acquisto"
+      },
+      {
+        "id": "returns.write",
+        "from": "return.ctrl",
+        "to": "resource.return",
+        "kind": "write",
+        "name": "registra reso"
+      },
+      {
+        "id": "returns.yes",
+        "from": "return.check",
+        "to": "return.refund",
+        "kind": "invocation",
+        "name": "autorizza",
+        "condition": "entro 30 giorni"
+      },
+      {
+        "id": "returns.no",
+        "from": "return.check",
+        "to": "return.reject",
+        "kind": "invocation",
+        "name": "rifiuta",
+        "condition": "termine superato"
+      },
+      {
+        "id": "rel.web.checkout",
+        "from": "container.web",
+        "to": "component.checkout",
+        "kind": "invocation",
+        "name": "invia acquisto"
+      }
+    ]
+  },
+  "views": [
+    {
+      "id": "lab.structure",
+      "name": "01 Panoramica delle responsabilità",
+      "kind": "structure",
+      "nodes": [
+        {
+          "elementId": "person.buyer",
+          "x": 0,
+          "y": 100
+        },
+        {
+          "elementId": "container.web",
+          "x": 300,
+          "y": 100
+        },
+        {
+          "elementId": "component.checkout",
+          "x": 600,
+          "y": 100
+        },
+        {
+          "elementId": "resource.order",
+          "x": 900,
+          "y": 100
+        },
+        {
+          "elementId": "system.payments",
+          "x": 600,
+          "y": 360
+        },
+        {
+          "elementId": "component.returns",
+          "x": 900,
+          "y": 360
+        }
+      ],
+      "relationIds": [
+        "rel.web",
+        "rel.web.checkout",
+        "seq.save",
+        "relation.payments",
+        "rel.returns.component"
+      ]
+    },
+    {
+      "id": "lab.context",
+      "name": "02 C4 Contesto Mercato",
+      "kind": "c4Context",
+      "nodes": [
+        {
+          "elementId": "person.buyer",
+          "x": 80,
+          "y": 100
+        },
+        {
+          "elementId": "system.shop",
+          "x": 410,
+          "y": 100
+        },
+        {
+          "elementId": "system.payments",
+          "x": 740,
+          "y": 100
+        },
+        {
+          "elementId": "person.support",
+          "x": 80,
+          "y": 320
+        },
+        {
+          "elementId": "system.carrier",
+          "x": 410,
+          "y": 320
+        }
+      ],
+      "relationIds": [
+        "rel.context",
+        "rel.support",
+        "rel.payment.context",
+        "rel.carrier"
+      ],
+      "subjectId": "system.shop",
+      "contextIds": [
+        "person.buyer",
+        "person.support",
+        "system.payments",
+        "system.carrier"
+      ]
+    }
+  ],
+  "foundation": {
+    "ownership": [
+      {
+        "id": "ownership.container.api",
+        "elementId": "container.api",
+        "ownerId": "system.shop",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.container.store",
+        "elementId": "container.store",
+        "ownerId": "system.shop",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.component.checkout",
+        "elementId": "component.checkout",
+        "ownerId": "container.api",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.component.audit",
+        "elementId": "component.audit",
+        "ownerId": "container.api",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.component.stock",
+        "elementId": "component.stock",
+        "ownerId": "container.api",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.contract.checkout",
+        "elementId": "contract.checkout",
+        "ownerId": "component.checkout",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.contract.stockRequired",
+        "elementId": "contract.stockRequired",
+        "ownerId": "component.checkout",
+        "role": "architecture"
+      },
+      {
+        "id": "ownership.contract.stockProvided",
+        "elementId": "contract.stockProvided",
+        "ownerId": "component.stock",
+        "role": "architecture"
+      },
+      {
+        "id": "own.container.web",
+        "elementId": "container.web",
+        "ownerId": "system.shop",
+        "role": "architecture"
+      },
+      {
+        "id": "own.container.broker",
+        "elementId": "container.broker",
+        "ownerId": "system.shop",
+        "role": "architecture"
+      },
+      {
+        "id": "own.component.returns",
+        "elementId": "component.returns",
+        "ownerId": "container.api",
+        "role": "architecture"
+      }
+    ],
+    "memberships": [
+      {
+        "id": "member.component.stock",
+        "featureId": "feature.catalog",
+        "elementId": "component.stock"
+      },
+      {
+        "id": "member.component.checkout",
+        "featureId": "feature.purchase",
+        "elementId": "component.checkout"
+      },
+      {
+        "id": "member.component.audit",
+        "featureId": "feature.purchase",
+        "elementId": "component.audit"
+      },
+      {
+        "id": "member.component.returns",
+        "featureId": "feature.returns",
+        "elementId": "component.returns"
+      }
+    ],
+    "integrations": [],
+    "types": [
+      {
+        "id": "type.text",
+        "name": "String",
+        "kind": "primitive",
+        "primitive": "string",
+        "fields": []
+      },
+      {
+        "id": "type.count",
+        "name": "Integer",
+        "kind": "primitive",
+        "primitive": "integer",
+        "fields": []
+      },
+      {
+        "id": "type.order",
+        "name": "Dati ordine",
+        "kind": "record",
+        "fields": [
+          {
+            "id": "field.orderId",
+            "name": "orderId",
+            "type": "",
+            "typeId": "type.text",
+            "required": true,
+            "nullable": {
+              "state": "known",
+              "value": false
+            }
+          }
+        ]
+      },
+      {
+        "id": "type.failure",
+        "name": "Failure",
+        "kind": "record",
+        "fields": [
+          {
+            "id": "field.failureCode",
+            "name": "code",
+            "type": "",
+            "typeId": "type.text",
+            "required": true,
+            "nullable": {
+              "state": "known",
+              "value": false
+            }
+          }
+        ]
+      },
+      {
+        "id": "type.status",
+        "name": "Status",
+        "kind": "enum",
+        "values": [
+          "confirmed",
+          "refused"
+        ],
+        "fields": []
+      },
+      {
+        "id": "type.orders",
+        "name": "Orders",
+        "kind": "collection",
+        "itemTypeId": "type.order",
+        "fields": []
+      },
+      {
+        "id": "type.orderRef",
+        "name": "Order Reference",
+        "kind": "reference",
+        "targetTypeId": "type.order",
+        "fields": []
+      }
+    ],
+    "occurrences": [],
+    "frames": [],
+    "interactions": [],
+    "assertions": [],
+    "platform": {
+      "bindings": []
+    },
+    "decisions": [],
+    "blueprint": {
+      "operations": [
+        {
+          "id": "operation.confirm",
+          "ownerId": "contract.checkout",
+          "name": "confirmOrder",
+          "inputs": [
+            {
+              "id": "input.operation.confirm",
+              "name": "order",
+              "type": "",
+              "typeId": "type.order",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "output.operation.confirm",
+              "name": "result",
+              "type": "",
+              "typeId": "type.status",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "errors": [
+            {
+              "id": "error.operation.confirm",
+              "code": "OUT_OF_STOCK",
+              "description": "The requested stock is unavailable",
+              "typeId": "type.failure"
+            }
+          ],
+          "effects": [
+            "stock.reserve"
+          ],
+          "preconditions": [
+            "L’ordine contiene almeno una riga"
+          ],
+          "postconditions": [
+            "L’esito viene registrato"
+          ],
+          "permissions": [
+            {
+              "actorId": "person.buyer",
+              "capability": "checkout"
+            }
+          ],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.operation.confirm",
+              "given": "Scorte disponibili",
+              "when": "Il cliente conferma un ordine",
+              "then": "Le scorte vengono riservate una sola volta"
+            }
+          ]
+        },
+        {
+          "id": "operation.reserveRequired",
+          "ownerId": "contract.stockRequired",
+          "name": "reserveStock",
+          "inputs": [
+            {
+              "id": "input.operation.reserveRequired",
+              "name": "order",
+              "type": "",
+              "typeId": "type.order",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "output.operation.reserveRequired",
+              "name": "result",
+              "type": "",
+              "typeId": "type.status",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "errors": [
+            {
+              "id": "error.operation.reserveRequired",
+              "code": "OUT_OF_STOCK",
+              "description": "The requested stock is unavailable",
+              "typeId": "type.failure"
+            }
+          ],
+          "effects": [
+            "stock.reserve"
+          ],
+          "preconditions": [
+            "L’ordine contiene almeno una riga"
+          ],
+          "postconditions": [
+            "L’esito viene registrato"
+          ],
+          "permissions": [
+            {
+              "actorId": "person.buyer",
+              "capability": "checkout"
+            }
+          ],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.operation.reserveRequired",
+              "given": "Scorte disponibili",
+              "when": "Il cliente conferma un ordine",
+              "then": "Le scorte vengono riservate una sola volta"
+            }
+          ]
+        },
+        {
+          "id": "operation.reserve",
+          "ownerId": "contract.stockProvided",
+          "name": "reserveStock",
+          "inputs": [
+            {
+              "id": "input.operation.reserve",
+              "name": "order",
+              "type": "",
+              "typeId": "type.order",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "output.operation.reserve",
+              "name": "result",
+              "type": "",
+              "typeId": "type.status",
+              "required": true,
+              "nullable": {
+                "state": "known",
+                "value": false
+              }
+            }
+          ],
+          "errors": [
+            {
+              "id": "error.operation.reserve",
+              "code": "OUT_OF_STOCK",
+              "description": "The requested stock is unavailable",
+              "typeId": "type.failure"
+            }
+          ],
+          "effects": [
+            "stock.reserve"
+          ],
+          "preconditions": [
+            "L’ordine contiene almeno una riga"
+          ],
+          "postconditions": [
+            "L’esito viene registrato"
+          ],
+          "permissions": [
+            {
+              "actorId": "person.buyer",
+              "capability": "checkout"
+            }
+          ],
+          "acceptanceCriteria": [
+            {
+              "id": "criterion.operation.reserve",
+              "given": "Scorte disponibili",
+              "when": "Il cliente conferma un ordine",
+              "then": "Le scorte vengono riservate una sola volta"
+            }
+          ]
+        }
+      ],
+      "interfaces": [
+        {
+          "id": "interface.checkout",
+          "elementId": "contract.checkout",
+          "version": "1",
+          "operationIds": [
+            "operation.confirm"
+          ],
+          "invariants": [
+            "Contract members are shared by identity"
+          ]
+        },
+        {
+          "id": "interface.required",
+          "elementId": "contract.stockRequired",
+          "version": "1",
+          "operationIds": [
+            "operation.reserveRequired"
+          ],
+          "invariants": [
+            "Contract members are shared by identity"
+          ]
+        },
+        {
+          "id": "interface.stock",
+          "elementId": "contract.stockProvided",
+          "version": "1",
+          "operationIds": [
+            "operation.reserve"
+          ],
+          "invariants": [
+            "Contract members are shared by identity"
+          ]
+        }
+      ],
+      "ports": [
+        {
+          "id": "port.checkout",
+          "elementId": "component.checkout",
+          "interfaceId": "interface.checkout",
+          "direction": "provided"
+        },
+        {
+          "id": "port.required",
+          "elementId": "component.checkout",
+          "interfaceId": "interface.required",
+          "direction": "required"
+        },
+        {
+          "id": "port.stock",
+          "elementId": "component.stock",
+          "interfaceId": "interface.stock",
+          "direction": "provided"
+        }
+      ],
+      "connections": [
+        {
+          "id": "connection.stock",
+          "requiredPortId": "port.required",
+          "providedPortId": "port.stock",
+          "operations": [
+            {
+              "requiredOperationId": "operation.reserveRequired",
+              "providedOperationId": "operation.reserve"
+            }
+          ]
+        }
+      ],
+      "transports": [
+        {
+          "id": "transport.payment",
+          "relationId": "relation.payments",
+          "protocol": "HTTPS",
+          "format": "JSON",
+          "schemaTypeId": "type.order",
+          "schemaVersion": "1"
+        }
+      ],
+      "modules": [],
+      "fieldMappings": []
+    }
+  },
+  "codeMappings": [],
+  "verifications": []
+}

@@ -77,7 +77,7 @@ Per gli avvii successivi, dalla radice del clone bastano `nvm use` e `./ade/scri
 
 ## Imparare a usare ADE
 
-La [guida completa per utenti esterni](ade/docs/guida-utente/README.md) accompagna dalla prima apertura a diagrammi, contratti, casi indipendenti, codice e collaborazione IA. Include 28 capitoli, screenshot dell’interfaccia corrente e sei versioni progressive del caso di studio Bottega Ordini.
+La [guida completa per utenti esterni](ade/docs/guida-utente/README.md) accompagna dalla prima apertura a diagrammi, contratti, casi indipendenti, codice e collaborazione IA. È organizzata in tre parti: tour di Bottega Ordini con acquisto, resi e rimborsi; laboratorio Mercato da zero con checkpoint e moduli eseguibili; atlante dettagliato delle 16 notazioni. Include 31 immagini dell’interfaccia e una soluzione Mercato con 18 viste.
 
 - [Guida PDF](ade/docs/guida-utente/Guida-ADE.pdf), con indice e collegamenti.
 - [Guida HTML da scaricare e aprire nel browser](ade/docs/guida-utente/Guida-ADE.html), consultabile offline con ricerca e immagini ingrandibili.

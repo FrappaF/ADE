@@ -201,6 +201,71 @@
         "kind": "state",
         "name": "Pagamento rifiutato",
         "parentId": "order"
+      },
+      {
+        "id": "returns",
+        "kind": "feature",
+        "name": "Resi e rimborsi"
+      },
+      {
+        "id": "returns-view",
+        "kind": "view",
+        "name": "Pagina resi",
+        "parentId": "returns"
+      },
+      {
+        "id": "returns-controller",
+        "kind": "controller",
+        "name": "Gestione resi",
+        "parentId": "returns"
+      },
+      {
+        "id": "return-request",
+        "kind": "resource",
+        "name": "Richiesta di reso",
+        "parentId": "returns"
+      },
+      {
+        "id": "return-review",
+        "kind": "action",
+        "name": "Valuta richiesta",
+        "parentId": "returns"
+      },
+      {
+        "id": "return-refund",
+        "kind": "action",
+        "name": "Emetti rimborso",
+        "parentId": "returns"
+      },
+      {
+        "id": "return-denied",
+        "kind": "action",
+        "name": "Reso non ammesso",
+        "parentId": "returns"
+      },
+      {
+        "id": "return-pending",
+        "kind": "state",
+        "name": "Richiesto",
+        "parentId": "return-request"
+      },
+      {
+        "id": "return-approved",
+        "kind": "state",
+        "name": "Autorizzato",
+        "parentId": "return-request"
+      },
+      {
+        "id": "return-refunded",
+        "kind": "state",
+        "name": "Rimborsato",
+        "parentId": "return-request"
+      },
+      {
+        "id": "return-rejected",
+        "kind": "state",
+        "name": "Rifiutato",
+        "parentId": "return-request"
       }
     ],
     "relations": [
@@ -259,6 +324,75 @@
         "kind": "transition",
         "name": "Rifiuto pagamento",
         "to": "order-declined"
+      },
+      {
+        "id": "returns-open",
+        "from": "customer",
+        "to": "returns-view",
+        "kind": "invocation",
+        "name": "richiede reso"
+      },
+      {
+        "id": "returns-submit",
+        "from": "returns-view",
+        "to": "returns-controller",
+        "kind": "invocation",
+        "name": "invia richiesta"
+      },
+      {
+        "id": "returns-check-order",
+        "from": "returns-controller",
+        "to": "order",
+        "kind": "read",
+        "name": "verifica ordine"
+      },
+      {
+        "id": "returns-create",
+        "from": "returns-controller",
+        "to": "return-request",
+        "kind": "write",
+        "name": "registra richiesta",
+        "condition": "ordine esistente"
+      },
+      {
+        "id": "returns-allow",
+        "from": "return-review",
+        "to": "return-refund",
+        "kind": "invocation",
+        "name": "autorizza rimborso",
+        "condition": "reso entro 30 giorni"
+      },
+      {
+        "id": "returns-deny",
+        "from": "return-review",
+        "to": "return-denied",
+        "kind": "invocation",
+        "name": "rifiuta richiesta",
+        "condition": "termine superato"
+      },
+      {
+        "id": "return-authorize",
+        "from": "return-pending",
+        "to": "return-approved",
+        "kind": "transition",
+        "name": "Autorizza reso",
+        "condition": "requisiti soddisfatti"
+      },
+      {
+        "id": "return-paid",
+        "from": "return-approved",
+        "to": "return-refunded",
+        "kind": "transition",
+        "name": "Conferma rimborso",
+        "condition": "rimborso completato"
+      },
+      {
+        "id": "return-reject",
+        "from": "return-pending",
+        "to": "return-rejected",
+        "kind": "transition",
+        "name": "Rifiuta reso",
+        "condition": "requisiti mancanti"
       }
     ]
   },
@@ -382,6 +516,149 @@
       "relationIds": [
         "order-payment-accepted",
         "order-payment-refused"
+      ]
+    },
+    {
+      "id": "returns-structure",
+      "name": "Struttura resi",
+      "kind": "structure",
+      "featureId": "returns",
+      "nodes": [
+        {
+          "elementId": "customer",
+          "x": 60,
+          "y": 90
+        },
+        {
+          "elementId": "returns-view",
+          "x": 370,
+          "y": 90
+        },
+        {
+          "elementId": "returns-controller",
+          "x": 680,
+          "y": 90
+        },
+        {
+          "elementId": "order",
+          "x": 60,
+          "y": 300
+        },
+        {
+          "elementId": "return-request",
+          "x": 370,
+          "y": 300
+        }
+      ],
+      "relationIds": [
+        "returns-open",
+        "returns-submit",
+        "returns-check-order",
+        "returns-create"
+      ]
+    },
+    {
+      "id": "returns-flow",
+      "name": "Flusso rimborso",
+      "kind": "activity",
+      "featureId": "returns",
+      "nodes": [
+        {
+          "elementId": "return-review",
+          "x": 60,
+          "y": 90
+        },
+        {
+          "elementId": "return-refund",
+          "x": 370,
+          "y": 90
+        },
+        {
+          "elementId": "return-denied",
+          "x": 680,
+          "y": 90
+        }
+      ],
+      "relationIds": [
+        "returns-allow",
+        "returns-deny"
+      ]
+    },
+    {
+      "id": "returns-sequence",
+      "name": "Sequenza reso",
+      "kind": "sequence",
+      "featureId": "returns",
+      "nodes": [
+        {
+          "elementId": "customer",
+          "x": 60,
+          "y": 90
+        },
+        {
+          "elementId": "returns-view",
+          "x": 370,
+          "y": 90
+        },
+        {
+          "elementId": "returns-controller",
+          "x": 680,
+          "y": 90
+        },
+        {
+          "elementId": "order",
+          "x": 60,
+          "y": 300
+        },
+        {
+          "elementId": "return-request",
+          "x": 370,
+          "y": 300
+        }
+      ],
+      "relationIds": [
+        "returns-open",
+        "returns-submit",
+        "returns-check-order",
+        "returns-create"
+      ]
+    },
+    {
+      "id": "returns-state",
+      "name": "Stati richiesta di reso",
+      "kind": "state",
+      "featureId": "returns",
+      "nodes": [
+        {
+          "elementId": "return-request",
+          "x": 60,
+          "y": 90
+        },
+        {
+          "elementId": "return-pending",
+          "x": 370,
+          "y": 90
+        },
+        {
+          "elementId": "return-approved",
+          "x": 680,
+          "y": 90
+        },
+        {
+          "elementId": "return-refunded",
+          "x": 60,
+          "y": 300
+        },
+        {
+          "elementId": "return-rejected",
+          "x": 370,
+          "y": 300
+        }
+      ],
+      "relationIds": [
+        "return-authorize",
+        "return-paid",
+        "return-reject"
       ]
     }
   ]
