@@ -190,17 +190,126 @@
 }
 
 .ade-sidebar .ade-diagram-group {
-	margin-block: var(--vscode-spacing-size240);
+	margin-block: var(--vscode-spacing-size60);
+	border: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	border-radius: var(--vscode-cornerRadius-medium);
+	overflow: hidden;
 }
 
 .ade-sidebar .ade-navigation-group > summary {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	list-style: none;
+	margin: 0;
+	padding: var(--vscode-spacing-size60);
+	min-height: 32px;
 	background: transparent;
 	font-weight: var(--vscode-fontWeight-semiBold);
 	overflow-wrap: anywhere;
 }
 
+.ade-sidebar .ade-navigation-group > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ade-sidebar .ade-navigation-group > summary:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.ade-sidebar .ade-navigation-group[open] > summary > .ade-nav-chevron {
+	transform: rotate(90deg);
+}
+
+.ade-sidebar .ade-nav-label {
+	flex: 1;
+	min-width: 0;
+}
+
+.ade-nav-count {
+	flex-shrink: 0;
+	padding: 0 var(--vscode-spacing-size60);
+	border-radius: var(--vscode-cornerRadius-circle);
+	color: var(--vscode-badge-foreground);
+	background: var(--vscode-badge-background);
+	font-size: var(--vscode-fontSize-body2);
+	font-weight: var(--vscode-fontWeight-regular);
+}
+
+.ade-sidebar .ade-navigation-group[data-level="feature"] > summary {
+	background: var(--vscode-editor-background);
+}
+
+.ade-sidebar .ade-navigation-group[data-level="category"] > summary {
+	font-size: var(--vscode-fontSize-label1);
+	font-weight: var(--vscode-fontWeight-regular);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-sidebar .ade-navigation-group[data-kind="structure"] > summary > .codicon:not(.ade-nav-chevron) {
+	color: var(--vscode-symbolIcon-classForeground);
+}
+
+.ade-sidebar .ade-navigation-group[data-kind="activity"] > summary > .codicon:not(.ade-nav-chevron) {
+	color: var(--vscode-symbolIcon-methodForeground);
+}
+
+.ade-sidebar .ade-navigation-group[data-kind="sequence"] > summary > .codicon:not(.ade-nav-chevron) {
+	color: var(--vscode-symbolIcon-interfaceForeground);
+}
+
+.ade-sidebar .ade-navigation-group[data-kind="state"] > summary > .codicon:not(.ade-nav-chevron) {
+	color: var(--vscode-symbolIcon-enumForeground);
+}
+
 .ade-sidebar .ade-navigation-group-content {
-	padding-inline-start: var(--vscode-spacing-size120);
+	padding-inline-start: var(--vscode-spacing-size80);
+}
+
+.ade-sidebar .ade-navigation-group[data-level="system"] > .ade-navigation-group-content {
+	padding-inline-start: 0;
+}
+
+.ade-sidebar .ade-diagram-entry,
+.ade-sidebar .ade-sidebar-navigation button {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	margin: 0;
+	padding: var(--vscode-spacing-size60) var(--vscode-spacing-size80);
+	min-height: 32px;
+}
+
+.ade-sidebar .codicon {
+	flex-shrink: 0;
+}
+
+.ade-sidebar .ade-diagram-entry[aria-current="true"] {
+	border-inline-start: 2px solid var(--vscode-focusBorder);
+}
+
+.ade-sidebar .ade-sidebar-navigation {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--vscode-spacing-size40);
+	margin-bottom: var(--vscode-spacing-size80);
+}
+
+.ade-sidebar .ade-sidebar-navigation > button:last-child {
+	grid-column: 1 / -1;
+	border-color: var(--vscode-panel-border);
+}
+
+.ade-sidebar .ade-feature-options > summary {
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	margin-block: var(--vscode-spacing-size20);
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-sidebar button:disabled {
+	color: var(--vscode-disabledForeground);
+	cursor: default;
 }
 
 .ade-project-shortcuts {
@@ -391,43 +500,379 @@
 	overflow-y: auto;
 }
 
-.ade-shell .ade-system-map {
-	display: grid;
-	align-items: start;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-	gap: var(--vscode-spacing-size240);
-	margin-block: var(--vscode-spacing-size240);
+.ade-kind-badge {
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+	font-weight: var(--vscode-fontWeight-regular);
 }
 
-.ade-shell .ade-map-branch {
+.ade-system-atlas {
 	min-width: 0;
 	overflow-wrap: anywhere;
+}
+
+.ade-system-atlas h2,
+.ade-system-atlas h3 {
+	font-size: var(--vscode-fontSize-heading3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	margin: 0;
+}
+
+.ade-system-atlas p {
+	margin: 0;
+}
+
+.ade-atlas-counts,
+.ade-atlas-muted,
+.ade-atlas-node small,
+.ade-atlas-diagram small,
+.ade-atlas-filters small,
+.ade-atlas-context p,
+.ade-atlas-relation small {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-atlas-counts {
+	margin-block: var(--vscode-spacing-size120) !important;
+}
+
+.ade-shell .ade-system-atlas button {
+	max-width: 100%;
+	min-width: 0;
+	margin: 0;
+	color: var(--vscode-editor-foreground);
+	background: transparent;
+	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-system-atlas button:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.ade-shell .ade-system-atlas button:disabled {
+	color: var(--vscode-disabledForeground);
+	background: transparent;
+}
+
+.ade-shell .ade-system-atlas button .codicon {
+	font-size: var(--vscode-codiconFontSize);
+	flex: 0 0 var(--vscode-codiconFontSize);
+}
+
+.ade-atlas-search {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	margin-block: var(--vscode-spacing-size160);
+	border: var(--vscode-strokeThickness) solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small);
+	color: var(--vscode-input-foreground);
+	background: var(--vscode-input-background);
+}
+
+.ade-atlas-search label {
+	position: absolute;
+	clip-path: inset(50%);
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+.ade-atlas-search input {
+	flex: 1;
+	min-width: 0;
+	padding: var(--vscode-spacing-size40);
+	border: 0;
+	font: inherit;
+	color: inherit;
+	background: transparent;
+}
+
+.ade-atlas-search input:focus-visible {
+	outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+}
+
+.ade-atlas-breadcrumbs,
+.ade-atlas-filters,
+.ade-atlas-scope,
+.ade-atlas-pager,
+.ade-atlas-legend,
+.ade-atlas-column > header {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-atlas-breadcrumbs {
+	margin-block: var(--vscode-spacing-size80);
+}
+
+.ade-shell .ade-atlas-breadcrumbs button {
+	color: var(--vscode-textLink-foreground);
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+}
+
+.ade-shell .ade-atlas-breadcrumbs button[aria-current="page"] {
+	color: var(--vscode-editor-foreground);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-atlas-filters {
+	margin-block: var(--vscode-spacing-size120);
+}
+
+.ade-shell .ade-atlas-filters button {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	border-color: var(--vscode-contrastBorder, var(--vscode-panel-border));
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+}
+
+.ade-atlas-filters button > span {
+	min-width: 0;
+}
+
+.ade-atlas-scope {
+	justify-content: space-between;
+	padding-block: var(--vscode-spacing-size120);
+	border-block: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-atlas-scope > span,
+.ade-atlas-pager,
+.ade-atlas-legend,
+.ade-atlas-column > header > span,
+.ade-atlas-empty {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-atlas-canvas {
+	display: grid;
+	grid-template-columns: minmax(140px, .7fr) minmax(220px, 1.8fr) minmax(160px, .8fr);
+	align-items: start;
+	gap: var(--vscode-spacing-size400);
+	padding-block: var(--vscode-spacing-size200);
+	position: relative;
+}
+
+.ade-atlas-column {
+	min-width: 0;
+	position: relative;
+	z-index: 1;
+}
+
+.ade-atlas-column > header {
+	justify-content: space-between;
+	margin-bottom: var(--vscode-spacing-size120);
+}
+
+.ade-atlas-node-list {
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-atlas-node {
+	display: flex;
+	align-items: stretch;
+	min-width: 0;
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small);
+	background: var(--vscode-editor-background);
+}
+
+.ade-atlas-node.is-filtered {
+	border-color: var(--vscode-focusBorder);
+	background: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.ade-shell .ade-atlas-node button.ade-atlas-filter {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size120);
+	flex: 1;
+	color: var(--vscode-editor-foreground);
+	background: transparent;
+	border-color: transparent;
+}
+
+.ade-shell .ade-atlas-node button.ade-atlas-filter:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.ade-atlas-filter > .codicon {
+	color: var(--vscode-descriptionForeground);
+	margin-top: var(--vscode-spacing-size20);
+}
+
+.ade-atlas-node[data-kind="area"] .ade-atlas-filter > .codicon,
+.ade-atlas-node[data-kind="feature"] .ade-atlas-filter > .codicon {
+	color: var(--vscode-symbolIcon-eventForeground);
+}
+
+.ade-atlas-shared .ade-atlas-filter > .codicon {
+	color: var(--vscode-symbolIcon-variableForeground);
+}
+
+.ade-atlas-node-copy {
+	min-width: 0;
+}
+
+.ade-atlas-node-copy strong,
+.ade-atlas-node-copy small,
+.ade-atlas-diagram strong,
+.ade-atlas-diagram small {
+	display: block;
+}
+
+.ade-atlas-node-copy small,
+.ade-atlas-diagram small {
+	margin-top: var(--vscode-spacing-size40);
+}
+
+.ade-shell .ade-atlas-node button.ade-atlas-open {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 var(--vscode-spacing-size320);
+	padding: var(--vscode-spacing-size40);
+	margin: var(--vscode-spacing-size40);
+	border-color: transparent;
+	border-inline-start-color: var(--vscode-panel-border);
+	border-radius: 0;
+	color: var(--vscode-textLink-foreground);
+}
+
+.ade-atlas-pager {
+	margin-top: var(--vscode-spacing-size120);
+	font-variant-numeric: tabular-nums;
+}
+
+.ade-atlas-pager > span {
+	margin-inline-end: auto;
+}
+
+.ade-shell .ade-atlas-pager button {
+	display: flex;
+	align-items: center;
+	padding: var(--vscode-spacing-size40);
+	border-color: var(--vscode-contrastBorder, var(--vscode-panel-border));
+}
+
+.ade-atlas-lines {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	color: var(--vscode-editorInfo-foreground);
+}
+
+.ade-atlas-lines path {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1;
+}
+
+.ade-atlas-lines path[data-contextual="true"] {
+	stroke-dasharray: 4 4;
+}
+
+.ade-atlas-legend {
+	justify-content: space-between;
+	padding-block: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+}
+
+.ade-atlas-context {
 	padding: var(--vscode-spacing-size160);
-	border: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	background: var(--vscode-sideBar-background);
+	border-top: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
 	border-radius: var(--vscode-cornerRadius-medium);
 }
 
-.ade-shell .ade-map-branch button {
-	max-width: calc(100% - var(--vscode-spacing-size80));
-	box-sizing: border-box;
+.ade-atlas-context p {
+	margin-block: var(--vscode-spacing-size80);
 }
 
-.ade-shell .ade-map-branch h2 {
-	margin-block: 0;
+.ade-atlas-diagrams,
+.ade-atlas-results {
+	margin-block: var(--vscode-spacing-size160);
 }
 
-.ade-shell .ade-map-members {
-	list-style: none;
-	padding: 0;
+.ade-atlas-diagrams h2,
+.ade-atlas-results h2 {
+	margin-bottom: var(--vscode-spacing-size120);
 }
 
-.ade-shell .ade-map-members li {
-	overflow-wrap: anywhere;
+.ade-atlas-results .ade-atlas-node {
+	margin-block: var(--vscode-spacing-size80);
 }
 
-.ade-shell .ade-map-members span {
-	color: var(--vscode-descriptionForeground);
-	font-size: var(--vscode-fontSize-body2);
+.ade-shell .ade-atlas-diagram {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size120);
+	width: 100%;
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size80);
+}
+
+.ade-atlas-relation {
+	padding: var(--vscode-spacing-size120);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-atlas-relation > small {
+	display: block;
+	margin-block: var(--vscode-spacing-size40);
+}
+
+.ade-atlas-empty {
+	padding-block: var(--vscode-spacing-size200);
+}
+
+.ade-atlas-status {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	clip-path: inset(50%);
+	overflow: hidden;
+}
+
+@container (max-width: 760px) {
+	.ade-atlas-canvas {
+		display: flex;
+		flex-direction: column;
+		gap: var(--vscode-spacing-size200);
+	}
+
+	.ade-atlas-column {
+		width: 100%;
+	}
+
+	.ade-atlas-center {
+		order: -1;
+	}
+
+	.ade-atlas-lines {
+		display: none;
+	}
+}
+
+@media (pointer: coarse) {
+	.ade-shell .ade-system-atlas button {
+		min-height: 44px;
+	}
+
+	.ade-shell .ade-atlas-node button.ade-atlas-open {
+		flex-basis: 44px;
+	}
 }
 
 .ade-shell .ade-node {
@@ -1262,6 +1707,146 @@
 	margin: 0;
 	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
 	text-align: start;
+}
+
+.ade-code-page {
+	max-width: 1040px;
+	margin-inline: auto;
+}
+
+.ade-code-page > h1 {
+	margin-block: 0 var(--vscode-spacing-size80);
+}
+
+.ade-page-description,
+.ade-action-reason {
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.6;
+	overflow-wrap: anywhere;
+}
+
+.ade-code-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+	gap: var(--vscode-spacing-size160);
+}
+
+.ade-code-panel {
+	min-width: 0;
+	margin-block: var(--vscode-spacing-size160);
+	padding: var(--vscode-spacing-size200);
+	border: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.ade-code-grid > .ade-code-panel {
+	margin-block: 0;
+}
+
+.ade-code-panel > h2 {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size100);
+	margin-block: 0 var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-heading3);
+}
+
+.ade-code-panel > h2 > .codicon {
+	color: var(--vscode-textLink-foreground);
+}
+
+.ade-code-panel > p {
+	margin-block: var(--vscode-spacing-size80) var(--vscode-spacing-size160);
+}
+
+.ade-code-panel button {
+	max-width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.ade-code-primary {
+	background: var(--vscode-sideBar-background);
+	border-inline-start: 2px solid var(--vscode-focusBorder);
+}
+
+.ade-code-status {
+	padding: var(--vscode-spacing-size100) var(--vscode-spacing-size120);
+	border-inline-start: 2px solid var(--vscode-panel-border);
+	line-height: 1.6;
+	overflow-wrap: anywhere;
+}
+
+.ade-code-recovery {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+	gap: var(--vscode-spacing-size120);
+}
+
+.ade-code-recovery button {
+	width: 100%;
+	margin: 0;
+}
+
+.ade-code-panel .ade-action-reason {
+	font-size: var(--vscode-fontSize-body2);
+	margin-block: var(--vscode-spacing-size60) var(--vscode-spacing-size120);
+}
+
+.monaco-dialog-box:has(.ade-deletion-dialog) {
+	width: 640px;
+	min-width: min(360px, 90vw);
+	border-radius: var(--vscode-cornerRadius-large);
+}
+
+.monaco-dialog-box:has(.ade-deletion-details) {
+	width: 760px;
+}
+
+.ade-deletion-dialog {
+	font-size: var(--vscode-fontSize-body1);
+	line-height: 1.6;
+	overflow-wrap: anywhere;
+}
+
+.ade-deletion-summary ul {
+	padding-block: var(--vscode-spacing-size120);
+	margin-block: var(--vscode-spacing-size80);
+	border-block: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-deletion-summary li {
+	margin-block: var(--vscode-spacing-size80);
+}
+
+.ade-deletion-summary > p:last-child {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-deletion-report {
+	max-height: 52vh;
+	overflow-y: auto;
+	padding-inline-end: var(--vscode-spacing-size120);
+}
+
+.ade-deletion-report h3 {
+	font-size: var(--vscode-fontSize-heading3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	margin-block: var(--vscode-spacing-size200) var(--vscode-spacing-size80);
+	padding-bottom: var(--vscode-spacing-size80);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-deletion-report h3:first-child {
+	margin-top: 0;
+}
+
+.ade-deletion-report li {
+	margin-block: var(--vscode-spacing-size120);
+}
+
+.ade-deletion-report li > p {
+	margin-block: var(--vscode-spacing-size40);
 }
 
 .ade-menu-group {

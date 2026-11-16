@@ -85,7 +85,8 @@ for (const [id, title] of [
 			const project = accessor.get(IAdeProjectService);
 			if (id === 'showSystemMap') { project.showSystemMap(); }
 			else if (id === 'goBack') { project.goBack(); } else { project.goForward(); }
-			await accessor.get(IEditorService).openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+			const pane = await accessor.get(IEditorService).openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+			if (pane instanceof AdeEditor) { pane.showWorkspace(); }
 		}
 	});
 }

@@ -49,7 +49,15 @@ suite('A.D.E sidebar project shortcuts', () => {
 		const f = fixture();
 		for (const button of f.buttons()) { button.click(); }
 		await Promise.resolve();
-		assert.deepStrictEqual({ actions: f.buttons().map(button => button.textContent), commands: f.commands, hasCodeActions: root.textContent?.includes('Update Codebase'), title: root.querySelector('.ade-navigation-group > summary')?.textContent }, { actions: ['Add Feature', 'Add Diagram'], commands: ['ade.addFeature', 'ade.addDiagram'], hasCodeActions: false, title: 'ecommerce-ade' });
+		assert.deepStrictEqual({ actions: f.buttons().map(button => button.textContent), commands: f.commands, hasCodeActions: root.textContent?.includes('Update Codebase'), title: root.querySelector('.ade-navigation-group > summary .ade-nav-label')?.textContent }, { actions: ['Add Feature', 'Add Diagram'], commands: ['ade.addFeature', 'ade.addDiagram'], hasCodeActions: false, title: 'ecommerce-ade' });
+	});
+
+	test('System Map stays directly reachable while the project is collapsed', async () => {
+		const f = fixture();
+		root.querySelector<HTMLDetailsElement>('.ade-navigation-group')!.open = false;
+		const map = root.querySelector<HTMLButtonElement>('.ade-sidebar-navigation button[aria-current]')!;
+		map.click(); await Promise.resolve();
+		assert.deepStrictEqual({ label: map.textContent, hiddenInOptions: !!map.closest('details'), commands: f.commands }, { label: 'System Map', hiddenInOptions: false, commands: ['ade.showSystemMap'] });
 	});
 
 	test('busy state blocks creation and preserves the collapsed project', () => {

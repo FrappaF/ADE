@@ -30,6 +30,10 @@ import { AccessibilityVerbositySettingId } from '../../accessibility/browser/acc
 import { IAdeAiService } from './adeAiService.js';
 import { IAdeCodeService } from './adeCodeService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
+import { type ThemeIcon } from '../../../../base/common/themables.js';
+import { diagramIcon, prependAdeIcon } from './adeIcons.js';
 
 export const ADE_VIEW_CONTAINER_ID = 'workbench.view.ade';
 export const ADE_VIEW_ID = 'ade.systemFeatures';
@@ -115,12 +119,16 @@ export class AdeView extends ViewPane {
 		}
 	}
 
-	private group(parent: HTMLElement, id: string, title: string): HTMLElement {
+	private group(parent: HTMLElement, id: string, title: string, icon: ThemeIcon = Codicon.folder, count?: number): HTMLElement {
 		const collapsed = this.collapsed.get(this.groupContext)!;
 		const details = dom.append(parent, dom.$<HTMLDetailsElement>('details.ade-navigation-group'));
 		details.open = !collapsed.has(id);
 		const summary = dom.append(details, dom.$('summary'));
-		summary.textContent = title;
+		details.dataset.level = id === 'system' ? 'system' : id.startsWith('feature:') ? 'feature' : 'category';
+		const chevron = renderIcon(Codicon.chevronRight); chevron.classList.add('ade-nav-chevron'); chevron.setAttribute('aria-hidden', 'true'); summary.append(chevron);
+		const glyph = renderIcon(icon); glyph.setAttribute('aria-hidden', 'true'); summary.append(glyph);
+		dom.append(summary, dom.$('span.ade-nav-label')).textContent = title;
+		if (count !== undefined) { const badge = dom.append(summary, dom.$('span.ade-nav-count')); badge.textContent = String(count); badge.setAttribute('aria-hidden', 'true'); summary.setAttribute('aria-label', localize('ade.navigation.diagramCount', "{0}, {1} diagrams", title, count)); }
 		this.controls.trackFocus(id, summary);
 		this.groups.set(id, details);
 		this.groupListeners.add(dom.addDisposableListener(details, 'toggle', () => {
@@ -135,6 +143,8 @@ export class AdeView extends ViewPane {
 			void this.commandService.executeCommand('ade.showDiagram');
 		}, id);
 		button.setAttribute('aria-current', String(this.project.section === 'diagram' && view.id === this.project.activeView?.id));
+		button.classList.add('ade-diagram-entry');
+		prependAdeIcon(button, diagramIcon(view.kind));
 	}
 
 
@@ -154,8 +164,12 @@ export class AdeView extends ViewPane {
 		body.setAttribute('aria-description', getAdeAccessibilityHint(this.configurationService, this.keybindingService));
 		this.controls.render(body, () => {
 			dom.clearNode(body);
-			const toolbar = dom.append(body, dom.$('div.ade-outline-tools'));
-			this.controls.button(toolbar, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search').catch(error => this.notifications.error(error)); }).disabled = this.project.loading || !!this.project.error;
+			const toolbar = dom.append(body, dom.$('div.ade-outline-tools.ade-sidebar-navigation'));
+			prependAdeIcon(this.controls.button(toolbar, localize('ade.home', "Home"), () => { void this.commandService.executeCommand('ade.showHome').catch(error => this.notifications.error(error)); }), Codicon.home);
+			const map = this.controls.button(toolbar, localize('ade.systemMap', "System Map"), () => { void this.commandService.executeCommand('ade.showSystemMap').catch(error => this.notifications.error(error)); });
+			map.disabled = this.project.loading || !!this.project.error; map.setAttribute('aria-current', String(this.project.section === 'map')); prependAdeIcon(map, Codicon.typeHierarchy);
+			const search = this.controls.button(toolbar, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search').catch(error => this.notifications.error(error)); });
+			search.disabled = this.project.loading || !!this.project.error; prependAdeIcon(search, Codicon.search);
 			if (this.project.editable && !isSourceEvidenceModel(model)) {
 				const create = this.controls.details(toolbar, localize('ade.outline.new', "New"), 'outline-new');
 				for (const [label, command] of [[localize('ade.addFeature', "Add Feature"), 'ade.addFeature'], [localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram']]) {
@@ -169,7 +183,7 @@ export class AdeView extends ViewPane {
 				this.controls.button(body, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
 				return;
 			}
-			const project = this.group(body, 'system', model.name);
+			const project = this.group(body, 'system', model.name, Codicon.server);
 			if (this.project.hasStructuralErrors) {
 				dom.append(body, dom.$('p')).textContent = localize('ade.draft.navigation', "Correct the Draft Specification to Restore Diagram Navigation. Saving and Undo Remain Available.");
 				this.controls.button(body, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); });
@@ -183,9 +197,12 @@ export class AdeView extends ViewPane {
 				if (!group.featureId && !group.views.length && model.views.length) { continue; }
 				const section = dom.append(project, dom.$('section.ade-diagram-group'));
 				section.setAttribute('aria-label', group.name);
-				const context = group.featureId ? this.group(section, `feature:${group.featureId}`, group.name) : section;
+				const feature = model.semantics.elements.find(element => element.id === group.featureId);
+				const related = feature ? getFeatureViews(model, feature).filter(view => !group.views.some(owned => owned.id === view.id)) : [];
+				const context = group.featureId ? this.group(section, `feature:${group.featureId}`, group.name, Codicon.symbolEvent, group.views.length + related.length) : section;
 				if (this.project.editable && group.featureId) {
 					const actions = this.controls.details(context, localize('ade.featureOptions', "Feature Options"), `feature-options:${group.featureId}`);
+					actions.parentElement?.classList.add('ade-feature-options');
 					for (const [label, command] of [
 						[localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram'],
 						[localize('ade.renameFeature', "Rename Feature"), 'ade.renameFeature'],
@@ -194,13 +211,12 @@ export class AdeView extends ViewPane {
 						this.controls.button(actions, label, () => { void this.commandService.executeCommand(command, group.featureId); }, `${command}:${group.featureId}`);
 					}
 				}
-				const feature = model.semantics.elements.find(element => element.id === group.featureId);
-				const related = feature ? getFeatureViews(model, feature).filter(view => !group.views.some(owned => owned.id === view.id)) : [];
 				if (!group.views.length && !related.length) {
 					dom.append(context, dom.$('p')).textContent = localize('ade.noGroupDiagrams', "No diagrams in this context.");
 				}
 				for (const [kind, views] of Map.groupBy(group.views, view => view.kind)) {
-					const category = this.group(context, `${group.featureId ?? 'system'}:${kind}`, viewLabels[kind]);
+					const category = this.group(context, `${group.featureId ?? 'system'}:${kind}`, viewLabels[kind], diagramIcon(kind), views.length);
+					category.parentElement!.dataset.kind = kind;
 					for (const view of views) {
 						this.diagramButton(category, view);
 					}

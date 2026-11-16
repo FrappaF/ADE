@@ -35,7 +35,9 @@ import { AccessibilityVerbositySettingId } from '../../accessibility/browser/acc
 import { adeFocusedSurface, getAdeAccessibilityHint } from './adeAccessibilityContext.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 import { getDiagramGroups, getElementPath, getProjectedInteraction } from '../common/visualNavigation.js';
-import { getSystemMap } from '../common/systemMap.js';
+import { createSystemAtlasState, SystemAtlas, type SystemAtlasState } from '../common/systemAtlas.js';
+import { renderAdeSystemMap } from './adeSystemMap.js';
+import { prependAdeIcon } from './adeIcons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
@@ -79,6 +81,10 @@ export class AdeEditor extends EditorPane {
 	private readonly scrollPositions = new Map<string, { left: number; top: number }>();
 
 	private readonly contentPositions = new Map<string, number>();
+
+	private readonly mapStates = new Map<string, SystemAtlasState>();
+
+	private mapAtlas: SystemAtlas | undefined;
 
 	protected override createEditor(parent: HTMLElement): void {
 		this.root = dom.append(parent, dom.$('.ade-shell'));
@@ -148,7 +154,7 @@ export class AdeEditor extends EditorPane {
 		this.canvas.floatingMenu = undefined;
 		this.canvas.floatingInspector = undefined;
 		this.activeReview = undefined;
-		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
+		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.activeTab}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
 		const reviewContext = this.ai.structuralReview ? `${this.ai.structuralReview.root}:${this.ai.structuralReview.id}` : undefined;
 		if (reviewContext !== this.reviewContext) { this.reviewOpen = !!reviewContext; this.reviewContext = reviewContext; if (reviewContext) { this.activeTab = 'workspace'; } }
 		const reviewMode = this.activeTab === 'workspace' && (!!this.ai.diagramReview || this.reviewOpen && !!this.ai.structuralReview && this.project.section !== 'home') && !this.project.error && !this.project.loading;
@@ -169,8 +175,7 @@ export class AdeEditor extends EditorPane {
 			content.setAttribute('role', 'region'); content.setAttribute('aria-label', this.activeTab === 'code' ? localize('ade.code.title', "Code") : this.activeTab === 'project' ? localize('ade.project.settingsTitle', "Project Settings") : this.activeTab === 'ai' ? localize('ade.ai.settings', "AI Settings") : localize('ade.workspaceTab', "Diagrams"));
 			if (this.activeTab === 'workspace' && !reviewMode && !canvasMode && !sourceEvidence && this.project.section !== 'home' && !this.project.error && !this.project.loading) { this.workflow.renderWorkflow(content); }
 			if (this.activeTab === 'code') {
-				this.workflow.renderCodeActions(content);
-				this.renderPrimaryActions(this.controls.details(content, localize('ade.code.reviewOptions', "Review and Verification"), 'code-review-actions'));
+				this.workflow.renderCodeActions(content, () => { this.activeTab = 'project'; this.render(); }, parent => this.renderPrimaryActions(parent, true));
 			} else if (this.activeTab === 'project') {
 				this.workflow.renderProjectActions(content);
 			} else if (this.activeTab === 'ai') {
@@ -241,6 +246,10 @@ export class AdeEditor extends EditorPane {
 		}
 		const trailing = dom.append(bar, dom.$('div.ade-workspace-trailing'));
 		if (this.project.section !== 'home' && this.project.model.views.length) { this.button(trailing, localize('ade.diagrams', "Diagrams"), () => { void this.commandService.executeCommand('ade.toggleNavigation'); }, 'workspace-navigation'); }
+		if (this.project.section !== 'home' && !this.project.loading && !this.project.error) {
+			const map = this.button(trailing, localize('ade.systemMap', "System Map"), () => { this.activeTab = 'workspace'; this.project.showSystemMap(); }, 'workspace-map');
+			prependAdeIcon(map, Codicon.typeHierarchy); map.setAttribute('aria-current', String(this.project.section === 'map'));
+		}
 		if (this.project.section !== 'home' && !this.project.loading && !this.project.error && (this.project.model.semantics.elements.length > 0 || !!this.code.context)) {
 			const code = this.button(trailing, localize('ade.code.title', "Code"), () => { this.controls.setExpanded('workspace-project-menu', false); this.activeTab = 'code'; this.render(); }, 'workspace-code');
 			code.setAttribute('aria-pressed', String(this.activeTab === 'code'));
@@ -257,17 +266,19 @@ export class AdeEditor extends EditorPane {
 		this.iconButton(navigation, localize('ade.home', "Home"), Codicon.home, () => { this.activeTab = 'workspace'; this.project.showHome(); });
 		if (!canvas && this.project.section !== 'home' && !this.project.error && !this.project.loading) {
 			dom.append(navigation, dom.$('span.ade-project-name')).textContent = this.project.model.name;
+			const map = this.button(navigation, localize('ade.systemMap', "System Map"), () => { this.activeTab = 'workspace'; this.project.showSystemMap(); });
+			prependAdeIcon(map, Codicon.typeHierarchy); map.setAttribute('aria-current', String(this.project.section === 'map'));
 			this.button(navigation, localize('ade.diagrams', "Diagrams"), () => { void this.chooseDiagram(); }).disabled = isSourceEvidenceModel(this.project.model);
 		}
 	}
 
-	private renderPrimaryActions(parent: HTMLElement): void {
+	private renderPrimaryActions(parent: HTMLElement, contextOnly = false): void {
 		if (this.project.error || this.project.loading || this.root.classList.contains('ade-review-mode')) { return; }
 		const busy = this.ai.busy || this.code.busy;
 		const model = this.project.model;
-		if (this.ai.structuralReview) {
+		if (!contextOnly && this.ai.structuralReview) {
 			if (!this.reviewOpen) { this.button(parent, localize('ade.ai.reviewButton', "Review Changes"), () => this.showReview()).classList.add('ade-primary-action'); }
-		} else if ((model.version === 4 || model.version === 5) && this.project.modelUri?.path.endsWith('/.ade/model.json') && model.semantics.elements.length) {
+		} else if (!contextOnly && (model.version === 4 || model.version === 5) && this.project.modelUri?.path.endsWith('/.ade/model.json') && model.semantics.elements.length) {
 			let generationReady = false;
 			try { assertPureProject(model); generationReady = true; } catch { /* Incomplete designs remain editable, without promising code generation. */ }
 			const reason = !this.ai.available || !this.code.available ? localize('ade.generation.unavailable', "Local code generation and verification are unavailable in this environment.") : !this.project.editable ? localize('ade.generation.readonly', "Open a writable project to prepare code changes.") : busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : localize('ade.generation.requirements', "Complete the Executable Behavior in Project Settings Before Preparing a Local Code Review.");
@@ -406,56 +417,21 @@ export class AdeEditor extends EditorPane {
 
 	private renderSystemMap(content: HTMLElement): void {
 		const model = this.project.model;
-		const overview = getSystemMap(model);
-		const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
 		dom.append(content, dom.$('h1')).textContent = model.name;
-		this.paragraph(content, localize('ade.map.intent', "System Map · Design intent. Groups follow semantic containment; connections summarize declared relationships."));
+		this.paragraph(content, localize('ade.map.intent', "System Map · Layered Atlas. Filter by actors, areas, features and elements; use the arrows to explore their contents."));
 		this.surface.renderEditingToolbar(content);
 		if (this.project.saveError) { const error = dom.append(content, dom.$('p')); error.setAttribute('role', 'alert'); error.textContent = this.project.saveError; }
 		for (const diagnostic of this.project.diagnostics) { this.paragraph(content, diagnostic); }
-		this.paragraph(content, localize('ade.map.counts', "{0} elements · {1} relationships · {2} diagrams", elements.size, model.semantics.relations.length, model.views.length));
-		if (!overview.branches.length) { this.paragraph(content, localize('ade.map.empty', "This system has no elements. Add a feature to begin.")); }
-		const groups = dom.append(content, dom.$('.ade-system-map'));
-		const diagrams = getDiagramGroups(model);
-		for (const branch of overview.branches) {
-			const card = dom.append(groups, dom.$('section.ade-map-branch'));
-			card.setAttribute('aria-label', branch.root.name);
-			const heading = dom.append(card, dom.$('h2'));
-			this.button(heading, branch.root.name, () => this.project.inspectElement(branch.root.id), `map:${branch.root.id}`);
-			this.paragraph(card, elementLabels[branch.root.kind]);
-			const members = dom.append(card, dom.$('ul.ade-map-members'));
-			for (const member of branch.members.slice(1)) {
-				const row = dom.append(members, dom.$('li'));
-				row.style.marginInlineStart = `${Math.min(member.depth - 1, 5)}em`;
-				this.button(row, member.element.name, () => this.project.inspectElement(member.element.id), `map:${member.element.id}`);
-				dom.append(row, dom.$('span')).textContent = elementLabels[member.element.kind];
-			}
-			const memberIds = new Set(branch.members.map(member => member.element.id));
-			const views = diagrams.filter(group => group.featureId && memberIds.has(group.featureId)).flatMap(group => group.views);
-			for (const view of views) { this.button(card, view.name, () => this.project.showDiagram(view.id), `map-view:${view.id}`); }
-		}
-		const shared = diagrams.find(group => !group.featureId)?.views ?? [];
-		if (shared.length) {
-			dom.append(content, dom.$('h2')).textContent = localize('ade.map.systemDiagrams', "System Diagrams");
-			for (const view of shared) { this.button(content, view.name, () => this.project.showDiagram(view.id), `map-view:${view.id}`); }
-		}
-		dom.append(content, dom.$('h2')).textContent = localize('ade.map.connections', "Connections Between Groups");
-		if (!overview.connections.length) { this.paragraph(content, localize('ade.map.noConnections', "No declared relationships.")); }
-		for (const connection of overview.connections) {
-			const from = elements.get(connection.from)!;
-			const to = elements.get(connection.to)!;
-			const label = from.id === to.id
-				? localize('ade.map.internal', "Within {0} ({1})", from.name, connection.relations.length)
-				: localize('ade.map.connection', "{0} → {1} ({2})", from.name, to.name, connection.relations.length);
-			const details = this.controls.details(content, label, `map-connection:${JSON.stringify([from.id, to.id])}`);
-			for (const relation of connection.relations) {
-				this.paragraph(details, localize('ade.map.relation', "{0} → {1}: {2} · {3}", elements.get(relation.from)!.name, elements.get(relation.to)!.name, relationLabels[relation.kind], relation.name));
-				if (relation.condition) { this.paragraph(details, localize('ade.map.condition', "Condition: {0}", relation.condition)); }
-				if (relation.errorCode) { this.paragraph(details, localize('ade.map.error', "Error: {0}", relation.errorCode)); }
-				this.button(details, localize('ade.map.source', "Source: {0}", elements.get(relation.from)!.name), () => this.project.inspectElement(relation.from), `map-source:${relation.id}`);
-				this.button(details, localize('ade.map.target', "Target: {0}", elements.get(relation.to)!.name), () => this.project.inspectElement(relation.to), `map-target:${relation.id}`);
-			}
-		}
+		const key = `${this.project.modelUri?.toString() ?? 'demo'}:${model.id}`;
+		if (this.mapAtlas?.model !== model) { this.mapAtlas = new SystemAtlas(model); }
+		const state = this.mapAtlas.normalizeState(this.mapStates.get(key) ?? createSystemAtlasState());
+		this.mapStates.set(key, state);
+		renderAdeSystemMap(content, this.mapAtlas, this.controls, this.canvas.interactions, {
+			state,
+			change: next => { this.mapStates.set(key, next); this.render(); },
+			element: id => this.project.inspectElement(id),
+			diagram: id => this.project.showDiagram(id)
+		});
 	}
 
 	private renderBreadcrumbs(parent: HTMLElement): void {
