@@ -47,7 +47,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 		await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 		await entered; args[1] = sourceRoot;
 		await shell.getByRole('heading', { name: 'Create Diagrams from Your Code', exact: true }).waitFor({ timeout: 90000 });
-		assert.equal(await shell.locator('.ade-node, .ade-map-branch').count(), 0);
+		assert.equal(await shell.locator('.ade-node, .ade-atlas-node').count(), 0);
 		await runCommand(window, 'A.D.E: Show Diagram Navigation');
 		const sidebar = window.locator('.ade-sidebar');
 		await sidebar.getByText('Source Evidence Ready.', { exact: false }).waitFor();
@@ -170,7 +170,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 		await enteredWorkspace;
 		await shell.getByRole('heading', { name: 'Create Diagrams from Your Code', exact: true }).waitFor({ timeout: 90000 });
-		assert.equal(await shell.locator('.ade-node, .ade-map-branch').count(), 0, 'The index is never presented as finished diagrams');
+		assert.equal(await shell.locator('.ade-node, .ade-atlas-node').count(), 0, 'The index is never presented as finished diagrams');
 		assert.equal(await shell.getByRole('button', { name: 'Update Code', exact: true }).isDisabled(), true);
 		const snapshot = async () => {
 			const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
