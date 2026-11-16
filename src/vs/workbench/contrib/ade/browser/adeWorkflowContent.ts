@@ -16,6 +16,8 @@ import { viewLabels } from './adeLabels.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
 import { type CodeDiagramExploration } from '../common/codeBridge.js';
+import { renderAdeCodeActions } from './adeCodeActions.js';
+import { assertPureProject } from '../common/modelProject.js';
 
 interface AdeWorkflowContentHost {
 	paragraph(parent: HTMLElement, content: string): void;
@@ -185,40 +187,36 @@ export class AdeWorkflowContent {
 		status.setAttribute('role', 'status'); status.textContent = this.host.documentStatus();
 	}
 
-	renderCodeActions(parent: HTMLElement): void {
-		dom.append(parent, dom.$('h1')).textContent = localize('ade.code.title', "Code");
-		const commands = (container: HTMLElement, entries: readonly (readonly [string, string])[]) => {
-			for (const [label, command] of entries) { this.host.button(container, label, () => { void this.commandService.executeCommand(command); }); }
-		};
-		if (this.project.error || this.project.loading) { return; }
-		const codeUpdate = this.group(parent, localize('ade.codeUpdate.group', "Codebase from Diagrams"));
-		const update = this.host.button(codeUpdate, localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), () => { void this.ai.updateCodebase(); }); update.disabled = this.ai.busy || this.code.busy || !this.project.editable || !this.project.projectRoot || this.project.hasStructuralErrors || !this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true;
-		update.classList.add('ade-primary-action');
-		if (this.code.context) {
-			const evidence = this.group(parent, localize('ade.code.sources', "Source Code"));
-			this.host.button(evidence, localize('ade.code.inspectButton', "Code Evidence"), () => { void this.code.inspect(); }).disabled = this.code.busy;
-			this.host.button(evidence, localize('ade.shortcuts.update', "Update Diagrams from Codebase"), () => { void this.commandService.executeCommand('ade.ai.updateDiagrams'); }).disabled = this.ai.busy || this.code.busy;
-		}
-		if (this.ai.structuralReview) { this.host.button(parent, localize('ade.ai.reviewButton', "Review Changes"), () => this.host.showReview()); }
+	renderCodeActions(parent: HTMLElement, settings: () => void, reviewActions?: (container: HTMLElement) => void): void {
+		const busy = this.ai.busy || this.code.busy;
+		const reason = this.project.loading || this.project.error ? localize('ade.code.waitForProject', "Open a valid project before using code actions.") : busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : !this.project.editable ? localize('ade.generation.readonly', "Open a writable project to prepare code changes.") : this.project.hasStructuralErrors ? localize('ade.code.correctModel', "Correct the draft specification in Project Settings first.") : undefined;
+		const aiReason = reason ?? (this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true ? localize('ade.ai.disabled', "AI Features Are Disabled in Settings.") : !this.ai.available ? localize('ade.code.aiUnavailable', "Connect an AI provider in AI Settings to prepare code changes.") : undefined);
+		const structuralReason = reason ?? (!this.ai.available || !this.code.available ? localize('ade.generation.unavailable', "Local code generation and verification are unavailable in this environment.") : !this.project.projectRoot ? localize('ade.codeUpdate.saveFirst', "Open or Save a Project Before Updating Its Codebase.") : this.project.model.version !== 4 && this.project.model.version !== 5 ? localize('ade.code.executableModel', "This action requires a project with executable behavior. Configure the model in Project Settings.") : undefined);
+		let executable = false;
+		try { const model = this.project.model; if (model.version === 4 || model.version === 5) { assertPureProject(model); executable = true; } } catch { /* The settings action remains available for incomplete designs. */ }
+		const action = (label: string, run: () => Promise<void>, reason?: string) => ({ label, reason, run: () => { void run().catch(error => this.notifications.error(String(error.message ?? error))); } });
+		const recovery = [
+			action(localize('ade.pure.resume', "Resume Model Behavior Review"), () => this.ai.structuralResume(), structuralReason),
+			action(localize('ade.pure.recover', "Recover Model Behavior Publication"), () => this.ai.structuralRecover(), structuralReason),
+			action(localize('ade.ai.resumeButton', "Resume Implementation"), () => this.ai.resume(), aiReason),
+			action(localize('ade.ai.recoverButton', "Recover Interrupted Implementation"), () => this.ai.recover(), aiReason),
+			action(localize('ade.undoSync', "Undo Last Sync"), () => this.commandService.executeCommand('ade.undoSync'), reason ?? (!this.code.context ? localize('ade.code.noSync', "Open a project linked to a codebase to manage synchronization.") : undefined)),
+			action(localize('ade.recoverSync', "Recover Sync"), () => this.commandService.executeCommand('ade.restoreCodeSnapshot'), reason ?? (!this.code.context ? localize('ade.code.noSync', "Open a project linked to a codebase to manage synchronization.") : undefined))
+		];
+		if (this.project.model.version !== 4 && this.project.model.version !== 5 && !isSourceEvidenceModel(this.project.model)) { recovery.push(action(localize('ade.syncProject', "Sync Project"), () => this.code.sync(), reason ?? (!this.code.context ? localize('ade.code.noSync', "Open a project linked to a codebase to manage synchronization.") : undefined))); }
+		renderAdeCodeActions(parent, this.controls, {
+			update: action(localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), () => this.ai.updateCodebase(), aiReason ?? (!this.project.projectRoot ? localize('ade.codeUpdate.saveFirst', "Open or Save a Project Before Updating Its Codebase.") : undefined)),
+			prepare: action(localize('ade.review.prepare', "Prepare Model to Code Review"), () => this.ai.implement(), structuralReason ?? (!executable ? localize('ade.code.behaviorRequired', "Complete the executable behavior and runtime in Project Settings to prepare a local code review.") : undefined)),
+			continuity: action(localize('ade.continuity.toggle', "Start or Stop Continuous Preparation"), () => this.ai.configureContinuity(), structuralReason),
+			continuityStatus: this.ai.continuityStatus,
+			review: this.ai.structuralReview ? { label: localize('ade.ai.reviewButton', "Review Changes"), run: () => this.host.showReview() } : undefined,
+			sources: this.code.context ? [
+				action(localize('ade.code.inspectButton', "Code Evidence"), () => this.code.inspect(), this.code.busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : undefined),
+				action(localize('ade.shortcuts.update', "Update Diagrams from Codebase"), () => this.commandService.executeCommand('ade.ai.updateDiagrams'), aiReason)
+			] : undefined,
+			recovery, settings, reviewActions
+		});
 		this.renderWorkflow(parent, true);
-		if ((this.project.model.version === 4 || this.project.model.version === 5) && this.project.editable) {
-			const preparation = this.controls.details(parent, localize('ade.code.automation', "Automatic Preparation"), 'code-automation');
-			this.host.paragraph(preparation, this.ai.continuityStatus);
-			this.host.button(preparation, localize('ade.continuity.toggle', "Start or Stop Continuous Preparation"), () => { void this.ai.configureContinuity(); }).disabled = this.ai.busy || this.code.busy;
-		}
-		const recovery = this.controls.details(parent, localize('ade.project.recovery', "Recovery and Synchronization"), 'project-recovery');
-		if (this.project.model.version === 4 || this.project.model.version === 5) {
-			for (const [label, action] of [
-				[localize('ade.pure.resumeButton', "Resume Model Behavior Review"), () => this.ai.structuralResume()],
-				[localize('ade.pure.recoverButton', "Recover Model Behavior Publication"), () => this.ai.structuralRecover()]
-			] as const) { this.host.button(recovery, label, () => { void action(); }).disabled = this.ai.busy || this.code.busy; }
-		}
-		for (const [label, action] of [
-			[localize('ade.ai.resumeButton', "Resume Implementation"), () => this.ai.resume()],
-			[localize('ade.ai.recoverButton', "Recover Interrupted Implementation"), () => this.ai.recover()]
-		] as const) { this.host.button(recovery, label, () => { void action(); }).disabled = this.ai.busy || this.code.busy; }
-		if (this.project.model.version !== 4 && this.project.model.version !== 5 && !isSourceEvidenceModel(this.project.model)) { this.host.button(recovery, localize('ade.syncProject', "Sync Project"), () => { void this.code.sync(); }).disabled = this.code.busy || this.ai.busy || !this.code.context; }
-		commands(recovery, [[localize('ade.undoSync', "Undo Last Sync"), 'ade.undoSync'], [localize('ade.recoverSync', "Recover Sync"), 'ade.restoreCodeSnapshot']]);
 	}
 
 	renderProjectActions(parent: HTMLElement): void {

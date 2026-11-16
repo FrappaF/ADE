@@ -53,3 +53,11 @@ HTML verificato offline a 1440, 1024, 768 e 390 pixel: nessun overflow orizzonta
 5. **Disponibilità esterne.** Provider, Bun, broker reali e tecnologie assistive su altre piattaforme richiedono ambienti e prove pertinenti. In questa sessione non sono state fatte ulteriori richieste reali al provider.
 
 Il percorso principale ha ora istruzioni verificabili e risultati concreti. L’accessibilità documentale beneficia di indice, ricerca, testi alternativi e percorsi da tastiera; non costituisce una certificazione con screen reader. La gerarchia della guida separa costruzione, esercizi locali e rami condizionati. La responsività HTML è verificata alle quattro larghezze sopra; la qualità visuale dei diagrammi resta dipendente anche dal layout della singola vista.
+
+## Aggiornamento System Map · 16 novembre 2026
+
+Aggiornati i riferimenti in T4 e A6 e la nota di edizione in A8. La nuova sezione A9 documenta i punti di accesso alla mappa, l’Atlante a livelli, i filtri cumulativi, la rimozione indipendente dei criteri, la navigazione mediante frecce, la ricerca globale e le relazioni originali. Le tre nuove immagini mostrano il renderer effettivo con il modello Bottega Ordini incluso nei progetti di esempio.
+
+Il PDF contiene ora 79 pagine e 57 segnalibri; il collegamento A9 nell’indice e il rimando in T4 portano a pagina 77. La nuova sezione occupa le pagine 77–79. Il corpo e le posizioni del testo delle altre pagine originali sono stati confrontati con l’edizione precedente, escludendo copertina, indice, passaggi aggiornati e piè di pagina. Sono state controllate visivamente le pagine modificate e le tre nuove pagine.
+
+La versione HTML comprende 52 capitoli e 35 immagini. Indice, ricerca e ingrandimento delle nuove schermate vengono verificati nel browser. Il kit utente contiene le versioni aggiornate di PDF, HTML, testo e immagini; l’archivio dei progetti di esempio conserva gli stessi contenuti.

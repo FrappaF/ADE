@@ -2,7 +2,7 @@
 
 # Guida completa ad ADE
 
-**Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione 14 novembre 2026.
+**Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione 16 novembre 2026.
 
 ADE è un ambiente desktop per progettare software con diagrammi, definire contratti e comportamenti, esplorare codice e lavorare con l’IA. Il canvas è il punto di partenza; codice e strumenti dell’IDE si aprono quando servono. Questa guida insegna il percorso dall’idea alle verifiche, conservando la differenza fra un disegno, una specifica eseguibile e una prova.
 
@@ -87,7 +87,7 @@ Seleziona ogni freccia del flusso e leggi la condizione. Poi guarda la transizio
 
 Apri **Diagrams**, poi **Search System**. Cerca “Ordine” e consulta il tipo e i diagrammi associati. La ricerca considera anche le modifiche non ancora salvate; un risultato può aprire una vista che contiene l’oggetto oppure i dettagli di un’identità ancora non disegnata. La navigazione indietro/avanti torna alle destinazioni visitate.
 
-**System Map**, disponibile anche dalla palette, mostra la gerarchia e tutte le identità. Espandi una feature per trovare i suoi figli. I collegamenti aggregati fra gruppi si possono aprire per leggere le relazioni originali: un numero nell’aggregato non è una nuova relazione di business.
+Apri **System Map** fra **Home** e **Search System** nella sidebar. Il clic aggiunge filtri cumulativi, la freccia apre un livello e **×** rimuove il proprio filtro. Gli elementi interni e condivisi delle feature collegate all’attore restano disponibili. La sezione **A9** illustra accessi, filtri e relazioni.
 
 Un elemento conserva la propria identità cambiando nome o posizione. Un diagramma seleziona elementi e relazioni e conserva un layout proprio. **Add Existing Element** riusa un’identità; **Add Element** ne crea una nuova. Due nomi identici non rendono identici due oggetti.
 
@@ -1686,7 +1686,7 @@ La navigazione implementata e i test automatici non costituiscono una certificaz
 | Cosa osservi | Cosa controllare e fare |
 | --- | --- |
 | Non vedo il mio progetto | Open Project deve puntare alla cartella della copia, non al clone ADE né al solo file di codice |
-| Il canvas sembra vuoto | Controlla il diagramma corrente e usa Fit Diagram; cerca l’elemento nella System Map |
+| Il canvas sembra vuoto | Usa Fit Diagram; apri System Map fra Home e Search System. Dettagli in A9 |
 | Voglio un elemento già presente | Add Existing Element riusa l’identità; Add Element crea una nuova definizione |
 | Ho tolto un nodo ma esiste ancora | È stato rimosso dalla vista; consulta Details/Impact prima dell’eventuale eliminazione dal sistema |
 | Non vedo file e terminale | Menu progetto, Show IDE oppure Project Settings > Developer Tools |
@@ -1777,10 +1777,59 @@ Il materiale è stato verificato su ADE nel suo ambiente desktop macOS. Le scher
 | Recovery | Ripresa controllata di un’operazione interrotta |
 | ADR | Decisione architetturale con motivazioni, stato e storia |
 
-Questa edizione è allineata alla versione di main che include **Add Existing Relationship**, verificata il **14 novembre 2026**. Le schermate sono acquisizioni dell’applicazione con i progetti inclusi. Le etichette possono dipendere da contesto, piattaforma e configurazione dei tasti.
+Questa edizione include **Add Existing Relationship** e l’Atlante a livelli della **System Map**, aggiornato il **16 novembre 2026**. Le schermate usano i progetti inclusi. Le etichette possono dipendere da contesto, piattaforma e configurazione dei tasti.
 
 Approfondimenti del repository: [editing visuale](../visual-editing.md), [esploratore semantico](../semantic-explorer.md), [accessibilità](../accessibility.md), [importazione](../code-import.md), [collaborazione IA](../ai-collaboration.md), [riconciliazione](../reconciliation.md) e [profili eseguibili](../diagram-driven-ai/dai-12.md). Questi documenti comprendono anche verbali storici: per il percorso utente corrente parti dai capitoli di questa guida.
 
 Gli esempi sono sintetici e derivano dai modelli dimostrativi del repository ADE e dal laboratorio Bottega. Sono distribuiti con la licenza MIT del progetto. Il pacchetto non contiene account, credenziali, cronologie IA o repository Git personali.
 
 Per approfondire il significato delle notazioni: [C4 System Context](https://c4model.com/diagrams/system-context), [C4 Container](https://c4model.com/diagrams/container), [C4 Component](https://c4model.com/diagrams/component) e [specifica UML 2.5.1 dell’OMG](https://www.omg.org/spec/UML/2.5.1). Questi riferimenti descrivono le notazioni; per le operazioni effettivamente disponibili in ADE valgono i form e i limiti indicati nella guida. ADE non viene presentato come implementazione completa di ogni costrutto UML.
+
+### A9. System Map: Atlante a livelli e filtri cumulativi
+
+System Map offre una vista d’insieme del sistema e permette di restringerla progressivamente per attore, area, feature o elemento. Le aree seguono i gruppi dichiarati nel modello; gli elementi restano raggiungibili anche quando non compaiono in un diagramma.
+
+#### Dove aprire la mappa
+
+- Nella sidebar ADE, in alto: **Home · System Map · Search System**. Il pulsante è disponibile anche quando il progetto nella navigazione è chiuso.
+- Sopra un diagramma: **System Map**, accanto a **Diagrams**.
+- Dalla palette: **A.D.E: Show System Map**. Aprila con `Cmd+Shift+P` su macOS o `Ctrl+Shift+P` su Windows/Linux.
+
+![System Map con il filtro Cliente: la barra mantiene visibili i criteri attivi](immagini/17-system-map-panorama.png)
+
+#### Come leggere l’Atlante
+
+A sinistra trovi gli **Actors**. La colonna centrale mostra prima le **Areas**, poi le **Features** dell’area aperta, infine gli **Internal Elements** della feature aperta. A destra, **Shared Elements** raccoglie gli elementi condivisi o non assegnati a una sola feature.
+
+Se il modello non dichiara aree, usa **Features Without a Declared Area**. È il caso del tour Bottega Ordini: il gruppo rende accessibili le feature senza introdurre un’area di business fittizia.
+
+| Controllo | Effetto |
+| --- | --- |
+| Corpo della scheda | Aggiunge un filtro; il livello corrente rimane aperto |
+| Freccia a destra della scheda | Apre il livello inferiore e mantiene i filtri |
+| × accanto a un filtro | Rimuove soltanto quel criterio |
+| Percorso sopra la mappa | Risale di livello mantenendo i filtri |
+
+#### Prova guidata: Cliente e Conferma acquisto
+
+1. Apri Bottega Ordini e premi **System Map**. Clicca sul corpo di **Cliente**: l’attore compare tra i filtri attivi.
+2. Clicca sul corpo di **Features Without a Declared Area**. I due filtri, Cliente e area, rimangono entrambi attivi; sei ancora nel livello generale.
+3. Premi la freccia del gruppo per aprirlo. Clicca sul corpo di **Conferma acquisto** per aggiungere il filtro della feature.
+4. Premi la freccia di Conferma acquisto. Ora vedi gli elementi interni e quelli condivisi collegati al contesto filtrato; Cliente, area e feature restano nella barra dei filtri.
+5. Rimuovi il filtro dell’area con la sua **×**. Cliente e Conferma acquisto restano applicati. Cliccare nuovamente una scheda già filtrata mantiene il suo filtro attivo.
+
+![Tre filtri attivi: Cliente, area e feature; gli elementi interni rimangono disponibili](immagini/18-system-map-filtri.png)
+
+I filtri sono cumulativi: ogni nuovo criterio restringe il contesto comune. Il filtro per un attore conserva i contenuti interni e condivisi delle feature collegate. Con una combinazione incompatibile la mappa mostra uno stato vuoto e lascia tutti i filtri visibili: rimuovi una × per ampliare i risultati.
+
+#### Ricerca, relazioni e sistemi estesi
+
+La ricerca della mappa riguarda l’intero sistema, compresi gli oggetti fuori pagina. Il clic su un risultato aggiunge un filtro; la freccia, quando presente, apre il suo livello. **Inspect …** apre esplicitamente i dettagli dell’identità. I pulsanti dei diagrammi aprono la vista scelta.
+
+Le linee aggregano relazioni dichiarate fra gli oggetti mostrati. Con un attore filtrato, una linea continua indica una relazione diretta e una tratteggiata una relazione nel contesto delle feature. Apri **Relationships** per leggere origine, destinazione, condizioni ed errori originali; un collegamento aggregato non crea una nuova relazione di business.
+
+![Estratto di Relationships: origine e destinazione restano identità del modello](immagini/19-system-map-relazioni.png)
+
+Ogni elenco ha pagine e conteggi propri. Cambiare pagina, livello o scheda, oppure tornare da un diagramma, conserva i filtri nel corso della sessione dell’editor. In una finestra stretta le colonne si dispongono in verticale: conteggi e dettagli delle relazioni restano consultabili.
+
+**Controllo A9:** aggiungi Cliente, area e feature; apri gli elementi interni soltanto con le frecce. Togli una sola × e verifica che gli altri filtri rimangano applicati.

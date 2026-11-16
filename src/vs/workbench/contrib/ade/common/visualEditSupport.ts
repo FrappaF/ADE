@@ -36,13 +36,15 @@ export function getDeletionImpact(model: SemanticModel, id: string) {
 			}
 		}
 	}
+	const relations = model.semantics.relations.filter(relation => elements.has(relation.from) || elements.has(relation.to)).map(relation => relation.id);
+	const relationIds = new Set(relations);
 	return {
 		elements: [...elements],
-		relations: model.semantics.relations.filter(relation => elements.has(relation.from) || elements.has(relation.to)).map(relation => relation.id),
-		views: model.views.filter(view => view.nodes.some(node => elements.has(node.elementId)) || (view.featureId && elements.has(view.featureId))).map(view => view.id),
+		relations,
+		views: model.views.filter(view => view.nodes.some(node => elements.has(node.elementId)) || view.relationIds.some(id => relationIds.has(id)) || (view.featureId && elements.has(view.featureId))).map(view => view.id),
 		mappings: model.codeMappings.filter(mapping => elements.has(mapping.elementId)).length,
 		verifications: model.verifications.filter(verification => elements.has(verification.elementId)).length,
-		permissions: model.semantics.elements.flatMap(element => element.behavior?.permissions ?? []).filter(permission => elements.has(permission.actorId)).length
+		permissions: model.semantics.elements.flatMap(element => (element.behavior?.permissions ?? []).filter(permission => elements.has(element.id) || elements.has(permission.actorId))).length
 	};
 }
 

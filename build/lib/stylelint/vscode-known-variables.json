@@ -1001,6 +1001,7 @@
 		"--activity-bar-action-height",
 		"--activity-bar-icon-size",
 		"--activity-bar-width",
+		"--ade-canvas-menu-max-height",
 		"--agent-sessions-editor-tab-padding",
 		"--agents-floating-panel-gap",
 		"--agents-part-corner-radius",

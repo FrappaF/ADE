@@ -12,7 +12,9 @@ import { IQuickInputService } from '../../../../platform/quickinput/common/quick
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { SemanticElement } from '../common/modelTypes.js';
 import { getProjectedInteraction } from '../common/visualNavigation.js';
-import { getDeletionImpact, upgradeVisualModel, VisualEdit } from '../common/visualEditing.js';
+import { VisualEdit } from '../common/visualEditing.js';
+import { getDeletionPreview } from '../common/deletionPreview.js';
+import { confirmAdeDeletion } from './adeDeletionDialog.js';
 import { AdeInput } from './adeInput.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { type BlueprintEditMode } from './adeBlueprintEditing.js';
@@ -113,12 +115,8 @@ class EditingUI implements AdeEditingContext {
 	}
 
 	async deleteElement(element: SemanticElement): Promise<void> {
-		const impact = getDeletionImpact(upgradeVisualModel(this.project.model), element.id);
-		if ((await this.dialogs.confirm({
-			message: localize('ade.deleteElement', "Delete {0} from the System?", element.name),
-			detail: localize('ade.deleteImpact', "This removes {0} elements and {1} relationships, affects {2} diagrams, and removes {3} code mappings, {4} verification records and {5} authorization references. Owned feature diagrams are deleted. This can be undone.", impact.elements.length, impact.relations.length, impact.views.length, impact.mappings, impact.verifications, impact.permissions),
-			primaryButton: localize('ade.delete', "Delete")
-		})).confirmed) { this.edit({ kind: 'deleteElement', id: element.id }); }
+		const preview = getDeletionPreview(this.project.model, element.id);
+		if (await confirmAdeDeletion(this.dialogs, element.name, preview, () => this.project.documentVersion === this.version)) { this.edit({ kind: 'deleteElement', id: element.id }); }
 	}
 }
 

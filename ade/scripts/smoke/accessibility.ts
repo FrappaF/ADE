@@ -185,7 +185,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 			await clickAdeButton(window, 'System Map');
 			await shell.getByRole('button', { name: 'Read System Map', exact: true }).waitFor();
 			assert.equal(await shell.locator('.ade-content').evaluate(element => element.scrollWidth > element.clientWidth + 1), false, `${name}: narrow map fits its content area`);
-			const mapElement = shell.locator('.ade-system-map button').first();
+			const mapElement = shell.locator('.ade-atlas-node button[data-action="filter"]').first();
 			await mapElement.focus();
 			await window.keyboard.press('Tab');
 			await window.keyboard.press('Shift+Tab');
@@ -200,7 +200,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		const terminalInput = window.locator('.terminal .xterm-helper-textarea');
 		await terminalInput.waitFor({ state: 'attached' });
 		await terminalInput.focus();
-		await window.keyboard.type("printf 'ADE_TERMINAL_OK\\n'\n");
+		await window.keyboard.type(`printf 'ADE_TERMINAL_OK\\n'\n`);
 		await window.locator('.terminal .xterm-rows > div').filter({ hasText: /^ADE_TERMINAL_OK\s*$/ }).waitFor();
 		await window.keyboard.press(process.platform === 'linux' ? 'Alt+Shift+F1' : 'Alt+F1');
 		const terminalHelp = window.locator('.accessible-view:visible');
@@ -287,7 +287,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await clickAdeButton(window, 'Terminal');
 		const terminal = window.locator('.terminal .xterm-helper-textarea');
 		await terminal.waitFor({ state: 'attached' });
-		await terminal.focus(); await window.keyboard.type("printf '__ADE_PROJECT_ROOT__'; pwd\n");
+		await terminal.focus(); await window.keyboard.type(`printf '__ADE_PROJECT_ROOT__'; pwd\n`);
 		// Terminal rows wrap at the viewport width; reconstruct the output before comparing a long path.
 		await window.waitForFunction(expected => [...document.querySelectorAll('.terminal .xterm-rows > div')].map(row => row.textContent).join('').includes(expected), '__ADE_PROJECT_ROOT__' + folder);
 		await window.screenshot({ path: path.join(evidence, 'followup-project-terminal.png') });
