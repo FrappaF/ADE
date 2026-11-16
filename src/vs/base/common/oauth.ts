@@ -944,7 +944,7 @@ const grantTypesSupported = ['authorization_code', 'refresh_token', 'urn:ietf:pa
  * the spec and require an exact match.
  */
 export const DEFAULT_AUTH_FLOW_PORT = 33418;
-export async function fetchDynamicRegistration(serverMetadata: IAuthorizationServerMetadata, clientName: string, scopes?: string[]): Promise<IAuthorizationDynamicClientRegistrationResponse> {
+export async function fetchDynamicRegistration(serverMetadata: IAuthorizationServerMetadata, clientName: string, scopes?: string[], fetcher: typeof fetch = fetch): Promise<IAuthorizationDynamicClientRegistrationResponse> {
 	if (!serverMetadata.registration_endpoint) {
 		throw new Error('Server does not support dynamic registration');
 	}
@@ -971,35 +971,39 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 		application_type: 'native'
 	};
 
-	const response = await fetch(serverMetadata.registration_endpoint, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify(requestBody)
-	});
-
-	if (!response.ok) {
-		const result = await response.text();
-		let errorDetails: string = result;
-
-		try {
-			const errorResponse = JSON.parse(result);
-			if (isAuthorizationRegistrationErrorResponse(errorResponse)) {
-				errorDetails = `${errorResponse.error}${errorResponse.error_description ? `: ${errorResponse.error_description}` : ''}`;
-			}
-		} catch {
-			// JSON parsing failed, use raw text
-		}
-
-		throw new Error(`Registration to ${serverMetadata.registration_endpoint} failed: ${errorDetails}`);
+	let response: Response;
+	try {
+		response = await fetcher(serverMetadata.registration_endpoint, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(requestBody)
+		});
+	} catch {
+		throw new Error('Dynamic client registration request failed');
 	}
 
-	const registration = await response.json();
+	if (!response.ok) {
+		// Error bodies, descriptions, status text, and endpoint URLs can contain credentials.
+		try {
+			await response.body?.cancel();
+		} catch {
+			// Cancellation errors may contain credentials too; retain only the HTTP status.
+		}
+		throw new Error(`Dynamic client registration failed (HTTP ${response.status})`);
+	}
+
+	let registration: unknown;
+	try {
+		registration = await response.json();
+	} catch {
+		throw new Error('Invalid authorization dynamic client registration response');
+	}
 	if (isAuthorizationDynamicClientRegistrationResponse(registration)) {
 		return registration;
 	}
-	throw new Error(`Invalid authorization dynamic client registration response: ${JSON.stringify(registration)}`);
+	throw new Error('Invalid authorization dynamic client registration response');
 }
 
 export interface IAuthenticationChallenge {

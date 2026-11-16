@@ -175,15 +175,15 @@ export async function writeSnapshot(destination: string, state: CodeImport, mode
 	if (report) { payloads.set('sync-report.json', serialize(report)); }
 	for (const [name, content] of payloads) { const limit = artifactByteLimit(name); if (Buffer.byteLength(content) > limit) { throw new Error(`Snapshot artifact exceeds ${limit / 1024 / 1024} MiB: ${name}. Narrow the import with .adeignore or the source scope exclusions.`); } }
 	signal?.throwIfAborted();
-	await mkdir(output);
+	await mkdir(output, { mode: 0o700 });
 	try {
-		for (const [name, content] of payloads) { signal?.throwIfAborted(); await writeFile(join(output, name), content, { flag: 'wx' }); }
+		for (const [name, content] of payloads) { signal?.throwIfAborted(); await writeFile(join(output, name), content, { flag: 'wx', mode: 0o600 }); }
 		const observed = await importCode(state.sourceRoot, state.projectId, { previous: state, signal });
 		if (observed.revision !== state.revision) { throw new Error('Source changed before snapshot publication'); }
 		for (const [file, source] of Object.entries(commonSources)) { if (hash((await sourceFile(state.sourceRoot, file)).content) !== source.revision) { throw new Error('Common source changed before snapshot publication'); } }
 		if (previous && (await readSnapshot(previous.directory)).inputHash !== previous.inputHash) { throw new Error('Previous snapshot changed during Sync'); }
 		signal?.throwIfAborted();
-		await writeFile(join(output, 'snapshot.json'), serialize({ version: 1, state: hash(stateText), index: hash(indexText), common: hash(modelText), sources: hash(sourcesText) }), { flag: 'wx' });
+		await writeFile(join(output, 'snapshot.json'), serialize({ version: 1, state: hash(stateText), index: hash(indexText), common: hash(modelText), sources: hash(sourcesText) }), { flag: 'wx', mode: 0o600 });
 		return output;
 	} catch (error) {
 		await rm(output, { recursive: true, force: true });

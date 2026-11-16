@@ -318,7 +318,12 @@ export class ClaudeSdkPipeline extends Disposable {
 	 * can drive a yield-restart without exposing the private rebind
 	 * machinery to every collaborator.
 	 */
-	rebindForRestart(): Promise<void> {
+	rebindForRestart(permissionMode?: PermissionMode): Promise<void> {
+		if (permissionMode !== undefined) {
+			// Update the desired value without issuing a control request on the
+			// query being replaced (which may be serving canUseTool).
+			this._currentPermissionMode = permissionMode;
+		}
 		return this._rebindQuery('restart');
 	}
 

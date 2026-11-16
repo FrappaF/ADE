@@ -803,6 +803,48 @@ suite('CopilotShellTools', () => {
 		shellRef.dispose();
 	});
 
+	test('raw writes cannot execute in the outer shell when sandbox bypass is disabled, even after command completion', async function () {
+		if (platform.isWindows) { this.skip(); }
+		const { instantiationService, terminalManager } = createServices({ sandboxEnabled: true });
+		const shellManager = disposables.add(instantiationService.createInstance(ShellManager, URI.parse('copilot:/session-1'), TEST_CHAT_URI, URI.parse('copilot:/session-1'), undefined));
+		const shellRef = await shellManager.getOrCreateShell('bash', TEST_CHAT_URI, 'turn-1', 'tool-1');
+		terminalManager.existingTerminalUris.add(shellRef.object.terminalUri);
+		shellRef.dispose();
+		const tools = await createShellTools(shellManager, TEST_CHAT_URI, terminalManager, new NullLogService());
+		const write = tools.find(tool => tool.name === 'write_bash')!;
+		const errors: (string | undefined)[] = [];
+		for (const command of ['echo blocked\n', 'echo blocked\r']) {
+			const result = await write.handler!({ command }, { sessionId: 'session-1', toolCallId: 'write-1', toolName: 'write_bash', arguments: { command } }) as ToolResultObject;
+			errors.push(result.error);
+		}
+		assert.deepStrictEqual({ errors, writes: terminalManager.writes }, { errors: ['unsandboxed_disabled', 'unsandboxed_disabled'], writes: [] });
+	});
+
+	for (const approval of ['denied', 'approved', 'revoked'] as const) {
+		test(`raw writes require a separate unsandboxed approval (${approval})`, async function () {
+			if (platform.isWindows) { this.skip(); }
+			const { instantiationService, terminalManager, agentConfigurationService } = createServices({ sandboxEnabled: true });
+			agentConfigurationService.setSandboxValue(AgentHostSandboxKey.AllowUnsandboxedCommands, true);
+			const shellManager = disposables.add(instantiationService.createInstance(ShellManager, URI.parse('copilot:/session-1'), TEST_CHAT_URI, URI.parse('copilot:/session-1'), undefined));
+			const shellRef = await shellManager.getOrCreateShell('bash', TEST_CHAT_URI, 'turn-1', 'tool-1');
+			terminalManager.existingTerminalUris.add(shellRef.object.terminalUri);
+			shellRef.dispose();
+			const requests: IUnsandboxedCommandConfirmationRequest[] = [];
+			const tools = await createShellTools(shellManager, TEST_CHAT_URI, terminalManager, new NullLogService(), async request => {
+				requests.push(request);
+				if (approval === 'revoked') {
+					agentConfigurationService.setSandboxValue(AgentHostSandboxKey.AllowUnsandboxedCommands, false);
+				}
+				return approval !== 'denied';
+			});
+			const write = tools.find(tool => tool.name === 'write_bash')!;
+			const result = await write.handler!({ command: 'echo input\n' }, { sessionId: 'session-1', toolCallId: 'write-1', toolName: 'write_bash', arguments: { command: 'echo input\n' } }) as ToolResultObject;
+			assert.deepStrictEqual({ requested: requests.map(request => ({ toolName: request.toolName, command: request.command })), error: result.error, writes: terminalManager.writes.map(write => write.data) }, {
+				requested: [{ toolName: 'write_bash', command: 'echo input\n' }], error: approval === 'approved' ? undefined : approval === 'denied' ? 'sandbox_blocked' : 'unsandboxed_disabled', writes: approval === 'approved' ? ['echo input\r'] : [],
+			});
+		});
+	}
+
 	test('each chat of a session keys its sandbox temp dir by its storage, so disposing a peer keeps the default chat\'s', async function () {
 		if (platform.isWindows) {
 			this.skip();

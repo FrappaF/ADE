@@ -301,7 +301,9 @@ export class TextSearchMatch2 {
 	constructor(
 		public uri: URI,
 		public ranges: { sourceRange: Range; previewRange: Range }[],
-		public previewText: string) { }
+		public previewText: string,
+		/** Internal baseline supplied by native search before truncating previews. */
+		public fullMatchTexts?: readonly string[]) { }
 
 }
 

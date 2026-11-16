@@ -23,7 +23,7 @@ export function registerTools(server: McpServer, logger: ILogger, diffState: Dif
 	registerGetVscodeInfoTool(server, logger);
 	registerGetSelectionTool(server, logger, selectionState);
 	registerOpenDiffTool(server, logger, diffState, contentProvider, sessionId);
-	registerCloseDiffTool(server, logger, diffState);
+	registerCloseDiffTool(server, logger, diffState, sessionId);
 	registerGetDiagnosticsTool(server, logger);
 	registerUpdateSessionNameTool(server, logger, sessionTracker, sessionId);
 	logger.debug('All MCP tools registered');

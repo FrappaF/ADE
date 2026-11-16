@@ -6,11 +6,11 @@
 import * as dom from '../../../../base/browser/dom.js';
 import { DisposableStore, Disposable } from '../../../../base/common/lifecycle.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { ModelView } from '../common/modelTypes.js';
+import { ModelView, SemanticModel } from '../common/modelTypes.js';
 import { AdeProjectService } from './adeProjectService.js';
 import { AdeControls } from './adeControls.js';
 import { DiagramCamera, DiagramBounds, fitDiagramCamera, zoomDiagram } from '../common/diagramCamera.js';
-import { notationBoundaries, notationGroupMembers } from '../common/diagramLayout.js';
+import { notationGroupMembers } from '../common/diagramLayout.js';
 
 interface AdeCanvasControllerHost {
 	readonly root: HTMLElement;
@@ -128,9 +128,8 @@ export class AdeCanvasController extends Disposable {
 		}));
 	}
 
-	installNodeEditing(button: HTMLButtonElement, view: ModelView, id: string): void {
-		const isBoundary = notationBoundaries(this.project.model, view).some(box => box.elementId === id);
-		const members = isBoundary ? notationGroupMembers(this.project.model, view, id) : new Set([id]);
+	installNodeEditing(button: HTMLButtonElement, view: ModelView, id: string, model: SemanticModel, isBoundary: boolean): void {
+		const members = isBoundary ? notationGroupMembers(model, view, id) : new Set([id]);
 		const move = (dx: number, dy: number) => this.project.editBatch(view.nodes.filter(node => members.has(node.elementId)).map(node => ({ kind: 'position', viewId: view.id, id: node.elementId, x: Math.round(node.x + dx), y: Math.round(node.y + dy) })));
 		let drag: { x: number; y: number; left: number; top: number } | undefined;
 		this.interactions.add(dom.addDisposableListener(button, 'pointerdown', (event: PointerEvent) => {

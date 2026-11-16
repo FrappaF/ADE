@@ -154,9 +154,19 @@ suite('RipgrepTextSearchEngine', () => {
 							previewRange: new Range(0, 3, 0, 6),
 							sourceRange: new Range(3, 3, 3, 6),
 						}],
-						'foobar'
+						'foobar', ['bar']
 					)
 				]);
+		});
+
+		test('retains complete source text before truncating long previews', () => {
+			const parser = new RipgrepParser(1000, TEST_FOLDER, { matchLines: 1, charsPerLine: 1 });
+			const results: TextSearchResult2[] = [];
+			parser.on('result', result => results.push(result));
+			parser.handleData(makeRgMatch('long.js', 'foobar', 1, [{ start: 0, end: 6 }]));
+			parser.flush();
+			assert.ok(results[0] instanceof TextSearchMatch2);
+			assert.deepStrictEqual({ preview: results[0].previewText, fullText: results[0].fullMatchTexts }, { preview: 'f', fullText: ['foobar'] });
 		});
 
 		test('multiple results', () => {
@@ -173,7 +183,7 @@ suite('RipgrepTextSearchEngine', () => {
 							previewRange: new Range(0, 3, 0, 6),
 							sourceRange: new Range(3, 3, 3, 6),
 						}],
-						'foobar'
+						'foobar', ['bar']
 					),
 					new TextSearchMatch2(
 						joinPath(TEST_FOLDER, 'app/file2.js'),
@@ -181,7 +191,7 @@ suite('RipgrepTextSearchEngine', () => {
 							previewRange: new Range(0, 3, 0, 6),
 							sourceRange: new Range(3, 3, 3, 6),
 						}],
-						'foobar'
+						'foobar', ['bar']
 					),
 					new TextSearchMatch2(
 						joinPath(TEST_FOLDER, 'app2/file3.js'),
@@ -189,7 +199,7 @@ suite('RipgrepTextSearchEngine', () => {
 							previewRange: new Range(0, 3, 0, 6),
 							sourceRange: new Range(3, 3, 3, 6),
 						}],
-						'foobar'
+						'foobar', ['bar']
 					)
 				]);
 		});
@@ -218,7 +228,7 @@ suite('RipgrepTextSearchEngine', () => {
 							previewRange: new Range(0, 3, 0, 7),
 							sourceRange: new Range(3, 3, 3, 7),
 						}],
-						'foo bar'
+						'foo bar', [' bar']
 					),
 					new TextSearchMatch2(
 						joinPath(TEST_FOLDER, 'app/file2.js'),
@@ -226,7 +236,7 @@ suite('RipgrepTextSearchEngine', () => {
 							previewRange: new Range(0, 3, 0, 6),
 							sourceRange: new Range(3, 3, 3, 6),
 						}],
-						'foobar'
+						'foobar', ['bar']
 					),
 					new TextSearchMatch2(
 						joinPath(TEST_FOLDER, 'app2/file3.js'),
@@ -234,7 +244,7 @@ suite('RipgrepTextSearchEngine', () => {
 							previewRange: new Range(0, 3, 0, 6),
 							sourceRange: new Range(3, 3, 3, 6),
 						}],
-						'foobar'
+						'foobar', ['bar']
 					)
 				]);
 		});
@@ -255,7 +265,7 @@ suite('RipgrepTextSearchEngine', () => {
 								sourceRange: new Range(3, 0, 3, 1),
 							}
 						],
-						'foobar'
+						'foobar', ['f']
 					),
 					new TextSearchMatch2(
 						joinPath(TEST_FOLDER, 'file1.js'),
@@ -265,7 +275,7 @@ suite('RipgrepTextSearchEngine', () => {
 								sourceRange: new Range(4, 0, 4, 0),
 							}
 						],
-						''
+						'', ['']
 					)
 				]);
 		});
@@ -288,7 +298,7 @@ suite('RipgrepTextSearchEngine', () => {
 								sourceRange: new Range(3, 6, 3, 10),
 							}
 						],
-						'foobarbazquux'
+						'foobarbazquux', ['foob', 'bazq']
 					)
 				]);
 		});
@@ -311,7 +321,7 @@ suite('RipgrepTextSearchEngine', () => {
 								sourceRange: new Range(5, 0, 6, 1),
 							}
 						],
-						'foo\nbar\nbaz\nquux'
+						'foo\nbar\nbaz\nquux', ['foo\nb', 'baz\nq']
 					)
 				]);
 		});

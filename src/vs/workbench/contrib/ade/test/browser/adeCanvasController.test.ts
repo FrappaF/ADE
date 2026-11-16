@@ -54,7 +54,7 @@ suite('A.D.E canvas controller', () => {
 		const { canvas, model, edits } = fixture(), before = structuredClone(model);
 		const view = model.views[0], node = view.nodes[0];
 		const button = dom.append(root, dom.$<HTMLButtonElement>('button'));
-		canvas.installNodeEditing(button, view, node.elementId);
+		canvas.installNodeEditing(button, view, node.elementId, model, false);
 		button.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true, cancelable: true }));
 		assert.deepStrictEqual({ edits, model }, {
 			edits: [{ kind: 'position', viewId: view.id, id: node.elementId, x: node.x + 40, y: node.y }],

@@ -21,7 +21,7 @@
     "ade:diagrams:live": "node ade/scripts/test-diagram-exploration-live.mjs",
     "ade:smoke:check": "tsc6 --project ade/scripts/tsconfig.smoke.json --noEmit",
     "ade:check": "tsc6 --project ade/tsconfig.json --noEmit",
-    "ade:test": "node --test ade/test/*.test.mjs",
+    "ade:test": "node --test \"ade/test/*.test.{mjs,ts}\"",
     "ade:dai:model": "node ade/scripts/dai-model.mjs",
     "ade:dai:baseline": "node ade/scripts/benchmark-dai.mjs",
     "ade:dai:verify": "node ade/scripts/verify-dai.mjs",

@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { randomUUID } from 'node:crypto';
-import { mkdir, lstat, realpath, readdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
+import { mkdir, lstat, realpath, readdir, readFile, writeFile, rename, rm, chmod } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import lockfile from 'proper-lockfile';
+import { errorCode } from './errors.ts';
 
 export const snapshotId = (value: string): boolean => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value);
 
@@ -14,8 +15,10 @@ export const snapshotId = (value: string): boolean => /^[a-f0-9]{8}(?:-[a-f0-9]{
 export async function managed(root: string, name = 'imports'): Promise<string> {
 	if (!['imports', 'reconciliation', 'diagram-imports', 'exploration', 'structural', 'worktrees'].includes(name) || await realpath(root) !== root) { throw new Error('Invalid managed project root'); }
 	for (const path of [join(root, '.ade'), join(root, '.ade', name)]) {
-		await mkdir(path, { recursive: true });
+		await mkdir(path, { recursive: true, mode: 0o700 });
 		if ((await lstat(path)).isSymbolicLink() || await realpath(path) !== path) { throw new Error('Managed snapshot directory cannot be a symlink'); }
+		// Older installations may have created these directories with a public umask.
+		if (process.platform !== 'win32') { await chmod(path, 0o700); }
 	}
 	return join(root, '.ade', name);
 }
@@ -28,7 +31,7 @@ export async function active(root: string): Promise<string | undefined> {
 		const value = JSON.parse(await readFile(path, 'utf8')) as { version?: number; active?: string };
 		if (value.version !== 1 || !snapshotId(value.active ?? '')) { throw new Error('Invalid code project pointer'); }
 		return value.active;
-	} catch (error) { if (error instanceof Error && 'code' in error && error.code === 'ENOENT') { return undefined; } throw error; }
+	} catch (error) { if (errorCode(error) === 'ENOENT') { return undefined; } throw error; }
 }
 
 export async function atomicJson(path: string, value: object): Promise<void> {
@@ -53,7 +56,7 @@ export async function assertNoInterruptedStructuralPublication(root: string): Pr
 	const directory = join(await managed(root, 'structural'), 'sessions');
 	let entries: string[];
 	try { if (await realpath(directory) !== directory) { throw new Error('Redirected structural journals'); } entries = await readdir(directory); }
-	catch (error) { if (error instanceof Error && 'code' in error && error.code === 'ENOENT') { return; } throw error; }
+	catch (error) { if (errorCode(error) === 'ENOENT') { return; } throw error; }
 	for (const file of entries.filter(file => file.endsWith('.json'))) {
 		if (!snapshotId(file.slice(0, -5))) { throw new Error('Invalid structural journal identity'); }
 		const path = join(directory, file), info = await lstat(path);

@@ -7,7 +7,7 @@ import '../../scripts/source-loader.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, writeFile, readdir, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -18,6 +18,19 @@ const { applyScipBundles, captureScip, readScipBundle } = await import('../scip.
 const { prepareSync } = await import('../syncCode.ts');
 const { readImportState, readSnapshot, writeSnapshot } = await import('../snapshot.ts');
 const { validateSemanticModel } = await import('../../../src/vs/workbench/contrib/ade/common/modelValidation.ts');
+const { refreshExplorationAnalysis, explorationCapabilities } = await import('../explorationIndex.ts');
+
+test('a resolver configuration change invalidates old edges even when both endpoint files are unchanged', async t => {
+	const { root, state, bundle } = await fixture(t);
+	const previous = await applyScipBundles(state, [bundle]);
+	assert.ok(previous.semantic.dependencies.length);
+	await writeFile(join(root, 'package.json'), (await readFile(join(root, 'package.json'), 'utf8')) + '\n');
+	const current = await importCode(root, state.projectId, { previous });
+	await refreshExplorationAnalysis(current, previous);
+	assert.deepEqual(current.semantic.dependencies, []);
+	assert.ok(explorationCapabilities(current).every(capability => !capability.references && !capability.definitions));
+	assert.ok(current.semantic.diagnostics.some(diagnostic => diagnostic.code === 'missingDocument'));
+});
 
 const run = promisify(execFile);
 const cli = fileURLToPath(new URL('../cli.mjs', import.meta.url));
@@ -26,8 +39,8 @@ const captureCli = fileURLToPath(new URL('../capture-scip.mjs', import.meta.url)
 async function fixture(t, language = 'typescript') {
 	const directory = await mkdtemp(join(tmpdir(), 'ade-scip-test-'));
 	t.after(() => rm(directory, { recursive: true, force: true }));
-	const root = join(directory, 'source');
-	await cp(new URL(`./fixtures/scip/${language}/`, import.meta.url), root, { recursive: true });
+	await cp(new URL(`./fixtures/scip/${language}/`, import.meta.url), join(directory, 'source'), { recursive: true });
+	const root = await realpath(join(directory, 'source'));
 	const state = await importCode(root, language);
 	const index = JSON.parse(await readFile(new URL(`./fixtures/scip/${language}.scip.json`, import.meta.url), 'utf8'));
 	index.metadata.project_root = pathToFileURL(root).href;

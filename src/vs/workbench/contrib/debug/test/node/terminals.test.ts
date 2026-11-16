@@ -39,6 +39,10 @@ suite('Debug - prepareCommand', () => {
 			'arg1 > \\>\\ hello.txt < \\<input.in');
 	});
 
+	test('bash preserves tabs and newlines inside arguments and cwd', () => {
+		assert.strictEqual(prepareCommand('bash', ['one\ttwo', `one\ntwo's`], false, '/work\nspace').trim(), `cd '/work\nspace' ; 'one\ttwo' 'one\ntwo'\\''s'`);
+	});
+
 	test('cmd', () => {
 		assert.strictEqual(
 			prepareCommand('cmd.exe', ['^!< '], false).trim(),

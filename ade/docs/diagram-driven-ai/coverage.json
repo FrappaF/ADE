@@ -78,7 +78,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -599,7 +599,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -788,7 +788,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -946,7 +946,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -1033,7 +1033,7 @@
 				"src/vs/workbench/contrib/ade/electron-browser/adeCodeService.ts"
 			],
 			"proof": [
-				"ade/code-import/test/reconciliation.test.mjs",
+				"ade/code-import/test/reconciliation.test.ts",
 				"ade/ai/test/reconciliation-benchmark.test.mjs",
 				"ade/docs/m6-verification.md"
 			],
@@ -1080,7 +1080,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -1226,7 +1226,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -1338,7 +1338,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -1568,7 +1568,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -1744,7 +1744,7 @@
 					"evidence": [
 						"ade/docs/diagram-driven-ai/dai-07.md",
 						"ade/docs/diagram-driven-ai/states-v1.md",
-						"ade/test/dai-states.test.mjs",
+						"ade/test/dai-states.test.ts",
 						"ade/ai/test/state-project.test.mjs",
 						"ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
 					],
@@ -1957,7 +1957,7 @@
 			"evidence": [
 				"ade/docs/diagram-driven-ai/dai-07.md",
 				"ade/docs/diagram-driven-ai/states-v1.md",
-				"ade/test/dai-states.test.mjs",
+				"ade/test/dai-states.test.ts",
 				"ade/ai/test/state-project.test.mjs",
 				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-12.md",
@@ -2030,7 +2030,7 @@
 				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-07.md",
 				"ade/docs/diagram-driven-ai/states-v1.md",
-				"ade/test/dai-states.test.mjs",
+				"ade/test/dai-states.test.ts",
 				"ade/ai/test/state-project.test.mjs",
 				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-08.md",
@@ -2076,7 +2076,7 @@
 				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-07.md",
 				"ade/docs/diagram-driven-ai/states-v1.md",
-				"ade/test/dai-states.test.mjs",
+				"ade/test/dai-states.test.ts",
 				"ade/ai/test/state-project.test.mjs",
 				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-08.md",
@@ -2115,7 +2115,7 @@
 				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-07.md",
 				"ade/docs/diagram-driven-ai/states-v1.md",
-				"ade/test/dai-states.test.mjs",
+				"ade/test/dai-states.test.ts",
 				"ade/ai/test/state-project.test.mjs",
 				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-08.md",
@@ -2162,7 +2162,7 @@
 				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-07.md",
 				"ade/docs/diagram-driven-ai/states-v1.md",
-				"ade/test/dai-states.test.mjs",
+				"ade/test/dai-states.test.ts",
 				"ade/ai/test/state-project.test.mjs",
 				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-08.md",
@@ -2212,7 +2212,7 @@
 				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-07.md",
 				"ade/docs/diagram-driven-ai/states-v1.md",
-				"ade/test/dai-states.test.mjs",
+				"ade/test/dai-states.test.ts",
 				"ade/ai/test/state-project.test.mjs",
 				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-08.md",
@@ -2269,7 +2269,7 @@
 				"ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-07.md",
 				"ade/docs/diagram-driven-ai/states-v1.md",
-				"ade/test/dai-states.test.mjs",
+				"ade/test/dai-states.test.ts",
 				"ade/ai/test/state-project.test.mjs",
 				"ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
 				"ade/docs/diagram-driven-ai/dai-08.md",

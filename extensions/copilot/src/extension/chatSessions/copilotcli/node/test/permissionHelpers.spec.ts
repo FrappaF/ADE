@@ -495,6 +495,21 @@ describe('CopilotCLI permissionHelpers', () => {
 			expect(toolsService.invokeTool).toHaveBeenCalled();
 		});
 
+		it('requires confirmation before an isolated session writes to the original open workspace', async () => {
+			const folder = URI.file('/workspace');
+			const toolsService = makeToolsService('no');
+			const result = await handleWritePermission(
+				'session-1', { kind: 'write', fileName: URI.joinPath(folder, 'src/foo.ts').fsPath, diff: '', intention: '' } as Extract<PermissionRequest, { kind: 'write' }>,
+				undefined, undefined, undefined, editTracker,
+				makeWorkspaceInfo({ folder, worktree: URI.file('/worktree'), worktreeProperties: { autoCommit: true, baseCommit: 'abc', branchName: 'test', repositoryPath: folder.fsPath, worktreePath: '/worktree', version: 1 } }),
+				makeWorkspaceService([folder]), instaService, toolsService,
+				undefined as unknown as ChatParticipantToolToken, logService, token,
+			);
+			expect({ kind: result.kind, confirmations: vi.mocked(toolsService.invokeTool).mock.calls.length, tracked: vi.mocked(editTracker.trackEdit).mock.calls.length }).toEqual({
+				kind: 'denied-interactively-by-user', confirmations: 1, tracked: 0,
+			});
+		});
+
 		it('denies writes outside workspace when user declines confirmation', async () => {
 			const toolsService = makeToolsService('no');
 			const req = { kind: 'write', fileName: URI.file('/external/foo.ts').fsPath, diff: '', intention: '' } as any;

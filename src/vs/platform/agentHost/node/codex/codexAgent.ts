@@ -155,6 +155,7 @@ import type { ThreadForkResponse } from './protocol/generated/v2/ThreadForkRespo
 import type { ThreadStartResponse } from './protocol/generated/v2/ThreadStartResponse.js';
 import type { ThreadResumeResponse } from './protocol/generated/v2/ThreadResumeResponse.js';
 import type { TurnCompletedNotification } from './protocol/generated/v2/TurnCompletedNotification.js';
+import type { TurnStartResponse } from './protocol/generated/v2/TurnStartResponse.js';
 import type { TurnStartedNotification } from './protocol/generated/v2/TurnStartedNotification.js';
 import type { ItemStartedNotification } from './protocol/generated/v2/ItemStartedNotification.js';
 import type { ItemCompletedNotification } from './protocol/generated/v2/ItemCompletedNotification.js';
@@ -630,6 +631,7 @@ interface ICodexTargetChat {
 interface ICodexPendingSteering {
 	readonly pendingMessage: PendingMessage;
 	readonly inputText: string;
+	readonly appTurnId: string;
 	/** Set once codex accepts `turn/steer`. Until then, the turn it targets can still end and reject it. */
 	accepted?: boolean;
 }
@@ -638,6 +640,31 @@ interface ICodexSessionHookTrust {
 	readonly grants: Record<string, JsonValue>;
 	/** Working directory and Workspace Trust snapshot that authorized the grants. */
 	readonly contextSignature: string;
+}
+
+interface ICodexSendAttempt {
+	readonly hostTurnId: string;
+	readonly startSettled: DeferredPromise<void>;
+	cancelled: boolean;
+	appTurnId?: string;
+	interruptRequested?: boolean;
+	threadId?: string;
+	client?: ICodexAppServerClient;
+}
+
+interface ICodexDeferredTurnEvent {
+	readonly dispatch: () => void;
+	readonly cancel?: () => void;
+}
+
+interface ICodexPendingCompactStart {
+	readonly attempt: ICodexSendAttempt;
+	readonly settled: DeferredPromise<void>;
+	readonly disposables: DisposableStore;
+	connection: IConnectionReady;
+	generation: number;
+	dispatched: boolean;
+	error?: Error;
 }
 
 interface ICodexSession {
@@ -734,7 +761,7 @@ interface ICodexSession {
 	 * keyed by the host-side toolCallId. Resolved by
 	 * {@link CodexAgent.respondToPermissionRequest}.
 	 */
-	readonly pendingCommandApprovals: PendingRequestRegistry<CommandExecutionApprovalDecision>;
+	readonly pendingCommandApprovals: PendingRequestRegistry<CommandExecutionApprovalDecision, string>;
 	/**
 	 * Per-session set of "accept for session" decisions. When the user
 	 * picks Accept-for-Session in a previous approval, subsequent
@@ -818,6 +845,12 @@ interface ICodexSession {
 	customizationDirectory: URI | undefined;
 	/** Workbench-facing turn id for the active turn. */
 	currentTurnId: string | undefined;
+	/** Cancellation belongs to one send, including its preparation before a native id exists. */
+	sendAttempt?: ICodexSendAttempt;
+	pendingTurnStartAttempts?: Set<ICodexSendAttempt>;
+	deferredTurnStarts?: Map<string, TurnStartedNotification>;
+	deferredTurnEvents?: Map<string, ICodexDeferredTurnEvent[]>;
+	pendingCompactStart?: ICodexPendingCompactStart;
 	/** Whether the active turn must use only the dedicated Agent Merge GitHub tools. */
 	agentMergeTurn?: boolean;
 	/** Cumulative token-usage identity last observed for model-call deduplication. */
@@ -2700,11 +2733,18 @@ export class CodexAgent extends Disposable implements IAgent {
 			child = spawn(binaryPath, args, { env, stdio: ['pipe', 'pipe', 'pipe'] });
 			const ownedSandboxTempDirectory = sandboxTempDirectory;
 			sandboxTempDirectory = undefined;
-			child.once('close', () => {
+			let sandboxTempDirectoryCleaned = false;
+			const cleanupSandboxTempDirectory = () => {
+				if (sandboxTempDirectoryCleaned) {
+					return;
+				}
+				sandboxTempDirectoryCleaned = true;
 				void fs.promises.rm(ownedSandboxTempDirectory, { recursive: true, force: true }).catch(error => {
 					this._logService.warn(`[Codex] failed to remove sandbox temp directory ${ownedSandboxTempDirectory}: ${error instanceof Error ? error.message : String(error)}`);
 				});
-			});
+			};
+			child.once('close', cleanupSandboxTempDirectory);
+			child.once('error', cleanupSandboxTempDirectory);
 
 			// Surface stderr to the log channel — codex writes useful startup
 			// diagnostics there. Mirror Claude's pattern.
@@ -2798,17 +2838,17 @@ export class CodexAgent extends Disposable implements IAgent {
 		}));
 		subscriptions.add(client.onNotification('turn/diff/updated', params => {
 			this._detachedChildTurnDiffs(params.threadId, params.turnId)?.tracker.update(params);
-			this._dispatchByThread(params.threadId, s => this._handleTurnDiffUpdated(s, params));
+			this._dispatchByThread(params.threadId, s => this._handleTurnDiffUpdated(s, params), params.turnId);
 		}));
-		subscriptions.add(client.onNotification('item/started', params => this._dispatchByThread(params.threadId, s => this._handleItemStarted(s, params))));
-		subscriptions.add(client.onNotification('item/agentMessage/delta', params => this._dispatchByThread(params.threadId, s => mapAgentMessageDelta(s.mapState, this._withHostTurnId(s, params)))));
-		subscriptions.add(client.onNotification('item/commandExecution/outputDelta', params => this._dispatchByThread(params.threadId, s => mapCommandExecutionOutputDelta(s.mapState, this._withHostTurnId(s, params)))));
-		subscriptions.add(client.onNotification('item/fileChange/patchUpdated', params => this._dispatchByThread(params.threadId, s => mapFileChangePatchUpdated(s.mapState, this._withHostTurnId(s, params)))));
-		subscriptions.add(client.onNotification('item/fileChange/outputDelta', params => this._dispatchByThread(params.threadId, s => mapFileChangeOutputDelta(s.mapState, this._withHostTurnId(s, params)))));
-		subscriptions.add(client.onNotification('item/mcpToolCall/progress', params => this._dispatchByThread(params.threadId, s => mapMcpToolCallProgress(s.mapState, this._withHostTurnId(s, params)))));
-		subscriptions.add(client.onNotification('item/reasoning/summaryPartAdded', params => this._dispatchByThread(params.threadId, s => mapReasoningSummaryPartAdded(s.mapState, this._withHostTurnId(s, params)))));
-		subscriptions.add(client.onNotification('item/reasoning/summaryTextDelta', params => this._dispatchByThread(params.threadId, s => mapReasoningSummaryTextDelta(s.mapState, this._withHostTurnId(s, params)))));
-		subscriptions.add(client.onNotification('item/reasoning/textDelta', params => this._dispatchByThread(params.threadId, s => mapReasoningTextDelta(s.mapState, this._withHostTurnId(s, params)))));
+		subscriptions.add(client.onNotification('item/started', params => this._dispatchByThread(params.threadId, s => this._handleItemStarted(s, params), params.turnId)));
+		subscriptions.add(client.onNotification('item/agentMessage/delta', params => this._dispatchByThread(params.threadId, s => mapAgentMessageDelta(s.mapState, this._withHostTurnId(s, params)), params.turnId)));
+		subscriptions.add(client.onNotification('item/commandExecution/outputDelta', params => this._dispatchByThread(params.threadId, s => mapCommandExecutionOutputDelta(s.mapState, this._withHostTurnId(s, params)), params.turnId)));
+		subscriptions.add(client.onNotification('item/fileChange/patchUpdated', params => this._dispatchByThread(params.threadId, s => mapFileChangePatchUpdated(s.mapState, this._withHostTurnId(s, params)), params.turnId)));
+		subscriptions.add(client.onNotification('item/fileChange/outputDelta', params => this._dispatchByThread(params.threadId, s => mapFileChangeOutputDelta(s.mapState, this._withHostTurnId(s, params)), params.turnId)));
+		subscriptions.add(client.onNotification('item/mcpToolCall/progress', params => this._dispatchByThread(params.threadId, s => mapMcpToolCallProgress(s.mapState, this._withHostTurnId(s, params)), params.turnId)));
+		subscriptions.add(client.onNotification('item/reasoning/summaryPartAdded', params => this._dispatchByThread(params.threadId, s => mapReasoningSummaryPartAdded(s.mapState, this._withHostTurnId(s, params)), params.turnId)));
+		subscriptions.add(client.onNotification('item/reasoning/summaryTextDelta', params => this._dispatchByThread(params.threadId, s => mapReasoningSummaryTextDelta(s.mapState, this._withHostTurnId(s, params)), params.turnId)));
+		subscriptions.add(client.onNotification('item/reasoning/textDelta', params => this._dispatchByThread(params.threadId, s => mapReasoningTextDelta(s.mapState, this._withHostTurnId(s, params)), params.turnId)));
 		subscriptions.add(client.onNotification('thread/tokenUsage/updated', params => this._dispatchTokenUsageUpdated(params)));
 		subscriptions.add(client.onNotification('item/completed', params => this._dispatchItemCompleted(params)));
 		subscriptions.add(client.onNotification('turn/completed', params => this._dispatchTurnCompleted(params)));
@@ -2819,7 +2859,9 @@ export class CodexAgent extends Disposable implements IAgent {
 		// non-blocking (codex does not wait on us), so the completed handler is async
 		// and resolves its session directly rather than via _dispatchByThread.
 		subscriptions.add(client.onNotification('guardianWarning', params => this._dispatchByThread(params.threadId, s => this._handleGuardianWarning(s, params))));
-		subscriptions.add(client.onNotification('item/autoApprovalReview/completed', params => { void this._handleGuardianReviewCompleted(client, params); }));
+		subscriptions.add(client.onNotification('item/autoApprovalReview/completed', params => {
+			this._dispatchByThread(params.threadId, () => { void this._handleGuardianReviewCompleted(client, params); return []; }, params.turnId);
+		}));
 
 		// The notification's thread id scopes per-session MCP configurations.
 		subscriptions.add(client.onNotification('mcpServer/startupStatus/updated', params => this._handleMcpStartupStatus(client, params.threadId, params.name, params.status, params.error)));
@@ -2830,7 +2872,7 @@ export class CodexAgent extends Disposable implements IAgent {
 		// (or accept-for-session memoization) decides.
 		subscriptions.add(client.onRequest<'item/commandExecution/requestApproval'>(
 			'item/commandExecution/requestApproval',
-			params => this._handleCommandApprovalRequestRpc(params),
+			params => this._dispatchTurnRequest(params.threadId, params.turnId, () => this._handleCommandApprovalRequestRpc(params), () => ({ result: { decision: 'decline' as const } })),
 		));
 
 		// File-change and permission-escalation approval requests (raised in
@@ -2838,11 +2880,11 @@ export class CodexAgent extends Disposable implements IAgent {
 		// policy). Surface them through the same pending-confirmation flow.
 		subscriptions.add(client.onRequest<'item/fileChange/requestApproval'>(
 			'item/fileChange/requestApproval',
-			params => this._handleFileChangeApprovalRequestRpc(params),
+			params => this._dispatchTurnRequest(params.threadId, params.turnId, () => this._handleFileChangeApprovalRequestRpc(params), () => ({ result: { decision: 'decline' } })),
 		));
 		subscriptions.add(client.onRequest<'item/permissions/requestApproval'>(
 			'item/permissions/requestApproval',
-			params => this._handlePermissionsApprovalRequestRpc(params),
+			params => this._dispatchTurnRequest(params.threadId, params.turnId, () => this._handlePermissionsApprovalRequestRpc(params), () => ({ result: { permissions: {}, scope: 'turn' } })),
 		));
 
 		// Client-provided (dynamic) tool execution requests. Codex asks the
@@ -2851,14 +2893,14 @@ export class CodexAgent extends Disposable implements IAgent {
 		// result.
 		subscriptions.add(client.onRequest<'item/tool/call'>(
 			'item/tool/call',
-			params => this._handleDynamicToolCallRpc(params),
+			params => this._dispatchTurnRequest(params.threadId, params.turnId, () => this._handleDynamicToolCallRpc(params), () => ({ result: this._toolFailure('Codex turn was cancelled before tool dispatch') })),
 		));
 
 		// User-input requests (the model's `ask_user`). Surface the questions
 		// as a chat input request and answer codex with the user's response.
 		subscriptions.add(client.onRequest<'item/tool/requestUserInput'>(
 			'item/tool/requestUserInput',
-			params => this._handleUserInputRequestRpc(params),
+			params => this._dispatchTurnRequest(params.threadId, params.turnId, () => this._handleUserInputRequestRpc(params), () => ({ result: emptyUserInputResponse(params.questions) })),
 		));
 
 		// MCP elicitation requests. An MCP server (relayed by codex) asks the
@@ -3080,7 +3122,7 @@ export class CodexAgent extends Disposable implements IAgent {
 							invocationMessage,
 							confirmationTitle: confirmation?.confirmationTitle ?? display?.confirmationTitle ?? localize('codex.serverToolConfirmation.title', "Allow tool call?"),
 						});
-					});
+					}, entry.turnId);
 					if (decision !== 'accept' && decision !== 'acceptForSession') {
 						return { result: this._toolFailure(`Server tool ${params.tool} was not approved`) };
 					}
@@ -3185,7 +3227,7 @@ export class CodexAgent extends Disposable implements IAgent {
 					toolInput: confirmationTitle,
 					confirmationTitle,
 				});
-			});
+			}, entry.turnId);
 		} catch (err) {
 			// Session disposed / connection lost while awaiting; decline so the
 			// codex-side MCP tool call unwinds instead of hanging.
@@ -3243,10 +3285,116 @@ export class CodexAgent extends Disposable implements IAgent {
 		return hostTurnId === appTurnId ? params : { ...params, turn: { ...params.turn, id: hostTurnId } };
 	}
 
+	/** Keep the entire native event stream behind a start whose host identity is ambiguous. */
+	private _deferTurnEvent(session: ICodexSession, appTurnId: string, event: ICodexDeferredTurnEvent): boolean {
+		if (!session.deferredTurnStarts?.has(appTurnId)) {
+			return false;
+		}
+		const events = session.deferredTurnEvents ??= new Map();
+		let pending = events.get(appTurnId);
+		if (!pending) {
+			pending = [];
+			events.set(appTurnId, pending);
+		}
+		pending.push(event);
+		return true;
+	}
+
+	private _isInactiveTurn(session: ICodexSession, appTurnId: string): boolean {
+		const hostTurnId = session.hostTurnIdByAppTurnId.get(appTurnId);
+		return session.disposed
+			|| hostTurnId !== undefined && hostTurnId !== (session.currentTurnId ?? session.mapState.currentTurnId)
+			|| session.sendAttempt?.appTurnId === appTurnId && session.sendAttempt.cancelled;
+	}
+
+	private _replayDeferredTurnEvents(session: ICodexSession, appTurnId: string): void {
+		const events = session.deferredTurnEvents?.get(appTurnId);
+		session.deferredTurnEvents?.delete(appTurnId);
+		for (const event of events ?? []) {
+			event.dispatch();
+		}
+	}
+
+	private _cancelDeferredTurnEvents(session: ICodexSession): void {
+		session.deferredTurnStarts?.clear();
+		const events = session.deferredTurnEvents;
+		session.deferredTurnEvents = undefined;
+		for (const pending of events?.values() ?? []) {
+			for (const event of pending) {
+				event.cancel?.();
+			}
+		}
+	}
+
+	private _dispatchTurnRequest<T>(threadId: string, appTurnId: string, dispatch: () => Promise<T>, cancelled: () => T): Promise<T> {
+		const session = this._resolveApprovalTarget(threadId)?.session;
+		if (!session) {
+			return dispatch();
+		}
+		return new Promise<T>((resolve, reject) => {
+			const event: ICodexDeferredTurnEvent = {
+				dispatch: () => {
+					if (this._isInactiveTurn(session, appTurnId)) {
+						resolve(cancelled());
+					} else {
+						dispatch().then(resolve, reject);
+					}
+				},
+				cancel: () => resolve(cancelled()),
+			};
+			if (!this._deferTurnEvent(session, appTurnId, event)) {
+				event.dispatch();
+			}
+		});
+	}
+
 	private _handleTurnStartedNotification(session: ICodexSession, params: TurnStartedNotification): (SessionAction | ChatAction)[] {
 		// The workbench already dispatched the canonical turn start before sendMessage.
 		// Codex's event only establishes app-server turn id correlation for later items.
 		const appTurnId = params.turn.id;
+		const correlatedHostTurnId = session.hostTurnIdByAppTurnId.get(appTurnId);
+		const compact = session.pendingCompactStart;
+		if (compact?.dispatched && compact.attempt.appTurnId === undefined && correlatedHostTurnId === undefined) {
+			const attempt = compact.attempt;
+			attempt.appTurnId = appTurnId;
+			session.hostTurnIdByAppTurnId.set(appTurnId, attempt.hostTurnId);
+			if (attempt.cancelled || session.sendAttempt !== attempt) {
+				attempt.cancelled = true;
+				void this._interruptTurn(session, appTurnId, attempt.client, attempt.threadId, attempt).then(interrupted => {
+					if (!interrupted) {
+						this._handleConnectionLost(compact.connection, compact.generation);
+					}
+					this._settleCompactStart(session, compact);
+				});
+				return [];
+			}
+			this._settleCompactStart(session, compact);
+		}
+		const pendingAttempts = [...session.pendingTurnStartAttempts ?? []];
+		if (correlatedHostTurnId === undefined && pendingAttempts.length === 1 && pendingAttempts[0].cancelled && pendingAttempts[0].appTurnId === undefined) {
+			const cancelledAttempt = pendingAttempts[0];
+			cancelledAttempt.appTurnId = appTurnId;
+			session.hostTurnIdByAppTurnId.set(appTurnId, cancelledAttempt.hostTurnId);
+			void this._interruptTurn(session, appTurnId, cancelledAttempt.client, cancelledAttempt.threadId, cancelledAttempt);
+			return [];
+		}
+		if (correlatedHostTurnId === undefined && pendingAttempts.some(attempt => attempt.cancelled && attempt.appTurnId === undefined)) {
+			// A cancelled request and its replacement can overlap. Wait for the
+			// turn/start response to identify which request owns this native id.
+			(session.deferredTurnStarts ??= new Map()).set(appTurnId, params);
+			return [];
+		}
+		if (correlatedHostTurnId !== undefined && correlatedHostTurnId !== session.currentTurnId) {
+			return [];
+		}
+		const attempt = session.sendAttempt;
+		if (attempt && attempt.hostTurnId === session.currentTurnId) {
+			attempt.appTurnId = appTurnId;
+			if (attempt.cancelled) {
+				void this._interruptTurn(session, appTurnId, attempt.client, attempt.threadId, attempt);
+				return [];
+			}
+		}
 		session.hostTurnIdByAppTurnId.set(appTurnId, session.currentTurnId ?? this._hostTurnId(session, appTurnId));
 		session.currentAppTurnId = appTurnId;
 		if (session.pendingTurnPermissions) {
@@ -3392,6 +3540,9 @@ export class CodexAgent extends Disposable implements IAgent {
 		// Clear the correlation after completion so later turns cannot reuse stale ids.
 		if (isCurrentTurn) {
 			session.currentTurnId = undefined;
+			if (session.sendAttempt?.hostTurnId === hostTurnId) {
+				session.sendAttempt = undefined;
+			}
 			session.agentMergeTurn = false;
 			session.launchOwner = undefined;
 		}
@@ -3405,18 +3556,14 @@ export class CodexAgent extends Disposable implements IAgent {
 		// Any steering codex accepted but never echoed as a `userMessage` item
 		// is over with the turn; clear its pending bubble. Steering codex has not
 		// answered yet reached it after the turn ended, so its rejection hands it back.
-		this._drainPendingSteering(session, true);
+		this._drainPendingSteering(session, true, appTurnId);
 		// Unwind any still-pending "Approve anyway" guardian cards. codex does not
 		// block on them, so the reducer cancels the card when the turn ends; here
 		// we resolve the parked deferred (`cancel`) so the suspended
 		// {@link _handleGuardianReviewCompleted} frame unwinds instead of leaking
 		// until session dispose. The durable denial notification already emitted
 		// remains in the transcript.
-		if (session.pendingGuardianReviewCards.size > 0) {
-			for (const guardianToolCallId of [...session.pendingGuardianReviewCards]) {
-				session.pendingCommandApprovals.respond(guardianToolCallId, 'cancel');
-			}
-		}
+		session.pendingCommandApprovals.respondWhere(turnId => turnId === hostTurnId || session.codexTurnIdByHostTurnId.get(turnId) === appTurnId, 'cancel');
 		return out;
 	}
 
@@ -3527,8 +3674,11 @@ export class CodexAgent extends Disposable implements IAgent {
 	 * and connection loss. With `keepUnanswered`, steering whose `turn/steer`
 	 * request codex has not answered stays buffered for that answer to settle.
 	 */
-	private _drainPendingSteering(session: ICodexSession, keepUnanswered = false): void {
+	private _drainPendingSteering(session: ICodexSession, keepUnanswered = false, appTurnId?: string): void {
 		for (const [id, steering] of [...session.pendingSteeringFlips]) {
+			if (appTurnId !== undefined && steering.appTurnId !== appTurnId) {
+				continue;
+			}
 			if (keepUnanswered && !steering.accepted) {
 				continue;
 			}
@@ -3809,13 +3959,16 @@ export class CodexAgent extends Disposable implements IAgent {
 		}
 	}
 
-	private _dispatchByThread(threadId: string, mapFn: (s: ICodexSession) => ReturnType<typeof mapTurnStarted>): void {
+	private _dispatchByThread(threadId: string, mapFn: (s: ICodexSession) => ReturnType<typeof mapTurnStarted>, appTurnId?: string): void {
 		// Collab-agent (subagent) child threads emit their own full event
 		// stream; route them to the isolated subagent session and fire each
 		// action tagged with the parent `spawnAgent` tool call so the shared
 		// orchestrator lands them in the read-only child conversation.
 		const subagent = this._subagentsByThreadId.get(threadId);
 		if (subagent) {
+			if (appTurnId !== undefined && this._isInactiveTurn(subagent.session, appTurnId)) {
+				return;
+			}
 			const actions = mapFn(subagent.session);
 			for (const action of actions) {
 				this._fireSubagent(subagent, action);
@@ -3825,11 +3978,14 @@ export class CodexAgent extends Disposable implements IAgent {
 		const sessionId = this._sessionIdByThreadId.get(threadId);
 		const session = sessionId ? this._sessions.get(sessionId) : undefined;
 		if (!session) {
-			if (this._deferUntilSpawned(threadId, () => this._dispatchByThread(threadId, mapFn))) {
+			if (this._deferUntilSpawned(threadId, () => this._dispatchByThread(threadId, mapFn, appTurnId))) {
 				return;
 			}
 			// Usually an unclaimed prewarm; ignore.
 			this._logService.trace(`[Codex] Ignoring notification for untracked threadId=${threadId}; likely unclaimed prewarm`);
+			return;
+		}
+		if (appTurnId !== undefined && (this._deferTurnEvent(session, appTurnId, { dispatch: () => this._dispatchByThread(threadId, mapFn, appTurnId) }) || this._isInactiveTurn(session, appTurnId))) {
 			return;
 		}
 		const actions = mapFn(session);
@@ -3897,6 +4053,10 @@ export class CodexAgent extends Disposable implements IAgent {
 	}
 
 	private _dispatchTokenUsageUpdated(params: ThreadTokenUsageUpdatedNotification): void {
+		const target = this._resolveApprovalTarget(params.threadId);
+		if (target && (this._deferTurnEvent(target.session, params.turnId, { dispatch: () => this._dispatchTokenUsageUpdated(params) }) || this._isInactiveTurn(target.session, params.turnId))) {
+			return;
+		}
 		const subagent = this._subagentsByThreadId.get(params.threadId);
 		if (subagent) {
 			const mapped = this._withHostTurnId(subagent.session, params);
@@ -3943,6 +4103,10 @@ export class CodexAgent extends Disposable implements IAgent {
 	 * tool call by the time it completes).
 	 */
 	private _dispatchItemCompleted(params: ItemCompletedNotification): void {
+		const target = this._resolveApprovalTarget(params.threadId);
+		if (target && (this._deferTurnEvent(target.session, params.turnId, { dispatch: () => this._dispatchItemCompleted(params) }) || this._isInactiveTurn(target.session, params.turnId))) {
+			return;
+		}
 		const subagent = this._subagentsByThreadId.get(params.threadId);
 		if (subagent) {
 			this._recordTurnFileChanges(subagent.session, params);
@@ -4054,12 +4218,18 @@ export class CodexAgent extends Disposable implements IAgent {
 	 * tracking.
 	 */
 	private _dispatchTurnCompleted(params: TurnCompletedNotification): void {
+		const target = this._resolveApprovalTarget(params.threadId);
+		if (target && this._deferTurnEvent(target.session, params.turn.id, { dispatch: () => this._dispatchTurnCompleted(params) })) {
+			return;
+		}
 		const subagent = this._subagentsByThreadId.get(params.threadId);
 		if (!subagent && !this._sessionIdByThreadId.has(params.threadId) && !this._childTurnDiffOwners.has(params.threadId) && this._deferUntilSpawned(params.threadId, () => this._dispatchTurnCompleted(params))) {
 			return;
 		}
 		// A spawn its turn ended without completing will not name a child.
-		this._settleSpawnsOf(params.threadId);
+		if (!target || target.session.mapState.currentTurnId === this._hostTurnId(target.session, params.turn.id)) {
+			this._settleSpawnsOf(params.threadId);
+		}
 		if (subagent) {
 			const parent = this._sessions.get(subagent.parentSessionId);
 			if (parent) {
@@ -4170,7 +4340,7 @@ export class CodexAgent extends Disposable implements IAgent {
 			workingDirectories: parent.workingDirectories,
 			managedWorkingDirectory: undefined,
 			mapState: createCodexSessionMapState(new Set(this._serverToolHost?.toolNames ?? []), clientToolSet),
-			pendingCommandApprovals: new PendingRequestRegistry<CommandExecutionApprovalDecision>(),
+			pendingCommandApprovals: new PendingRequestRegistry<CommandExecutionApprovalDecision, string>(),
 			acceptedForSession: parent.acceptedForSession,
 			handledGuardianReviews: new Set<string>(),
 			pendingGuardianReviewCards: new Set<string>(),
@@ -4289,7 +4459,7 @@ export class CodexAgent extends Disposable implements IAgent {
 				toolInput: displayCommand,
 				confirmationTitle,
 			});
-		});
+		}, entry.turnId);
 		// Track accept-for-session decisions for the next request.
 		if (decision === 'acceptForSession' && command) {
 			session.acceptedForSession.add(command);
@@ -4347,9 +4517,9 @@ export class CodexAgent extends Disposable implements IAgent {
 				toolCallId: entry.toolCallId,
 				invocationMessage: confirmationTitle,
 				toolInput: confirmationTitle,
-				confirmationTitle,
-			});
-		});
+					confirmationTitle,
+				});
+			}, entry.turnId);
 	}
 
 	/**
@@ -4501,7 +4671,7 @@ export class CodexAgent extends Disposable implements IAgent {
 					invocationMessage,
 					confirmationTitle,
 				});
-			});
+			}, turnId);
 		} catch (err) {
 			// The parked approval was rejected (session dispose / cancellation);
 			// there is no card lifecycle left to finalize.
@@ -4602,6 +4772,8 @@ export class CodexAgent extends Disposable implements IAgent {
 		// Notify every known session with a single ChatError + complete
 		// pair so the UI surfaces "agent disconnected" cleanly.
 		for (const session of this._sessions.values()) {
+			this._settleCompactStart(session, session.pendingCompactStart, new CancellationError());
+			this._cancelDeferredTurnEvents(session);
 			this._workingDirectoryMutations.get(session)?.updated.cancel();
 			// A replacement app-server has no in-memory copy of any thread that
 			// was materialized on this connection. The next operation must resume
@@ -4657,6 +4829,10 @@ export class CodexAgent extends Disposable implements IAgent {
 
 	private _disposeConnection(): void {
 		const connection = this._connection;
+		for (const session of this._sessions.values()) {
+			this._settleCompactStart(session, session.pendingCompactStart, new CancellationError());
+			this._cancelDeferredTurnEvents(session);
+		}
 		this._connectionGeneration++;
 		this._connection = { kind: 'idle' };
 		this._pendingMcpStartupStatuses.clear();
@@ -5412,7 +5588,7 @@ export class CodexAgent extends Disposable implements IAgent {
 			workingDirectories,
 			managedWorkingDirectory: undefined,
 			mapState: createCodexSessionMapState(new Set(this._serverToolHost?.toolNames ?? []), clientToolSet),
-			pendingCommandApprovals: new PendingRequestRegistry<CommandExecutionApprovalDecision>(),
+			pendingCommandApprovals: new PendingRequestRegistry<CommandExecutionApprovalDecision, string>(),
 			acceptedForSession: new Set<string>(),
 			handledGuardianReviews: new Set<string>(),
 			pendingGuardianReviewCards: new Set<string>(),
@@ -5751,7 +5927,7 @@ export class CodexAgent extends Disposable implements IAgent {
 			workingDirectories: effectiveWorkingDirectories,
 			managedWorkingDirectory: undefined,
 			mapState: createCodexSessionMapState(new Set(this._serverToolHost?.toolNames ?? []), clientToolSet),
-			pendingCommandApprovals: new PendingRequestRegistry<CommandExecutionApprovalDecision>(),
+			pendingCommandApprovals: new PendingRequestRegistry<CommandExecutionApprovalDecision, string>(),
 			acceptedForSession: new Set<string>(),
 			handledGuardianReviews: new Set<string>(),
 			pendingGuardianReviewCards: new Set<string>(),
@@ -6428,6 +6604,36 @@ export class CodexAgent extends Disposable implements IAgent {
 		return typeof elapsed === 'number' && Number.isFinite(elapsed) ? Math.max(0, elapsed) : 0;
 	}
 
+	private _settleCompactStart(session: ICodexSession, compact: ICodexPendingCompactStart | undefined, error?: Error): void {
+		if (!compact || compact.settled.isSettled) {
+			return;
+		}
+		compact.error = error;
+		if (session.pendingCompactStart === compact) {
+			session.pendingCompactStart = undefined;
+		}
+		compact.disposables.dispose();
+		compact.settled.complete();
+	}
+
+	private _beginCompactStart(session: ICodexSession, attempt: ICodexSendAttempt, connection: IConnectionReady): ICodexPendingCompactStart {
+		const compact: ICodexPendingCompactStart = {
+			attempt, connection, generation: this._connectionGeneration, dispatched: false,
+			settled: new DeferredPromise<void>(), disposables: new DisposableStore(),
+		};
+		session.pendingCompactStart = compact;
+		compact.disposables.add(disposableTimeout(() => {
+			this._logService.error(`[Codex:${session.sessionId}] Timed out identifying the compact turn; restarting app-server`);
+			// Compact has no native id in its response. Once identification times
+			// out, only retiring this connection prevents a late start from claiming
+			// a replacement's identity. The normal disconnect path reports every
+			// affected chat and resumes its durable thread on the next operation.
+			this._settleCompactStart(session, compact, new Error('Timed out identifying the Codex compact turn.'));
+			this._handleConnectionLost(compact.connection, compact.generation);
+		}, 30_000));
+		return compact;
+	}
+
 	private async _sendMessage(chat: URI, prompt: string, attachments?: readonly MessageAttachment[], turnId?: string, workingDirectories?: readonly URI[], context?: URI | IAgentChatContext): Promise<void> {
 		const operationContext = context ? resolveAgentChatContext(context, chat) : undefined;
 		const accountTelemetryContext = operationContext?.turnTelemetryContext?.codex ?? this.captureTurnTelemetryContext().codex;
@@ -6439,6 +6645,16 @@ export class CodexAgent extends Disposable implements IAgent {
 		const session = this._sessions.get(sessionId);
 		if (!session) {
 			throw new Error(`Codex session not found: ${sessionUri.toString()} (chat=${chat.toString()}, binding=${this._sessionIdByChatUri.get(chat.toString()) ?? 'none'}, sessions=${[...this._sessions.keys()].join(',') || 'none'})`);
+		}
+		const effectiveTurnId = turnId ?? generateUuid();
+		const attempt: ICodexSendAttempt = { hostTurnId: effectiveTurnId, startSettled: new DeferredPromise<void>(), cancelled: false };
+		session.sendAttempt = attempt;
+		const isCancelled = () => attempt.cancelled || session.sendAttempt !== attempt || session.disposed;
+		if (session.pendingCompactStart) {
+			await session.pendingCompactStart.settled.p;
+			if (isCancelled()) {
+				return;
+			}
 		}
 		if (operationContext) {
 			session.owner = operationContext.owner;
@@ -6472,7 +6688,6 @@ export class CodexAgent extends Disposable implements IAgent {
 				: workingDirectories;
 		}
 		await this._refreshSessionMcpDiscovery(session);
-		const effectiveTurnId = turnId ?? generateUuid();
 
 		// Materialize the addressed Codex thread on first send.
 		try {
@@ -6480,6 +6695,9 @@ export class CodexAgent extends Disposable implements IAgent {
 			await this._materializeIfNeeded(session, configResource, true);
 			this._persistMaterializedSession(session);
 		} catch (err) {
+			if (isCancelled()) {
+				return;
+			}
 			session.agentMergeTurn = false;
 			session.launchOwner = undefined;
 			const message = err instanceof Error ? err.message : String(err);
@@ -6492,6 +6710,9 @@ export class CodexAgent extends Disposable implements IAgent {
 				part: createErrorResponsePart({ errorType: 'CodexMaterializeFailed', message }),
 			});
 			this._fire(sessionUri, { type: ActionType.ChatTurnComplete, turnId: effectiveTurnId, duration });
+			return;
+		}
+		if (isCancelled()) {
 			return;
 		}
 		// Materialization acquires its own connection and may race with a process
@@ -6534,6 +6755,9 @@ export class CodexAgent extends Disposable implements IAgent {
 				await this._restartThreadWithCurrentTools(session, configResource);
 				this._persistMaterializedSession(session);
 			} catch (err) {
+				if (isCancelled()) {
+					return;
+				}
 				session.agentMergeTurn = false;
 				session.launchOwner = undefined;
 				const message = err instanceof Error ? err.message : String(err);
@@ -6571,6 +6795,9 @@ export class CodexAgent extends Disposable implements IAgent {
 			// The thread is started, restarted or resumed for this send's owner by now.
 			session.threadOwner = configResource;
 		} catch (err) {
+			if (isCancelled()) {
+				return;
+			}
 			session.agentMergeTurn = false;
 			session.launchOwner = undefined;
 			const duration = this._clearTurnStopWatch(session);
@@ -6590,11 +6817,26 @@ export class CodexAgent extends Disposable implements IAgent {
 
 		let cleanupPaths: readonly string[] = [];
 		let turnRequestStarted = false;
+		let compactStart: ICodexPendingCompactStart | undefined;
 		const isCompactCommand = parseLeadingSlashCommand(prompt)?.command === CODEX_COMPACT_SLASH_COMMAND;
 		try {
 			if (isCompactCommand) {
+				if (isCancelled()) {
+					return;
+				}
 				await this._ensureCurrentLaunchBeforeTurn(session, configResource, conn);
 				conn = (await this._ensureThreadConnection(session, conn)).connection;
+				if (isCancelled()) { return; }
+				compactStart = this._beginCompactStart(session, attempt, conn);
+				// A prior turn/start response identifies its own native turn. Let it
+				// settle before admitting compact, whose only identity is the next
+				// turn/started notification on this thread.
+				await Promise.race([
+					Promise.all([...session.pendingTurnStartAttempts ?? []].map(pending => pending.startSettled.p)),
+					compactStart.settled.p,
+				]);
+				if (compactStart.error) { throw compactStart.error; }
+				if (isCancelled()) { return; }
 				const threadId = session.threadId!;
 				// Claim the host turn only once every reconnect-prone preparation step
 				// has completed. From here, connection-loss handling owns finalization.
@@ -6603,7 +6845,16 @@ export class CodexAgent extends Disposable implements IAgent {
 				session.modifiedTime = Date.now();
 				this._startTurnStopWatch(session);
 				turnRequestStarted = true;
-				await conn.client.request<'thread/compact/start'>('thread/compact/start', { threadId }, this._traceContext(session));
+				attempt.threadId = threadId;
+				attempt.client = conn.client;
+				compactStart.connection = conn;
+				compactStart.generation = this._connectionGeneration;
+				compactStart.dispatched = true;
+				await Promise.race([
+					conn.client.request<'thread/compact/start'>('thread/compact/start', { threadId }, this._traceContext(session)),
+					compactStart.settled.p,
+				]);
+				if (compactStart.error) { throw compactStart.error; }
 				session.firstTurnSent = true;
 				return;
 			}
@@ -6619,13 +6870,19 @@ export class CodexAgent extends Disposable implements IAgent {
 			operationContext?.reportCodexModelProvider?.(toCodexModelProvider(modelProvider));
 			const providerSwitch = session.pendingModelProviderSwitch;
 			const hostInstructions = resolveAgentHostInstructions(operationContext);
+			if (isCancelled()) {
+				return;
+			}
 			session.lastPromptText = prompt;
 			session.currentTurnId = effectiveTurnId;
 			session.pendingTurnPermissions = turnOptions;
 			session.modifiedTime = Date.now();
 			this._startTurnStopWatch(session);
 			turnRequestStarted = true;
-			await conn.client.request<'turn/start'>('turn/start', {
+			attempt.threadId = threadId;
+			attempt.client = conn.client;
+			(session.pendingTurnStartAttempts ??= new Set()).add(attempt);
+			const started = await conn.client.request<'turn/start', TurnStartResponse>('turn/start', {
 				threadId,
 				input: resolvedInput.input.slice(),
 				model: resolvedModel.modelId,
@@ -6636,6 +6893,19 @@ export class CodexAgent extends Disposable implements IAgent {
 					'vscode.clientSkills': { kind: 'application', value: currentCustomizationLaunch.clientSkillInstructions },
 				},
 			}, this._traceContext(session));
+			if (started.turn) {
+				attempt.appTurnId = started.turn.id;
+				session.hostTurnIdByAppTurnId.set(started.turn.id, effectiveTurnId);
+				if (attempt.cancelled) {
+					void this._interruptTurn(session, started.turn.id, conn.client, threadId, attempt);
+				}
+				const deferred = session.deferredTurnStarts?.get(started.turn.id);
+				if (deferred) {
+					session.deferredTurnStarts?.delete(started.turn.id);
+					this._handleTurnStartedNotification(session, deferred);
+						this._replayDeferredTurnEvents(session, started.turn.id);
+				}
+			}
 			// The thread now has committed history; client tools are locked to
 			// what was registered at `thread/start` and won't be re-applied.
 			session.firstTurnSent = true;
@@ -6648,6 +6918,10 @@ export class CodexAgent extends Disposable implements IAgent {
 			// We don't await turn completion here — the notification
 			// stream emits ChatTurnComplete asynchronously.
 		} catch (err) {
+			this._settleCompactStart(session, compactStart);
+			if (isCancelled()) {
+				return;
+			}
 			// A transport exit finalizes and clears an owned turn in
 			// `_handleConnectionLost`. Do not start or complete it a second time.
 			if (turnRequestStarted && session.currentTurnId !== effectiveTurnId) {
@@ -6676,6 +6950,14 @@ export class CodexAgent extends Disposable implements IAgent {
 			});
 			this._fire(sessionUri, { type: ActionType.ChatTurnComplete, turnId: effectiveTurnId, duration });
 		} finally {
+			attempt.startSettled.complete();
+			if (compactStart && !compactStart.dispatched) {
+				this._settleCompactStart(session, compactStart);
+			}
+			session.pendingTurnStartAttempts?.delete(attempt);
+			if (session.pendingTurnStartAttempts?.size === 0) {
+				this._cancelDeferredTurnEvents(session);
+			}
 			// Best-effort temp-file cleanup. Image-on-localImage will be
 			// re-read by codex synchronously during the turn so this is
 			// safe to defer slightly; we delete after a generous grace.
@@ -6793,6 +7075,7 @@ export class CodexAgent extends Disposable implements IAgent {
 		// visible turn (see {@link _handleSteeredUserMessage}).
 		const steering: ICodexPendingSteering = {
 			pendingMessage: steeringMessage,
+			appTurnId,
 			// Match the text actually sent, including attachment context. Keep the
 			// original message for presentation and resolve attachments only once.
 			inputText: extractUserInputText(input),
@@ -6848,21 +7131,42 @@ export class CodexAgent extends Disposable implements IAgent {
 		// Clear any steering buffered for the turn we're aborting so its
 		// pending bubble doesn't outlive the turn.
 		this._drainPendingSteering(session);
-		if (!session.currentAppTurnId || session.threadId === undefined) {
+		const attempt = session.sendAttempt;
+		if (attempt) {
+			attempt.cancelled = true;
+		}
+		const compact = session.pendingCompactStart;
+		if (compact && compact.attempt === attempt && !compact.dispatched) {
+			this._settleCompactStart(session, compact, new CancellationError());
+		}
+		const appTurnId = attempt?.appTurnId ?? (attempt ? undefined : session.currentAppTurnId);
+		if (!appTurnId) {
 			return;
 		}
-		const threadId = session.threadId;
+		await this._interruptTurn(session, appTurnId, attempt?.client, attempt?.threadId, attempt);
+	}
+
+	private async _interruptTurn(session: ICodexSession, appTurnId: string, client?: ICodexAppServerClient, threadId = session.threadId, sendAttempt?: ICodexSendAttempt): Promise<boolean> {
+		if (threadId === undefined) { return false; }
+		const attempt = sendAttempt ?? (session.sendAttempt?.appTurnId === appTurnId ? session.sendAttempt : undefined);
+		if (attempt?.interruptRequested) { return true; }
 		const conn = this._connection;
-		if (conn.kind !== 'ready') {
-			return;
+		if (!client && conn.kind !== 'ready') {
+			return false;
 		}
+		const targetClient = client ?? (conn.kind === 'ready' ? conn.client : undefined);
+		if (!targetClient) { return false; }
+		if (attempt) { attempt.interruptRequested = true; }
 		try {
-			await conn.client.request<'turn/interrupt'>('turn/interrupt', {
+			await targetClient.request<'turn/interrupt'>('turn/interrupt', {
 				threadId,
-				turnId: session.currentAppTurnId,
+				turnId: appTurnId,
 			});
+			return true;
 		} catch (err) {
-			this._logService.warn(`[Codex:${sessionId}] turn/interrupt failed: ${err instanceof Error ? err.message : String(err)}`);
+			if (attempt) { attempt.interruptRequested = false; }
+			this._logService.warn(`[Codex:${session.sessionId}] turn/interrupt failed: ${err instanceof Error ? err.message : String(err)}`);
+			return false;
 		}
 	}
 
@@ -7014,6 +7318,8 @@ export class CodexAgent extends Disposable implements IAgent {
 	 */
 	private async _teardownSessionInMemory(session: ICodexSession, sessionId: string, deleteManagedWorkingDirectory: boolean): Promise<void> {
 		session.disposed = true;
+		this._settleCompactStart(session, session.pendingCompactStart, new CancellationError());
+		this._cancelDeferredTurnEvents(session);
 		this._turnDiffs.get(session)?.dispose();
 		this._workingDirectoryMutations.get(session)?.updated.cancel();
 		this._claimPrewarm(session);
@@ -9183,6 +9489,8 @@ export class CodexAgent extends Disposable implements IAgent {
 	private _clearRuntimeState(): void {
 		for (const s of this._sessions.values()) {
 			s.disposed = true;
+			this._settleCompactStart(s, s.pendingCompactStart, new CancellationError());
+			this._cancelDeferredTurnEvents(s);
 			this._turnDiffs.get(s)?.dispose();
 			this._workingDirectoryMutations.get(s)?.updated.cancel();
 			if (s.prewarmTimer) {

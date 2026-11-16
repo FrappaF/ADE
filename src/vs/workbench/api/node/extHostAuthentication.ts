@@ -23,6 +23,7 @@ import { IProgressStep } from '../../../platform/progress/common/progress.js';
 import { CancellationError, isCancellationError } from '../../../base/common/errors.js';
 import { URI } from '../../../base/common/uri.js';
 import { LoopbackAuthServer } from './loopbackServer.js';
+import { CancellationTokenSource } from '../../../base/common/cancellation.js';
 
 export class NodeDynamicAuthProvider extends DynamicAuthProvider {
 
@@ -134,7 +135,12 @@ export class NodeDynamicAuthProvider extends DynamicAuthProvider {
 
 		const promise = server.waitForOAuthResponse();
 		// Set up a Uri Handler but it's just to redirect not to handle the code
-		void this._proxy.$waitForUriHandler(appUri);
+		const cancellation = new CancellationTokenSource(token);
+		void this._proxy.$waitForUriHandler(appUri, cancellation.token).catch(err => {
+			if (!isCancellationError(err)) {
+				this._logger.error('Failed to wait for the authentication redirect.');
+			}
+		});
 
 		try {
 			// Open the browser for user authorization
@@ -167,6 +173,7 @@ export class NodeDynamicAuthProvider extends DynamicAuthProvider {
 			const tokenResponse = await this.exchangeCodeForToken(code, codeVerifier, server.redirectUri);
 			return tokenResponse;
 		} finally {
+			cancellation.dispose(true);
 			// Clean up the server
 			setTimeout(() => {
 				void server.stop();

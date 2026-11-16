@@ -48,47 +48,57 @@ export class NotebookExecutionService implements INotebookExecutionService, IDis
 
 		// create cell executions
 		const cellExecutions: [NotebookCellTextModel, INotebookCellExecution][] = [];
-		for (const cell of cellsArr) {
-			const cellExe = this._notebookExecutionStateService.getCellExecution(cell.uri);
-			if (!!cellExe) {
-				continue;
+		try {
+			for (const cell of cellsArr) {
+				const cellExe = this._notebookExecutionStateService.getCellExecution(cell.uri);
+				if (!!cellExe) {
+					continue;
+				}
+				cellExecutions.push([cell, this._notebookExecutionStateService.createCellExecution(notebook.uri, cell.handle)]);
 			}
-			cellExecutions.push([cell, this._notebookExecutionStateService.createCellExecution(notebook.uri, cell.handle)]);
-		}
+			const kernel = await KernelPickerMRUStrategy.resolveKernel(notebook, this._notebookKernelService, this._notebookKernelHistoryService, this._commandService);
 
-		const kernel = await KernelPickerMRUStrategy.resolveKernel(notebook, this._notebookKernelService, this._notebookKernelHistoryService, this._commandService);
-
-		if (!kernel) {
-			// clear all pending cell executions
-			cellExecutions.forEach(cellExe => cellExe[1].complete({}));
-			return;
-		}
-
-		this._notebookKernelHistoryService.addMostRecentKernel(kernel);
-
-		// filter cell executions based on selected kernel
-		const validCellExecutions: INotebookCellExecution[] = [];
-		for (const [cell, cellExecution] of cellExecutions) {
-			if (!kernel.supportedLanguages.includes(cell.language)) {
-				cellExecution.complete({});
-			} else {
-				validCellExecutions.push(cellExecution);
+			if (!kernel) {
+				// clear all pending cell executions
+				cellExecutions.forEach(cellExe => cellExe[1].complete({}));
+				return;
 			}
-		}
 
-		// request execution
-		if (validCellExecutions.length > 0) {
-			await this.runExecutionParticipants(validCellExecutions);
+			this._notebookKernelHistoryService.addMostRecentKernel(kernel);
 
-			this._notebookKernelService.selectKernelForNotebook(kernel, notebook);
-			await kernel.executeNotebookCellsRequest(notebook.uri, validCellExecutions.map(c => c.cellHandle));
-			// the connecting state can change before the kernel resolves executeNotebookCellsRequest
-			const unconfirmed = validCellExecutions.filter(exe => exe.state === NotebookCellExecutionState.Unconfirmed);
-			if (unconfirmed.length) {
-				this._logService.debug(`Execution`, `Completing unconfirmed executions ${JSON.stringify(unconfirmed.map(exe => exe.cellHandle))}`);
-				unconfirmed.forEach(exe => exe.complete({}));
+			// filter cell executions based on selected kernel
+			const validCellExecutions: INotebookCellExecution[] = [];
+			for (const [cell, cellExecution] of cellExecutions) {
+				if (!kernel.supportedLanguages.includes(cell.language)) {
+					cellExecution.complete({});
+				} else {
+					validCellExecutions.push(cellExecution);
+				}
 			}
-			this._logService.debug(`Execution`, `Completed executions ${JSON.stringify(validCellExecutions.map(exe => exe.cellHandle))}`);
+
+			// request execution
+			if (validCellExecutions.length > 0) {
+				await this.runExecutionParticipants(validCellExecutions);
+
+				this._notebookKernelService.selectKernelForNotebook(kernel, notebook);
+				await kernel.executeNotebookCellsRequest(notebook.uri, validCellExecutions.map(c => c.cellHandle));
+				// the connecting state can change before the kernel resolves executeNotebookCellsRequest
+				const unconfirmed = validCellExecutions.filter(exe => exe.state === NotebookCellExecutionState.Unconfirmed);
+				if (unconfirmed.length) {
+					this._logService.debug(`Execution`, `Completing unconfirmed executions ${JSON.stringify(unconfirmed.map(exe => exe.cellHandle))}`);
+					unconfirmed.forEach(exe => exe.complete({}));
+				}
+				this._logService.debug(`Execution`, `Completed executions ${JSON.stringify(validCellExecutions.map(exe => exe.cellHandle))}`);
+			}
+		} finally {
+			// Preparation and dispatch can fail before the kernel confirms these
+			// executions. Leave confirmed executions to their owning kernel.
+			for (const [cell, execution] of cellExecutions) {
+				if (execution.state === NotebookCellExecutionState.Unconfirmed
+					&& this._notebookExecutionStateService.getCellExecution(cell.uri) === execution) {
+					execution.complete({});
+				}
+			}
 		}
 	}
 

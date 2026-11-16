@@ -5984,6 +5984,32 @@ suite('ClaudeAgent', () => {
 		});
 	});
 
+	test('a server permission-mode update survives a tool-set rebind without touching the old query', async () => {
+		const { agent, sdk, stateManager, configService } = createTestContext(disposables);
+		await agent.authenticate(GITHUB_COPILOT_PROTECTED_RESOURCE.resource, 'tok');
+		const created = await createSession(agent, { workingDirectories: [URI.file('/work')], config: { permissionMode: 'plan' } });
+		stateManager.createSession({ resource: created.session.toString(), provider: 'claude', title: '', status: SessionStatus.Idle, createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(), defaultChat: buildDefaultChatUri(created.session.toString()) });
+		stateManager.setSessionConfig(created.session.toString(), {
+			schema: { type: 'object', properties: { permissionMode: { type: 'string', title: 'Mode', enum: ['plan', 'acceptEdits'], sessionMutable: true, chatMutable: true } } },
+			values: { permissionMode: 'plan' },
+		});
+		const chat = defaultChatUri(created.session);
+		sdk.nextQueryMessages = [makeSystemInitMessage(created.sdkSessionId), makeResultSuccess(created.sdkSessionId)];
+		await agent.chats.sendMessage(chat, 'first', undefined, undefined, 'turn-1', undefined, undefined, chatContext(chat));
+		const oldQuery = sdk.warmQueries[0].produced!;
+
+		// ExitPlanMode persists through this server-origin path, intentionally
+		// without issuing a control request inside the SDK canUseTool callback.
+		configService.updateChatConfig({ session: created.session.toString(), chat: chat.toString() }, { permissionMode: 'acceptEdits' });
+		getOrCreateActiveClient(agent, chat, 'client-1').tools = [{ name: 'echo', inputSchema: { type: 'object' } }];
+		sdk.nextQueryMessages = [makeSystemInitMessage(created.sdkSessionId), makeResultSuccess(created.sdkSessionId)];
+		await agent.chats.sendMessage(chat, 'second', undefined, undefined, 'turn-2', undefined, undefined, chatContext(chat));
+
+		assert.deepStrictEqual({ startup: sdk.capturedStartupOptions.at(-1)?.permissionMode, oldModes: oldQuery.recordedPermissionModes, newModes: sdk.warmQueries.at(-1)?.produced?.recordedPermissionModes }, {
+			startup: 'acceptEdits', oldModes: [], newModes: ['acceptEdits'],
+		});
+	});
+
 	test('a pending truncation anchor reaches the next rebuild as Options.resumeSessionAt, consumed once', async () => {
 		const { agent, sdk } = createTestContext(disposables);
 		await agent.authenticate(GITHUB_COPILOT_PROTECTED_RESOURCE.resource, 'tok');

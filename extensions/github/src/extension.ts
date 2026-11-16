@@ -9,7 +9,7 @@ import { GithubRemoteSourceProvider } from './remoteSourceProvider.js';
 import type { API, GitExtension } from './typings/git.d.ts';
 import { registerCommands } from './commands.js';
 import { GithubCredentialProviderManager } from './credentialProvider.js';
-import { DisposableStore, repositoryHasGitHubRemote } from './util.js';
+import { DisposableStore, registerOnEnablement, repositoryHasGitHubRemote } from './util.js';
 import { GithubPushErrorHandler } from './pushErrorHandler.js';
 import { GitBaseExtension } from './typings/git-base.js';
 import { GithubRemoteSourcePublisher } from './remoteSourcePublisher.js';
@@ -44,33 +44,18 @@ export function activate(context: ExtensionContext): void {
 }
 
 function initializeGitBaseExtension(): Disposable {
-	const disposables = new DisposableStore();
-
-	const initialize = () => {
+	const gitBaseExtension = extensions.getExtension<GitBaseExtension>('vscode.git-base')!.exports;
+	return registerOnEnablement(gitBaseExtension.onDidChangeEnablement, gitBaseExtension.enabled, registrations => {
 		try {
 			const gitBaseAPI = gitBaseExtension.getAPI(1);
 
-			disposables.add(gitBaseAPI.registerRemoteSourceProvider(new GithubRemoteSourceProvider()));
+			registrations.add(gitBaseAPI.registerRemoteSourceProvider(new GithubRemoteSourceProvider()));
 		}
 		catch (err) {
 			console.error('Could not initialize GitHub extension');
 			console.warn(err);
 		}
-	};
-
-	const onDidChangeGitBaseExtensionEnablement = (enabled: boolean) => {
-		if (!enabled) {
-			disposables.dispose();
-		} else {
-			initialize();
-		}
-	};
-
-	const gitBaseExtension = extensions.getExtension<GitBaseExtension>('vscode.git-base')!.exports;
-	disposables.add(gitBaseExtension.onDidChangeEnablement(onDidChangeGitBaseExtensionEnablement));
-	onDidChangeGitBaseExtensionEnablement(gitBaseExtension.enabled);
-
-	return disposables;
+	});
 }
 
 function setGitHubContext(gitAPI: API, disposables: DisposableStore) {
@@ -96,28 +81,21 @@ function initializeGitExtension(context: ExtensionContext, octokitService: Octok
 	const initialize = () => {
 		gitExtension!.activate()
 			.then(extension => {
-				const onDidChangeGitExtensionEnablement = (enabled: boolean) => {
-					if (enabled) {
-						const gitAPI = extension.getAPI(1);
+				disposables.add(registerOnEnablement(extension.onDidChangeEnablement, extension.enabled, registrations => {
+					const gitAPI = extension.getAPI(1);
 
-						disposables.add(registerCommands(gitAPI));
-						disposables.add(new GithubCredentialProviderManager(gitAPI));
-						disposables.add(new GitHubBranchProtectionProviderManager(gitAPI, context.globalState, octokitService, logger, telemetryReporter));
-						disposables.add(gitAPI.registerPushErrorHandler(new GithubPushErrorHandler(telemetryReporter)));
-						disposables.add(gitAPI.registerRemoteSourcePublisher(new GithubRemoteSourcePublisher(gitAPI)));
-						disposables.add(gitAPI.registerSourceControlHistoryItemDetailsProvider(new GitHubSourceControlHistoryItemDetailsProvider(gitAPI, octokitService, logger)));
-						disposables.add(new GitHubCanonicalUriProvider(gitAPI));
-						disposables.add(new VscodeDevShareProvider(gitAPI));
-						setGitHubContext(gitAPI, disposables);
+					registrations.add(registerCommands(gitAPI));
+					registrations.add(new GithubCredentialProviderManager(gitAPI));
+					registrations.add(new GitHubBranchProtectionProviderManager(gitAPI, context.globalState, octokitService, logger, telemetryReporter));
+					registrations.add(gitAPI.registerPushErrorHandler(new GithubPushErrorHandler(telemetryReporter)));
+					registrations.add(gitAPI.registerRemoteSourcePublisher(new GithubRemoteSourcePublisher(gitAPI)));
+					registrations.add(gitAPI.registerSourceControlHistoryItemDetailsProvider(new GitHubSourceControlHistoryItemDetailsProvider(gitAPI, octokitService, logger)));
+					registrations.add(new GitHubCanonicalUriProvider(gitAPI));
+					registrations.add(new VscodeDevShareProvider(gitAPI));
+					setGitHubContext(gitAPI, registrations);
 
-						commands.executeCommand('setContext', 'git-base.gitEnabled', true);
-					} else {
-						disposables.dispose();
-					}
-				};
-
-				disposables.add(extension.onDidChangeEnablement(onDidChangeGitExtensionEnablement));
-				onDidChangeGitExtensionEnablement(extension.enabled);
+					commands.executeCommand('setContext', 'git-base.gitEnabled', true);
+				}));
 			});
 	};
 

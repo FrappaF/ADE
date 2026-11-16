@@ -7,6 +7,8 @@ import { deepStrictEqual } from 'assert';
 import { Schemas } from '../../../../../../base/common/network.js';
 import { OperatingSystem } from '../../../../../../base/common/platform.js';
 import { URI } from '../../../../../../base/common/uri.js';
+import { mock } from '../../../../../../base/test/common/mock.js';
+import { ITextModelService } from '../../../../../../editor/common/services/resolverService.js';
 import { ITextEditorSelection, ITextResourceEditorInput } from '../../../../../../platform/editor/common/editor.js';
 import { IFileService, IFileStatWithPartialMetadata } from '../../../../../../platform/files/common/files.js';
 import { FileService } from '../../../../../../platform/files/common/fileService.js';
@@ -86,7 +88,8 @@ suite('Workbench - TerminalLinkOpeners', () => {
 	setup(async () => {
 		instantiationService = store.add(new TestInstantiationService());
 		fileService = store.add(new TestFileService(new NullLogService()));
-		searchService = store.add(new TestSearchService(null!, null!, null!, null!, null!, null!, null!));
+		const textModels = new class extends mock<ITextModelService>() { override async createModelReference(): ReturnType<ITextModelService['createModelReference']> { throw new Error('File search must not resolve text models'); } };
+		searchService = store.add(new TestSearchService(null!, null!, null!, null!, null!, null!, null!, textModels));
 		instantiationService.set(IFileService, fileService);
 		instantiationService.set(ILogService, new NullLogService());
 		instantiationService.set(ISearchService, searchService);

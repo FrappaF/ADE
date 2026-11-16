@@ -190,7 +190,7 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 			const resolvedResult: ISearchComplete = {
 				results: [...allClosedEditorResults.results, ...resolvedNotebookResults.results],
 				messages: [...allClosedEditorResults.messages, ...resolvedNotebookResults.messages],
-				limitHit: allClosedEditorResults.limitHit || resolvedNotebookResults.limitHit,
+				limitHit: textResult.syncResults.limitHit || allClosedEditorResults.limitHit || resolvedNotebookResults.limitHit,
 				exit: allClosedEditorResults.exit,
 				stats: allClosedEditorResults.stats,
 			};

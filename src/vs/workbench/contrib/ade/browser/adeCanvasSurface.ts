@@ -322,7 +322,7 @@ export class AdeCanvasSurface {
 			button.setAttribute('aria-pressed', String(!this.relationSelection && element.id === this.project.selectedId));
 			button.setAttribute('aria-description', [elementLabels[element.kind], ...notationLines(element)].join(' · '));
 			this.installContextMenu(button, (x, y) => this.elementMenu(element.id, x, y));
-			if (this.project.editable) { this.canvas.installNodeEditing(button, view, element.id); }
+			if (this.project.editable) { this.canvas.installNodeEditing(button, view, element.id, model, boundaryBoxes.some(box => box.elementId === element.id)); }
 		}
 		// Keep the historical node-first tab order, followed by keyboard-accessible connections.
 		canvas.appendChild(svg);

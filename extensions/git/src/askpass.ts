@@ -9,6 +9,7 @@ import { IIPCHandler, IIPCServer } from './ipc/ipcServer';
 import type { CredentialsProvider, Credentials } from './api/git';
 import { ITerminalEnvironmentProvider } from './terminal';
 import { AskpassPaths } from './askpassManager';
+import { sanitizeGitLog } from './log';
 
 export class Askpass implements IIPCHandler, ITerminalEnvironmentProvider {
 
@@ -50,7 +51,7 @@ export class Askpass implements IIPCHandler, ITerminalEnvironmentProvider {
 	}
 
 	async handle(payload: { askpassType: 'https' | 'ssh'; argv: string[] }): Promise<string> {
-		this.logger.trace(`[Askpass][handle] ${JSON.stringify(payload)}`);
+		this.logger.trace(sanitizeGitLog(`[Askpass][handle] ${JSON.stringify(payload)}`));
 
 		const config = workspace.getConfiguration('git', null);
 		const enabled = config.get<boolean>('enabled');
@@ -72,7 +73,7 @@ export class Askpass implements IIPCHandler, ITerminalEnvironmentProvider {
 		const request = argv[2];
 		const host = argv[4].replace(/^["']+|["':]+$/g, '');
 
-		this.logger.trace(`[Askpass][handleAskpass] request: ${request}, host: ${host}`);
+		this.logger.trace(sanitizeGitLog(`[Askpass][handleAskpass] request: ${request}, host: ${host}`));
 
 		const uri = Uri.parse(host);
 		const authority = uri.authority.replace(/^.*@/, '');
@@ -130,7 +131,7 @@ export class Askpass implements IIPCHandler, ITerminalEnvironmentProvider {
 				file = extractFilePathFromArgs(argv, 6);
 			}
 
-			this.logger.trace(`[Askpass][handleSSHAskpass] request: ${request}, file: ${file}`);
+			this.logger.trace(sanitizeGitLog(`[Askpass][handleSSHAskpass] request: ${request}, file: ${file}`));
 
 			const options: InputBoxOptions = {
 				password: true,
@@ -146,7 +147,7 @@ export class Askpass implements IIPCHandler, ITerminalEnvironmentProvider {
 		const host = argv[6].replace(/^["']+|["':]+$/g, '');
 		const fingerprint = argv[15];
 
-		this.logger.trace(`[Askpass][handleSSHAskpass] request: ${request}, host: ${host}, fingerprint: ${fingerprint}`);
+		this.logger.trace(sanitizeGitLog(`[Askpass][handleSSHAskpass] request: ${request}, host: ${host}, fingerprint: ${fingerprint}`));
 
 		const options: QuickPickOptions = {
 			canPickMany: false,

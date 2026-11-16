@@ -1449,6 +1449,16 @@ suite('NotebookTextModel', () => {
 			assert.equal(model.cells[0].outputs[0].outputs[0].data.toString(), '_World_');
 		});
 	});
+
+	test('reset preserves changed output metadata with the same output count', async () => {
+		await withTestNotebook([
+			['code', 'javascript', CellKind.Code, [{ outputId: 'old', outputs: [], metadata: { width: 100 } }], {}]
+		], editor => {
+			const model = editor.textModel;
+			model.reset([{ source: 'code', language: 'javascript', mime: undefined, cellKind: CellKind.Code, outputs: [{ outputId: 'new', outputs: [], metadata: { width: 200 } }] }], {}, model.transientOptions);
+			assert.deepStrictEqual(model.cells[0].outputs[0].metadata, { width: 200 });
+		});
+	});
 	test('Append multiple text/plain output items', async function () {
 		await withTestNotebook([
 			['var a = 1;', 'javascript', CellKind.Code, [{

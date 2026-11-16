@@ -1424,6 +1424,32 @@ suite('codexMapAppServerEvents', () => {
 		]);
 	});
 
+	test('a previous turn completion preserves every part of the active turn mapper state', () => {
+		const state = createCodexSessionMapState();
+		state.currentTurnId = 'replacement';
+		state.itemToPartId.set('message-B', 'part-B');
+		state.itemToReasoningPartId.set('reasoning-B:text:0', 'reasoning-part-B');
+		state.itemToToolCall.set('command-B', { toolCallId: 'tool-B', turnId: 'replacement', toolName: 'shell', output: 'still running' });
+		state.declinedToolCalls.add('declined-B');
+		state.pendingPreflight = { toolCallId: 'preflight-B', turnId: 'replacement', command: 'build', completion: [{ type: ActionType.ChatToolCallComplete, turnId: 'replacement', toolCallId: 'preflight-B', result: { success: true, pastTenseMessage: 'Built' } }] };
+		state.deferredResponseActions.push({ type: ActionType.ChatDelta, turnId: 'replacement', partId: 'part-B', content: 'queued text' });
+		state.agentMessagePartCount = 2;
+		const before = {
+			...state,
+			itemToPartId: new Map(state.itemToPartId), itemToReasoningPartId: new Map(state.itemToReasoningPartId),
+			itemToToolCall: new Map(state.itemToToolCall), declinedToolCalls: new Set(state.declinedToolCalls),
+			deferredResponseActions: [...state.deferredResponseActions],
+		};
+		const actions = mapTurnCompleted(state, {
+			threadId: 'thread',
+			turn: { id: 'interrupted', rootTurnId: null, items: [], itemsView: 'notLoaded', status: 'interrupted', error: null, startedAt: 1, completedAt: 2, durationMs: 1000 },
+		});
+		assert.deepStrictEqual(actions, [{ type: ActionType.ChatTurnCancelled, turnId: 'interrupted', duration: 1000 }]);
+		assert.deepStrictEqual(state, before);
+		assert.deepStrictEqual(mapAgentMessageDelta(state, { threadId: 'thread', turnId: 'replacement', itemId: 'message-B', delta: 'next' }), []);
+		assert.strictEqual(state.deferredResponseActions.at(-1)?.type, ActionType.ChatDelta);
+	});
+
 	test('turn/completed does not recover a non-command tool through the pure mapper', () => {
 		const state = createCodexSessionMapState();
 		state.itemToToolCall.set('tool_1', { toolCallId: 'tc_1', turnId: 'turn_a', toolName: 'web_search', output: '' });

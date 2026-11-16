@@ -16,6 +16,7 @@ import { createRegExp } from '../../../../base/common/strings.js';
 import { Promises } from '../../../../base/common/async.js';
 import { ExtUri } from '../../../../base/common/resources.js';
 import { revive } from '../../../../base/common/marshalling.js';
+import { hasKey } from '../../../../base/common/types.js';
 
 const PERF = false;
 
@@ -122,7 +123,7 @@ export class LocalFileSearchWorker implements ILocalFileSearchWorker, IWebWorker
 
 			let fileCount = 0;
 			let resultCount = 0;
-			const limitHit = false;
+			let limitHit = false;
 
 			const processFile = async (file: FileNode) => {
 				if (token.token.isCancellationRequested) {
@@ -137,17 +138,19 @@ export class LocalFileSearchWorker implements ILocalFileSearchWorker, IWebWorker
 				}
 
 				const bytes = new Uint8Array(contents);
-				const fileResults = getFileResults(bytes, pattern, {
+				const fileResult = getFileResults(bytes, pattern, {
 					surroundingContext: query.surroundingContext ?? 0,
 					previewOptions: query.previewOptions,
-					remainingResultQuota: query.maxResults ? (query.maxResults - resultCount) : 10000,
+					remainingResultQuota: (query.maxResults ?? 10000) - resultCount,
 				});
+				const fileResults = fileResult.results;
+				if (fileResult.limitHit) {
+					limitHit = true;
+					token.cancel();
+				}
 
 				if (fileResults.length) {
-					resultCount += fileResults.length;
-					if (query.maxResults && resultCount > query.maxResults) {
-						token.cancel();
-					}
+					resultCount += fileResults.filter(result => hasKey(result, { rangeLocations: true })).length;
 					const match = {
 						resource: URI.joinPath(revivedQuery.folder, file.path),
 						results: fileResults,

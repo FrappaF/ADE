@@ -11,6 +11,7 @@ import { RawDebugSession } from '../../browser/rawDebugSession.js';
 import { MockDebugAdapter } from '../common/mockDebug.js';
 import { createTestSession } from './callStack.test.js';
 import { createMockDebugModel } from './mockDebugModel.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 
 suite('DebugSession - ThreadStatusScheduler', () => {
@@ -206,5 +207,21 @@ suite('DebugSession - continued events', () => {
 		await continued;
 
 		assert.strictEqual(session.getStoppedDetails(), undefined);
+	});
+});
+
+suite('DebugSession - breakpoint position fallback', () => {
+	const store = ensureNoDisposablesAreLeakedInTestSuite();
+	test('applies column bounds only to the first and last lines', () => {
+		const model = createMockDebugModel(store);
+		const session = store.add(createTestSession(model));
+		const uri = URI.file('/project/main.ts');
+		model.addBreakpoints(uri, [
+			{ lineNumber: 10, column: 4 }, { lineNumber: 10, column: 8 },
+			{ lineNumber: 11, column: 1 }, { lineNumber: 11, column: 20 },
+			{ lineNumber: 12, column: 2 }, { lineNumber: 12, column: 9 },
+		]);
+		// eslint-disable-next-line local/code-no-bracket-notation-for-identifiers
+		assert.deepStrictEqual(session['getBreakpointsAtPosition'](uri, 10, 12, 8, 2).map(bp => [bp.lineNumber, bp.column]), [[10, 8], [11, 1], [11, 20], [12, 2]]);
 	});
 });

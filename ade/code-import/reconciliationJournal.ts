@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { randomUUID } from 'node:crypto';
-import { readFile, readdir, lstat, writeFile, rename, rm, chmod } from 'node:fs/promises';
+import { readFile, readdir, lstat, realpath, writeFile, rename, rm, chmod } from 'node:fs/promises';
 import { join, dirname, basename } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { managed, active, activate, atomicJson, snapshotId, assertNoInterruptedStructuralPublication } from '../runtime/projectStore.ts';
 import { sourceFile, type SourceMutation } from '../runtime/sourceChanges.ts';
 import { readSnapshot, type ImportSnapshot } from './snapshot.ts';
 import { object, text, digest, array } from '../runtime/schemas.ts';
+import { errorCode } from '../runtime/errors.ts';
 
 export interface ReconciliationOperation {
 	version: 1; id: string; root: string; created: string;
@@ -55,9 +56,23 @@ export async function operationHistory(root: string): Promise<ReconciliationOper
 }
 
 /** An interrupted transaction blocks all further publications until explicit recovery. */
-export async function assertNoInterruptedOperation(root: string): Promise<void> {
+export async function assertNoInterruptedOperation(root: string, recoveringImplementationId?: string): Promise<void> {
 	await assertNoInterruptedStructuralPublication(root);
 	if ((await operationHistory(root)).some(item => item.status === 'reconciling' || item.status === 'undoing')) { throw new Error('Interrupted reconciliation requires recovery before Sync or implementation'); }
+	const directory = join(root, '.ade', 'collaboration');
+	let entries: string[];
+	try { if (await realpath(directory) !== directory) { throw new Error('Redirected collaboration journals'); } entries = await readdir(directory); }
+	catch (error) { if (errorCode(error) === 'ENOENT') { return; } throw error; }
+	for (const id of entries) {
+		if (!snapshotId(id)) { continue; }
+		const session = join(directory, id);
+		if (await realpath(session) !== session) { throw new Error('Redirected collaboration journal'); }
+		try {
+			const info = await lstat(join(session, 'transaction.json'));
+			if (!info.isFile() || info.isSymbolicLink()) { throw new Error('Invalid implementation transaction'); }
+			if (id !== recoveringImplementationId) { throw new Error('Interrupted implementation requires recovery before Sync or implementation'); }
+		} catch (error) { if (!(errorCode(error) === 'ENOENT')) { throw error; } }
+	}
 }
 
 async function replace(root: string, mutation: SourceMutation, undo: boolean): Promise<void> {

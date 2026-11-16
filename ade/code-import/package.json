@@ -8,7 +8,7 @@
 	},
 	"scripts": {
 		"check": "tsc --project tsconfig.json",
-		"test": "node --test test/*.test.mjs",
+		"test": "node --test \"test/*.test.{mjs,ts}\"",
 		"import": "node cli.mjs"
 	},
 	"dependencies": {

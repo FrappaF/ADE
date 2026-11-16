@@ -5,9 +5,10 @@
 
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename, lstat, realpath, unlink, chmod } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile, rename, link, lstat, realpath, unlink, open, rm } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { lock } from '../runtime/projectStore.ts';
+import { errorCode } from '../runtime/errors.ts';
 import { assertNoInterruptedOperation } from '../code-import/reconciliationJournal.ts';
 import { object, array, text, digest } from '../runtime/schemas.ts';
 import { readSnapshot } from '../code-import/snapshot.ts';
@@ -29,6 +30,8 @@ export interface ImplementationSession {
 	status: 'staged' | 'passed' | 'failed' | 'applied' | 'undone';
 	generated: GeneratedImplementation; reviewId: string;
 	before: { file: string; content: string | null; mode: number | null }[];
+	/** Modes committed by apply, including files that did not exist in the reviewed baseline. */
+	appliedModes?: { file: string; mode: number }[];
 	usage: PlanResult['usage']; cost: number | null;
 	verification?: { code: number; output: string; testFiles: string[]; durationMs: number; outcome?: 'incomplete' | 'passed' | 'failed' | 'cancelled' };
 }
@@ -59,8 +62,9 @@ async function managed(root: string, ...parts: string[]): Promise<string> {
 	if (await realpath(root) !== root) { throw new Error('Project root must be canonical'); }
 	for (const part of ['.ade', ...parts]) {
 		path = join(path, part);
-		await mkdir(path, { recursive: true });
+		const created = await mkdir(path, { recursive: true, mode: 0o700 });
 		if ((await lstat(path)).isSymbolicLink() || await realpath(path) !== path) { throw new Error('Managed directory cannot be a symlink'); }
+		if (created) { await syncDirectory(dirname(path)); }
 	}
 	return path;
 }
@@ -74,12 +78,12 @@ async function sourcePath(root: string, file: string, create: boolean): Promise<
 		current = join(current, part);
 		try { if (!(await lstat(current)).isDirectory() || await realpath(current) !== current) { throw new Error('Source directory is redirected'); } }
 		catch (error) {
-			if (create && error instanceof Error && 'code' in error && error.code === 'ENOENT') { await mkdir(current); }
+			if (create && errorCode(error) === 'ENOENT') { await mkdir(current); }
 			else { throw error; }
 		}
 	}
 	try { const info = await lstat(path); if (!info.isFile() || info.isSymbolicLink() || info.size > 262144) { throw new Error('Source is redirected or oversized'); } }
-	catch (error) { if (!(create && error instanceof Error && 'code' in error && error.code === 'ENOENT')) { throw error; } }
+	catch (error) { if (!(create && errorCode(error) === 'ENOENT')) { throw error; } }
 	return path;
 }
 
@@ -117,8 +121,9 @@ async function save(session: ImplementationSession): Promise<void> {
 	const directory = await managed(session.root, 'collaboration', session.id);
 	const path = join(directory, 'session.json');
 	const temporary = path + '.' + randomUUID() + '.tmp';
-	await writeFile(temporary, JSON.stringify(session, null, '\t'), { flag: 'wx', mode: 0o600 });
+	await durableFile(temporary, JSON.stringify(session, null, '\t'), 0o600);
 	await rename(temporary, path);
+	await syncDirectory(directory);
 }
 
 /** Session IDs, not arbitrary persisted paths, are accepted by native operations. */
@@ -133,6 +138,7 @@ export async function readSession(root: string, id: string): Promise<Implementat
 	readImplementationPlan(value.plan, value.prepared.context);
 	readGeneratedImplementation(value.generated, value.prepared, value.plan);
 	if (planReviewId(value.prepared, value.plan) !== value.planId || implementationReviewId(value) !== value.reviewId) { throw new Error('Collaboration journal is inconsistent'); }
+	if (value.appliedModes !== undefined && (!Array.isArray(value.appliedModes) || value.appliedModes.length !== value.generated.files.length || value.appliedModes.some((entry, index) => entry.file !== value.generated.files[index].file || !validMode(entry.mode, value.before.find(before => before.file === entry.file)!.mode)))) { throw new Error('Invalid applied source permissions'); }
 	return value;
 }
 
@@ -152,7 +158,7 @@ export async function stageImplementation(prepared: PreparedImplementation, plan
 			const path = await sourcePath(worktree, change.file, change.kind === 'create');
 			let content: string | null = null, mode: number | null = null;
 			try { content = await readFile(path, 'utf8'); mode = (await lstat(path)).mode & 0o777; }
-			catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT' && change.kind === 'create')) { throw error; } }
+			catch (error) { if (!(errorCode(error) === 'ENOENT' && change.kind === 'create')) { throw error; } }
 			const revision = prepared.context.sources.find(source => source.file === change.file)?.revision;
 			if (change.kind === 'create' ? content !== null : content === null || hash(content) !== revision) { throw new Error('Planned file creation or baseline differs from the actual worktree'); }
 			if (content !== null) { mode = (await lstat(await sourcePath(root, change.file, false))).mode & 0o777; }
@@ -166,7 +172,7 @@ export async function stageImplementation(prepared: PreparedImplementation, plan
 			const path = await sourcePath(worktree, file.file, file.kind === 'create');
 			let content: string | null = null;
 			try { content = await readFile(path, 'utf8'); }
-			catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT' && file.kind === 'create')) { throw error; } }
+			catch (error) { if (!(errorCode(error) === 'ENOENT' && file.kind === 'create')) { throw error; } }
 			const baseline = before.find(before => before.file === file.file)!;
 			if (content !== baseline.content) { throw new Error('Worktree baseline changed during generation'); }
 			if (file.kind === 'delete') { await unlink(path); } else { await writeFile(path, file.content!, { mode: baseline.mode ?? 0o644 }); }
@@ -191,7 +197,7 @@ async function checkWorktree(session: ImplementationSession): Promise<void> {
 		try {
 			const content = await readFile(await sourcePath(session.worktree, file.file, file.kind === 'delete'), 'utf8');
 			if (file.content === null || hash(content) !== hash(file.content)) { throw new Error('Worktree changed after review'); }
-		} catch (error) { if (!(file.content === null && error instanceof Error && 'code' in error && error.code === 'ENOENT')) { throw error; } }
+		} catch (error) { if (!(file.content === null && errorCode(error) === 'ENOENT')) { throw error; } }
 	}
 }
 
@@ -219,8 +225,191 @@ export async function verifyImplementation(root: string, id: string, approvedRev
 	return session;
 }
 
-async function editLocked<T>(root: string, task: () => Promise<T>): Promise<T> {
-	return lock(root, async () => { await assertNoInterruptedOperation(root); return task(); });
+async function editLocked<T>(root: string, task: () => Promise<T>, recoveringId?: string): Promise<T> {
+	return lock(root, async () => { await assertNoInterruptedOperation(root, recoveringId); return task(); });
+}
+
+interface ImplementationMutation { file: string; expected: string | null; next: string | null; mode: number }
+interface ImplementationTransaction { version: 2; attempt: string; legacy: boolean; undo: boolean; mutations: ImplementationMutation[] }
+interface FileImage { content: string; mode: number; dev: bigint; ino: bigint }
+const validMode = (mode: number, original: number | null): boolean => Number.isInteger(mode) && mode >= 0 && mode <= 0o777 && (original === null ? (mode & ~(process.platform === 'win32' ? 0o666 : 0o644)) === 0 : mode === original);
+
+async function image(path: string): Promise<FileImage | undefined> {
+	try {
+		const info = await lstat(path, { bigint: true });
+		if (!info.isFile() || info.isSymbolicLink() || info.size > 262144n) { throw new Error('Source is redirected or oversized; retained backups were preserved'); }
+		return { content: await readFile(path, 'utf8'), mode: Number(info.mode & 0o777n), dev: info.dev, ino: info.ino };
+	} catch (error) { if (errorCode(error) === 'ENOENT') { return undefined; } throw error; }
+}
+const matches = (value: FileImage | undefined, content: string | null, mode: number): boolean => content === null ? value === undefined : value?.content === content && value.mode === mode;
+const sameInode = (a: FileImage | undefined, b: FileImage | undefined): boolean => !!a && !!b && a.dev === b.dev && a.ino === b.ino;
+
+async function syncDirectory(path: string): Promise<void> {
+	// Node cannot open directory handles on Windows. File contents are flushed on every platform.
+	if (process.platform === 'win32') { return; }
+	const handle = await open(path, 'r');
+	try { await handle.sync(); } finally { await handle.close(); }
+}
+async function durableFile(path: string, content: string, mode: number): Promise<void> {
+	await writeFile(path, content, { flag: 'wx', mode });
+	const handle = await open(path, 'r+');
+	try { await handle.chmod(mode); await handle.sync(); } finally { await handle.close(); }
+	await syncDirectory(dirname(path));
+}
+
+/** Prove publication and recovery capabilities on every source parent before claiming any source. */
+async function assertPublicationSupport(root: string, mutations: readonly ImplementationMutation[], directory: string, normalizeCreations = false): Promise<void> {
+	const parents = new Map<string, ImplementationMutation[]>();
+	for (const mutation of mutations) { const parent = dirname(await sourcePath(root, mutation.file, true)); parents.set(parent, [...parents.get(parent) ?? [], mutation]); }
+	for (const [parent, edits] of parents) {
+		const archiveProbe = await mkdtemp(join(directory, 'capability-'));
+		try {
+			const sourceProbe = await mkdtemp(join(parent, '.ade-capability-'));
+			try {
+				await durableFile(join(archiveProbe, 'image'), '', 0o600);
+				await link(join(archiveProbe, 'image'), join(sourceProbe, 'published'));
+				await syncDirectory(sourceProbe);
+				await rename(join(sourceProbe, 'published'), join(archiveProbe, 'claimed'));
+				if (normalizeCreations) {
+					for (const [index, edit] of edits.entries()) {
+						if (edit.expected !== null) { continue; }
+						const probe = join(archiveProbe, `mode-${index}`);
+						await durableFile(probe, '', edit.mode);
+						edit.mode = (await lstat(probe)).mode & 0o777;
+					}
+				}
+			} finally { await rm(sourceProbe, { recursive: true, force: true }); }
+		} catch (error) {
+			throw new Error('Source filesystem does not support safe implementation publication and recovery; no source names were claimed.', { cause: error });
+		} finally { await rm(archiveProbe, { recursive: true, force: true }); }
+	}
+}
+
+/** Old sessions have no receipt. Retained v2 inodes still prove their original applied mode. */
+async function legacyAppliedModes(session: ImplementationSession): Promise<Map<string, number>> {
+	const result = new Map<string, number>(), directory = join(await managed(session.root, 'collaboration', session.id), 'transactions');
+	let entries: string[] = [];
+	try { if (await realpath(directory) !== directory) { throw new Error('Redirected implementation archive'); } entries = await readdir(directory); }
+	catch (error) { if (errorCode(error) !== 'ENOENT') { throw error; } }
+	let hasCurrentArchive = false;
+	for (const attempt of entries.filter(entry => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(entry))) {
+		const archive = await managed(session.root, 'collaboration', session.id, 'transactions', attempt);
+		let transaction: ImplementationTransaction;
+		try { transaction = JSON.parse(await readBoundedText(join(archive, 'journal.json'), 16 * 1024 * 1024)); }
+		catch (error) { if (errorCode(error) === 'ENOENT') { continue; } throw error; }
+		if (transaction.version !== 2 || transaction.attempt !== attempt || typeof transaction.undo !== 'boolean' || typeof transaction.legacy !== 'boolean' || !Array.isArray(transaction.mutations) || transaction.mutations.length !== session.generated.files.length || transaction.mutations.some((edit, index) => {
+			const file = session.generated.files[index], before = session.before.find(before => before.file === file.file)!;
+			return edit.file !== file.file || edit.expected !== (transaction.undo ? file.content : before.content) || edit.next !== (transaction.undo ? before.content : file.content) || !validMode(edit.mode, before.mode);
+		})) { throw new Error('Invalid retained implementation transaction'); }
+		hasCurrentArchive ||= !transaction.legacy;
+		for (let index = 0; index < transaction.mutations.length; index++) {
+			const edit = transaction.mutations[index];
+			if (session.before.find(before => before.file === edit.file)!.mode !== null) { continue; }
+			const current = await image(await sourcePath(session.root, edit.file, true));
+			const published = await image(join(archive, `${transaction.undo ? 'restore' : 'apply'}-${index}.next`));
+			if (sameInode(current, published)) { result.set(edit.file, edit.mode); }
+		}
+	}
+	for (const before of session.before.filter(before => before.mode === null)) {
+		if (result.has(before.file)) { continue; }
+		if (hasCurrentArchive) { throw new Error('Applied source permissions could not be recovered from retained inodes; source files were preserved'); }
+		// Pre-archive journals never recorded creation modes. Preserve their legacy
+		// content-based undo contract without applying the new process's umask.
+		const current = await image(await sourcePath(session.root, before.file, true));
+		if (current) { result.set(before.file, current.mode); }
+	}
+	return result;
+}
+
+async function restoreClaim(backup: string, path: string): Promise<void> {
+	try { await link(backup, path); await syncDirectory(dirname(path)); }
+	catch (error) { if (!(errorCode(error) === 'EEXIST')) { throw error; } }
+}
+
+/**
+ * Claim, then validate the captured inode. No source path is ever overwritten or
+ * unlinked: the old inode and each replacement remain in a durable private archive,
+ * including writes made later through descriptors opened before the claim.
+ */
+async function replaceImage(root: string, edit: ImplementationMutation, directory: string, key: string): Promise<void> {
+	const path = await sourcePath(root, edit.file, true), backup = join(directory, key + '.before'), replacement = join(directory, key + '.next');
+	if (edit.next !== null) {
+		const existing = await image(replacement);
+		if (!existing) { await durableFile(replacement, edit.next, edit.mode); }
+		else if (!matches(existing, edit.next, edit.mode)) { throw new Error('Retained replacement changed; manual edits were preserved'); }
+	}
+	let captured = await image(backup);
+	if (edit.expected !== null && !captured) {
+		const checked = await image(path);
+		if (!matches(checked, edit.expected, edit.mode)) { throw new Error('Source changed during implementation; manual edits were preserved'); }
+		await rename(path, backup);
+		try {
+			await syncDirectory(directory); await syncDirectory(dirname(path));
+			captured = await image(backup);
+			if (!matches(captured, edit.expected, edit.mode) || !sameInode(checked, captured)) { throw new Error('Source changed during implementation claim; the captured inode was preserved'); }
+			const handle = await open(backup, 'r');
+			try { await handle.sync(); } finally { await handle.close(); }
+		} catch (error) {
+			await restoreClaim(backup, path);
+			throw error;
+		}
+	} else if (edit.expected !== null && !matches(captured, edit.expected, edit.mode)) {
+		await restoreClaim(backup, path);
+		throw new Error('Claimed source changed; manual edits and retained backups were preserved');
+	}
+	if (edit.next === null) {
+		if (await image(path)) { throw new Error('Source was recreated during implementation; both versions were preserved'); }
+		return;
+	}
+	const current = await image(path), proposed = await image(replacement);
+	if (sameInode(current, proposed) && matches(current, edit.next, edit.mode)) { return; }
+	await link(replacement, path); // Exclusive publication: EEXIST preserves a concurrent creator.
+	await syncDirectory(dirname(path));
+}
+
+async function transactionDirectory(root: string, id: string, transaction: ImplementationTransaction): Promise<string> {
+	return managed(root, 'collaboration', id, 'transactions', transaction.attempt);
+}
+
+/** Roll back only our own publication; capture every removed inode before restoring. */
+async function rollbackTransaction(root: string, id: string, transaction: ImplementationTransaction): Promise<void> {
+	const directory = await transactionDirectory(root, id, transaction);
+	for (let index = transaction.mutations.length - 1; index >= 0; index--) {
+		const edit = transaction.mutations[index], path = await sourcePath(root, edit.file, true);
+		const original = await image(join(directory, `apply-${index}.before`));
+		const restoring = await image(join(directory, `restore-${index}.before`));
+		const current = await image(path);
+		if (matches(current, edit.expected, edit.mode)) { continue; }
+		// A rejected claim may already have restored the captured inode, including
+		// concurrent edits. Our replacement is no longer published at this path.
+		if (sameInode(current, original)) { continue; }
+		if (restoring) {
+			await replaceImage(root, { ...edit, expected: edit.next, next: edit.expected }, directory, `restore-${index}`);
+			continue;
+		}
+		if (!current && original) {
+			await restoreClaim(join(directory, `apply-${index}.before`), path);
+			if (!matches(await image(path), edit.expected, edit.mode)) { throw new Error('Manual edits prevent recovery; the captured inode was restored or retained'); }
+			continue;
+		}
+		if (!transaction.legacy && edit.expected !== null && !original) { continue; } // This mutation never claimed a source.
+		const proposed = await image(join(directory, `apply-${index}.next`));
+		if (!matches(current, edit.next, edit.mode) || !transaction.legacy && edit.next !== null && !sameInode(current, proposed)) {
+			throw new Error('Manual edits prevent recovery; all source files and retained backups were preserved');
+		}
+		await replaceImage(root, { ...edit, expected: edit.next, next: edit.expected }, directory, `restore-${index}`);
+	}
+}
+
+async function writeTransaction(root: string, id: string, transaction: ImplementationTransaction, upgrade = false): Promise<string> {
+	const directory = await transactionDirectory(root, id, transaction), contents = JSON.stringify(transaction);
+	await durableFile(join(directory, 'journal.json'), contents, 0o600);
+	const path = join(await managed(root, 'collaboration', id), 'transaction.json');
+	if (upgrade) {
+		const temporary = path + '.' + randomUUID() + '.tmp';
+		await durableFile(temporary, contents, 0o600); await rename(temporary, path); await syncDirectory(dirname(path));
+	} else { await durableFile(path, contents, 0o600); }
+	return path;
 }
 
 /** Refuses to overwrite later manual edits; rollback uses exact preimages retained across restarts. */
@@ -234,51 +423,42 @@ export async function applyImplementation(root: string, id: string, reviewId: st
 			if ((await inspectImplementationBaseline(session.prepared)).baseCommit !== session.baseCommit) { throw new Error('Git base changed after implementation review'); }
 			await checkWorktree(session);
 		}
+		const appliedModes = undo ? session.appliedModes ? new Map(session.appliedModes.map(entry => [entry.file, entry.mode])) : await legacyAppliedModes(session) : undefined;
 		const mutations = session.generated.files.map(file => {
 			const before = session.before.find(before => before.file === file.file)!;
-			return { file: file.file, expected: undo ? file.content : before.content, next: undo ? before.content : file.content, mode: before.mode ?? 0o644 };
+			const mode = before.mode ?? (undo ? appliedModes!.get(file.file) : 0o644 & ~process.umask());
+			if (mode === undefined) { throw new Error('Applied source permissions are missing; source files were preserved'); }
+			return { file: file.file, expected: undo ? file.content : before.content, next: undo ? before.content : file.content, mode };
 		});
 		for (const edit of mutations) {
 			let current: string | null = null;
 			try { current = await readFile(await sourcePath(root, edit.file, true), 'utf8'); }
-			catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) { throw error; } }
+			catch (error) { if (!(errorCode(error) === 'ENOENT')) { throw error; } }
 			if (current !== edit.expected) { throw new Error('Source changed since review; manual edits are preserved'); }
-			const mode = session.before.find(before => before.file === edit.file)!.mode;
-			if (current !== null && mode !== null && ((await lstat(join(root, edit.file))).mode & 0o777) !== mode) { throw new Error('Source permissions changed since review; manual edits are preserved'); }
+			if (current !== null && ((await lstat(join(root, edit.file))).mode & 0o777) !== edit.mode) { throw new Error('Source permissions changed since review; manual edits are preserved'); }
 		}
-		// Journal is already durable before the first source write; record transaction intent too.
-		const transaction = join(await managed(root, 'collaboration', id), 'transaction.json');
-		await writeFile(transaction, JSON.stringify({ undo, mutations }), { flag: 'wx', mode: 0o600 });
-		const completed: typeof mutations = [];
+		const transaction: ImplementationTransaction = { version: 2, attempt: randomUUID(), legacy: false, undo, mutations };
+		const directory = await transactionDirectory(root, id, transaction);
+		await assertPublicationSupport(root, mutations, directory, !undo);
+		const path = await writeTransaction(root, id, transaction);
+		const previousModes = session.appliedModes;
 		try {
-			for (const edit of mutations) {
-				const path = await sourcePath(root, edit.file, true);
-				if (edit.next === null) { await unlink(path); }
-				else {
-					const temporary = join(dirname(path), `.ade-${randomUUID()}.tmp`);
-					try {
-						await writeFile(temporary, edit.next, { flag: 'wx', mode: edit.mode });
-						if (session.before.find(before => before.file === edit.file)!.mode !== null) { await chmod(temporary, edit.mode); }
-						await rename(temporary, path);
-					} finally {
-						try { await unlink(temporary); }
-						catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) { throw error; } }
-					}
-				}
-				completed.push(edit);
-			}
+			for (let index = 0; index < mutations.length; index++) { await replaceImage(root, mutations[index], directory, `apply-${index}`); }
 			session.status = undo ? 'undone' : 'applied';
+			if (!undo) { session.appliedModes = mutations.map(({ file, mode }) => ({ file, mode })); }
 			await save(session);
-			await unlink(transaction);
-			return session;
 		} catch (error) {
-			for (const edit of completed.reverse()) {
-				const path = await sourcePath(root, edit.file, true);
-				if (edit.expected === null) { await unlink(path); } else { await writeFile(path, edit.expected, { mode: edit.mode }); await chmod(path, edit.mode); }
-			}
-			await unlink(transaction);
+			await rollbackTransaction(root, id, transaction);
+			session.status = undo ? 'applied' : 'passed';
+			session.appliedModes = previousModes;
+			await save(session);
+			await unlink(path); await syncDirectory(dirname(path));
 			throw error;
 		}
+		// Publication and its durable session state have committed. Cleanup failure
+		// must not start a rollback after removing the active recovery journal.
+		await unlink(path); await syncDirectory(dirname(path));
+		return session;
 	});
 }
 
@@ -290,29 +470,24 @@ export async function recoverImplementation(root: string, id: string): Promise<I
 		const path = join(await managed(root, 'collaboration', id), 'transaction.json');
 		const info = await lstat(path);
 		if (!info.isFile() || info.isSymbolicLink() || info.size > 16 * 1024 * 1024) { throw new Error('Invalid recovery transaction'); }
-		const transaction: { undo: boolean; mutations: { file: string; expected: string | null; next: string | null; mode: number }[] } = JSON.parse(await readBoundedText(path, 16 * 1024 * 1024));
+		const stored: { version?: number; attempt?: string; legacy?: boolean; undo: boolean; mutations: ImplementationMutation[] } = JSON.parse(await readBoundedText(path, 16 * 1024 * 1024));
+		if (typeof stored.undo !== 'boolean' || !Array.isArray(stored.mutations)) { throw new Error('Invalid recovery transaction'); }
 		const expected = session.generated.files.map(file => {
 			const before = session.before.find(before => before.file === file.file)!;
-			return { file: file.file, expected: transaction.undo ? file.content : before.content, next: transaction.undo ? before.content : file.content, mode: before.mode ?? 0o644 };
+			const mode = before.mode ?? stored.mutations.find(edit => edit.file === file.file)?.mode;
+			if (mode === undefined || !validMode(mode, before.mode)) { throw new Error('Invalid recovery source permissions'); }
+			return { file: file.file, expected: stored.undo ? file.content : before.content, next: stored.undo ? before.content : file.content, mode };
 		});
-		if (typeof transaction.undo !== 'boolean' || JSON.stringify(transaction.mutations) !== JSON.stringify(expected)) { throw new Error('Recovery transaction differs from its reviewed implementation'); }
-		const restore: typeof expected = [];
-		for (const edit of expected) {
-			let current: string | null = null;
-			try { current = await readFile(await sourcePath(root, edit.file, true), 'utf8'); }
-			catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) { throw error; } }
-			const mode = session.before.find(before => before.file === edit.file)!.mode;
-			if (current !== null && mode !== null && ((await lstat(join(root, edit.file))).mode & 0o777) !== mode) { throw new Error('Manual permission edits prevent recovery; source files were preserved'); }
-			if (current === edit.next) { restore.push(edit); }
-			else if (current !== edit.expected) { throw new Error('Manual edits prevent recovery; source files were preserved'); }
-		}
-		for (const edit of restore.reverse()) {
-			const target = await sourcePath(root, edit.file, true);
-			if (edit.expected === null) { await unlink(target); } else { await writeFile(target, edit.expected, { mode: edit.mode }); await chmod(target, edit.mode); }
-		}
+		if (JSON.stringify(stored.mutations) !== JSON.stringify(expected) || stored.version !== undefined && stored.version !== 2 || stored.version === 2 && (!stored.attempt || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(stored.attempt) || typeof stored.legacy !== 'boolean')) { throw new Error('Recovery transaction differs from its reviewed implementation'); }
+		const transaction: ImplementationTransaction = stored.version === 2
+			? { version: 2, attempt: stored.attempt!, legacy: stored.legacy!, undo: stored.undo, mutations: expected }
+			: { version: 2, attempt: randomUUID(), legacy: true, undo: stored.undo, mutations: expected };
+		await assertPublicationSupport(root, transaction.mutations, await transactionDirectory(root, id, transaction));
+		if (stored.version === undefined) { await writeTransaction(root, id, transaction, true); }
+		await rollbackTransaction(root, id, transaction);
 		session.status = transaction.undo ? 'applied' : 'passed';
 		await save(session);
-		await unlink(path);
+		await unlink(path); await syncDirectory(dirname(path));
 		return session;
-	});
+	}, id);
 }

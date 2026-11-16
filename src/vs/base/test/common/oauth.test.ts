@@ -500,6 +500,7 @@ suite('OAuth', () => {
 		test('fetchDynamicRegistration should throw error on non-OK response', async () => {
 			fetchStub.resolves({
 				ok: false,
+				status: 400,
 				statusText: 'Bad Request',
 				text: async () => 'Bad Request'
 			} as Response);
@@ -512,7 +513,7 @@ suite('OAuth', () => {
 
 			await assert.rejects(
 				async () => await fetchDynamicRegistration(serverMetadata, 'Test Client'),
-				/Registration to https:\/\/auth\.example\.com\/register failed: Bad Request/
+				/Dynamic client registration failed \(HTTP 400\)/
 			);
 		});
 
@@ -615,6 +616,7 @@ suite('OAuth', () => {
 
 			fetchStub.resolves({
 				ok: false,
+				status: 400,
 				text: async () => JSON.stringify(errorResponse)
 			} as Response);
 
@@ -626,7 +628,7 @@ suite('OAuth', () => {
 
 			await assert.rejects(
 				async () => await fetchDynamicRegistration(serverMetadata, 'Test Client'),
-				/Registration to https:\/\/auth\.example\.com\/register failed: invalid_client_metadata: The client metadata is invalid/
+				/Dynamic client registration failed \(HTTP 400\)/
 			);
 		});
 
@@ -637,6 +639,7 @@ suite('OAuth', () => {
 
 			fetchStub.resolves({
 				ok: false,
+				status: 400,
 				text: async () => JSON.stringify(errorResponse)
 			} as Response);
 
@@ -648,13 +651,14 @@ suite('OAuth', () => {
 
 			await assert.rejects(
 				async () => await fetchDynamicRegistration(serverMetadata, 'Test Client'),
-				/Registration to https:\/\/auth\.example\.com\/register failed: invalid_redirect_uri/
+				/Dynamic client registration failed \(HTTP 400\)/
 			);
 		});
 
 		test('fetchDynamicRegistration should handle malformed JSON error response', async () => {
 			fetchStub.resolves({
 				ok: false,
+				status: 400,
 				text: async () => 'Invalid JSON {'
 			} as Response);
 
@@ -666,9 +670,49 @@ suite('OAuth', () => {
 
 			await assert.rejects(
 				async () => await fetchDynamicRegistration(serverMetadata, 'Test Client'),
-				/Registration to https:\/\/auth\.example\.com\/register failed: Invalid JSON \{/
+				/Dynamic client registration failed \(HTTP 400\)/
 			);
 		});
+
+		for (const failure of ['network', 'error body', 'structured error', 'invalid registration', 'malformed JSON']) {
+			test(`fetchDynamicRegistration keeps credentials out of ${failure} errors`, async () => {
+				const secret = 'synthetic-registration-secret';
+				const metadata: IAuthorizationServerMetadata = {
+					issuer: 'https://auth.example.com',
+					registration_endpoint: `https://client:${secret}@auth.example.com/register?client_secret=${secret}`,
+					response_types_supported: ['code']
+				};
+				const fetcher: typeof fetch = async () => {
+					if (failure === 'network') {
+						throw new Error(`Failed to request ${metadata.registration_endpoint}`);
+					}
+					if (failure === 'error body' || failure === 'structured error') {
+						return new Response(failure === 'error body' ? secret : JSON.stringify({ error: 'invalid_client_metadata', error_description: secret, client_secret: secret }), { status: 400, statusText: secret });
+					}
+					return new Response(failure === 'invalid registration' ? JSON.stringify({ client_secret: secret }) : `{${secret}`);
+				};
+				await assert.rejects(fetchDynamicRegistration(metadata, 'Test Client', undefined, fetcher), {
+					message: failure === 'network' ? 'Dynamic client registration request failed'
+						: failure === 'error body' || failure === 'structured error' ? 'Dynamic client registration failed (HTTP 400)'
+							: 'Invalid authorization dynamic client registration response'
+				});
+			});
+		}
+
+		for (const cancellationFails of [false, true]) {
+			test(`fetchDynamicRegistration cancels rejected response bodies (${cancellationFails ? 'cancellation failure' : 'success'})`, async () => {
+				let cancellations = 0;
+				const body = new ReadableStream({
+					cancel() {
+						cancellations++;
+						if (cancellationFails) { throw new Error('synthetic-cancellation-client-secret'); }
+					}
+				});
+				const metadata: IAuthorizationServerMetadata = { issuer: 'https://auth.example.com', registration_endpoint: 'https://auth.example.com/register', response_types_supported: ['code'] };
+				await assert.rejects(fetchDynamicRegistration(metadata, 'Test Client', undefined, async () => new Response(body, { status: 400 })), { message: 'Dynamic client registration failed (HTTP 400)' });
+				assert.strictEqual(cancellations, 1);
+			});
+		}
 
 		test('fetchDynamicRegistration should include scopes in request when provided', async () => {
 			const mockResponse = {
@@ -832,6 +876,7 @@ suite('OAuth', () => {
 		test('fetchDynamicRegistration should throw specific error for DCR failure', async () => {
 			fetchStub.resolves({
 				ok: false,
+				status: 400,
 				text: async () => 'DCR not supported'
 			} as Response);
 
@@ -843,7 +888,7 @@ suite('OAuth', () => {
 
 			await assert.rejects(
 				async () => await fetchDynamicRegistration(serverMetadata, 'Test Client'),
-				/Registration to https:\/\/auth\.example\.com\/register failed: DCR not supported/
+				/Dynamic client registration failed \(HTTP 400\)/
 			);
 		});
 	});

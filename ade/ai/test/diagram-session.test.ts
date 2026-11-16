@@ -252,12 +252,12 @@ test('a layout edit made during review survives applying a changed view specific
 	assert.deepEqual([result.model.views[0].name, result.model.views[0].nodes[0].x, result.model.views[0].spec.layoutRevision], ['Revised overview', 1777, 'manual-after-review']);
 });
 
-test('a changed source drops only obsolete resolved references and does not block a fresh independent proposal', async t => {
-	const f = await fixture(t, { 'src/caller.ts': "import { persist } from './store.js'; export function upload() { return persist(); }", 'src/store.ts': 'export function persist() { return 1; }' }, false);
+test('a changed source invalidates resolved coverage without blocking a fresh independent proposal', async t => {
+	const f = await fixture(t, { 'src/caller.ts': 'import { persist } from \'./store.js\'; export function upload() { return persist(); }', 'src/store.ts': 'export function persist() { return 1; }' }, false);
 	const initial = await f.tool('ade_source_search', { query: 'upload', mode: 'symbol' }), symbol = initial.data.page.items[0];
 	const references = await f.tool('ade_code_references', { symbolId: symbol.symbolId, direction: 'outgoing' });
 	assert.deepEqual([references.data.kind, references.data.calls, references.data.page.items[0].source.nature], ['references', 'unsupported', 'reference']);
-	await writeFile(join(f.root, 'src/caller.ts'), "import { persist } from './store.js'; export function upload() { return persist() + 1; }");
+	await writeFile(join(f.root, 'src/caller.ts'), 'import { persist } from \'./store.js\'; export function upload() { return persist() + 1; }');
 	const unavailable = await f.tool('ade_code_references', { symbolId: symbol.symbolId, direction: 'outgoing' });
 	assert.equal(unavailable.data.availability, 'unavailable');
 	const store = await f.tool('ade_source_search', { query: 'persist', mode: 'symbol', filePrefix: 'src/store' });
@@ -266,7 +266,7 @@ test('a changed source drops only obsolete resolved references and does not bloc
 	assert.equal(proposed.data.status, 'ready');
 	const published = await executeDiagramExploration(f.context.snapshot, { action: 'publish', sessionId: f.opened.sessionId, proposalId: request.proposalId });
 	const result = await readSnapshot(published.data.snapshot);
-	assert.deepEqual([result.state.semantic.indexedFiles, result.state.analysis.syntaxOnly, result.model.views.length], [['src/store.ts'], false, 1]);
+	assert.deepEqual([result.state.semantic.indexedFiles, result.state.semantic.dependencies, result.state.analysis.syntaxOnly, result.model.views.length], [[], [], false, 1]);
 });
 
 test('exclusive branches cannot acquire a false temporal order and endpoint scenarios can be split with stable occurrence IDs', async () => {

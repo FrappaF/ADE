@@ -41,9 +41,9 @@ export class DiffStateManager {
 		this._updateContext();
 	}
 
-	getByTabName(tabName: string): ActiveDiff | undefined {
+	getByTabName(tabName: string, sessionId?: string): ActiveDiff | undefined {
 		for (const diff of this._activeDiffs.values()) {
-			if (diff.tabName === tabName) {
+			if (diff.tabName === tabName && (sessionId === undefined || diff.sessionId === sessionId)) {
 				return diff;
 			}
 		}

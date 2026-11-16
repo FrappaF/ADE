@@ -105,11 +105,14 @@ export async function refreshExplorationAnalysis(state: CodeImport, previous: Co
 	const current = (evidence: { file: string; revision: string }): boolean => revisions.get(evidence.file) === evidence.revision;
 	graph.sourceRevision = state.revision;
 	graph.bindings = graph.bindings.filter(binding => current(binding.evidence));
-	graph.dependencies = graph.dependencies.flatMap(edge => { const references = edge.references.filter(reference => current(reference.source) && current(reference.target)); return references.length ? [{ ...edge, references }] : []; });
+	// Resolution also depends on barrels, configuration and newly added files, not just
+	// the source/target ranges. Without rerunning the provider no old edge is proved.
+	graph.dependencies = [];
 	const stale = new Set(previous.files.filter(file => file.revision !== revisions.get(file.file)).map(file => file.file));
-	graph.indexedFiles = graph.indexedFiles.filter(file => !stale.has(file) && revisions.has(file));
+	const previouslyIndexed = graph.indexedFiles;
+	graph.indexedFiles = [];
 	graph.diagnostics = graph.diagnostics.filter(diagnostic => !diagnostic.evidence || current(diagnostic.evidence));
-	for (const file of stale) { if (!graph.providers.length) { break; } graph.diagnostics.push({ code: 'missingDocument', file, symbol: '', provider: 0 }); }
+	for (const file of new Set([...stale, ...previouslyIndexed])) { if (!graph.providers.length) { break; } graph.diagnostics.push({ code: 'missingDocument', file, symbol: '', provider: 0 }); }
 	validateSemanticGraph(graph, state.files, state.revision, state.projectId);
 	state.semantic = graph; state.analysis.semanticInvalidated = false;
 	state.model = projectModel(state.projectId, state.model.name, state.files, graph);

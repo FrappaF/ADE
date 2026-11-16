@@ -31,8 +31,9 @@ import { IProductService } from '../../../../../platform/product/common/productS
 import { ITelemetryService } from '../../../../telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../../telemetry/common/telemetryUtils.js';
 import { AgentSession, AgentWorkingDirectoryChangedError, type AgentSignal, type IAgentChatContext, type IAgentCreateChatOptions, type IAgentCreateChatResult, type IAgentMaterializeChatEvent, fixedChatOwnerRef } from '../../../common/agent.js';
-import { buildChatUri, buildDefaultChatUri, MessageAttachmentKind, MessageKind, ResponsePartKind, SessionStatus } from '../../../common/state/sessionState.js';
-import { ActionType } from '../../../common/state/sessionActions.js';
+import { buildChatUri, buildDefaultChatUri, ChatOriginKind, MessageAttachmentKind, MessageKind, ResponsePartKind, SessionStatus, type ChatState } from '../../../common/state/sessionState.js';
+import { ActionType, isChatAction } from '../../../common/state/sessionActions.js';
+import { chatReducer } from '../../../common/state/protocol/reducers.js';
 import { CustomizationType, McpServerStatus } from '../../../common/state/protocol/channels-session/state.js';
 import type { IAgentServerToolDefinition, IAgentServerToolHost } from '../../../common/agentServerTools.js';
 import { CodexSessionConfigKey, type CodexPermissionsPreset } from '../../../common/codexSessionConfigKeys.js';
@@ -57,6 +58,7 @@ import { IAgentHostProxyResolver } from '../../../node/agentHostProxyResolver.js
 import { IAgentSdkDownloader } from '../../../node/agentSdkDownloader.js';
 import { CodexAgent, toCodexModelSelectionId } from '../../../node/codex/codexAgent.js';
 import { CodexAppServerClient, type ICodexAppServerTransport } from '../../../node/codex/codexAppServerClient.js';
+import { mapAgentMessageDelta } from '../../../node/codex/codexMapAppServerEvents.js';
 import { CodexTurnDiffTracker } from '../../../node/codex/codexTurnDiffTracker.js';
 import { ICodexProxyService } from '../../../node/codex/codexProxyService.js';
 import type { HookMetadata } from '../../../node/codex/protocol/generated/v2/HookMetadata.js';
@@ -110,6 +112,7 @@ interface ITestPeer {
 	/** Extra disposables (e.g. request-handler registrations from `connectPeer`) released alongside the peer. */
 	readonly disposables: DisposableStore;
 	push(message: object): void;
+	pushBatch(messages: readonly object[]): void;
 	exit(): void;
 	dispose(): void;
 }
@@ -140,6 +143,7 @@ function createTestPeer(): ITestPeer {
 		outbound,
 		disposables,
 		push: message => stdout.write(JSON.stringify(message) + '\n'),
+		pushBatch: messages => stdout.write(messages.map(message => JSON.stringify(message) + '\n').join('')),
 		exit: () => onExit.fire({ code: 1, signal: null }),
 		dispose: () => {
 			disposables.dispose();
@@ -3061,7 +3065,7 @@ suite('CodexAgent exact chat routing', () => {
 					const child = agent['_createSubagentSession'](entry, `${state}-thread`);
 					agent['_subagentsByThreadId'].set(`${state}-thread`, { parentSessionId: entry.sessionId, toolCallId: `spawn-${state}`, hostTurnId: 'host-turn', session: child });
 					if (state === 'waiting') {
-						void child.pendingCommandApprovals.register('approval').then(answer => answers.push(answer));
+						void child.pendingCommandApprovals.register('approval', `${state}-turn`).then(answer => answers.push(answer));
 					}
 				}
 				const parentStored = tracker.complete('parent-turn');
@@ -3139,7 +3143,7 @@ suite('CodexAgent exact chat routing', () => {
 			tracker.update({ threadId: 'waiting-thread', turnId: 'waiting-turn', diff: sharedDiff });
 			const child = agent['_createSubagentSession'](entry, 'waiting-thread');
 			agent['_subagentsByThreadId'].set('waiting-thread', { parentSessionId: entry.sessionId, toolCallId: 'spawn-waiting', hostTurnId: 'later-host', session: child });
-			void child.pendingCommandApprovals.register('approval');
+			void child.pendingCommandApprovals.register('approval', 'waiting-turn');
 			const release = async () => {
 				const canRelease = await agent.chats.canReleaseChat!(chat, context);
 				await agent.chats.releaseChat(chat, context);
@@ -3178,7 +3182,7 @@ suite('CodexAgent exact chat routing', () => {
 		// Park entries the way a live call/approval would, to prove disposal
 		// unparks them instead of leaving their awaiters hanging forever.
 		const toolCall = entry.pendingClientToolCalls.register('tool-call-1');
-		const approval = entry.pendingCommandApprovals.register('approval-1');
+		const approval = entry.pendingCommandApprovals.register('approval-1', 'turn-1');
 		const userInput = entry.pendingUserInputs.register('input-1');
 
 		// No peer is connected: a provisional runtime's teardown never touches
@@ -4102,6 +4106,249 @@ suite('CodexAgent chat backing durability', () => {
 		}
 	}
 
+	async function compactHarness() {
+		const agent = await createAgent(disposables, { sdkResolvableWithoutDownload: true, sessionStore: createTestSessionStore() });
+		const peer = disposables.add(createTestPeer());
+		connect(agent, peer);
+		const connection = agent['_connection'];
+		assert.ok(connection.kind === 'ready');
+		const subscriptions = peer.disposables.add(new DisposableStore());
+		agent['_connection'] = { ...connection, subscriptions };
+		subscriptions.add(connection.client.onNotification('turn/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleTurnStartedNotification'](session, params))));
+		subscriptions.add(connection.client.onNotification('turn/completed', params => agent['_dispatchTurnCompleted'](params)));
+		subscriptions.add(connection.client.onNotification('item/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleItemStarted'](session, params), params.turnId)));
+		subscriptions.add(connection.client.onNotification('item/agentMessage/delta', params => agent['_dispatchByThread'](params.threadId, session => mapAgentMessageDelta(session.mapState, agent['_withHostTurnId'](session, params)), params.turnId)));
+		subscriptions.add(connection.client.onNotification('item/completed', params => agent['_dispatchItemCompleted'](params)));
+		subscriptions.add(connection.client.onRequest('item/commandExecution/requestApproval', params => agent['_dispatchTurnRequest'](params.threadId, params.turnId, () => agent['_handleCommandApprovalRequestRpc'](params), () => ({ result: { decision: 'decline' as const } }))));
+		const session = AgentSession.uri('codex', 'compact-cancellation');
+		const chat = URI.parse(buildDefaultChatUri(session));
+		const folder = URI.file('/repo/compact-cancellation');
+		const threadId = 'compact-cancellation-thread';
+		await materializeSession(agent, peer, session, chat, folder, threadId);
+		const entry = agent['_sessions'].get(AgentSession.id(session))!;
+		const signals: AgentSignal[] = [];
+		disposables.add(agent.onDidChatProgress(signal => signals.push(signal)));
+		const send = (prompt: string, turnId: string) => agent.chats.sendMessage(chat, prompt, [folder], undefined, turnId, undefined, undefined, hostChatContext(session, chat));
+		return { agent, peer, session, chat, folder, threadId, entry, signals, send };
+	}
+
+	test('Stop before the first send is a no-op without a compact or send attempt', async () => {
+		const agent = await createAgent(disposables);
+		const session = AgentSession.uri('codex', 'abort-before-first-send');
+		const chat = URI.parse(buildDefaultChatUri(session));
+		await createSessionBackedChat(agent, chat, hostChatContext(session, chat), { workingDirectories: [URI.file('/repo/abort-before-first-send')], model: { id: COPILOT_TEST_MODEL } });
+		await agent.chats.abort(chat, session);
+		const entry = agent['_sessions'].get(AgentSession.id(session))!;
+		assert.deepStrictEqual({ connection: agent['_connection'].kind, attempt: entry.sendAttempt, compact: entry.pendingCompactStart, turn: entry.currentTurnId }, {
+			connection: 'idle', attempt: undefined, compact: undefined, turn: undefined,
+		});
+	});
+
+	for (const acknowledged of [false, true]) {
+		test(`a cancelled compact identifies and interrupts its late native start before replacement (acknowledged=${acknowledged})`, async () => {
+			const { agent, peer, session, chat, threadId, entry, send } = await compactHarness();
+			const compacting = send('/compact', 'compact-host');
+			const compact = await readNextRequest(peer.outbound);
+			assert.strictEqual(compact.method, 'thread/compact/start');
+			if (acknowledged) {
+				peer.push({ id: compact.id, result: {} });
+				await compacting;
+			}
+			await agent.chats.abort(chat, session);
+			const replacing = send('replacement', 'replacement-host');
+			await new Promise(resolve => setImmediate(resolve));
+			assert.strictEqual(peer.outbound.readableLength, 0, 'replacement must wait for compact identity');
+			const turn = { id: 'compact-native', items: [], itemsView: 'notLoaded', status: 'inProgress', error: null, startedAt: 1, completedAt: null, durationMs: null };
+			peer.push({ method: 'turn/started', params: { threadId, turn } });
+			const interrupt = await readNextRequest(peer.outbound);
+			assert.deepStrictEqual({ method: interrupt.method, params: interrupt.params }, { method: 'turn/interrupt', params: { threadId, turnId: 'compact-native' } });
+			assert.strictEqual(peer.outbound.readableLength, 0, 'replacement must also wait for the interrupt acknowledgement');
+			peer.push({ id: interrupt.id, result: {} });
+			if (!acknowledged) {
+				peer.push({ id: compact.id, result: {} });
+			}
+			await compacting;
+			const replacement = await readNextRequest(peer.outbound);
+			assert.strictEqual(replacement.method, 'turn/start');
+			peer.push({ method: 'turn/started', params: { threadId, turn: { ...turn, id: 'replacement-native' } } });
+			peer.push({ id: replacement.id, result: { turn: { ...turn, id: 'replacement-native' } } });
+			await replacing;
+			peer.push({ method: 'turn/completed', params: { threadId, turn: { ...turn, status: 'interrupted' } } });
+			await new Promise(resolve => setImmediate(resolve));
+			assert.deepStrictEqual({ host: entry.currentTurnId, native: entry.currentAppTurnId, pending: entry.pendingCompactStart, extraRequests: peer.outbound.readableLength }, {
+				host: 'replacement-host', native: 'replacement-native', pending: undefined, extraRequests: 0,
+			});
+		});
+	}
+
+	test('a compact rejection releases replacement admission and its timer', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+		const { peer, entry, send, signals } = await compactHarness();
+		const compacting = send('/compact', 'compact-host');
+		const compact = await readNextRequest(peer.outbound);
+		peer.push({ id: compact.id, error: { code: -32602, message: 'compaction rejected' } });
+		await compacting;
+		const replacing = send('replacement', 'replacement-host');
+		const replacement = await readNextRequest(peer.outbound);
+		peer.push({ id: replacement.id, result: { turn: { id: 'replacement-native' } } });
+		await replacing;
+		await timeout(30_001);
+		assert.deepStrictEqual({ pending: entry.pendingCompactStart, host: entry.currentTurnId, errors: signals.flatMap(signal => signal.kind === 'action' && signal.action.type === ActionType.ChatError ? [signal.action.part.error.errorType] : []) }, {
+			pending: undefined, host: 'replacement-host', errors: ['CodexCompactionError'],
+		});
+	}));
+
+	for (const recovery of ['missing notification', 'missing interrupt acknowledgement', 'interrupt rejection']) {
+		test(`compact start recovery retires the old connection and resumes replacement (${recovery})`, () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const { agent, peer, session, chat, folder, threadId, entry, signals, send } = await compactHarness();
+			const otherSession = AgentSession.uri('codex', 'compact-timeout-other');
+			const otherChat = URI.parse(buildDefaultChatUri(otherSession));
+			await materializeSession(agent, peer, otherSession, otherChat, folder, 'compact-timeout-other-thread');
+			const otherEntry = agent['_sessions'].get(AgentSession.id(otherSession))!;
+			const compacting = send('/compact', 'compact-host');
+			const compact = await readNextRequest(peer.outbound);
+			peer.push({ id: compact.id, result: {} });
+			await compacting;
+			await agent.chats.abort(chat, session);
+			const nextPeer = disposables.add(createTestPeer());
+			agent['_refreshAccount'] = async () => agent['_openAIAccountState'];
+			agent['_refreshMcpInventory'] = async () => { };
+			agent['_startConnection'] = async () => {
+				connect(agent, nextPeer);
+				const connection = agent['_connection'];
+				assert.ok(connection.kind === 'ready');
+				return { ...connection, proxyHandle: { baseUrl: 'http://127.0.0.1', nonce: 'test-nonce', setToken: () => { }, dispose: () => { } } };
+			};
+			const replacing = send('replacement', 'replacement-host');
+			const turn = { id: 'compact-native', items: [], itemsView: 'notLoaded', status: 'inProgress', error: null, startedAt: 1, completedAt: null, durationMs: null };
+			if (recovery !== 'missing notification') {
+				peer.push({ method: 'turn/started', params: { threadId, turn } });
+				const interrupt = await readNextRequest(peer.outbound);
+				assert.strictEqual(interrupt.method, 'turn/interrupt');
+				if (recovery === 'interrupt rejection') {
+					peer.push({ id: interrupt.id, error: { code: -32603, message: 'interrupt failed' } });
+				}
+			}
+			const resume = await readNextRequest(nextPeer.outbound);
+			assert.deepStrictEqual({ method: resume.method, threadId: resume.params.threadId }, { method: 'thread/resume', threadId });
+			nextPeer.push({ id: resume.id, result: { thread: { id: threadId, cwd: folder.fsPath }, cwd: folder.fsPath } });
+			const replacement = await readNextRequest(nextPeer.outbound);
+			assert.strictEqual(replacement.method, 'turn/start');
+			nextPeer.push({ id: replacement.id, result: { turn: { id: 'replacement-native' } } });
+			await replacing;
+			// Notifications from the retired client cannot enter the replacement's
+			// thread, even though its durable thread id is unchanged.
+			peer.push({ method: 'turn/started', params: { threadId, turn } });
+			assert.deepStrictEqual({
+				pending: entry.pendingCompactStart, host: entry.currentTurnId, needsResume: entry.needsResume, otherNeedsResume: otherEntry.needsResume,
+				errors: signals.flatMap(signal => signal.kind === 'action' && signal.action.type === ActionType.ChatError ? [{ chat: signal.resource.toString(), error: signal.action.part.error.errorType }] : []),
+			}, {
+				pending: undefined, host: 'replacement-host', needsResume: false, otherNeedsResume: true,
+				errors: [{ chat: chat.toString(), error: 'CodexDisconnected' }, { chat: otherChat.toString(), error: 'CodexDisconnected' }],
+			});
+		}));
+	}
+
+	test('an identified compact retains its own native identity and cancels its timeout', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+		const { agent, peer, threadId, entry, send } = await compactHarness();
+		const compacting = send('/compact', 'compact-host');
+		const compact = await readNextRequest(peer.outbound);
+		peer.push({ method: 'turn/started', params: { threadId, turn: { id: 'compact-native', items: [], status: 'inProgress' } } });
+		peer.push({ id: compact.id, result: {} });
+		await compacting;
+		await timeout(30_001);
+		assert.deepStrictEqual({ host: entry.currentTurnId, native: entry.currentAppTurnId, pending: entry.pendingCompactStart, connection: agent['_connection'].kind }, {
+			host: 'compact-host', native: 'compact-native', pending: undefined, connection: 'ready',
+		});
+	}));
+
+	test('compact waits for an earlier cancelled turn admission before claiming a native start', async () => {
+		const { agent, peer, session, chat, threadId, entry, send } = await compactHarness();
+		const first = send('cancel before native identity', 'first-host');
+		const firstRequest = await readNextRequest(peer.outbound);
+		await agent.chats.abort(chat, session);
+		const launch = await agent['_buildCustomizationLaunch'](entry);
+		const ensureLaunch = agent['_ensureCurrentLaunchBeforeTurn'];
+		const entered = new DeferredPromise<void>();
+		agent['_ensureCurrentLaunchBeforeTurn'] = async () => { entered.complete(); return launch; };
+		try {
+			const compacting = send('/compact', 'compact-host');
+			await entered.p;
+			await timeout(0);
+			assert.strictEqual(entry.pendingCompactStart?.dispatched, false);
+			const turn = { id: 'first-native', items: [], status: 'inProgress' };
+			peer.push({ method: 'turn/started', params: { threadId, turn } });
+			const interrupt = await readNextRequest(peer.outbound);
+			assert.deepStrictEqual(interrupt.params, { threadId, turnId: 'first-native' });
+			peer.push({ id: interrupt.id, result: {} });
+			peer.push({ id: firstRequest.id, result: { turn } });
+			await first;
+			const compact = await readNextRequest(peer.outbound);
+			assert.strictEqual(compact.method, 'thread/compact/start');
+			peer.push({ method: 'turn/started', params: { threadId, turn: { ...turn, id: 'compact-native' } } });
+			peer.push({ id: compact.id, result: {} });
+			await compacting;
+			assert.deepStrictEqual({ host: entry.currentTurnId, native: entry.currentAppTurnId, extra: peer.outbound.readableLength }, { host: 'compact-host', native: 'compact-native', extra: 0 });
+		} finally {
+			agent['_ensureCurrentLaunchBeforeTurn'] = ensureLaunch;
+		}
+	});
+
+	test('Stop during compact preparation prevents dispatch and releases its replacement', async () => {
+		const { agent, peer, session, chat, entry, send } = await compactHarness();
+		const launch = await agent['_buildCustomizationLaunch'](entry);
+		const ensureLaunch = agent['_ensureCurrentLaunchBeforeTurn'];
+		const entered = new DeferredPromise<void>();
+		const gate = new DeferredPromise<void>();
+		agent['_ensureCurrentLaunchBeforeTurn'] = async () => { entered.complete(); await gate.p; return launch; };
+		try {
+			const compacting = send('/compact', 'compact-host');
+			await entered.p;
+			await agent.chats.abort(chat, session);
+			gate.complete();
+			await compacting;
+			assert.strictEqual(peer.outbound.readableLength, 0);
+		} finally {
+			gate.complete();
+			agent['_ensureCurrentLaunchBeforeTurn'] = ensureLaunch;
+		}
+		const replacing = send('replacement', 'replacement-host');
+		const replacement = await readNextRequest(peer.outbound);
+		assert.strictEqual(replacement.method, 'turn/start');
+		peer.push({ id: replacement.id, result: { turn: { id: 'replacement-native' } } });
+		await replacing;
+	});
+
+	test('disposing a compact with no response releases pending sends and cancels identification timeout', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+		const { agent, peer, session, chat, threadId, entry, send } = await compactHarness();
+		const compacting = send('/compact', 'compact-host');
+		await readNextRequest(peer.outbound);
+		await agent.chats.abort(chat, session);
+		const replacing = send('replacement', 'replacement-host');
+		const disposing = agent.chats.disposeChat(chat, hostChatContext(session, chat));
+		const unsubscribe = await readNextRequest(peer.outbound);
+		assert.strictEqual(unsubscribe.method, 'thread/unsubscribe');
+		peer.push({ id: unsubscribe.id, result: { status: 'unsubscribed' } });
+		await Promise.all([disposing, compacting, replacing]);
+		peer.push({ method: 'turn/started', params: { threadId, turn: { id: 'late-compact', items: [], status: 'inProgress' } } });
+		await timeout(30_001);
+		assert.deepStrictEqual({ pending: entry.pendingCompactStart, disposed: entry.disposed, exists: agent['_sessions'].has(AgentSession.id(session)), connection: agent['_connection'].kind, requests: peer.outbound.readableLength }, {
+			pending: undefined, disposed: true, exists: false, connection: 'ready', requests: 0,
+		});
+	}));
+
+	test('agent shutdown releases an unidentified compact and its waiting replacement', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+		const { agent, peer, entry, send } = await compactHarness();
+		const compacting = send('/compact', 'compact-host');
+		await readNextRequest(peer.outbound);
+		const replacing = send('replacement', 'replacement-host');
+		agent.dispose();
+		await Promise.all([compacting, replacing]);
+		await timeout(30_001);
+		assert.deepStrictEqual({ pending: entry.pendingCompactStart, disposed: entry.disposed, connection: agent['_connection'].kind, requests: peer.outbound.readableLength }, {
+			pending: undefined, disposed: true, connection: 'idle', requests: 0,
+		});
+	}));
+
 	test('a thread started on a replaced app-server is resumed before its first turn', async () => {
 		const agent = await createAgent(disposables);
 		const firstPeer = disposables.add(createTestPeer());
@@ -4404,6 +4651,231 @@ suite('CodexAgent chat backing durability', () => {
 		} finally {
 			peer.dispose();
 		}
+	});
+
+	test('abort during turn preparation prevents the native turn and does not cancel the next send', async () => {
+		const agent = await createAgent(disposables, { sdkResolvableWithoutDownload: true, sessionStore: createTestSessionStore() });
+		const peer = disposables.add(createTestPeer());
+		connect(agent, peer);
+		const session = AgentSession.uri('codex', 'abort-preparing');
+		const chat = URI.parse(buildDefaultChatUri(session));
+		const folder = URI.file('/repo/abort-preparing');
+		await materializeSession(agent, peer, session, chat, folder, 'abort-preparing-thread');
+		const entered = new DeferredPromise<void>();
+		const gate = new DeferredPromise<void>();
+		const resolveModel = agent['_resolveModel'];
+		agent['_resolveModel'] = async () => { entered.complete(); await gate.p; return { id: COPILOT_TEST_MODEL }; };
+		try {
+			const sending = agent.chats.sendMessage(chat, 'cancel before dispatch', [folder], undefined, 'turn-2', undefined, undefined, hostChatContext(session, chat));
+			await entered.p;
+			await agent.chats.abort(chat, session);
+			gate.complete();
+			await sending;
+			assert.strictEqual(peer.outbound.readableLength, 0, 'no native turn was dispatched');
+		} finally {
+			agent['_resolveModel'] = resolveModel;
+			gate.complete();
+		}
+		const replacement = agent.chats.sendMessage(chat, 'next send', [folder], undefined, 'turn-3', undefined, undefined, hostChatContext(session, chat));
+		const request = await readNextRequest(peer.outbound);
+		assert.strictEqual(request.method, 'turn/start');
+		peer.push({ id: request.id, result: { turn: { id: 'next-native-turn' } } });
+		await replacement;
+	});
+
+	test('abort interrupts a late native start before the turn/start response arrives', async () => {
+		const agent = await createAgent(disposables, { sdkResolvableWithoutDownload: true, sessionStore: createTestSessionStore() });
+		const peer = disposables.add(createTestPeer());
+		connect(agent, peer);
+		const connection = agent['_connection'];
+		assert.ok(connection.kind === 'ready');
+		peer.disposables.add(connection.client.onNotification('turn/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleTurnStartedNotification'](session, params))));
+		const session = AgentSession.uri('codex', 'abort-late-start');
+		const chat = URI.parse(buildDefaultChatUri(session));
+		const folder = URI.file('/repo/abort-late-start');
+		const threadId = 'abort-late-start-thread';
+		await materializeSession(agent, peer, session, chat, folder, threadId);
+		const sending = agent.chats.sendMessage(chat, 'cancel me', [folder], undefined, 'turn-2', undefined, undefined, hostChatContext(session, chat));
+		const request = await readNextRequest(peer.outbound);
+		await agent.chats.abort(chat, session);
+		const turn = { id: 'cancelled-native', items: [], itemsView: 'notLoaded', status: 'inProgress', error: null, startedAt: 1, completedAt: null, durationMs: null };
+		peer.push({ method: 'turn/started', params: { threadId, turn } });
+		const interrupt = await readNextRequest(peer.outbound);
+		assert.deepStrictEqual({ method: interrupt.method, params: interrupt.params }, { method: 'turn/interrupt', params: { threadId, turnId: turn.id } });
+		peer.push({ id: interrupt.id, result: {} });
+		peer.push({ id: request.id, result: { turn } });
+		await sending;
+		assert.strictEqual(peer.outbound.readableLength, 0, 'the response must not issue a second interrupt');
+	});
+
+	test('abort before the native id interrupts only that attempt when turn started arrives after a replacement', async () => {
+		const agent = await createAgent(disposables, { sdkResolvableWithoutDownload: true, sessionStore: createTestSessionStore() });
+		const peer = disposables.add(createTestPeer());
+		connect(agent, peer);
+		const connection = agent['_connection'];
+		assert.ok(connection.kind === 'ready');
+		peer.disposables.add(connection.client.onNotification('turn/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleTurnStartedNotification'](session, params))));
+		const session = AgentSession.uri('codex', 'abort-before-native-id');
+		const chat = URI.parse(buildDefaultChatUri(session));
+		const folder = URI.file('/repo/abort-before-native-id');
+		const threadId = 'abort-before-native-id-thread';
+		await materializeSession(agent, peer, session, chat, folder, threadId);
+		const first = agent.chats.sendMessage(chat, 'cancel me', [folder], undefined, 'turn-2', undefined, undefined, hostChatContext(session, chat));
+		const firstRequest = await readNextRequest(peer.outbound);
+		await agent.chats.abort(chat, session);
+		const replacement = agent.chats.sendMessage(chat, 'replacement', [folder], undefined, 'turn-3', undefined, undefined, hostChatContext(session, chat));
+		const replacementRequest = await readNextRequest(peer.outbound);
+		const turn = { id: 'replacement-native', items: [], itemsView: 'notLoaded', status: 'inProgress', error: null, startedAt: 1, completedAt: null, durationMs: null };
+		peer.push({ method: 'turn/started', params: { threadId, turn } });
+		peer.push({ method: 'turn/started', params: { threadId, turn: { ...turn, id: 'cancelled-native' } } });
+		peer.push({ id: replacementRequest.id, result: { turn } });
+		await replacement;
+		peer.push({ id: firstRequest.id, result: { turn: { ...turn, id: 'cancelled-native' } } });
+		const interrupt = await readNextRequest(peer.outbound);
+		peer.push({ id: interrupt.id, result: {} });
+		await first;
+		const entry = agent['_sessions'].get(AgentSession.id(session))!;
+		assert.deepStrictEqual({ method: interrupt.method, interrupted: interrupt.params, hostTurn: entry.currentTurnId, nativeTurn: entry.currentAppTurnId }, {
+			method: 'turn/interrupt', interrupted: { threadId, turnId: 'cancelled-native' }, hostTurn: 'turn-3', nativeTurn: 'replacement-native',
+		});
+	});
+
+	function renderedChat(signals: readonly AgentSignal[], turnId: string): ChatState {
+		let state: ChatState = {
+			resource: 'ahp-chat://correlation-test', title: 'Test', status: SessionStatus.Idle,
+			modifiedAt: new Date(0).toISOString(), origin: { kind: ChatOriginKind.User }, turns: [], activeTurn: undefined,
+		};
+		state = chatReducer(state, { type: ActionType.ChatTurnStarted, turnId, startedAt: new Date(0).toISOString(), message: { text: 'replacement', origin: { kind: MessageKind.User } } });
+		for (const signal of signals) {
+			if (signal.kind === 'action' && isChatAction(signal.action)) {
+				state = chatReducer(state, signal.action);
+			}
+		}
+		return state;
+	}
+
+	const nativeTurn = (id: string) => ({ id, items: [], itemsView: 'notLoaded', status: 'inProgress', error: null, startedAt: 1, completedAt: null, durationMs: null });
+	const shellItem = (id: string) => ({ type: 'commandExecution', id, command: 'echo safe', cwd: '/repo', processId: null, source: 'agent', status: 'inProgress', commandActions: [], aggregatedOutput: null, exitCode: null, durationMs: null });
+
+	for (const responseFirst of [false, true]) {
+		test(`a deferred native start preserves items, deltas and approvals from one stdout chunk (responseFirst=${responseFirst})`, async () => {
+			const { agent, peer, session, chat, threadId, entry, signals, send } = await compactHarness();
+			const first = send('cancel before identity', 'first-host');
+			const firstRequest = await readNextRequest(peer.outbound);
+			await agent.chats.abort(chat, session);
+			const replacement = send('replacement', 'replacement-host');
+			const replacementRequest = await readNextRequest(peer.outbound);
+			const turn = nativeTurn('replacement-native');
+			const response = { id: replacementRequest.id, result: { turn } };
+			const events = [
+				{ method: 'turn/started', params: { threadId, turn } },
+				{ method: 'item/started', params: { threadId, turnId: turn.id, item: { type: 'agentMessage', id: 'message-B', text: 'kept ' } } },
+				{ method: 'item/agentMessage/delta', params: { threadId, turnId: turn.id, itemId: 'message-B', delta: 'before response' } },
+				{ method: 'item/started', params: { threadId, turnId: turn.id, item: shellItem('command-B') } },
+				{ id: 9000, method: 'item/commandExecution/requestApproval', params: { threadId, turnId: turn.id, itemId: 'command-B', command: 'echo safe' } },
+			];
+			peer.pushBatch(responseFirst ? [response, ...events] : [...events, response]);
+			await replacement;
+			assert.strictEqual(entry.pendingCommandApprovals.getMetadata('command-B'), 'replacement-host');
+			peer.push({ method: 'item/agentMessage/delta', params: { threadId, turnId: turn.id, itemId: 'message-B', delta: ' and after response' } });
+			assert.ok(signals.some(signal => signal.kind === 'action' && signal.action.type === ActionType.ChatToolCallReady && signal.action.turnId === 'replacement-host' && signal.action.toolCallId === 'command-B' && !signal.action.confirmed));
+			const approval = readNextMessage(peer.outbound);
+			entry.pendingCommandApprovals.respond('command-B', 'accept');
+			assert.deepStrictEqual(await approval, { id: 9000, result: { decision: 'accept' } });
+			peer.push({ method: 'item/completed', params: { threadId, turnId: turn.id, item: { ...shellItem('command-B'), status: 'completed', aggregatedOutput: 'done', exitCode: 0 } } });
+			await timeout(0);
+			const state = renderedChat(signals, 'replacement-host');
+			assert.deepStrictEqual(state.activeTurn?.responseParts.flatMap(part => part.kind === ResponsePartKind.Markdown ? [part.content] : []), ['kept before response and after response']);
+			peer.push({ id: firstRequest.id, result: { turn: nativeTurn('cancelled-native') } });
+			const interrupt = await readNextRequest(peer.outbound);
+			assert.deepStrictEqual(interrupt.params, { threadId, turnId: 'cancelled-native' });
+			peer.push({ id: interrupt.id, result: {} });
+			await first;
+			assert.strictEqual(entry.deferredTurnEvents?.size ?? 0, 0);
+		});
+	}
+
+	test('a deferred completion in the same stdout chunk completes the correlated host turn', async () => {
+		const { agent, peer, session, chat, threadId, entry, signals, send } = await compactHarness();
+		const first = send('cancel before identity', 'first-host');
+		const firstRequest = await readNextRequest(peer.outbound);
+		await agent.chats.abort(chat, session);
+		const replacement = send('replacement', 'replacement-host');
+		const replacementRequest = await readNextRequest(peer.outbound);
+		const turn = nativeTurn('replacement-native');
+		peer.pushBatch([
+			{ id: replacementRequest.id, result: { turn } },
+			{ method: 'turn/started', params: { threadId, turn } },
+			{ method: 'item/started', params: { threadId, turnId: turn.id, item: { type: 'agentMessage', id: 'message-B', text: 'complete response' } } },
+			{ method: 'item/completed', params: { threadId, turnId: turn.id, item: { type: 'agentMessage', id: 'message-B', text: 'complete response' } } },
+			{ method: 'turn/completed', params: { threadId, turn: { ...turn, status: 'completed' } } },
+		]);
+		await replacement;
+		assert.strictEqual(entry.currentTurnId, undefined);
+		await agent['_pendingChatProgress'].get(entry);
+		const state = renderedChat(signals, 'replacement-host');
+		assert.strictEqual(state.activeTurn, undefined);
+		assert.deepStrictEqual(state.turns.map(turn => ({ id: turn.id, text: turn.responseParts.flatMap(part => part.kind === ResponsePartKind.Markdown ? [part.content] : []) })), [{ id: 'replacement-host', text: ['complete response'] }]);
+		peer.push({ id: firstRequest.id, result: { turn: nativeTurn('cancelled-native') } });
+		const interrupt = await readNextRequest(peer.outbound);
+		peer.push({ id: interrupt.id, result: {} });
+		await first;
+	});
+
+	test('a late interrupted completion preserves replacement content, tools, approvals, steering and spawns', async () => {
+		const { agent, peer, session, chat, threadId, entry, signals, send } = await compactHarness();
+		const first = send('first', 'first-host');
+		const firstRequest = await readNextRequest(peer.outbound);
+		const firstTurn = nativeTurn('first-native');
+		peer.pushBatch([{ id: firstRequest.id, result: { turn: firstTurn } }, { method: 'turn/started', params: { threadId, turn: firstTurn } }]);
+		await first;
+		const stopping = agent.chats.abort(chat, session);
+		const interrupt = await readNextRequest(peer.outbound);
+		peer.push({ id: interrupt.id, result: {} });
+		await stopping;
+		const replacement = send('replacement', 'replacement-host');
+		const replacementRequest = await readNextRequest(peer.outbound);
+		const turn = nativeTurn('replacement-native');
+		peer.pushBatch([
+			{ id: replacementRequest.id, result: { turn } },
+			{ method: 'turn/started', params: { threadId, turn } },
+			{ method: 'item/started', params: { threadId, turnId: turn.id, item: { type: 'agentMessage', id: 'message-B', text: 'before ' } } },
+			{ method: 'item/started', params: { threadId, turnId: turn.id, item: shellItem('command-B') } },
+			{ id: 9001, method: 'item/commandExecution/requestApproval', params: { threadId, turnId: turn.id, itemId: 'command-B', command: 'echo safe' } },
+		]);
+		await replacement;
+		const steering = agent.sendSteeringMessage(chat, { id: 'steering-B', message: { text: 'continue B', origin: { kind: MessageKind.User } } });
+		const steer = await readNextRequest(peer.outbound);
+		peer.push({ id: steer.id, result: {} });
+		await steering;
+		entry.pendingGuardianReviewCards.add('guardian-B');
+		// Steering can give one native turn several host turn identities.
+		entry.codexTurnIdByHostTurnId.set('before-steering-host', turn.id);
+		const guardian = entry.pendingCommandApprovals.register('guardian-B', 'before-steering-host');
+		agent['_spawnsInFlight'].set(`${threadId}/spawn-B`, entry);
+		peer.push({ method: 'turn/completed', params: { threadId, turn: { ...firstTurn, status: 'interrupted' } } });
+		await timeout(0);
+		assert.deepStrictEqual({
+			host: entry.currentTurnId, native: entry.currentAppTurnId, mapper: entry.mapState.currentTurnId,
+			message: entry.mapState.itemToPartId.has('message-B'), tool: entry.mapState.itemToToolCall.has('command-B'),
+			approval: entry.pendingCommandApprovals.has('command-B'), guardian: entry.pendingCommandApprovals.has('guardian-B'),
+			steering: entry.pendingSteeringFlips.has('steering-B'), spawn: agent['_spawnsInFlight'].has(`${threadId}/spawn-B`),
+			prematureCompletions: signals.filter(signal => signal.kind === 'action' && signal.action.type === ActionType.ChatToolCallComplete).length,
+		}, { host: 'replacement-host', native: turn.id, mapper: 'replacement-host', message: true, tool: true, approval: true, guardian: true, steering: true, spawn: true, prematureCompletions: 0 });
+		peer.push({ method: 'item/agentMessage/delta', params: { threadId, turnId: turn.id, itemId: 'message-B', delta: 'after old completion' } });
+		const approval = readNextMessage(peer.outbound);
+		entry.pendingCommandApprovals.respond('command-B', 'accept');
+		assert.deepStrictEqual(await approval, { id: 9001, result: { decision: 'accept' } });
+		peer.push({ method: 'item/completed', params: { threadId, turnId: turn.id, item: { ...shellItem('command-B'), status: 'completed', aggregatedOutput: 'done', exitCode: 0 } } });
+		peer.push({ method: 'turn/completed', params: { threadId, turn: { ...turn, status: 'completed' } } });
+		assert.strictEqual(await guardian, 'cancel');
+		entry.pendingGuardianReviewCards.delete('guardian-B');
+		await agent['_pendingChatProgress'].get(entry);
+		const state = renderedChat(signals, 'replacement-host');
+		assert.deepStrictEqual(state.turns[0].responseParts.flatMap(part => part.kind === ResponsePartKind.Markdown ? [part.content] : []), ['before after old completion']);
+		assert.ok(signals.some(signal => signal.kind === 'action' && signal.action.type === ActionType.ChatToolCallComplete && signal.action.turnId === 'replacement-host' && signal.action.toolCallId === 'command-B' && signal.action.result.success));
+		assert.strictEqual(entry.pendingSteeringFlips.size, 0);
+		assert.strictEqual(agent['_spawnsInFlight'].size, 0);
 	});
 
 	test('a late interrupted turn completion preserves the replacement turn identity', async () => {
@@ -5524,7 +5996,7 @@ suite('CodexAgent live approvals', () => {
 			assert.ok(connection.kind === 'ready');
 			peer.disposables.add(connection.client.onNotification('turn/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleTurnStartedNotification'](session, params))));
 			peer.disposables.add(connection.client.onNotification('turn/completed', params => agent['_dispatchTurnCompleted'](params)));
-			peer.disposables.add(connection.client.onNotification('item/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleItemStarted'](session, params))));
+			peer.disposables.add(connection.client.onNotification('item/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleItemStarted'](session, params), params.turnId)));
 		}
 		const session = AgentSession.uri('codex', id);
 		const chat = URI.parse(buildDefaultChatUri(session));
@@ -5757,7 +6229,8 @@ async function startNativeTurn(disposables: Pick<DisposableStore, 'add'>, id: st
 	assert.ok(connection.kind === 'ready');
 	peer.disposables.add(connection.client.onNotification('turn/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleTurnStartedNotification'](session, params))));
 	peer.disposables.add(connection.client.onNotification('turn/completed', params => agent['_dispatchTurnCompleted'](params)));
-	peer.disposables.add(connection.client.onNotification('item/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleItemStarted'](session, params))));
+	peer.disposables.add(connection.client.onNotification('item/started', params => agent['_dispatchByThread'](params.threadId, session => agent['_handleItemStarted'](session, params), params.turnId)));
+	peer.disposables.add(connection.client.onNotification('item/agentMessage/delta', params => agent['_dispatchByThread'](params.threadId, session => mapAgentMessageDelta(session.mapState, agent['_withHostTurnId'](session, params)), params.turnId)));
 	peer.disposables.add(connection.client.onNotification('item/completed', params => agent['_dispatchItemCompleted'](params)));
 	const session = AgentSession.uri('codex', id);
 	const chat = URI.parse(buildDefaultChatUri(session));
@@ -5855,6 +6328,29 @@ suite('CodexAgent early subagent events', () => {
 		harness.spawn('spawn', 'completed', 'child-thread');
 		await timeout(0);
 		assert.deepStrictEqual(childActions, [ActionType.ChatToolCallStart, ActionType.ChatToolCallDelta, ActionType.ChatToolCallReady, ActionType.ChatToolCallContentChanged, ActionType.ChatToolCallComplete]);
+	});
+
+	test('replayed child starts and deltas retain their mapper-owned turn identity', async () => {
+		const harness = await startParentTurn('early-child-text');
+		const childSignals: AgentSignal[] = [];
+		disposables.add(harness.agent.onDidChatProgress(signal => {
+			if (signal.kind === 'action' && signal.parentToolCallId !== undefined) { childSignals.push(signal); }
+		}));
+		harness.spawn('spawn', 'inProgress');
+		harness.peer.pushBatch([
+			{ method: 'turn/started', params: { threadId: 'child-thread', turn: { id: 'child-turn', items: [], status: 'inProgress' } } },
+			{ method: 'item/started', params: { threadId: 'child-thread', turnId: 'child-turn', item: { type: 'agentMessage', id: 'child-message', text: 'child ' } } },
+			{ method: 'item/agentMessage/delta', params: { threadId: 'child-thread', turnId: 'child-turn', itemId: 'child-message', delta: 'reply' } },
+		]);
+		harness.spawn('spawn', 'completed', 'child-thread');
+		await timeout(0);
+		const child = harness.agent['_subagentsByThreadId'].get('child-thread')!.session;
+		assert.strictEqual(child.currentTurnId, undefined);
+		assert.strictEqual(child.mapState.currentTurnId, 'child-turn');
+		assert.deepStrictEqual(childSignals.flatMap(signal => signal.kind === 'action' && (signal.action.type === ActionType.ChatResponsePart || signal.action.type === ActionType.ChatDelta)
+			? [{ turnId: signal.action.turnId, text: signal.action.type === ActionType.ChatDelta ? signal.action.content : signal.action.part.kind === ResponsePartKind.Markdown ? signal.action.part.content : undefined }] : []), [
+			{ turnId: 'child-turn', text: 'child ' }, { turnId: 'child-turn', text: 'reply' },
+		]);
 	});
 
 	test('a replayed child edit keeps its arrival order before a sibling edit to the same file', async () => {

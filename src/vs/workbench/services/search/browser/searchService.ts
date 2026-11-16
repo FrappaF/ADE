@@ -5,6 +5,7 @@
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
+import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -39,8 +40,9 @@ export class RemoteSearchService extends SearchService {
 		@IFileService fileService: IFileService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IUriIdentityService uriIdentityService: IUriIdentityService,
+		@ITextModelService textModelService: ITextModelService,
 	) {
-		super(modelService, editorService, telemetryService, logService, extensionService, fileService, uriIdentityService);
+		super(modelService, editorService, telemetryService, logService, extensionService, fileService, uriIdentityService, textModelService);
 		const searchProvider = this.instantiationService.createInstance(LocalFileSearchWorkerClient);
 		this.registerSearchResultProvider(Schemas.file, SearchProviderType.file, searchProvider);
 		this.registerSearchResultProvider(Schemas.file, SearchProviderType.text, searchProvider);

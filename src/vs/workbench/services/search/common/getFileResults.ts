@@ -5,6 +5,7 @@
 
 import { ITextSearchMatch, ITextSearchPreviewOptions, ITextSearchResult } from './search.js';
 import { Range } from '../../../../editor/common/core/range.js';
+import { getNextCodePoint } from '../../../../base/common/strings.js';
 
 export const getFileResults = (
 	bytes: Uint8Array,
@@ -14,7 +15,8 @@ export const getFileResults = (
 		previewOptions: ITextSearchPreviewOptions | undefined;
 		remainingResultQuota: number;
 	}
-): ITextSearchResult[] => {
+): { results: ITextSearchResult[]; limitHit: boolean } => {
+	pattern.lastIndex = 0;
 
 	let text: string;
 	if (bytes[0] === 0xff && bytes[1] === 0xfe) {
@@ -24,7 +26,7 @@ export const getFileResults = (
 	} else {
 		text = new TextDecoder('utf8').decode(bytes);
 		if (text.slice(0, 1000).includes('\uFFFD') && bytes.includes(0)) {
-			return [];
+			return { results: [], limitHit: false };
 		}
 	}
 
@@ -33,11 +35,18 @@ export const getFileResults = (
 	const patternIndices: { matchStartIndex: number; matchedText: string }[] = [];
 
 	let patternMatch: RegExpExecArray | null = null;
-	let remainingResultQuota = options.remainingResultQuota;
-	while (remainingResultQuota >= 0 && (patternMatch = pattern.exec(text))) {
+	let limitHit = false;
+	while ((patternMatch = pattern.exec(text))) {
+		if (patternIndices.length >= options.remainingResultQuota) {
+			limitHit = true;
+			break;
+		}
 		patternIndices.push({ matchStartIndex: patternMatch.index, matchedText: patternMatch[0] });
-		remainingResultQuota--;
+		if (patternMatch[0].length === 0) {
+			pattern.lastIndex += pattern.unicode && getNextCodePoint(text, text.length, pattern.lastIndex) > 0xFFFF ? 2 : 1;
+		}
 	}
+	pattern.lastIndex = 0;
 
 	if (patternIndices.length) {
 		const contextLinesNeeded = new Set<number>();
@@ -53,14 +62,10 @@ export const getFileResults = (
 			lineRanges.push({ start: prevLineEnd, end: lineEndingMatch.index });
 			prevLineEnd = lineEndingMatch.index + lineEndingMatch[0].length;
 		}
-		if (prevLineEnd < text.length) { lineRanges.push({ start: prevLineEnd, end: text.length }); }
+		lineRanges.push({ start: prevLineEnd, end: text.length });
 
 		let startLine = 0;
 		for (const { matchStartIndex, matchedText } of patternIndices) {
-			if (remainingResultQuota < 0) {
-				break;
-			}
-
 			while (Boolean(lineRanges[startLine + 1]) && matchStartIndex > lineRanges[startLine].end) {
 				startLine++;
 			}
@@ -101,6 +106,7 @@ export const getFileResults = (
 			);
 
 			const match: ITextSearchMatch = {
+				fullMatchTexts: [matchedText],
 				rangeLocations: [{
 					source: fileRange,
 					preview: previewRange,
@@ -126,5 +132,5 @@ export const getFileResults = (
 			}
 		}
 	}
-	return results;
+	return { results, limitHit };
 };
