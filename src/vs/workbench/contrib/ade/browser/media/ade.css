@@ -2548,3 +2548,395 @@
 		left: 12px !important;
 	}
 }
+
+/* Project Home keeps the first feature prominent while examples and guidance support it. */
+.ade-project-home {
+	width: min(100%, 1040px);
+	margin-inline: auto;
+	padding-block: var(--vscode-spacing-size320);
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-project-home h1,
+.ade-shell .ade-project-home h2,
+.ade-shell .ade-project-home h3 {
+	margin: 0;
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-shell .ade-project-home h2,
+.ade-shell .ade-project-home h3 {
+	font-size: var(--vscode-fontSize-heading3);
+}
+
+.ade-shell .ade-project-home button,
+.ade-shell .ade-project-home summary {
+	margin: 0;
+	min-width: 0;
+	max-width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-project-home button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-label1);
+	min-height: 32px;
+}
+
+.ade-project-home .codicon {
+	font-size: var(--vscode-codiconFontSize);
+	flex-shrink: 0;
+}
+
+.ade-home-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--vscode-spacing-size240);
+	margin-block-end: var(--vscode-spacing-size280);
+}
+
+.ade-home-heading > div,
+.ade-home-main,
+.ade-home-main > section,
+.ade-home-guide {
+	min-width: 0;
+}
+
+.ade-home-heading > div:first-child {
+	flex: 1;
+}
+
+.ade-home-heading p {
+	margin: var(--vscode-spacing-size80) 0 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.ade-home-header-actions,
+.ade-home-feature-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-home-header-actions {
+	justify-content: flex-end;
+}
+
+.ade-home-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 200px;
+	align-items: start;
+	gap: var(--vscode-spacing-size320);
+}
+
+.ade-home-main {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size280);
+}
+
+.ade-home-start {
+	padding: var(--vscode-spacing-size280);
+	background: color-mix(in srgb, var(--vscode-button-background) 7%, var(--vscode-editor-background));
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, color-mix(in srgb, var(--vscode-focusBorder) 30%, var(--vscode-panel-border)));
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.ade-home-start .ade-eyebrow {
+	margin: 0;
+	color: var(--vscode-textLink-foreground);
+	font-size: var(--vscode-fontSize-label1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-shell .ade-home-start h2 {
+	margin-block-start: var(--vscode-spacing-size120);
+	font-size: var(--vscode-fontSize-heading2);
+}
+
+.ade-home-description {
+	max-width: 60ch;
+	margin: var(--vscode-spacing-size80) 0 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body1);
+}
+
+.ade-shell .ade-home-start > button {
+	margin-block-start: var(--vscode-spacing-size240);
+}
+
+.ade-home-includes {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80) var(--vscode-spacing-size160);
+	margin-block-start: var(--vscode-spacing-size160);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-home-includes > span {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+}
+
+.ade-home-feature-list,
+.ade-home-example-grid,
+.ade-home-system-diagrams > .ade-home-feature-actions {
+	margin-block-start: var(--vscode-spacing-size160);
+}
+
+.ade-home-feature-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size120);
+}
+
+.ade-home-feature,
+.ade-home-example {
+	min-width: 0;
+	background: var(--vscode-editorWidget-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.ade-home-feature {
+	padding: var(--vscode-spacing-size200);
+}
+
+.ade-shell .ade-home-feature h3 > button {
+	justify-content: flex-start;
+	padding: 0;
+	background: transparent;
+	color: var(--vscode-textLink-foreground);
+	font-size: inherit;
+}
+
+.ade-home-feature > h3 + .ade-home-feature-actions,
+.ade-shell .ade-home-resume > button,
+.ade-shell .ade-home-guide-note + button {
+	margin-block-start: var(--vscode-spacing-size120);
+}
+
+.ade-home-feature > p {
+	margin: var(--vscode-spacing-size80) 0 var(--vscode-spacing-size160);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.ade-home-example-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--vscode-spacing-size120);
+}
+
+.ade-home-example {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.ade-home-example-preview {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) var(--vscode-codiconFontSize) minmax(0, 1fr);
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size200) var(--vscode-spacing-size160);
+	background: var(--vscode-sideBar-background);
+	border-block-end: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-home-example-node {
+	min-width: 0;
+	padding: var(--vscode-spacing-size80);
+	background: var(--vscode-editorWidget-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small);
+	font-size: var(--vscode-fontSize-body2);
+	text-align: center;
+}
+
+.ade-home-example-node:last-child {
+	color: var(--vscode-editor-foreground);
+	background: color-mix(in srgb, var(--vscode-button-background) 10%, var(--vscode-editorWidget-background));
+	border-color: var(--vscode-contrastBorder, color-mix(in srgb, var(--vscode-focusBorder) 50%, var(--vscode-panel-border)));
+}
+
+.ade-home-example-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: flex-start;
+	min-width: 0;
+	padding: var(--vscode-spacing-size160);
+}
+
+.ade-home-example-body > p {
+	margin: var(--vscode-spacing-size60) 0 var(--vscode-spacing-size160);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.ade-home-example-body > .ade-options {
+	width: 100%;
+	margin-block-start: auto;
+}
+
+.ade-shell .ade-home-example .ade-options > summary,
+.ade-shell .ade-home-guide > .ade-options > summary {
+	padding: var(--vscode-spacing-size40) 0;
+	background: transparent;
+	border-color: transparent;
+}
+
+.ade-shell .ade-home-example .ade-options > summary {
+	color: var(--vscode-textLink-foreground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.ade-shell .ade-home-example .ade-options > summary:hover {
+	text-decoration: underline;
+}
+
+.ade-shell .ade-project-home .ade-options[open] > .ade-options-content {
+	margin-block-start: var(--vscode-spacing-size120);
+	padding: 0;
+	background: transparent;
+	border-radius: 0;
+	max-height: none;
+	overflow: visible;
+}
+
+.ade-home-example-flow {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size160);
+	background: var(--vscode-editor-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small);
+	font-size: var(--vscode-fontSize-body2);
+	text-align: center;
+}
+
+.ade-home-example-flow p {
+	margin: 0;
+}
+
+.ade-shell .ade-home-example .ade-options-content > button {
+	margin-block-start: var(--vscode-spacing-size160);
+}
+
+.ade-shell .ade-home-guide > .ade-options > summary {
+	color: var(--vscode-editor-foreground);
+	font-size: var(--vscode-fontSize-heading3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-home-steps {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size240);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	counter-reset: ade-home-step;
+}
+
+.ade-home-steps > li {
+	display: grid;
+	grid-template-columns: 24px minmax(0, 1fr);
+	align-items: start;
+	gap: var(--vscode-spacing-size40) var(--vscode-spacing-size100);
+	min-width: 0;
+}
+
+.ade-home-steps > li::before {
+	content: counter(ade-home-step);
+	counter-increment: ade-home-step;
+	grid-row: 1 / 3;
+	display: grid;
+	place-items: center;
+	box-sizing: border-box;
+	width: 24px;
+	height: 24px;
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-circle);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-shell .ade-home-steps h3 {
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.ade-home-steps p,
+.ade-home-guide-note {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-home-guide-note {
+	margin-block-start: var(--vscode-spacing-size240);
+	padding-block-start: var(--vscode-spacing-size160);
+	border-block-start: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+}
+
+@container (max-width: 900px) {
+	.ade-home-layout {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--vscode-spacing-size280);
+	}
+
+	.ade-home-guide {
+		padding-block-start: var(--vscode-spacing-size200);
+		border-block-start: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	}
+
+	.ade-home-steps {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: var(--vscode-spacing-size160);
+	}
+}
+
+@container (max-width: 600px) {
+	.ade-project-home {
+		padding-block: var(--vscode-spacing-size160);
+	}
+
+	.ade-home-heading {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--vscode-spacing-size160);
+		margin-block-end: var(--vscode-spacing-size240);
+	}
+
+	.ade-home-header-actions {
+		justify-content: flex-start;
+	}
+
+	.ade-home-start {
+		padding: var(--vscode-spacing-size200);
+	}
+
+	.ade-home-example-grid,
+	.ade-home-steps {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.ade-home-feature {
+		padding: var(--vscode-spacing-size160);
+	}
+}

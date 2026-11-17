@@ -19,7 +19,7 @@ import { IAdeCodeService } from './adeCodeService.js';
 import { IAdeAiService } from './adeAiService.js';
 import { AdeInput } from './adeInput.js';
 import { renderStructuralReview } from './adeStructuralReview.js';
-import { renderAdeWelcome, renderAdeProjectStart } from './adeWelcome.js';
+import { renderAdeWelcome, renderAdeProjectHome } from './adeWelcome.js';
 import { adeDocumentStatus } from './adeDocumentStatus.js';
 import { describeAdeDiagram } from './adeAccessibleContent.js';
 import { renderAdeDiagramReview } from './adeDiagramReview.js';
@@ -173,7 +173,7 @@ export class AdeEditor extends EditorPane {
 			const content = dom.append(this.root, dom.$('main.ade-content'));
 			this.content = content;
 			content.setAttribute('role', 'region'); content.setAttribute('aria-label', this.activeTab === 'code' ? localize('ade.code.title', "Code") : this.activeTab === 'project' ? localize('ade.project.settingsTitle', "Project Settings") : this.activeTab === 'ai' ? localize('ade.ai.settings', "AI Settings") : localize('ade.workspaceTab', "Diagrams"));
-			if (this.activeTab === 'workspace' && !reviewMode && !canvasMode && !sourceEvidence && this.project.section !== 'home' && !this.project.error && !this.project.loading) { this.workflow.renderWorkflow(content); }
+			if (this.activeTab === 'workspace' && !reviewMode && !canvasMode && !sourceEvidence && this.project.section !== 'home' && (this.project.section !== 'diagram' || !!this.project.activeView) && !this.project.error && !this.project.loading) { this.workflow.renderWorkflow(content); }
 			if (this.activeTab === 'code') {
 				this.workflow.renderCodeActions(content, () => { this.activeTab = 'project'; this.render(); }, parent => this.renderPrimaryActions(parent, true));
 			} else if (this.activeTab === 'project') {
@@ -230,11 +230,15 @@ export class AdeEditor extends EditorPane {
 	private renderWorkspaceBar(parent: HTMLElement): void {
 		const bar = dom.append(parent, dom.$('nav.ade-workspace-bar'));
 		bar.setAttribute('aria-label', localize('ade.workspaceSections', "Workspace"));
-		const menu = this.controls.details(bar, this.project.section === 'home' ? localize('ade.project.menu', "Project") : this.project.model.name, 'workspace-project-menu', { popup: true });
+		const menu = this.controls.details(bar, this.project.section === 'home' && !this.project.modelUri ? localize('ade.project.menu', "Project") : this.project.model.name, 'workspace-project-menu', { popup: true });
 		menu.parentElement!.classList.add('ade-project-menu');
 		const action = (label: string, run: () => void) => this.button(menu, label, () => { this.controls.setExpanded('workspace-project-menu', false); run(); });
 		action(localize('ade.home', "Home"), () => { this.activeTab = 'workspace'; this.project.showHome(); });
 		action(localize('ade.openProject', "Open Project"), () => { void this.commandService.executeCommand('ade.openProject'); });
+		action(localize('ade.createProject', "Create Project"), () => { void this.commandService.executeCommand('ade.createProject'); });
+		const importCode = action(localize('ade.importCode', "Import Codebase"), () => { void this.code.importCodebase(); });
+		importCode.disabled = !this.code.available || this.code.busy || this.ai.busy;
+		if (importCode.disabled) { this.paragraph(menu, localize('ade.welcome.importUnavailable', "Code import is unavailable here or an import is already running.")); }
 		action(localize('ade.project.settingsTitle', "Project Settings"), () => { this.activeTab = 'project'; this.render(); });
 		action(localize('ade.ai.settings', "AI Settings"), () => { this.activeTab = 'ai'; this.render(); });
 		action(this.configurationService.getValue<boolean>('ade.focusDiagrams') === false ? localize('ade.layout.focus', "Focus on Diagrams") : localize('ade.layout.showIDE', "Show IDE"), () => { void this.commandService.executeCommand('ade.toggleWorkbench'); });
@@ -245,8 +249,8 @@ export class AdeEditor extends EditorPane {
 			this.button(bar, localize('ade.backToDiagram', "Back to Diagram"), () => { this.activeTab = 'workspace'; this.project.showDiagram(this.project.selectedId); this.render(); }, 'workspace-diagram').classList.add('ade-diagram-picker');
 		}
 		const trailing = dom.append(bar, dom.$('div.ade-workspace-trailing'));
-		if (this.project.section !== 'home' && this.project.model.views.length) { this.button(trailing, localize('ade.diagrams', "Diagrams"), () => { void this.commandService.executeCommand('ade.toggleNavigation'); }, 'workspace-navigation'); }
-		if (this.project.section !== 'home' && !this.project.loading && !this.project.error) {
+		if (this.project.modelUri || this.project.section !== 'home' && this.project.model.views.length) { this.button(trailing, localize('ade.diagrams', "Diagrams"), () => { void this.commandService.executeCommand('ade.toggleNavigation'); }, 'workspace-navigation'); }
+		if (this.project.section !== 'home' && (this.project.section !== 'diagram' || !!this.project.activeView) && !this.project.loading && !this.project.error) {
 			const map = this.button(trailing, localize('ade.systemMap', "System Map"), () => { this.activeTab = 'workspace'; this.project.showSystemMap(); }, 'workspace-map');
 			prependAdeIcon(map, Codicon.typeHierarchy); map.setAttribute('aria-current', String(this.project.section === 'map'));
 		}
@@ -350,6 +354,7 @@ export class AdeEditor extends EditorPane {
 	}
 
 	private renderHome(content: HTMLElement): void {
+		if (this.project.modelUri) { this.renderProjectHome(content); return; }
 		renderAdeWelcome(content, this.controls, {
 			open: () => { void this.commandService.executeCommand('ade.openProject'); },
 			create: () => { void this.commandService.executeCommand('ade.createProject'); },
@@ -357,20 +362,31 @@ export class AdeEditor extends EditorPane {
 			canImport: this.code.available && !this.code.busy && !this.ai.busy,
 			openModel: () => { void this.project.chooseModel(); }, example: () => { void this.project.useDemo(); }
 		});
-		if (this.project.modelUri) {
-			const current = dom.append(content, dom.$('section.ade-current-project'));
-			dom.append(current, dom.$('h2')).textContent = localize('ade.welcome.current', "Current Project · {0}", this.project.model.name);
-			this.paragraph(current, this.project.projectRoot?.fsPath ?? this.project.modelUri.fsPath);
-			this.button(current, localize('ade.welcome.resume', "Continue Current Project"), () => { void this.commandService.executeCommand('ade.showDiagram'); });
-		} else if (this.project.workspaceFolder) {
+		if (this.project.workspaceFolder) {
 			this.paragraph(content, localize('ade.workspaceFolder', "Current Folder: {0}", this.project.workspaceFolder.fsPath));
 		}
+	}
+
+	private renderProjectHome(content: HTMLElement): void {
+		renderAdeProjectHome(content, this.controls, {
+			model: this.project.model,
+			editable: this.project.editable,
+			busy: this.ai.busy || this.code.busy,
+			resumeViewId: this.project.activeView?.id,
+			addFeature: () => { void this.commandService.executeCommand('ade.addFeature'); },
+			addDiagram: featureId => { void this.commandService.executeCommand('ade.addDiagram', featureId); },
+			openDiagram: id => this.project.showDiagram(id),
+			inspectFeature: id => this.project.inspectElement(id),
+			systemMap: () => this.project.showSystemMap(),
+			navigation: () => { void this.commandService.executeCommand('ade.showNavigation'); },
+			purchaseExample: () => { void this.project.useDemo(); },
+			quantityTemplate: this.project.canCreatePureFeature ? () => { void this.commandService.executeCommand('ade.createPureFeature'); } : undefined
+		});
 	}
 
 	private renderDiagram(content: HTMLElement): void {
 		const model = this.project.model;
 		const view = this.project.activeView;
-		if (!view && model.semantics.elements.length) { this.renderBreadcrumbs(content); dom.append(content, dom.$('h1')).textContent = model.name; this.surface.renderEditingToolbar(content); }
 		if (this.project.saveError) {
 			const error = dom.append(content, dom.$('p.ade-status'));
 			error.setAttribute('role', 'alert');
@@ -378,15 +394,7 @@ export class AdeEditor extends EditorPane {
 		}
 		for (const diagnostic of this.project.diagnostics) { this.paragraph(content, diagnostic); }
 		if (!view) {
-			if (this.project.editable && !model.semantics.elements.length) {
-				renderAdeProjectStart(content, this.controls, model.name, this.project.canCreatePureFeature ? () => { void this.commandService.executeCommand('ade.createPureFeature'); } : undefined, () => { void this.commandService.executeCommand('ade.addFeature'); });
-				return;
-			}
-			if (model.semantics.elements.some(element => element.kind === 'feature')) {
-				this.paragraph(content, localize('ade.noDiagramsExistingFeatures', "This project has no diagrams. Add a diagram to an existing feature to continue."));
-				this.button(content, localize('ade.addDiagram', "Add Diagram"), () => { void this.commandService.executeCommand('ade.addDiagram'); });
-			} else { this.paragraph(content, localize('ade.noDiagrams', "This project has no diagrams. Add a feature to begin designing its structure and flow.")); }
-			this.button(content, localize('ade.openModel', "Open Model"), () => { void this.project.chooseModel(); });
+			this.renderProjectHome(content);
 			return;
 		}
 		const workspace = dom.append(content, dom.$('.ade-workspace'));

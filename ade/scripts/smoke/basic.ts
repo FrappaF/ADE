@@ -84,14 +84,15 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await openProperties(window);
 			await shell.locator('.ade-properties').getByRole('heading', { name: 'Carrello', exact: true }).waitFor();
 			await clickAdeButton(window, 'Home');
-			assert.equal(await shell.getByRole('button', { name: 'Create Project', exact: false }).isEnabled(), true);
-			assert.equal(await shell.getByRole('button', { name: 'Import Codebase', exact: false }).isEnabled(), true);
+			await shell.locator('.ade-project-home').waitFor();
+			assert.equal(await shell.locator('.ade-home-features').isVisible(), true);
+			assert.equal(await shell.locator('.ade-home-header-actions').getByRole('button', { name: 'System Map', exact: true }).isEnabled(), true);
 			await window.screenshot({ path: path.join(evidence, 'home.png') });
 			const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 			await window.keyboard.press(`${modifier}+Shift+P`);
 			await window.locator('.quick-input-widget input').fill('>A.D.E: Open Home');
 			await window.keyboard.press('Enter');
-			await shell.getByRole('heading', { name: 'Start a Project', exact: true }).waitFor();
+			await shell.locator('.ade-project-home').waitFor();
 			await openModelFile(window, modelFile);
 			await chooseAdeDiagram(window, 'Percorso acquisto');
 			await shell.getByRole('region', { name: 'Diagram: Percorso acquisto', exact: true }).waitFor();
@@ -124,7 +125,7 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await clickAdeButton(window, 'Home');
 			const newFolder = path.join(workspace, 'new-system');
 			await mkdir(newFolder);
-			await shell.getByRole('button', { name: 'Create Project', exact: true }).click();
+			await clickAdeButton(window, 'Create Project');
 			await enterValue(window, 'Name', 'Nuovo acquisto');
 			const enteredWorkspace = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 			await chooseFolder(window, newFolder);
@@ -132,7 +133,7 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			// Create Project enters this workspace; restart the selected folder, as the desktop normally does.
 			args[1] = newFolder;
 			await shell.getByRole('heading', { name: 'Nuovo acquisto', exact: true }).waitFor();
-			await shell.getByRole('button', { name: 'Add Feature', exact: true }).click();
+			await shell.getByRole('button', { name: 'Create First Feature', exact: true }).click();
 			await enterValue(window, 'Name', 'Conferma acquisto');
 			await shell.getByRole('region', { name: 'Diagram: Conferma acquisto · Structure', exact: true }).waitFor();
 			await addElement(window, 'Actor', 'Cliente');

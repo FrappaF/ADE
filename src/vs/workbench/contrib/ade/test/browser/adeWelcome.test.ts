@@ -7,14 +7,52 @@ import assert from 'assert';
 import * as dom from '../../../../../base/browser/dom.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { AdeControls } from '../../browser/adeControls.js';
-import { renderAdeWelcome, renderAdeProjectStart } from '../../browser/adeWelcome.js';
+import { renderAdeWelcome, renderAdeProjectHome } from '../../browser/adeWelcome.js';
 import { adeDocumentStatus } from '../../browser/adeDocumentStatus.js';
+import { type SemanticModel } from '../../common/modelTypes.js';
 
 suite('A.D.E project entrances and truthful status', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 	let root: HTMLElement;
 	setup(() => { root = dom.append(document.body, dom.$('section.ade-shell')); });
 	teardown(() => root.remove());
+
+	function home(model: SemanticModel, overrides: Partial<Parameters<typeof renderAdeProjectHome>[2]> = {}) {
+		const called: string[] = [];
+		const controls = store.add(new AdeControls());
+		const actions: Parameters<typeof renderAdeProjectHome>[2] = {
+			model, editable: true, busy: false,
+			addFeature: () => called.push('feature'), addDiagram: id => called.push(id ? `diagram:${id}` : 'diagram'),
+			openDiagram: id => called.push(`open:${id}`), inspectFeature: id => called.push(`inspect:${id}`),
+			systemMap: () => called.push('map'), navigation: () => called.push('navigation'),
+			purchaseExample: () => called.push('purchase'), quantityTemplate: () => called.push('quantity'),
+			...overrides
+		};
+		renderAdeProjectHome(root, controls, actions);
+		return { controls, called, actions };
+	}
+
+	function model(populated = false): SemanticModel {
+		return {
+			version: 2, id: 'mercato', name: '<img src=x>',
+			semantics: { elements: populated ? [
+				{ id: 'purchase', kind: 'feature', name: 'Acquisto', description: '<script>unsafe</script>' },
+				{ id: 'returns', kind: 'feature', name: 'Resi' }
+			] : [], relations: [] },
+			views: populated ? [
+				{ id: 'structure', name: 'Struttura acquisto', kind: 'structure', featureId: 'purchase', nodes: [], relationIds: [] },
+				{ id: 'flow', name: 'Flusso acquisto', kind: 'activity', featureId: 'purchase', nodes: [], relationIds: [] },
+				{ id: 'shared', name: 'Vista condivisa', kind: 'structure', nodes: [], relationIds: [] }
+			] : [], codeMappings: [], verifications: []
+		};
+	}
+
+	function activate(controls: AdeControls, id: string): void {
+		assert.strictEqual(controls.focusTarget(id), true, `Missing action: ${id}`);
+		const active = dom.getActiveElement();
+		assert.ok(dom.isHTMLButtonElement(active), `Action is not an enabled, visible button: ${id}`);
+		active.click();
+	}
 
 	test('three entrances dispatch distinct tasks; model files and examples stay in secondary help', () => {
 		const called: string[] = [];
@@ -33,14 +71,78 @@ suite('A.D.E project entrances and truthful status', () => {
 		assert.deepStrictEqual([button.disabled, calls, !!root.querySelector(`#${button.getAttribute('aria-describedby')}`)?.textContent?.includes('unavailable')], [true, 0, true]);
 	});
 
-	test('empty projects offer the supported template and free modeling as separate actions', () => {
-		const called: string[] = [];
-		renderAdeProjectStart(root, store.add(new AdeControls()), '<img src=x>', () => called.push('template'), () => called.push('manual'));
-		for (const button of root.querySelectorAll('button')) { button.click(); }
-		assert.deepStrictEqual([called, root.querySelector('img'), root.querySelectorAll('.ade-primary-action').length], [['manual', 'template'], null, 1]);
+	test('empty project Home explains the first feature and keeps navigation and examples discoverable', () => {
+		const f = home(model());
+		activate(f.controls, 'start:manual');
+		activate(f.controls, 'home:map');
+		activate(f.controls, 'home:navigation');
+		assert.deepStrictEqual({
+			called: f.called, title: root.querySelector('h1')?.textContent,
+			unsafe: root.querySelector('img, script'), primary: root.querySelectorAll('.ade-primary-action').length,
+			start: !!root.querySelector('.ade-home-start'), examples: root.querySelectorAll('.ade-home-example').length
+		}, { called: ['feature', 'map', 'navigation'], title: '<img src=x>', unsafe: null, primary: 1, start: true, examples: 2 });
+	});
+
+	test('exploring examples does not mutate the project; adding a supported template is explicit', () => {
+		const source = model();
+		const before = JSON.stringify(source);
+		const f = home(source);
+		f.controls.setExpanded('home:example:purchase', true);
+		f.controls.setExpanded('home:example:quantity', true);
+		assert.deepStrictEqual([f.called, JSON.stringify(source)], [[], before]);
+		activate(f.controls, 'home:purchase-example');
+		activate(f.controls, 'home:quantity-template');
+		assert.deepStrictEqual([f.called, JSON.stringify(source)], [['purchase', 'quantity'], before]);
 		root.textContent = '';
-		renderAdeProjectStart(root, store.add(new AdeControls()), 'Unsupported', undefined, () => called.push('manual'));
-		assert.strictEqual(root.querySelectorAll('button').length, 1);
+		const unsupported = home(source, { quantityTemplate: undefined });
+		assert.deepStrictEqual([unsupported.controls.focusTarget('home:quantity-template'), root.querySelectorAll('.ade-home-example').length], [false, 2]);
+	});
+
+	test('populated Home reaches actual feature diagrams and unowned views without changing the model', () => {
+		const source = model(true);
+		const before = JSON.stringify(source);
+		const f = home(source, { resumeViewId: 'flow' });
+		for (const id of ['home:resume', 'home:feature:returns', 'home:view:purchase:structure', 'home:view:purchase:flow', 'home:view:system:shared']) { activate(f.controls, id); }
+		assert.deepStrictEqual({
+			called: f.called, features: root.querySelectorAll('.ade-home-feature').length,
+			start: root.querySelector('.ade-home-start'), system: !!root.querySelector('.ade-home-system-diagrams'),
+			unsafe: root.querySelector('img, script'), model: JSON.stringify(source)
+		}, { called: ['open:flow', 'inspect:returns', 'open:structure', 'open:flow', 'open:shared'], features: 2, start: null, system: true, unsafe: null, model: before });
+		root.textContent = '';
+		const stale = home(source, { resumeViewId: 'deleted-view' });
+		assert.strictEqual(stale.controls.focusTarget('home:resume'), false);
+		root.textContent = '';
+		source.views = [];
+		const withoutDiagrams = home(source);
+		activate(withoutDiagrams.controls, 'home:feature:returns');
+		activate(withoutDiagrams.controls, 'home:add-diagram:returns');
+		assert.deepStrictEqual([root.querySelector('.ade-home-start'), root.querySelectorAll('.ade-home-feature').length, withoutDiagrams.called], [null, 2, ['inspect:returns', 'diagram:returns']]);
+	});
+
+	test('read-only and busy projects prevent model mutations while retaining navigation', () => {
+		for (const overrides of [{ editable: false }, { busy: true }]) {
+			root.textContent = '';
+			const f = home(model(true), overrides);
+			f.controls.setExpanded('home:example:quantity', true);
+			for (const button of root.querySelectorAll('button')) { button.click(); }
+			assert.deepStrictEqual(f.called.filter(action => ['feature', 'diagram', 'quantity'].includes(action) || action.startsWith('diagram:')), []);
+			f.called.length = 0;
+			activate(f.controls, 'home:map');
+			activate(f.controls, 'home:navigation');
+			activate(f.controls, 'home:feature:purchase');
+			assert.deepStrictEqual(f.called, ['map', 'navigation', 'inspect:purchase']);
+		}
+	});
+
+	test('the initial guide can be collapsed and stays collapsed after presentation updates', () => {
+		const f = home(model());
+		assert.strictEqual(f.controls.focusTarget('home:guide'), true);
+		const summary = dom.getActiveElement() as HTMLElement;
+		assert.strictEqual(summary.closest('details')?.open, true);
+		summary.click();
+		f.controls.render(root, () => { root.textContent = ''; renderAdeProjectHome(root, f.controls, f.actions); });
+		assert.strictEqual(f.controls.focusTarget('home:guide'), true);
+		assert.strictEqual(dom.getActiveElement()?.closest('details')?.open, false);
 	});
 
 	test('blocking errors dominate success and file persistence stays distinct from verification', () => {
