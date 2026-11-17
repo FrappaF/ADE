@@ -1,0 +1,16 @@
+{
+	"extends": "../tsconfig.tools.json",
+	"compilerOptions": {
+		"types": ["node"],
+		"typeRoots": ["../../node_modules/@types"],
+		"allowJs": true,
+		"checkJs": false
+	},
+	"include": [
+		"verify-dai.ts",
+		"../benchmarks/dai-corpus.ts",
+		"../test/dai-release.test.ts",
+		"../runtime/test/fixtures/model-v2-v3-reader.ts",
+		"../../src/typings/vscode-globals-nls.d.ts"
+	]
+}

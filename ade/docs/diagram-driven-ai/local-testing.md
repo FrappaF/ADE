@@ -35,7 +35,7 @@ Per aggiungere il broker reale, installare **NATS Server 2.11.9**, controllare `
 Per una verifica rapida dei nuovi negativi/gate, dopo l'installazione dei package:
 
 ```sh
-node --test ade/test/dai-release.test.mjs
+node --test ade/test/dai-release.test.ts
 ```
 
 ## Avvio dell'IDE e prove manuali

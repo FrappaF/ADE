@@ -120,8 +120,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Migrazioni storage/dati del corpus non implementate; PIM/PSM e switch runtime verificati nel perimetro dichiarato."
 				}
@@ -203,8 +203,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Negativi per riferimenti, tecnologia, tipo e integrazione respinti; percorso completo di generazione business del corpus ancora assente."
 				}
@@ -304,8 +304,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Archetipi e contesto strutturale verificati; nessuna implementazione checkout completa con persistenza su entrambi gli stack."
 				}
@@ -365,8 +365,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "C4 e contratti condivisi coperti dalle suite; mancano i collaudi desktop completi e il corpus applicativo equivalente."
 				}
@@ -448,8 +448,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Espressioni e contratti locali verificati; autorizzazione, scorte e ordini persistiti del corpus non hanno adapter completo."
 				}
@@ -537,8 +537,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Frame/runtime verificati; checkout-last-unit, idempotency e timeout del corpus non sono certificati dai casi locali più stretti."
 				}
@@ -627,8 +627,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Macchine piatte verificate su altra fixture; stati/azioni/ordine commit del corpus congelato richiedono un adapter esatto e decisione semantica esplicita."
 				}
@@ -701,8 +701,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Broker reale verificato su entrambi i runtime; manca osservatore esatto del payload/topologia/ack del corpus congelato."
 				}
@@ -857,8 +857,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Persistenza, identità, undo e proprietà nativi scriptati verificati; collaudo desktop e matrice completa dei percorsi ancora aperti."
 				}
@@ -1004,8 +1004,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Bootstrap/continuità/review verificati sul sottoinsieme locale; storage e checkout applicativo completo del corpus non implementati."
 				}
@@ -1133,8 +1133,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Conflitto, freschezza e undo verificati; fixture physical-recovery su sorgenti arbitrari manca di adapter esatto."
 				}
@@ -1254,8 +1254,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Conflitti ADR bloccano il contesto su entrambi i profili; collaudo end-to-end su tutti gli scenari e desktop ancora aperto."
 				}
@@ -1396,8 +1396,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "19 prove Chromium e 124 nativi scriptati; mancano Electron completo, screen reader reale e collaudo macOS di questa revisione."
 				}
@@ -1458,8 +1458,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Matrice di uscita esplicita; non tutti i criteri obbligatori hanno prova positiva."
 				}
@@ -1637,8 +1637,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Recall e risparmio misurati sulle fixture strutturali; sufficienza sul corpus business completo e inferenze live non dimostrate."
 				}
@@ -1813,8 +1813,8 @@
 						"ade/docs/diagram-driven-ai/release-review.json",
 						"ade/docs/diagram-driven-ai/local-testing.md",
 						"ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
-						"ade/scripts/verify-dai.mjs",
-						"ade/test/dai-release.test.mjs"
+						"ade/scripts/verify-dai.ts",
+						"ade/test/dai-release.test.ts"
 					],
 					"remaining": "Report riproducibili e gate bloccante; corpus completo, live e desktop non superati integralmente."
 				}
