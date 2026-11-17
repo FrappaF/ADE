@@ -61,3 +61,32 @@ Aggiornati i riferimenti in T4 e A6 e la nota di edizione in A8. La nuova sezion
 Il PDF contiene ora 79 pagine e 57 segnalibri; il collegamento A9 nell’indice e il rimando in T4 portano a pagina 77. La nuova sezione occupa le pagine 77–79. Il corpo e le posizioni del testo delle altre pagine originali sono stati confrontati con l’edizione precedente, escludendo copertina, indice, passaggi aggiornati e piè di pagina. Sono state controllate visivamente le pagine modificate e le tre nuove pagine.
 
 La versione HTML comprende 52 capitoli e 35 immagini. Indice, ricerca e ingrandimento delle nuove schermate vengono verificati nel browser. Il kit utente contiene le versioni aggiornate di PDF, HTML, testo e immagini; l’archivio dei progetti di esempio conserva gli stessi contenuti.
+
+## Revisione delle motivazioni · 17 novembre 2026
+
+Riletti tour, laboratorio, atlante e appendici chiedendo per ogni procedura quale problema risolve e perché adotta quelle scelte. Chiariti in particolare prospettive dei diagrammi, identità condivise, ownership, cardinalità, contratti, casi indipendenti e ordine review/verifica/applicazione. Le spiegazioni precedono le istruzioni o ne completano le frasi esistenti; titoli, tabelle e blocchi di codice sono invariati. Il testo cresce di circa il 4,5%.
+
+Rigenerati HTML e PDF dalla sorgente aggiornata. Il PDF ha 80 pagine, rispetto alle 79 precedenti, con 57 segnalibri e 35 immagini: controllati presenza dei testi, tabelle e comandi, destinazioni dei collegamenti, limiti della pagina e impaginazione. L’HTML conserva 52 capitoli, 51 tabelle e 35 immagini; verificati localmente, senza richieste esterne, caricamento immagini, assenza di overflow, ricerca, indice e ingrandimento a 1440, 1024, 768 e 390 pixel. Controllati CRC e corrispondenza dei file del kit con quelli consegnati. Questa revisione riguarda i documenti e le esportazioni; le esecuzioni ADE sono quelle registrate nelle sezioni precedenti.
+
+## Introduzioni con domande · 17 novembre 2026
+
+Tutti i 52 capitoli si aprono ora con un paragrafo di 25–41 parole che introduce il problema e anticipa due o tre domande affrontate nel testo. L2 parte dalle feature di Mercato e chiede come rappresentarle, scegliere elementi e collegamenti e organizzare il progetto. Nell’atlante le domande sono all’inizio del capitolo, senza ripeterle nella sezione sul momento d’uso. Titoli, tabelle e blocchi di codice restano invariati; rispetto alla revisione precedente il testo cresce del 2,8%.
+
+Rigenerati HTML e PDF: 83 pagine, 57 segnalibri e 35 immagini. Verificati corrispondenza dei contenuti con la sorgente, presenza di ogni introduzione nella stessa pagina del titolo, collegamenti e limiti della pagina; controllate visivamente aperture del laboratorio, dell’atlante e delle appendici. Nell’HTML le introduzioni precedono le procedure in tutti i capitoli; ripetute le verifiche locali di immagini, overflow, ricerca, indice e ingrandimento a 1440, 1024, 768 e 390 pixel. Controllati CRC e corrispondenza dei 41 file del kit. La verifica riguarda documenti ed esportazioni; gli esercizi ADE rimangono quelli già documentati.
+
+## Allineamento a main · 17 novembre 2026
+
+Confrontata la guida con `origin/main` aggiornato tramite fetch, commit `ae62531ca42ce3abd9923140a127c1cd77d08e35`. Esaminati il wizard e la sidebar introdotti da `ae62531c`, i casi d’uso aggiornati da `24f01110` e i precedenti interventi su importazione e aggiornamento dei diagrammi.
+
+| Cambiamento verificato | Allineamento della guida |
+| --- | --- |
+| Structural Blueprint usa Choose, Configure e Review | L3 introduce ricerca delle attività, Next, Edit, Apply Changes, Back e annullamento; aggiornati i percorsi C4, tipi, operazioni, interfacce, mapping, appartenenze e ADR in L3-L4, L8, L11-L12 e D0-D4 |
+| L’accesso generale chiede il target; le azioni specifiche delle proprietà lo conservano | Esplicitato Element prima di owner, appartenenze e interfaccia fornita; distinti target e proprietario |
+| Le modifiche restano separate dal modello fino ad Apply Changes | Rimossi conferme con OK e salvataggi impliciti dal blueprint; distinta l’applicazione al modello dalla scrittura dei sorgenti di L12 |
+| Il selettore dei proprietari ammette le categorie compatibili ed esclude i cicli | L8 presenta API Mercato come scelta del laboratorio, senza imporre un vincolo generale al solo container |
+| Sidebar verticale e New con Structural Blueprint | Aggiornati T1, T4, A9 e INIZIA-QUI; riscontri nel codice e nelle asserzioni di adeView.test.ts |
+| Ovali Use Case e nomi centrati | Aggiornati L3, D12 e la schermata atlante-12; mantenuto il modello didattico originale |
+
+Verificati nel browser i componenti TypeScript e CSS effettivi di main, usando il modello Mercato distribuito: scope da accesso generale e contestuale, annullamento, C4 con soggetto/contesto/visibili, tipo condiviso con modifica dal riepilogo, ownership, interfaccia fornita, mapping e ADR con scope esplicito. Controllate l’assenza di modifiche prima della conferma e l’applicazione degli edit tramite la funzione originale. Il renderer Use Case mostra quattro nomi contenuti negli ovali e cinque collegamenti. Le nuove immagini del wizard e dei casi d’uso provengono da questi componenti, con adattatori per DOM, localizzazione e focus; questa verifica è limitata ai componenti browser, senza una nuova esecuzione completa del desktop.
+
+Rigenerati PDF e HTML, conservando le 52 introduzioni con domande. Il PDF contiene 85 pagine, 57 segnalibri e 36 immagini; controllati testi, destinazioni dei collegamenti, limiti della pagina e impaginazione. Nell’HTML verificati corrispondenza di testi e immagini con i file consegnati, indice, ricerca, ingrandimento e assenza di overflow a 1440, 1024, 768 e 390 pixel. Il kit contiene 42 file aggiornati e verificati per corrispondenza e CRC; progetti di esempio e blocchi di codice della guida sono invariati rispetto alla revisione precedente.
