@@ -7,13 +7,13 @@ import type { ModelView, SemanticElement } from '../../../src/vs/workbench/contr
 import type { IndexedFile, CodeDeclaration } from '../../code-import/importCode.ts';
 import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
-import { mkdir, writeFile, rm, copyFile, readFile, chmod } from 'node:fs/promises';
+import { mkdir, writeFile, rm, copyFile, readFile, chmod, realpath } from 'node:fs/promises';
 import path from 'node:path';
-import { enterValue, pickValue, chooseFolder, runCommand } from './helpers.ts';
+import { enterValue, pickValue, chooseFolder, runCommand, codeAction, chooseAdeDiagram, clickAdeButton, installSimulatedCodex } from './helpers.ts';
 
 /** import scenarios share only the harness values listed here. */
 export function createImportScenarios(harness: SmokeHarness) {
-	const { launch, root, workspace, directory, evidence, launchEnv, args, workflowOnly, validateSemanticModel } = harness;
+	const { launch, root, workspace, directory, evidence, launchEnv, args, workflowOnly, validateSemanticModel, userData } = harness;
 
 	async function checkSemanticTodo() {
 		const { todoFile, todoSource, todoFiles } = await import('../../code-import/test/todo-semantic-fixture.mjs');
@@ -67,15 +67,14 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 		await shell.getByRole('button', { name: 'Review Diagram Plan', exact: true, disabled: false }).click();
 		await generate.click();
 		await shell.getByRole('heading', { name: record.calls[0].response.plan[0].name, exact: true }).waitFor({ timeout: 90000 });
-		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
+		await (await codeAction(window, 'Update Code', false)).waitFor();
 		assert.equal(await readFile(counter, 'utf8'), String(record.calls.length));
 		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
 		const model = JSON.parse(await readFile(path.join(sourceRoot, '.ade/imports', pointer.active, 'model.ade.json'), 'utf8'));
 		assert.deepEqual(model.views.map((view: ModelView) => view.kind), ['structure', 'activity', 'sequence', 'state']);
 		assert.ok(model.views.every((view: ModelView) => view.nodes.length >= 2 && view.relationIds.length));
 		for (const view of model.views) {
-			await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
-			await pickValue(window, 'Choose Diagram', view.name);
+			await chooseAdeDiagram(window, view.name);
 			await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
 			assert.equal(await shell.locator('.ade-node').count(), view.nodes.length);
 			assert.equal(await shell.locator('svg path[data-relation-id]:not(.ade-connection-hit)').count(), view.relationIds.length);
@@ -109,11 +108,15 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 	async function checkCodeBridge() {
 		// Exercise the real original-CLI protocol without claiming a live-model benchmark.
 		const simulatedCli = path.join(directory, 'm6-simulated-codex.mjs');
+		const execCounter = path.join(directory, 'codex-exec-count');
+		await writeFile(execCounter, '0');
 		await writeFile(simulatedCli, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync,existsSync} from 'node:fs';
 const {expandDiagramContext,compactDiagramReply,plannedDiagramReply}=await import(${JSON.stringify(path.join(root, 'ade/code-import/test/compact-diagram-fixture.mjs'))});
 const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
 if(args[0]!=='exec'){process.exit(2);}
+const execCounter=${JSON.stringify(execCounter)};
+writeFileSync(execCounter,String(Number(readFileSync(execCounter,'utf8'))+1));
 const input=readFileSync(0,'utf8');
 if(!args.includes('--output-schema')){
 const counter=${JSON.stringify(path.join(directory, 'codex-chat-starts.txt'))};
@@ -136,7 +139,7 @@ value={summary:'Purchase responsibilities',questions:[],omissions:[],features:[{
 if(context.step==='project'){value.diagrams.unshift({...value.diagrams[0],key:'overview',name:'Purchasing Overview',kind:'structure',feature:null});}
 }else{
 value={summary:'Reconcile observed source changes',questions:[],sourceEdits:[],bindings:[],modelEdits:[
-...context.changes.elements.map(item=>({collection:'elements',id:item.id,value:item.code?{...item.model,...item.code}:null})),
+...context.changes.elements.filter(item=>item.indexed!==false).map(item=>({collection:'elements',id:item.id,value:item.code?{...item.model,...item.code,parentId:item.model?.parentId}:null})),
 ...context.changes.relations.map(item=>({collection:'relations',id:item.id,value:item.code?{...item.model,...item.code}:null}))]};
 if(context.direction==='model'){
 const item=context.changes.elements.find(item=>item.model&&item.code&&item.model.name!==item.code.name);
@@ -148,12 +151,14 @@ value={summary:'Reconcile the diagram rename',questions:[],modelEdits:[],sourceE
 writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(context.step&&context.step!=='diagram'?compactDiagramReply(context,value):value));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output_tokens:50}})+'\\n');\n`);
 		await chmod(simulatedCli, 0o700);
+		await installSimulatedCodex(harness, simulatedCli);
 		if (workflowOnly) {
 			const bin = path.join(directory, 'bin'); await mkdir(bin); await copyFile(simulatedCli, path.join(bin, 'codex')); await chmod(path.join(bin, 'codex'), 0o700);
 			launchEnv.PATH = bin + path.delimiter + process.env.PATH; args.push('--force-disable-user-env');
 		}
-		const sourceRoot = path.join(workspace, 'codebase');
-		await mkdir(sourceRoot);
+		const sourceDirectory = path.join(workspace, 'codebase');
+		await mkdir(sourceDirectory);
+		const sourceRoot = await realpath(sourceDirectory);
 		await writeFile(path.join(sourceRoot, 'gateway.ts'), 'export function charge(amount: number): boolean { return amount > 0; }');
 		await writeFile(path.join(sourceRoot, 'checkout.ts'), 'import {charge as pay} from "./gateway"; export function checkout(amount: number): boolean { return pay(amount); }');
 		await writeFile(path.join(sourceRoot, 'obsolete.py'), 'def obsolete():\n    return 1\n');
@@ -169,9 +174,22 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		const enteredWorkspace = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 		await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 		await enteredWorkspace;
-		await shell.getByRole('heading', { name: 'Create Diagrams from Your Code', exact: true }).waitFor({ timeout: 90000 });
+		await shell.getByRole('heading', { name: 'Explore Your Codebase', exact: true }).waitFor({ timeout: 90000 });
 		assert.equal(await shell.locator('.ade-node, .ade-atlas-node').count(), 0, 'The index is never presented as finished diagrams');
-		assert.equal(await shell.getByRole('button', { name: 'Update Code', exact: true }).isDisabled(), true);
+		assert.equal(await shell.locator('.ade-workspace-bar').getByRole('button', { name: 'Code', exact: true }).count(), 0, 'The unreviewed source index does not expose the Code page');
+		assert.equal(await shell.getByRole('button', { name: 'Update Code', exact: true }).count(), 0, 'The unreviewed source index does not expose legacy model-to-code synchronization');
+		await shell.getByRole('region', { name: 'Architecture Exploration', exact: true }).waitFor();
+		await shell.getByRole('button', { name: 'Explore Architecture', exact: true, disabled: false }).waitFor();
+		assert.equal(await readFile(execCounter, 'utf8'), '0', 'Inspecting the default import and code actions sends no inference request');
+		const settingsFile = path.join(userData, 'User/settings.json');
+		const settings = JSON.parse(await readFile(settingsFile, 'utf8'));
+		await writeFile(settingsFile, JSON.stringify({ ...settings, 'ade.diagramImport.incremental': false }));
+		console.log('PASS: default import exposes Architecture Exploration; continuing the explicitly selected legacy CLI protocol.');
+		const configurationDeadline = Date.now() + 10000;
+		while (!await shell.getByText('Source Evidence Ready · Create Capability and Flow Diagrams with AI', { exact: true }).isVisible() && Date.now() < configurationDeadline) {
+			await runCommand(window, 'A.D.E: Return to Model');
+			await new Promise(resolve => setTimeout(resolve, 100));
+		}
 		const snapshot = async () => {
 			const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ade/code-project.json'), 'utf8'));
 			const folder = path.join(sourceRoot, '.ade/imports', pointer.active);
@@ -187,7 +205,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 			if (await widget.getByText('Model ID from Your CLI', { exact: true }).isVisible()) { await enterValue(window, 'Model ID from Your CLI', 'simulated-m6-model'); }
 			else { await window.keyboard.press('Enter'); }
 			await enterValue(window, 'Original CLI Executable', simulatedCli);
-			await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan or Reconciliation Proposal · At Most One Agent Run');
+			await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan or Reconciliation');
 		}
 		if (workflowOnly) {
 			await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
@@ -199,29 +217,29 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 			const original = (await snapshot()).folder;
 			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Cancel', exact: true }).click();
 			await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true, disabled: false }).waitFor();
+			assert.equal(await readFile(execCounter, 'utf8'), '0', 'Canceling before inference sends no exec request');
 			assert.equal((await snapshot()).folder, original);
 			await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
 			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click();
 			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate 2 Diagrams', exact: true }).click();
-			await shell.getByRole('heading', { name: 'Purchasing Overview', exact: true }).waitFor({ timeout: 90000 });
-			assert.equal(await shell.locator('aside.ade-properties').count(), 0);
-			assert.equal(await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).isVisible(), true);
+			await shell.getByRole('region', { name: 'Diagram: Purchasing Overview', exact: true }).waitFor({ timeout: 90000 });
+			assert.equal(await shell.locator('.ade-properties').count(), 0);
+			assert.equal(await (await codeAction(window, 'Chat with Codex')).isEnabled(), true);
 			assert.equal(await shell.getByRole('button', { name: 'Implement Feature', exact: true }).isVisible(), false);
 			const generated = await snapshot();
 			assert.equal(generated.model.views.length, 2);
 			assert.ok(generated.model.semantics.elements.some((item: SemanticElement) => item.kind === 'feature'));
-			await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
-			await pickValue(window, 'Choose Diagram', 'Purchase Flow');
+			await chooseAdeDiagram(window, 'Purchase Flow');
 			await shell.locator('.ade-canvas').getByRole('button', { name: 'checkout', exact: true }).click();
 			await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
 			await enterValue(window, 'Name', 'reviewedPurchase');
 			await shell.getByRole('button', { name: 'Close Properties', exact: true }).click();
-			await shell.getByRole('button', { name: 'Update Code', exact: true }).click();
-			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Reconciliation', exact: true }).click();
+			await (await codeAction(window, 'Update Code')).click();
+			await pickValue(window, 'Review Sync Context', 'Request Sync Proposal');
 			await pickValue(window, 'Review Code Changes', 'Apply Code Changes', 90000);
-			await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+			await (await codeAction(window, 'Update Code', false)).waitFor({ timeout: 90000 });
 			assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function reviewedPurchase('));
-			await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).click();
+			await (await codeAction(window, 'Chat with Codex')).click();
 			const assistant = window.getByRole('dialog', { name: 'A.D.E Assistant', exact: true });
 			await assistant.waitFor();
 			await window.screenshot({ path: path.join(evidence, 'ux-codex-chat.png') });
@@ -230,15 +248,16 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 			await assistant.getByText('SIMULATED_CODEX_CHANGE_COMPLETE', { exact: true }).waitFor();
 			await assistant.getByRole('button', { name: 'Close', exact: true }).click();
 			await shell.getByText('Code Has Changed. Choose Update Diagrams to Reflect the Changes Here.', { exact: true }).waitFor();
-			assert.match(await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).getAttribute('class') ?? '', /ade-primary-action/);
+			assert.equal(await (await codeAction(window, 'Update Diagrams from Codebase')).isEnabled(), true);
+			await shell.locator('.ade-document-state').getByText('Code Changed · Review Diagram Evidence', { exact: true }).waitFor();
 			await window.screenshot({ path: path.join(evidence, 'ux-code-changes.png') });
-			await shell.getByRole('button', { name: 'Chat with Codex', exact: true }).click();
+			await (await codeAction(window, 'Chat with Codex')).click();
 			await assistant.waitFor();
 			assert.equal(await assistant.locator('article').count(), 0, 'closing the assistant resets its conversation');
 			assert.equal(await readFile(path.join(directory, 'codex-chat-starts.txt'), 'utf8'), '1');
 			await assistant.getByRole('button', { name: 'Close', exact: true }).click();
 			await writeFile(path.join(directory, 'fail-diagrams'), 'offline');
-			await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).click();
+			await (await codeAction(window, 'Update Diagrams from Codebase')).click();
 			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click(); await shell.getByRole('button', { name: 'Resume Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 			await window.screenshot({ path: path.join(evidence, 'ux-diagrams-paused.png') });
 			await rm(path.join(directory, 'fail-diagrams'));
@@ -246,11 +265,10 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click();
 
 			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate 2 Diagrams', exact: true }).click();
-			await shell.getByRole('heading', { name: 'Purchase Flow', exact: true }).waitFor({ timeout: 90000 });
-			await shell.getByRole('button', { name: 'Update Diagrams', exact: true, disabled: false }).waitFor({ timeout: 90000 });
+			await shell.getByRole('region', { name: 'Diagram: Purchase Flow', exact: true }).waitFor({ timeout: 90000 });
+			await (await codeAction(window, 'Update Diagrams from Codebase', false)).waitFor({ timeout: 90000 });
 			await shell.locator('.ade-workflow').waitFor({ state: 'hidden' });
-			await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
-			await pickValue(window, 'Choose Diagram', 'Purchase Flow');
+			await chooseAdeDiagram(window, 'Purchase Flow');
 			assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'reviewedPurchase');
 			await shell.locator('.ade-node').getByText('Accept Non-Negative Payments', { exact: true }).waitFor();
 			await window.screenshot({ path: path.join(evidence, 'diagram-workflow.png') });
@@ -258,15 +276,22 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 			assert.equal(final.model.views.length, 2);
 			assert.equal(validateSemanticModel(final.model).filter(item => item.severity === 'error').length, 0);
 			assert.ok(final.model.semantics.elements.some((item: SemanticElement) => item.name === 'reviewedPurchase'));
-			await writeFile(path.join(evidence, 'diagram-workflow-results.json'), JSON.stringify({ importSteps: 2, diagrams: final.model.views.length, primaryActions: ['Diagrams', 'Update Code', 'Chat with Codex', 'Update Diagrams'], inspectorInitiallyHidden: true, directFirstSetup: true, codexModalReset: true, automaticRefresh: true, activeDiagramPreserved: true, cancelledBeforeInference: true, failedGenerationResumed: true, modelToCode: true, codeToModel: true, codeToModelVisibleChange: true, provider: 'simulated-original-cli' }, null, 2));
+			await writeFile(path.join(evidence, 'diagram-workflow-results.json'), JSON.stringify({ importSteps: 2, diagrams: final.model.views.length, primaryActions: ['Diagram Picker', 'Code: Update Code', 'Code: Chat with Codex', 'Code: Update Diagrams from Codebase'], inspectorInitiallyHidden: true, directFirstSetup: true, codexModalReset: true, automaticRefresh: true, activeDiagramPreserved: true, cancelledBeforeInference: true, failedGenerationResumed: true, modelToCode: true, codeToModel: true, codeToModelVisibleChange: true, provider: 'simulated-original-cli', diagramProtocol: 'legacy', defaultExplorationUiVerified: true, incrementalEndToEnd: false }, null, 2));
 			await harness.app.close(); harness.app = undefined;
 			window = await launch(); shell = window.locator('.ade-shell');
-			await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
-			assert.equal(await shell.getByRole('button', { name: 'Update Diagrams', exact: true }).isVisible(), true);
+			await (await codeAction(window, 'Update Code', false)).waitFor({ timeout: 90000 });
+			assert.equal(await (await codeAction(window, 'Update Diagrams from Codebase')).isEnabled(), true);
 			await harness.app.close(); harness.app = undefined;
 			console.log('PASS: semantic import, clean canvas, contextual editing, guided code update, diagram refresh and restart (simulated provider).');
 			return;
 		}
+		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true }).click();
+		await widget.getByText('Model for Diagrams', { exact: true }).waitFor();
+		if (await widget.locator('.quick-input-list-row .label-name').first().isVisible()) { await window.keyboard.press('Enter'); }
+		else { await enterValue(window, 'Model for Diagrams', 'simulated-economical-model'); }
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Diagrams', exact: true }).click();
+		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate 2 Diagrams', exact: true }).click();
+		await shell.getByRole('region', { name: 'Diagram: Purchasing Overview', exact: true }).waitFor({ timeout: 90000 });
 		const initial = await snapshot();
 		assert.ok(initial.state.semantic.dependencies.length >= 1);
 		assert.equal(initial.state.files.find((file: IndexedFile) => file.file === 'unsupported.vb').status, 'unsupported');
@@ -277,10 +302,10 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await pickValue(window, 'Sync Preview', 'Confirm a Symbol Rename');
 		await pickValue(window, 'Choose the Previous Declaration', 'checkout');
 		await pickValue(window, 'Choose the Renamed Declaration', 'purchase');
-		await pickValue(window, 'Sync Preview', 'Reconcile with AI');
+		await pickValue(window, 'Sync Preview', 'Review Sync Context');
 		await widget.getByText('Review Source Files for Bidirectional Sync', { exact: true }).waitFor();
 		await window.keyboard.press('Enter');
-		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Reconciliation', exact: true }).click();
+		await pickValue(window, 'Review Sync Context', 'Request Sync Proposal');
 		await pickValue(window, 'Sync Preview', 'Apply Sync');
 		await window.waitForFunction(() => {
 			// UI state is exposed through the rendered, accessible system map.
@@ -292,45 +317,45 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		assert.deepEqual(updated.state.analysis.parsed, ['checkout.ts']);
 		assert.ok(updated.state.analysis.reused.includes('gateway.ts'));
 		assert.ok(!updated.state.files.some((file: IndexedFile) => file.file === 'obsolete.py'));
-		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
+		await (await codeAction(window, 'Update Code', false)).waitFor();
 		await runCommand(window, 'A.D.E: Inspect Code Evidence');
 		await widget.locator('input:visible').fill('purchase');
 		await window.keyboard.press('Enter');
 		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'purchase' }).first().waitFor();
 		await runCommand(window, 'A.D.E: Return to Model');
 		await window.screenshot({ path: path.join(evidence, 'm4-code-sync.png') });
-		await window.locator('.ade-sidebar').getByRole('button', { name: 'checkout.ts', exact: true }).click();
+		await chooseAdeDiagram(window, 'Purchase Flow');
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'purchase', exact: true }).click();
 		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
 		await enterValue(window, 'Name', 'reviewedPurchase');
 		await shell.getByRole('button', { name: 'Save', exact: true }).click();
 		await runCommand(window, 'A.D.E: Sync Project');
-		await pickValue(window, 'Sync Preview', 'Reconcile with AI');
+		await pickValue(window, 'Sync Preview', 'Review Sync Context');
 		await widget.getByText('Review Source Files for Bidirectional Sync', { exact: true }).waitFor();
 		await window.keyboard.press('Enter');
-		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Propose Reconciliation', exact: true }).click();
+		await pickValue(window, 'Review Sync Context', 'Request Sync Proposal');
 		await pickValue(window, 'Sync Preview', 'Apply Sync');
 		await shell.getByText('reviewedPurchase', { exact: true }).first().waitFor();
 		assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function reviewedPurchase('));
 		await window.screenshot({ path: path.join(evidence, 'm6-model-to-code.png') });
 		await runCommand(window, 'A.D.E: Undo Last Sync');
 		await pickValue(window, 'Undo Last Sync', 'Undo Model and Source Changes');
-		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
+		await (await codeAction(window, 'Update Code', false)).waitFor();
 		assert.equal((await snapshot()).folder, updated.folder);
 		assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('function purchase('));
 		await harness.app.close(); harness.app = undefined;
 		window = await launch(); shell = window.locator('.ade-shell');
-		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
-		await shell.getByRole('button', { name: 'Home', exact: true }).click();
+		await (await codeAction(window, 'Update Code', false)).waitFor({ timeout: 90000 });
+		await clickAdeButton(window, 'Home');
 		await shell.getByRole('button', { name: 'Open Project', exact: true }).click();
 		await chooseFolder(window, sourceRoot);
-		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
+		await (await codeAction(window, 'Update Code', false)).waitFor();
 		await runCommand(window, 'A.D.E: Restore Code Model Snapshot');
-		await window.locator('.quick-input-widget').getByText(path.basename(initial.folder), { exact: true }).click();
-		await shell.getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor();
+		await window.locator('.quick-input-widget').getByText(initial.folder, { exact: true }).click();
+		await (await codeAction(window, 'Update Code', false)).waitFor();
 		assert.equal((await snapshot()).folder, initial.folder);
 		assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('purchase'));
-		await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true, aiReviewed: true, modelToCode: true, pairedUndo: true }, null, 2));
+		await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true, aiReviewed: true, modelToCode: true, pairedUndo: true, diagramProtocol: 'legacy', defaultExplorationUiVerified: true, incrementalEndToEnd: false }, null, 2));
 		await harness.app.close(); harness.app = undefined;
 		console.log('PASS: native code import, compiler references, AI-reviewed contract/rename/delete Sync, source navigation, restart and recovery (simulated provider).');
 	}

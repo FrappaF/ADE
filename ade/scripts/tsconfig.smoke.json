@@ -17,6 +17,7 @@
 		"checkJs": false
 	},
 	"include": [
-		"smoke/**/*.ts"
+		"smoke/**/*.ts",
+		"test-ai-service.ts"
 	]
 }

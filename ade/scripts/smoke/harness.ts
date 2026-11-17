@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import '../source-loader.mjs';
-import { mkdtemp, mkdir, writeFile, rm, readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile, readdir, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron, type ElectronApplication } from 'playwright-core';
-import { runCommand, openProperties } from './helpers.ts';
+import { openProperties, openDiagramNavigation } from './helpers.ts';
 
 /** Owns the isolated desktop process, fixture directories and failure evidence. */
 export async function createSmokeHarness(platform = process.platform) {
@@ -31,6 +31,12 @@ export async function createSmokeHarness(platform = process.platform) {
 	const evidence = path.join(root, '.build/ade-smoke');
 	await mkdir(portable);
 	const launchEnv: Record<string, string> = Object.fromEntries(Object.entries({ ...process.env, VSCODE_DEV: '1', NODE_ENV: 'development', VSCODE_PORTABLE: portable }).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
+	if (!aiLive) {
+		launchEnv.CODEX_HOME = path.join(directory, 'codex-home');
+		launchEnv.CLAUDE_CONFIG_DIR = path.join(directory, 'claude-home');
+		await mkdir(launchEnv.CODEX_HOME);
+		await mkdir(launchEnv.CLAUDE_CONFIG_DIR);
+	}
 	await mkdir(path.join(userData, 'User'), { recursive: true });
 	await mkdir(workspace);
 	await mkdir(evidence, { recursive: true });
@@ -39,12 +45,14 @@ export async function createSmokeHarness(platform = process.platform) {
 		'window.menuStyle': 'custom',
 		'files.simpleDialog.enable': true,
 		'files.autoSave': 'off',
+		'ade.codeUpdates.suggestAfterSave': false,
 		'workbench.startupEditor': 'adeHome',
 		'workbench.secondarySideBar.defaultVisibility': 'hidden',
 		'window.restoreWindows': 'all',
 		'window.openFoldersInNewWindow': 'off',
 		'terminal.integrated.gpuAcceleration': 'off',
 		'chat.agentHost.codexAgent.enabled': false,
+		...(!aiLive ? { 'chat.agentHost.codexAgent.codexHome': launchEnv.CODEX_HOME } : {}),
 		'chat.agentHost.claudeAgent.enabled': false,
 		'telemetry.telemetryLevel': 'off',
 		'update.mode': 'none'
@@ -106,7 +114,16 @@ export async function createSmokeHarness(platform = process.platform) {
 		const deadline = Date.now() + 90000;
 		while (Date.now() < deadline) {
 			for (const window of app.windows()) {
-				if (await window.locator('.ade-shell').isVisible().catch(() => false)) { window.setDefaultTimeout(30000); await window.waitForFunction(() => !document.querySelector('.ade-content')?.textContent?.includes('Loading model…')); if (!workflowOnly && !canvasOnly && !semanticOnly && !generatedOnly && !notationsOnly) { await runCommand(window, 'A.D.E: Show Diagram Navigation'); await openProperties(window); } return window; }
+				if (await window.locator('.ade-shell').isVisible().catch(() => false)) {
+					window.setDefaultTimeout(30000);
+					await window.waitForFunction(() => !document.querySelector('.ade-content')?.textContent?.includes('Loading model…'));
+					await window.waitForFunction(() => performance.getEntriesByName('code/didCreateWorkbenchContribution/3/workbench.contrib.adeDiagramLayout').length > 0);
+					if (!workflowOnly && !canvasOnly && !semanticOnly && !generatedOnly && !notationsOnly) {
+						await openProperties(window);
+						await openDiagramNavigation(window);
+					}
+					return window;
+				}
 			}
 			await new Promise(resolve => setTimeout(resolve, 250));
 		}
@@ -115,11 +132,13 @@ export async function createSmokeHarness(platform = process.platform) {
 
 	async function reportFailure(error: unknown) {
 		console.error(error);
+		await cp(workspace, path.join(evidence, `failure-fixture-${path.basename(directory)}`), { recursive: true }).catch(copyError => { console.error('Could not preserve smoke fixture:', copyError.code); });
 		if (electronOutput) { console.error(electronOutput); }
 		const logRoot = path.join(userData, 'logs');
 		for (const file of await readdir(logRoot, { recursive: true }).catch(() => [])) { if (file.endsWith('renderer.log')) { console.error((await readFile(path.join(logRoot, file), 'utf8')).split('\n').filter(line => /\[error\]|^\s+at /.test(line)).join('\n').slice(-12000)); } }
 		if (app) {
 			for (const [index, window] of app.windows().entries()) {
+				console.error(`Workbench focus ${index}: ${JSON.stringify(await window.evaluate(() => ({ focused: document.hasFocus(), activeElement: document.activeElement?.outerHTML.slice(0, 1000), dialogCount: document.querySelectorAll('.monaco-dialog-box').length })).catch(() => undefined))}`);
 				const state = await window.locator('.ade-shell, .quick-input-widget:visible, .notifications-toasts:visible').allInnerTexts().catch(() => []);
 				console.error(`Workbench state ${index}: ${state.join('\n').slice(-10000)}`);
 				await window.screenshot({ path: path.join(evidence, `failure-${index}.png`) }).catch(() => { });
@@ -130,6 +149,7 @@ export async function createSmokeHarness(platform = process.platform) {
 
 	async function dispose() {
 		try { await app?.close(); } finally {
+			await cp(path.join(userData, 'logs'), path.join(evidence, `logs-${path.basename(directory)}`), { recursive: true }).catch(error => { if (error.code !== 'ENOENT') { console.error('Could not preserve smoke logs:', error.code); } });
 			await rm(directory, { recursive: true, force: true });
 			for (const callback of extraCleanup.reverse()) { await callback(); }
 		}

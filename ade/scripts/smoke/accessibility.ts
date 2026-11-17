@@ -7,7 +7,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { revealAdeButton, clickAdeButton, openModelFile, enterValue, pickValue, readAccessibleText, chooseFolder, runCommand } from './helpers.ts';
+import { revealAdeButton, clickAdeButton, chooseAdeDiagram, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, chooseFolder, runCommand } from './helpers.ts';
 
 /** accessibility scenarios share only the harness values listed here. */
 export function createAccessibilityScenarios(harness: SmokeHarness) {
@@ -64,7 +64,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await window.keyboard.press(openReading);
 		await reading.getByText('Diagram: Accessible Payment', { exact: true }).waitFor();
 		await writeFile(modelFile, '{"version":99}');
-		await reading.getByText('Expected:', { exact: false }).first().waitFor();
+		await reading.getByText('Model version 99 is not supported. Supported model versions are 1, 2, 3, 4 and 5.', { exact: false }).first().waitFor();
 		assert.equal(await reading.getByText('Diagram: Accessible Payment', { exact: true }).count(), 0, 'Invalid updates do not leave stale diagram text');
 		await writeFile(modelFile, baseline);
 		await reading.getByText('Diagram: Esito pagamento', { exact: true }).waitFor();
@@ -86,7 +86,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await writeFile(keybindingsFile, '[]');
 		await window.waitForFunction(() => !document.querySelector('.ade-shell')!.getAttribute('aria-description')!.includes('+R'));
 		await sidebar.getByRole('button', { name: 'Percorso acquisto', exact: true }).click();
-		await shell.getByRole('heading', { name: 'Percorso acquisto', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Percorso acquisto', exact: true }).waitFor();
 		assert.equal(await readFile(modelFile, 'utf8'), baseline);
 		console.log('PASS: ADE reading and help from canvas/sidebar, both payment conditions, live external updates, invalid-state recovery, focus restoration, verbosity and custom keybinding.');
 	}
@@ -102,53 +102,77 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await harness.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
 		await window.locator('.ade-shell.ade-narrow').waitFor();
 		const viewport = shell.locator('.ade-canvas-scroll');
+		const readCamera = () => shell.locator('.ade-canvas-content').evaluate(element => {
+			const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+			return { x: matrix.e, y: matrix.f, zoom: matrix.a };
+		});
 		await viewport.focus();
+		const beforePan = await readCamera();
 		await window.keyboard.press('ArrowRight');
-		assert.ok(await viewport.evaluate(element => element.scrollLeft) > 0, 'Canvas background supports keyboard pan');
+		const afterPan = await readCamera();
+		assert.ok(Math.abs(afterPan.x - beforePan.x + 64) < 0.000001 && afterPan.y === beforePan.y && afterPan.zoom === beforePan.zoom, 'Canvas background supports keyboard pan without changing zoom');
 		await window.keyboard.press('Tab');
 		assert.equal(await shell.locator('.ade-node').first().evaluate(element => element === document.activeElement), true);
 		await window.keyboard.press('Enter');
 		assert.equal(await shell.locator('.ade-node').first().getAttribute('aria-pressed'), 'true');
-		const content = shell.locator('.ade-content');
-		await content.evaluate(element => { element.scrollTop = element.scrollHeight; });
-		const scrollBefore = await content.evaluate(element => element.scrollTop);
+		const selectionCamera = await readCamera();
 		await shell.locator('.ade-node').last().evaluate(element => { if (!(element instanceof HTMLElement)) { throw new Error('Expected an HTML canvas node'); } element.click(); });
-		assert.equal(await content.evaluate(element => element.scrollTop), scrollBefore, 'Selection retains the property reading position');
+		assert.deepEqual(await readCamera(), selectionCamera, 'Selection opens floating properties without moving the diagram');
+		await shell.locator('.ade-properties').waitFor();
 		await viewport.focus();
 		await window.keyboard.press('ArrowRight');
-		const panBefore = await viewport.evaluate(element => element.scrollLeft);
+		const panBefore = await readCamera();
 		await openModelFile(window, otherFile);
-		await shell.locator('.ade-breadcrumbs').getByRole('button', { name: 'Other System', exact: true }).waitFor();
-		assert.equal(await viewport.evaluate(element => element.scrollLeft), 0, 'Equal view IDs in different documents do not share scroll');
+		await shell.locator('.ade-project-menu > summary').getByText('Other System', { exact: true }).waitFor();
+		assert.notDeepEqual(await readCamera(), panBefore, 'Equal view IDs in different documents do not share the camera');
+		const otherCamera = await readCamera();
+		await viewport.focus();
+		await window.keyboard.press('ArrowLeft');
+		const otherPannedCamera = await readCamera();
+		assert.ok(Math.abs(otherPannedCamera.x - otherCamera.x - 64) < 0.000001 && otherPannedCamera.y === otherCamera.y && otherPannedCamera.zoom === otherCamera.zoom, 'The second document has an independent camera');
 		await openModelFile(window, modelFile);
-		await shell.locator('.ade-breadcrumbs').getByRole('button', { name: 'Acquisto', exact: true }).waitFor();
-		assert.equal(await viewport.evaluate(element => element.scrollLeft), panBefore, 'Returning to a document restores its own scroll');
+		await shell.locator('.ade-project-menu > summary').getByText('Acquisto', { exact: true }).waitFor();
+		assert.deepEqual(await readCamera(), panBefore, 'Returning to a document restores its own camera');
 		await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
-		assert.ok(await viewport.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'Fit contains the diagram horizontally');
-		assert.equal(await viewport.evaluate(element => element.scrollLeft), 0);
+		const fitted = await shell.evaluate(element => {
+			const viewport = element.querySelector('.ade-canvas-scroll')!.getBoundingClientRect();
+			const menu = element.querySelector('.ade-floating-menu')!.getBoundingClientRect();
+			const zoom = element.querySelector('.ade-floating-zoom')!.getBoundingClientRect();
+			const nodes = [...element.querySelectorAll('.ade-node')].map(node => node.getBoundingClientRect());
+			return { count: nodes.length, contained: nodes.every(node => node.left >= viewport.left - 1 && node.right <= viewport.right + 1 && node.top >= menu.bottom + 11 && node.bottom <= zoom.top - 11) };
+		});
+		assert.ok(fitted.count > 0 && fitted.contained, 'Fit contains every diagram node within the visible canvas between the floating controls');
 		const fittedZoom = await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform);
 		await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
 		assert.equal(await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform), fittedZoom, 'Fitting twice keeps the same zoom');
 		const layout = await shell.evaluate(element => {
 			const content = element.querySelector('.ade-content')!;
-			const canvas = element.querySelector('.ade-visual')!.getBoundingClientRect();
+			const canvas = element.querySelector('.ade-canvas-scroll')!.getBoundingClientRect();
+			const menu = element.querySelector('.ade-floating-menu')!.getBoundingClientRect();
 			const properties = element.querySelector('.ade-properties')!.getBoundingClientRect();
-			return { overflows: content.scrollWidth > content.clientWidth + 1, stacked: properties.top >= canvas.bottom };
+			return { overflows: content.scrollWidth > content.clientWidth + 1, contained: properties.left >= canvas.left && properties.right <= canvas.right && properties.top >= canvas.top && properties.bottom <= canvas.bottom, clearOfMenu: properties.top >= menu.bottom || properties.left >= menu.right || properties.right <= menu.left };
 		});
-		assert.deepEqual(layout, { overflows: false, stacked: true });
+		assert.deepEqual(layout, { overflows: false, contained: true, clearOfMenu: true }, 'Narrow floating properties stay inside the canvas without covering its actions');
 		console.log('UX: canvas keyboard and narrow layout checked.');
-		const options = shell.locator('summary').getByText('Diagram Options', { exact: true });
-		if (await options.evaluate(element => element.closest('details')!.open)) { await options.click(); }
-		await options.focus();
+		const options = shell.locator('.ade-floating-menu > details');
+		const summary = options.locator(':scope > summary');
+		if (await options.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await summary.click(); }
+		await summary.focus();
+		await window.keyboard.press('Enter');
+		const contents = options.locator('details').filter({ has: window.getByText('Contents', { exact: true }) });
+		const contentsSummary = contents.locator(':scope > summary');
+		if (await contents.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await contentsSummary.click(); }
+		await contentsSummary.focus();
 		await window.keyboard.press('Enter');
 		await shell.getByRole('button', { name: 'Rename Diagram', exact: true }).waitFor();
 		await runCommand(window, 'A.D.E: Rename Diagram');
 		await enterValue(window, 'Name', 'Keyboard diagram');
-		await shell.getByRole('heading', { name: 'Keyboard diagram', exact: true }).waitFor();
-		assert.equal(await shell.locator('details', { hasText: 'Diagram Options' }).evaluate(element => element instanceof HTMLDetailsElement && element.open), true);
+		await shell.getByRole('region', { name: 'Diagram: Keyboard diagram', exact: true }).waitFor();
+		assert.equal(await options.evaluate(element => element instanceof HTMLDetailsElement && element.open), true);
+		assert.equal(await contents.evaluate(element => element instanceof HTMLDetailsElement && element.open), true);
 		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 		await window.keyboard.press(`${modifier}+s`);
-		await shell.getByText('Saved', { exact: true }).waitFor();
+		await shell.getByText('Model Saved Locally', { exact: true }).waitFor();
 		console.log('UX: keyboard command edit saved.');
 		const settingsFile = path.join(userData, 'User/settings.json');
 		const settings = JSON.parse(await readFile(settingsFile, 'utf8'));
@@ -195,7 +219,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 			await selected.waitFor();
 			console.log(`PASS: narrow layout, keyboard focus and selected-node text contrast ${contrast.toFixed(2)}:1 in ${name}.`);
 		}
-		const selection = await shell.locator('.ade-node[aria-pressed="true"]').textContent();
+		const selection = await shell.locator('.ade-node[aria-pressed="true"]').getAttribute('aria-label');
 		await clickAdeButton(window, 'Terminal');
 		const terminalInput = window.locator('.terminal .xterm-helper-textarea');
 		await terminalInput.waitFor({ state: 'attached' });
@@ -209,14 +233,15 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await window.keyboard.press('Escape');
 		await window.keyboard.press(`${modifier}+Alt+d`);
 		await window.locator('.ade-sidebar').waitFor();
+		await openProperties(window);
 		await shell.locator('.ade-properties').getByRole('heading', { name: selection ?? '', exact: true }).waitFor();
 		console.log('PASS: integrated terminal executes a command and returns to the same model selection.');
 		await harness.app.close();
 		harness.app = undefined;
 		const restored = await launch();
-		await restored.locator('.ade-shell').getByRole('heading', { name: 'Keyboard diagram', exact: true }).waitFor();
+		await restored.locator('.ade-shell').getByRole('region', { name: 'Diagram: Keyboard diagram', exact: true }).waitFor();
 		assert.equal(await restored.locator('.tabs-container .tab').filter({ hasText: 'checkout.ade.json' }).count(), 0);
-		console.log('PASS: keyboard pan/selection, Fit Diagram, retained scroll, accessible options, command editing and saved context after restart.');
+		console.log('PASS: keyboard pan/selection, Fit Diagram, independent retained cameras, accessible options, command editing and saved context after restart.');
 		await harness.app.close();
 		harness.app = undefined;
 	}
@@ -249,11 +274,9 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await source.click({ button: 'right' });
 		await window.getByRole('menuitem', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
 		await pickValue(window, 'Relationship Type', 'Dependency');
-		await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
-		await pickValue(window, 'Choose Diagram', 'Esito pagamento');
+		await chooseAdeDiagram(window, 'Esito pagamento');
 		assert.equal(await shell.getByText('Choose a Compatible Target on the Canvas', { exact: false }).count(), 0, 'Changing diagrams cancels the pending relationship');
-		await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
-		await pickValue(window, 'Choose Diagram', 'Percorso acquisto');
+		await chooseAdeDiagram(window, 'Percorso acquisto');
 		const relation = shell.locator('.ade-connection-label').filter({ hasText: /^Write · crea ordine/ });
 		await relation.click({ button: 'right' });
 		await window.getByRole('menuitem', { name: 'Edit Relationship…', exact: true }).waitFor();
@@ -273,7 +296,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
 		await window.screenshot({ path: path.join(evidence, 'followup-canvas.png') });
 		await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+s`);
-		await shell.getByText('Saved', { exact: true }).waitFor();
+		await shell.getByText('Model Saved Locally', { exact: true }).waitFor();
 		console.log('Followup: relation editing and layout checked.');
 		const folder = path.join(directory, 'nuovo progetto');
 		await mkdir(folder);

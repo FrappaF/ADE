@@ -63,6 +63,7 @@ suite('A.D.E native AI orchestration', () => {
 		const savedModel = store.add(new Emitter<import('../../common/modelCodeUpdate.js').SavedModelChange>());
 		const contextFiles = new Map<string, string>();
 		const chatRequests: Extract<CodeRequest, { operation: 'diagramChat' }>[] = [];
+		const diagramPrepares: Extract<CodeRequest, { operation: 'diagramPrepare' }>[] = [];
 		const root = '/workspace/ade-ai-fixture';
 		if (savedExploration) { storage.store('ade.ai.exploration', JSON.stringify({ root, snapshot: root + '/.ade/imports/fixture', ...savedExploration }), StorageScope.WORKSPACE, StorageTarget.MACHINE); }
 		const context: CodeContext = { snapshot: root + '/.ade/imports/fixture', model: root + '/.ade/imports/fixture/model.ade.json', sourceRoot: root, revision: 'fixture',
@@ -88,6 +89,7 @@ suite('A.D.E native AI orchestration', () => {
 		const dialogDetails: string[] = [];
 		const confirmations: boolean[] = [];
 		let plannedProgress: CodeDiagramProgress | undefined;
+		let diagramPrepareError: Error | undefined;
 		let exploratoryDraft: CodeDiagramExploration['proposals'][number] | undefined, exploratoryApplied = false;
 		const explorationActions: string[] = [];
 		let projectWorkflow = false;
@@ -182,7 +184,7 @@ suite('A.D.E native AI orchestration', () => {
 					case 'verify': return JSON.stringify({ ...session, status: 'passed', verification: { code: 0, output: 'Passed', durationMs: 1 } });
 					case 'apply': return JSON.stringify({ ...session, status: 'applied' });
 					case 'undo': return JSON.stringify({ ...session, status: 'undone' });
-					case 'diagramPrepare': if (plannedProgress) { return JSON.stringify(plannedProgress); } return JSON.stringify({ inputBudgetBytes: 49152, responseHeadroomBytes: 16384, id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'ready', completed: 0, total: 2, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0 });
+					case 'diagramPrepare': diagramPrepares.push(JSON.parse(inputText)); if (diagramPrepareError) { throw diagramPrepareError; } if (plannedProgress) { return JSON.stringify(plannedProgress); } return JSON.stringify({ inputBudgetBytes: 49152, responseHeadroomBytes: 16384, id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-scope', status: 'ready', completed: 0, total: 2, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0 });
 					case 'diagramApprovePlan': assert.ok(plannedProgress?.plan); planApproved = true; plannedProgress.status = 'ready'; return JSON.stringify(plannedProgress);
 					case 'diagramStep': if (failDiagram) { throw new Error('Provider Offline'); }
 						if (plannedProgress) {
@@ -198,6 +200,7 @@ suite('A.D.E native AI orchestration', () => {
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
 		return { explorationBudgetRequests, setExplorationBudget: (budget: typeof explorationBudget, elapsedMs = 0) => { explorationBudget = structuredClone(budget); explorationBudgetStarted = Date.now() - elapsedMs; }, setCriteria: (value: unknown) => { stateData = JSON.stringify(value); }, pickerOptions, readonlyResources, setPureRoot: (value: string) => { pure.root = value; }, setProjectRoot: (value: URI) => { Object.assign(projectService, { projectRoot: value }); }, savedModel, contextFiles, chatRequests, prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
+			diagramPrepares, failDiagramPrepare: (error: Error) => { diagramPrepareError = error; },
 			holdProjectContext: (pending: Promise<boolean>) => { projectContext = pending; }, holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -236,6 +239,24 @@ suite('A.D.E native AI orchestration', () => {
 		assert.match(f.dialogDetails[0], /49152 bytes per request.*16384 bytes/s);
 		assert.equal(f.errors.length, 0);
 	});
+	test('updating a completed diagram job prepares current sources without resuming the published snapshot', async () => {
+		const f = fixture(); f.picks.push(items => items[0]);
+		await f.service.buildDiagrams();
+		assert.equal(f.service.diagramProgress?.status, 'complete');
+		Object.assign(f.code.context, { snapshot: f.root + '/.ade/imports/after-sync', revision: 'after-sync' });
+		f.confirmations.push(false);
+		await f.service.updateDiagrams();
+		assert.deepStrictEqual(f.diagramPrepares.map(request => ({ snapshot: request.snapshot, resume: request.resume })), [
+			{ snapshot: f.root + '/.ade/imports/fixture', resume: undefined },
+			{ snapshot: f.root + '/.ade/imports/after-sync', resume: undefined },
+		]);
+		assert.deepStrictEqual(f.requests, ['diagramPrepare', 'diagramStep', 'diagramPrepare']);
+		assert.equal(f.dialogDetails.length, 2, 'A fresh update requires its own source-disclosure consent');
+		assert.equal(f.service.diagramProgress?.status, 'ready');
+		assert.equal(f.opened.length, 1, 'Declining the update does not publish another snapshot');
+		assert.deepStrictEqual(f.errors, []);
+	});
+
 	test('the diagram proposal is reviewed separately before per-view steps', async () => {
 		const f = fixture(); f.picks.push(items => items[0]); f.useDiagramPlan();
 		await f.service.buildDiagrams();
@@ -251,6 +272,7 @@ suite('A.D.E native AI orchestration', () => {
 		assert.deepStrictEqual({ requests: f.requests, status: f.service.diagramProgress?.status, opened: f.opened.length }, { requests: ['diagramPrepare', 'diagramStep'], status: 'plan', opened: 0 });
 		await f.service.resumeDiagrams();
 		assert.deepStrictEqual(f.requests, ['diagramPrepare', 'diagramStep', 'diagramPrepare', 'diagramApprovePlan', 'diagramStep', 'diagramStep']);
+		assert.equal(f.diagramPrepares[1].resume, 'diagram-job');
 		assert.equal(f.opened.length, 1);
 	});
 
@@ -315,7 +337,21 @@ suite('A.D.E native AI orchestration', () => {
 		assert.equal(f.service.diagramProgress?.error, 'Provider Offline');
 		assert.equal(f.service.diagramProgress?.completed, 0); assert.equal(f.opened.length, 0);
 		f.failDiagram(false); await f.service.resumeDiagrams();
+		assert.equal(f.diagramPrepares[1].resume, 'diagram-job');
 		assert.equal(f.closedAlerts, 1); assert.equal(f.opened.length, 1);
+	});
+	test('an incomplete stale diagram job is rejected without silently preparing a new interpretation', async () => {
+		const f = fixture(); f.picks.push(items => items[0]); f.failDiagram();
+		await f.service.buildDiagrams();
+		assert.equal(f.service.diagramProgress?.status, 'failed');
+		Object.assign(f.code.context, { snapshot: f.root + '/.ade/imports/changed', revision: 'changed' });
+		f.failDiagramPrepare(new Error('Diagram job is stale; prepare a new interpretation'));
+		await f.service.resumeDiagrams();
+		assert.deepStrictEqual(f.diagramPrepares.map(request => request.resume), [undefined, 'diagram-job']);
+		assert.deepStrictEqual(f.requests, ['diagramPrepare', 'diagramStep', 'diagramPrepare']);
+		assert.match(f.errors.at(-1)!, /Diagram job is stale/);
+		assert.equal(f.dialogDetails.length, 1, 'A rejected resume never reaches disclosure or generation');
+		assert.equal(f.opened.length, 0);
 	});
 	test('manual model edits clear stale completion messages', async () => {
 		const f = fixture(); await f.service.chat();

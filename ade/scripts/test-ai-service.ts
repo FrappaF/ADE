@@ -22,7 +22,7 @@ registerHooks({
 	load(url, context, next) {
 		const token = tokens.get(url);
 		if (token) {
-			return { format: 'module', source: `import { createDecorator } from ${JSON.stringify(decorator)}; ${Array.from({ length: token.length / 2 }, (_, i) => `export const ${token[i * 2]} = createDecorator(${JSON.stringify(token[i * 2 + 1])});`).join(' ')} ${url.endsWith('/chat.js') ? "export const ChatViewPaneTarget = Symbol('ChatViewPaneTarget');" : ''}`, shortCircuit: true };
+			return { format: 'module', source: `import { createDecorator } from ${JSON.stringify(decorator)}; ${Array.from({ length: token.length / 2 }, (_, i) => `export const ${token[i * 2]} = createDecorator(${JSON.stringify(token[i * 2 + 1])});`).join(' ')} ${url.endsWith('/chat.js') ? 'export const ChatViewPaneTarget = Symbol("ChatViewPaneTarget");' : ''}`, shortCircuit: true };
 		}
 		if (url.endsWith('/ade/electron-browser/adeAiDialogService.js')) { return { format: 'module', source: 'export {};', shortCircuit: true }; }
 		if (url.endsWith('.css')) { return { format: 'module', source: 'export {};', shortCircuit: true }; }
@@ -31,4 +31,4 @@ registerHooks({
 });
 process.chdir(root);
 process.argv.splice(2, process.argv.length - 2, '--run', 'src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts', '--run', 'src/vs/workbench/contrib/ade/test/electron-browser/adeProjectWorkspace.test.ts');
-await import('../../test/unit/node/index.js');
+await import(new URL('../../test/unit/node/index.js', import.meta.url).href);

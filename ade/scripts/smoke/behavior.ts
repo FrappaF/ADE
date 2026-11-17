@@ -8,7 +8,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { revealAdeButton, clickAdeButton, closeCanvasActions, revealAdeText, chooseAdeDiagram, openModelFile, enterValue, pickValue, readAccessibleText, connect, runCommand, searchSystem, contractEntry } from './helpers.ts';
+import { revealAdeButton, clickAdeButton, closeCanvasActions, revealAdeText, chooseAdeDiagram, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, connect, runCommand, searchSystem, contractEntry } from './helpers.ts';
 
 /** behavior scenarios share only the harness values listed here. */
 export function createBehaviorScenarios(harness: SmokeHarness) {
@@ -28,7 +28,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		let shell = window.locator('.ade-shell');
 		await openModelFile(window, modelFile);
 		await searchSystem(window, 'Contract', 'Pagamento');
-		await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).click();
+		await clickAdeButton(window, 'Show Change Impact');
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
 		assert.equal(await shell.locator('.ade-canvas').count(), 0);
 		const dependents = () => shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Potential Dependents: 5', exact: true }) });
@@ -64,13 +64,13 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await shell.getByRole('button', { name: 'Back', exact: true }).click();
 		const diagrams = shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Diagrams to Review: 3', exact: true }) });
 		await diagrams.getByRole('button', { name: 'Esito pagamento', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
-		await shell.getByRole('button', { name: 'Back', exact: true }).click();
-		await shell.getByRole('button', { name: 'Element Details', exact: true }).click();
+		await shell.getByRole('region', { name: 'Diagram: Esito pagamento', exact: true }).waitFor();
+		await runCommand(window, 'A.D.E: Go Back');
+		await clickAdeButton(window, 'Element Details');
 		await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
 		await runCommand(window, 'A.D.E: Show Change Impact');
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
-		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+		await clickAdeButton(window, 'Rename Element');
 		await enterValue(window, 'Name', 'Contratto pagamento');
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
@@ -79,8 +79,8 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).scrollIntoViewIfNeeded();
 		await window.screenshot({ path: path.join(evidence, 'model-impact.png') });
-		await shell.getByRole('button', { name: 'Save', exact: true }).click();
-		await shell.getByText('Saved', { exact: true }).waitFor();
+		await shell.locator('.ade-workspace-bar').getByRole('button', { name: 'Save', exact: true }).click();
+		await shell.getByText('Model Saved Locally', { exact: true }).waitFor();
 		const saved = JSON.parse(await readFile(modelFile, 'utf8'));
 		assert.deepEqual(validateSemanticModel(saved).filter(diagnostic => diagnostic.severity === 'error'), []);
 		assert.deepEqual([saved.codeMappings, saved.verifications], [fixture.codeMappings, fixture.verifications]);
@@ -91,10 +91,10 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		shell = window.locator('.ade-shell');
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
 		await harness.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
-		await shell.getByRole('button', { name: 'Element Details', exact: true }).focus();
+		await (await revealAdeButton(window, 'Element Details')).focus();
 		await window.keyboard.press('Enter');
 		await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
-		await shell.getByRole('button', { name: 'Show Change Impact', exact: true }).focus();
+		await (await revealAdeButton(window, 'Show Change Impact')).focus();
 		await window.keyboard.press('Enter');
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
 		const updated = structuredClone(saved);
@@ -126,7 +126,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await pickValue(window, 'Diagram Type', 'State Diagram');
 		await pickValue(window, 'Resource Lifecycle', 'Ordine');
 		await enterValue(window, 'Name', 'Order Lifecycle');
-		await shell.getByRole('heading', { level: 1, name: 'Order Lifecycle', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Order Lifecycle', exact: true }).waitFor();
 		await revealAdeText(window, '0 of 3 declared states visible · 0 visible transitions');
 		assert.equal(await shell.locator('.ade-node').count(), 1);
 		await clickAdeButton(window, 'Add Existing Transition');
@@ -192,7 +192,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await shell.locator('.ade-canvas-scroll').scrollIntoViewIfNeeded();
 		await window.screenshot({ path: path.join(evidence, 'state-diagram.png') });
 		await clickAdeButton(window, 'Save'); await closeCanvasActions(window);
-		await revealAdeText(window, 'Saved');
+		await revealAdeText(window, 'Model Saved Locally');
 		const saved = JSON.parse(await readFile(modelFile, 'utf8'));
 		assert.deepEqual(validateSemanticModel(saved), []);
 		assert.equal(saved.semantics.elements.length, checkoutModel.semantics.elements.length + 1);
@@ -202,14 +202,15 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		harness.app = undefined;
 		window = await launch();
 		shell = window.locator('.ade-shell');
-		await shell.getByRole('heading', { level: 1, name: 'Order Lifecycle', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Order Lifecycle', exact: true }).waitFor();
+		await openProperties(window);
 		await shell.locator('.ade-properties').getByRole('heading', { name: 'Annullato', exact: true }).waitFor();
 		await harness.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
 		await (await revealAdeButton(window, 'Remove State from Diagram')).focus();
 		await window.keyboard.press('Enter');
 		assert.equal(await shell.locator('.ade-node').getByText('Annullato', { exact: true }).count(), 0);
 		await clickAdeButton(window, 'Save'); await closeCanvasActions(window);
-		await revealAdeText(window, 'Saved');
+		await revealAdeText(window, 'Model Saved Locally');
 		const removed = JSON.parse(await readFile(modelFile, 'utf8'));
 		assert.deepEqual(removed.semantics, saved.semantics);
 		assert.deepEqual(removed.views.slice(0, 4), saved.views.slice(0, 4));
@@ -225,11 +226,11 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await pickValue(window, 'Resource Lifecycle', 'Create New Resource');
 		await enterValue(window, 'Resource Name', 'Spedizione');
 		await enterValue(window, 'Name', 'Shipment Lifecycle');
-		await shell.getByRole('heading', { level: 1, name: 'Shipment Lifecycle', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Shipment Lifecycle', exact: true }).waitFor();
 		await shell.locator('.ade-node').getByText('Spedizione', { exact: true }).waitFor();
 		await clickAdeButton(window, 'Undo'); await closeCanvasActions(window);
 		await clickAdeButton(window, 'Save'); await closeCanvasActions(window);
-		await revealAdeText(window, 'Saved');
+		await revealAdeText(window, 'Model Saved Locally');
 		const final = JSON.parse(await readFile(modelFile, 'utf8'));
 		assert.deepEqual(final.semantics, saved.semantics);
 		assert.equal(final.views.some((view: ModelView) => view.name === 'Shipment Lifecycle'), false);
@@ -246,7 +247,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await pickValue(window, 'Choose Feature', 'Conferma acquisto');
 		await pickValue(window, 'Diagram Type', 'Sequence Diagram');
 		await enterValue(window, 'Name', 'Purchase Sequence');
-		await shell.getByRole('heading', { name: 'Purchase Sequence', exact: true, level: 1 }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Purchase Sequence', exact: true }).waitFor();
 		await revealAdeText(window, 'This diagram has no elements.');
 		const ids = ['customer-checkout', 'checkout-confirm', 'confirm-payment', 'payment-gateway', 'confirm-order', 'show-declined', 'confirm-cart'];
 		const names = new Map(checkoutModel.semantics.elements.map(element => [element.id, element.name]));
@@ -314,7 +315,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await window.keyboard.press('ArrowRight');
 		assert.notEqual(await shell.locator('.ade-canvas-content').evaluate(element => element.style.transform), beforePan);
 		await clickAdeButton(window, 'Save'); await closeCanvasActions(window);
-		await revealAdeText(window, 'Saved');
+		await revealAdeText(window, 'Model Saved Locally');
 		const saved = JSON.parse(await readFile(modelFile, 'utf8'));
 		const sequence = saved.views.find((view: ModelView) => view.kind === 'sequence');
 		assert.deepEqual(validateSemanticModel(saved), []);
@@ -324,13 +325,14 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		harness.app = undefined;
 		window = await launch();
 		shell = window.locator('.ade-shell');
-		await shell.getByRole('heading', { name: 'Purchase Sequence', exact: true, level: 1 }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Purchase Sequence', exact: true }).waitFor();
+		await openProperties(window);
 		assert.deepEqual(await messageIds(), sequence.relationIds);
 		await revealAdeText(window, 'Output: orderId (OrderReference), Required');
 		await clickAdeButton(window, 'Remove Participant from Diagram');
 		assert.equal((await participants()).includes('Conferma ordine'), false);
 		await clickAdeButton(window, 'Save'); await closeCanvasActions(window);
-		await revealAdeText(window, 'Saved');
+		await revealAdeText(window, 'Model Saved Locally');
 		const removed = JSON.parse(await readFile(modelFile, 'utf8'));
 		assert.deepEqual(removed.semantics, saved.semantics);
 		assert.deepEqual(removed.views.slice(0, 4), saved.views.slice(0, 4));

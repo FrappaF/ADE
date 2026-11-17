@@ -117,17 +117,18 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			executable, path: getCaseInsensitive(env, 'PATH') as string | undefined, pathExt: getCaseInsensitive(env, 'PATHEXT') as string | undefined
 		});
 	}
-	private async run(title: string, task: (token: CancellationToken) => Promise<void>): Promise<void> {
+	private async run(title: string, task: (token: CancellationToken) => Promise<void>): Promise<boolean> {
 		const operation = this.operations.acquire('code');
-		if (!operation) { this.notifications.info(localize('ade.code.busy', "Another A.D.E operation is running. Wait for it to finish or cancel it before running Sync.")); return; }
+		if (!operation) { this.notifications.info(localize('ade.code.busy', "Another A.D.E operation is running. Wait for it to finish or cancel it before running Sync.")); return false; }
 		this.status = title; this.changes.fire();
 		const cancellation = new CancellationTokenSource();
 		try {
 			await this.progress.withProgress({ location: ProgressLocation.Notification, title, cancellable: true }, () => task(cancellation.token), () => cancellation.cancel());
 			if (cancellation.token.isCancellationRequested) { this.status = localize('ade.code.cancelledOperation', "Code Operation Cancelled"); }
 			else if (this.status === title) { this.status = localize('ade.code.operationDone', "{0} · Completed", title); }
+			return !cancellation.token.isCancellationRequested;
 		}
-		catch (error) { this.status = localize('ade.code.failed', "Code analysis failed: {0}", String(error.message ?? error)); if (!/abort|cancel/i.test(String(error))) { this.notifications.error(this.status); } }
+		catch (error) { this.status = localize('ade.code.failed', "Code analysis failed: {0}", String(error.message ?? error)); if (!/abort|cancel/i.test(String(error))) { this.notifications.error(this.status); } return false; }
 		finally { cancellation.dispose(); operation.dispose(); this.changes.fire(); }
 	}
 	private setContext(context: CodeContext | undefined): void {
@@ -165,6 +166,9 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		await this.refreshing;
 	}
 	async openContext(context: CodeContext): Promise<void> {
+		await this.openContextAndConfirm(context);
+	}
+	private async openContextAndConfirm(context: CodeContext): Promise<boolean> {
 		const sameProject = this.context?.sourceRoot === context.sourceRoot;
 		const viewId = sameProject ? this.project.activeView?.id : undefined;
 		const selectedId = sameProject ? this.project.selectedId : undefined;
@@ -172,7 +176,9 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			this.observed = this.project.modelUri!.toString(); this.setContext(context);
 			if (context.diagramState === 'diagrams' && this.project.activeView) { this.project.showDiagram(this.project.model.views.some(view => view.id === viewId) ? viewId! : this.project.activeView.id); if (selectedId && this.project.model.semantics.elements.some(element => element.id === selectedId)) { this.project.selectElement(selectedId); } } else { this.project.showHome(); }
 			await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+			return true;
 		}
+		return false;
 	}
 	async importCodebase(): Promise<void> {
 		const selected = await this.dialogs.showOpenDialog({ title: localize('ade.code.import', "Import Codebase"), canSelectFiles: false, canSelectFolders: true, canSelectMany: false });
@@ -182,10 +188,13 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			{ label: localize('ade.code.syntax', "Structure Only"), description: localize('ade.code.syntax.detail', "Declarations and textual contracts; references stay unresolved"), syntaxOnly: true }
 		], { title: localize('ade.code.import', "Import Codebase"), placeHolder: localize('ade.code.accountFree', "Local deterministic analysis. No account or AI is required.") });
 		if (!mode) { return; }
-		await this.run(localize('ade.code.importing', "Importing Codebase"), async token => {
-			await this.openContext(await this.request<CodeContext>({ operation: 'import', root: selected[0].fsPath, syntaxOnly: mode.syntaxOnly }, token));
+		const opened: { context?: CodeContext } = {};
+		const completed = await this.run(localize('ade.code.importing', "Importing Codebase"), async token => {
+			const context = await this.request<CodeContext>({ operation: 'import', root: selected[0].fsPath, syntaxOnly: mode.syntaxOnly }, token);
+			if (!token.isCancellationRequested && await this.openContextAndConfirm(context)) { opened.context = context; }
 		});
-		if (this.context?.sourceRoot === selected[0].fsPath) { await this.workspace.align(); }
+		const context = opened.context;
+		if (completed && context && this.context?.snapshot === context.snapshot && this.context.model === context.model && this.context.sourceRoot === context.sourceRoot && this.project.modelUri?.toString() === URI.file(context.model).toString()) { await this.workspace.align(); }
 	}
 	async ensureProjectContext(): Promise<boolean> {
 		await this.refreshing;
