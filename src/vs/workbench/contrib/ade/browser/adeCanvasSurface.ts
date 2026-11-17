@@ -29,6 +29,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { AdeCanvasController } from './adeCanvasController.js';
 import { getProjectedInteraction } from '../common/visualNavigation.js';
 import { type BlueprintEditMode } from './adeBlueprintEditing.js';
+import { editAdeConnectionDetails } from './adeRelationForm.js';
 
 
 interface AdeCanvasSurfaceHost {
@@ -475,16 +476,20 @@ export class AdeCanvasSurface {
 	async finishConnection(id: string): Promise<void> {
 		const pending = this.pendingConnection;
 		if (!pending) { return; }
-		const from = this.project.model.semantics.elements.find(element => element.id === pending.from)!;
-		const to = this.project.model.semantics.elements.find(element => element.id === id)!;
+		const from = this.project.model.semantics.elements.find(element => element.id === pending.from);
+		const to = this.project.model.semantics.elements.find(element => element.id === id);
+		if (pending.version !== this.project.documentVersion || !from || !to) {
+			this.pendingConnection = undefined;
+			this.notifications.info(localize('ade.context.staleConnection', "The Project Changed. Create the Relationship Again from the Current Diagram."));
+			this.host.render(); return;
+		}
 		if (!isCompatibleRelation(pending.kind, from.kind, to.kind) || pending.kind === 'transition' && from.parentId !== to.parentId) { this.notifications.info(localize('ade.context.incompatible', "This Target Is Incompatible with the Selected Relationship Type. Choose Another Target or Press Escape.")); return; }
 		this.pendingConnection = undefined;
-		const name = await this.quick.input({ title: localize('ade.relationName', "Relationship Name") });
-		if (name === undefined) { this.host.render(); return; }
-		const condition = await this.quick.input({ title: localize('ade.conditionInput', "Condition (Optional)") });
-		if (condition === undefined) { this.host.render(); return; }
+		const parent = this.host.root.closest<HTMLElement>('.monaco-workbench') ?? this.host.root.ownerDocument.body;
+		const value = await editAdeConnectionDetails(parent, localize('ade.relation.endpoints', "{0} → {1}", from.name, to.name));
+		if (!value) { this.host.render(); return; }
 		if (pending.version !== this.project.documentVersion) { this.notifications.info(localize('ade.context.staleConnection', "The Project Changed. Create the Relationship Again from the Current Diagram.")); return; }
-		this.project.edit({ kind: 'relation', id: generateUuid(), viewId: pending.viewId, from: pending.from, to: id, relationKind: pending.kind, name, condition });
+		this.project.edit({ kind: 'relation', id: generateUuid(), viewId: pending.viewId, from: pending.from, to: id, relationKind: pending.kind, ...value });
 	}
 
 	constructor(

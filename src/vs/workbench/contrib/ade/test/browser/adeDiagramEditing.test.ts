@@ -21,11 +21,20 @@ import { validateSemanticModel } from '../../common/modelValidation.js';
 
 suite('A.D.E project diagram creation', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
+	let parent: HTMLElement;
+	setup(() => { parent = document.body.appendChild(document.createElement('div')); });
+	teardown(() => { parent.querySelector('dialog')?.dispatchEvent(new Event('cancel', { cancelable: true })); parent.remove(); });
+	const field = (label: string) => {
+		const row = [...parent.querySelectorAll('label')].find(row => row.querySelector('span')?.textContent === label);
+		const input = row?.querySelector<HTMLInputElement | HTMLSelectElement>('input, select'); assert.ok(input, `Missing field ${label}`); return input;
+	};
+	const fill = (label: string, value: string) => { const input = field(label); input.value = value; input.dispatchEvent(new Event('change', { bubbles: true })); };
+	const create = () => { const button = parent.querySelector<HTMLButtonElement>('button[type="submit"]'); assert.ok(button); button.click(); };
 	test('a new class in a scoped contract diagram is declared context and keeps the contract intact', async () => {
 		const model = structuredClone(blueprintFixture), view = model.views.find(view => view.kind === 'class')!, contracts = structuredClone(model.foundation.blueprint);
 		const project = Object.assign(new (mock<AdeProjectService>())(), { model, selectedId: '', activeView: view, selectElement: (id: string) => { project.selectedId = id; } });
-		const ui = Object.assign(new (mock<AdeEditingContext>())(), { project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { kind?: string })[]) => items.find(item => item.kind === 'class') }), name: async () => 'QA Class', edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
-		await runAdeDiagramCommand(ui, 'addElement'); assert.deepStrictEqual(validateSemanticModel(project.model), []);
+		const ui = Object.assign(new (mock<AdeEditingContext>())(), { container: parent, project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { kind?: string })[]) => items.find(item => item.kind === 'class') }), name: async () => 'QA Class', edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
+		const pending = runAdeDiagramCommand(ui, 'addElement'); fill('Name', 'QA Class'); fill('Element Type', 'class'); create(); await pending; assert.deepStrictEqual(validateSemanticModel(project.model), []);
 		assert.ok(project.model.views.find(candidate => candidate.id === view.id)!.contextIds?.includes(project.selectedId)); assert.deepStrictEqual(project.model.foundation.blueprint, contracts);
 	});
 
@@ -33,7 +42,7 @@ suite('A.D.E project diagram creation', () => {
 		const model = structuredClone(blueprintFixture), owners = structuredClone(model.foundation.ownership);
 		const project = Object.assign(new (mock<AdeProjectService>())(), { model, selectedId: '', activeView: model.views.find(view => view.id === 'c4.l3'), selectElement: (id: string) => { project.selectedId = id; } });
 		const before = structuredClone(project.activeView!.nodes);
-		const ui = Object.assign(new (mock<AdeEditingContext>())(), { project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { element?: { id: string } })[]) => items.find(item => item.element?.id === 'container.store') }), edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
+		const ui = Object.assign(new (mock<AdeEditingContext>())(), { container: parent, project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { element?: { id: string } })[]) => items.find(item => item.element?.id === 'container.store') }), edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
 		await runAdeDiagramCommand(ui, 'addExisting');
 		assert.deepStrictEqual(validateSemanticModel(project.model), []); assert.deepStrictEqual(project.model.foundation.ownership, owners);
 		const view = project.model.views.find(view => view.id === 'c4.l3')!; assert.ok(view.contextIds?.includes('container.store'));
@@ -51,8 +60,8 @@ suite('A.D.E project diagram creation', () => {
 		test(`adding ${kind} to ${viewId} keeps the scoped architecture usable`, async () => {
 			const model = structuredClone(blueprintFixture);
 			const project = Object.assign(new (mock<AdeProjectService>())(), { model, selectedId: '', activeView: model.views.find(view => view.id === viewId), selectElement: (id: string) => { project.selectedId = id; } });
-			const ui = Object.assign(new (mock<AdeEditingContext>())(), { project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { kind?: string })[]) => items.find(item => item.kind === kind) }), name: async () => 'QA Scoped Element', edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
-			await runAdeDiagramCommand(ui, 'addElement');
+			const ui = Object.assign(new (mock<AdeEditingContext>())(), { container: parent, project, quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { kind?: string })[]) => items.find(item => item.kind === kind) }), name: async () => 'QA Scoped Element', edit: (edit: VisualEdit) => { project.model = applyVisualEdit(project.model, edit) as typeof model; } });
+			const pending = runAdeDiagramCommand(ui, 'addElement'); fill('Name', 'QA Scoped Element'); fill('Element Type', kind); create(); await pending;
 			assert.deepStrictEqual(validateSemanticModel(project.model), []);
 			const element = project.model.semantics.elements.find(element => element.id === project.selectedId)!;
 			assert.strictEqual(element.kind, kind);
@@ -66,14 +75,25 @@ suite('A.D.E project diagram creation', () => {
 			const project = Object.assign(new (mock<AdeProjectService>())(), { model: model as SemanticModel, selectedId: '', activeView: undefined as ModelView | undefined, showDiagram: (id: string) => { Object.assign(project, { activeView: project.model.views.find(view => view.id === id) }); } });
 			const edits: VisualEdit[] = [];
 			const ui = Object.assign(new (mock<AdeEditingContext>())(), {
-				project,
+				container: parent, project,
 				quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { kind?: string })[]) => items.find(item => item.kind === kind) ?? items[0] }),
 				feature: async () => { assert.fail('the empty project must not open an empty feature picker'); },
 				name: async () => 'New Diagram',
 				edit: (value: VisualEdit | VisualEdit[]) => { const batch = Array.isArray(value) ? value : [value]; edits.push(...batch); for (const edit of batch) { project.model = applyVisualEdit(project.model, edit); } }
 			});
-			await runAdeDiagramCommand(ui, 'addDiagram');
+			const pending = runAdeDiagramCommand(ui, 'addDiagram'); fill('Name', 'New Diagram'); fill('Diagram Type', kind); if (kind === 'state') { fill('Resource Name', 'New Diagram'); } create(); await pending;
 			assert.deepStrictEqual({ kind: project.activeView?.kind, name: project.activeView?.name, featureId: project.activeView?.featureId, features: project.model.semantics.elements.filter(element => element.kind === 'feature'), valid: validateSemanticModel(project.model), batches: edits.map(edit => edit.kind), original: model.views }, { kind, name: 'New Diagram', featureId: undefined, features: [], valid: [], batches: kind === 'state' ? ['resource', 'stateDiagram'] : ['diagram'], original: [] });
 		});
 	}
+
+	test('canceling a state diagram discards its resource draft', async () => {
+		const model: SemanticModel = { version: 5, id: 'project', name: 'Project', semantics: { elements: [], relations: [] }, views: [], foundation: emptyFoundation(), codeMappings: [], verifications: [] };
+		const project = Object.assign(new (mock<AdeProjectService>())(), { model });
+		const ui = Object.assign(new (mock<AdeEditingContext>())(), { container: parent, project, edit: () => assert.fail('Canceled drafts must not be applied') });
+		const pending = runAdeDiagramCommand(ui, 'addDiagram');
+		fill('Name', 'Lifecycle'); fill('Diagram Type', 'state'); fill('Resource Name', 'Order');
+		parent.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }));
+		await pending;
+		assert.deepStrictEqual([model.views, model.semantics.elements], [[], []]);
+	});
 });

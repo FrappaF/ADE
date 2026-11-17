@@ -8,7 +8,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { clickAdeButton, revealAdeText, openDiagramNavigation, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, searchSystem, contractEntry, runCommand } from './helpers.ts';
+import { clickAdeButton, revealAdeText, openDiagramNavigation, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, searchSystem, contractEntry, runCommand, applyWizardChanges } from './helpers.ts';
 
 /** navigation scenarios share only the harness values listed here. */
 export function createNavigationScenarios(harness: SmokeHarness) {
@@ -20,35 +20,40 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await enterValue(window, 'Field Name', 'amount');
 		await enterValue(window, 'Field Type', 'Money');
 		await pickValue(window, 'Field Presence', 'Required');
+		await applyWizardChanges(window);
 		await revealAdeText(window, 'Input: amount (Money), Required');
 		await contractEntry(window, 'Contratto pagamento', 'Inputs');
-		await window.locator('.quick-input-widget').getByText('Field Name', { exact: true }).waitFor();
-		await window.locator('.quick-input-widget input:visible').fill('amount');
-		await window.keyboard.press('Enter');
-		await window.locator('.quick-input-widget').getByText('A field with this name already exists.', { exact: true }).waitFor();
+		await window.locator('dialog.ade-editing-wizard').getByRole('heading', { name: 'Field Name', exact: true }).waitFor();
+		await window.locator('dialog.ade-editing-wizard input[type="text"]').fill('amount');
+		await window.locator('dialog.ade-editing-wizard').getByRole('button', { name: 'Next', exact: true }).click();
+		await window.locator('dialog.ade-editing-wizard [role="alert"]').getByText('A field with this name already exists.', { exact: true }).waitFor();
 		await window.keyboard.press('Escape');
 		await contractEntry(window, 'Contratto pagamento', 'Outputs');
 		await enterValue(window, 'Field Name', 'receipt');
-		await window.locator('.quick-input-widget').getByText('Field Type', { exact: true }).waitFor();
+		await window.locator('dialog.ade-editing-wizard').getByRole('heading', { name: 'Field Type', exact: true }).waitFor();
 		await window.keyboard.press('Escape');
 		assert.equal(await shell.getByText('Output:', { exact: false }).count(), 0, 'Escape cancels the partially entered field');
 		await contractEntry(window, 'Contratto pagamento', 'Outputs');
 		await enterValue(window, 'Field Name', 'receipt');
 		await enterValue(window, 'Field Type', 'Receipt');
 		await pickValue(window, 'Field Presence', 'Optional');
+		await applyWizardChanges(window);
 		await revealAdeText(window, 'Output: receipt (Receipt), Optional');
 		for (const [section, value] of [['Preconditions', 'Amount is positive'], ['Postconditions', 'At most one payment is authorized']]) {
 			await contractEntry(window, 'Contratto pagamento', section);
 			await enterValue(window, section, value);
+			await applyWizardChanges(window);
 		}
 		await contractEntry(window, 'Contratto pagamento', 'Errors');
 		await enterValue(window, 'Error Code', 'payment-declined');
 		await enterValue(window, 'Error Description', 'No order is confirmed');
+		await applyWizardChanges(window);
 		await revealAdeText(window, 'Error payment-declined: No order is confirmed');
 		await contractEntry(window, 'Contratto pagamento', 'Outputs', 'receipt');
 		await enterValue(window, 'Field Name', 'receipt');
 		await enterValue(window, 'Field Type', 'PaymentReceipt');
 		await pickValue(window, 'Field Presence', 'Required');
+		await applyWizardChanges(window);
 		await revealAdeText(window, 'Output: receipt (PaymentReceipt), Required');
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
 		await revealAdeText(window, 'Output: receipt (Receipt), Optional');
@@ -58,6 +63,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await pickValue(window, 'Behavioral Contract: Contratto pagamento', 'Preconditions');
 		await pickValue(window, 'Preconditions', 'Amount is positive');
 		await pickValue(window, 'Contract Entry: Amount is positive', 'Remove Entry');
+		await applyWizardChanges(window);
 		await shell.getByText('Precondition: Amount is positive', { exact: true }).waitFor({ state: 'hidden' });
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
 		await revealAdeText(window, 'Precondition: Amount is positive');

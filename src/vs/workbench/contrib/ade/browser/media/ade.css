@@ -295,6 +295,7 @@
 	margin-bottom: var(--vscode-spacing-size80);
 }
 
+.ade-form-dialog,
 .ade-blueprint-wizard {
 	color: var(--vscode-editor-foreground);
 	background: var(--vscode-editor-background);
@@ -310,33 +311,41 @@
 	box-sizing: border-box;
 }
 
+.ade-form-dialog[open],
 .ade-blueprint-wizard[open] {
 	display: flex;
 	flex-direction: column;
 }
 
+.ade-form-dialog::backdrop,
 .ade-blueprint-wizard::backdrop {
 	background: var(--vscode-widget-shadow);
 }
 
+.ade-form-dialog > header,
+.ade-form-dialog > footer,
 .ade-blueprint-wizard > header,
 .ade-blueprint-wizard > footer {
 	padding: var(--vscode-spacing-size160) var(--vscode-spacing-size240);
 	flex-shrink: 0;
 }
 
+.ade-form-dialog h2,
 .ade-blueprint-wizard h2 {
 	margin: 0 0 var(--vscode-spacing-size80);
 	font-size: var(--vscode-fontSize-heading2);
 	font-weight: var(--vscode-fontWeight-semiBold);
 }
 
+.ade-form-dialog h3,
 .ade-blueprint-wizard h3 {
 	margin: 0 0 var(--vscode-spacing-size80);
 	font-size: var(--vscode-fontSize-heading3);
 	font-weight: var(--vscode-fontWeight-semiBold);
 }
 
+.ade-form-dialog > header p,
+.ade-form-hint,
 .ade-blueprint-wizard > header p,
 .ade-blueprint-wizard .ade-blueprint-hint,
 .ade-blueprint-wizard .ade-blueprint-area button > span,
@@ -377,6 +386,7 @@
 	font-weight: var(--vscode-fontWeight-semiBold);
 }
 
+.ade-form-dialog button,
 .ade-blueprint-wizard button,
 .ade-blueprint-choice {
 	font: inherit;
@@ -406,17 +416,20 @@
 	font-weight: var(--vscode-fontWeight-semiBold);
 }
 
+.ade-form-dialog button:hover:not(:disabled),
 .ade-blueprint-wizard button:hover:not(:disabled),
 .ade-blueprint-choice:hover {
 	background: var(--vscode-list-hoverBackground);
 }
 
+.ade-form-dialog :is(button, input, textarea, select):focus-visible,
 .ade-blueprint-wizard button:focus-visible,
 .ade-blueprint-wizard input:focus-visible {
 	outline: 2px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
 }
 
+.ade-form-dialog > footer,
 .ade-blueprint-wizard > footer {
 	display: flex;
 	flex-wrap: wrap;
@@ -428,15 +441,18 @@
 	margin-inline-start: auto;
 }
 
+.ade-form-dialog button.primary,
 .ade-blueprint-wizard button.primary {
 	background: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 }
 
+.ade-form-dialog button.primary:hover:not(:disabled),
 .ade-blueprint-wizard button.primary:hover:not(:disabled) {
 	background: var(--vscode-button-hoverBackground);
 }
 
+.ade-form-dialog button:disabled,
 .ade-blueprint-wizard button:disabled {
 	opacity: 0.5;
 	cursor: default;
@@ -495,6 +511,7 @@
 	gap: var(--vscode-spacing-size80);
 }
 
+.ade-form-dialog :is(input[type="text"], textarea, select),
 .ade-blueprint-wizard input[type="text"],
 .ade-blueprint-wizard input[type="password"],
 .ade-blueprint-wizard input[type="search"] {
@@ -515,6 +532,114 @@
 
 .ade-blueprint-validation {
 	color: var(--vscode-errorForeground);
+}
+
+.ade-form-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size160);
+	padding: var(--vscode-spacing-size240);
+	margin: 0;
+	min-height: 0;
+	overflow: auto;
+	overflow-wrap: anywhere;
+}
+
+.ade-form-dialog > footer {
+	justify-content: flex-end;
+}
+
+.ade-form-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size60);
+	min-width: 0;
+}
+
+.ade-form-dialog textarea {
+	resize: vertical;
+	min-height: 6em;
+}
+
+.ade-form-checkbox {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-form-checkbox input {
+	accent-color: var(--vscode-focusBorder);
+}
+
+.ade-form-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+	gap: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+}
+
+.ade-form-member-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size160);
+	margin-block: var(--vscode-spacing-size120);
+}
+
+.ade-form-member {
+	margin: 0;
+	min-width: 0;
+	padding: var(--vscode-spacing-size160);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.ade-form-group {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size160);
+	margin: 0;
+	min-width: 0;
+	padding: var(--vscode-spacing-size120);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.ade-form-member legend {
+	padding-inline: var(--vscode-spacing-size40);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-form-group legend {
+	padding-inline: var(--vscode-spacing-size40);
+}
+
+.ade-form-member > button {
+	margin-block-start: var(--vscode-spacing-size120);
+}
+
+.ade-form-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-form-validation,
+.ade-form-field-error {
+	color: var(--vscode-errorForeground);
+}
+
+.ade-form-validation {
+	margin: 0;
+	padding: 0 var(--vscode-spacing-size240) var(--vscode-spacing-size120);
+}
+
+.ade-form-validation:empty,
+.ade-form-field-error:empty,
+.ade-form-dialog [hidden] {
+	display: none;
+}
+
+.ade-form-field [aria-invalid="true"] {
+	border-color: var(--vscode-inputValidation-errorBorder);
 }
 
 .ade-blueprint-summary {

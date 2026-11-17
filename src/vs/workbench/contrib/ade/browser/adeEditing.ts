@@ -26,6 +26,7 @@ import { runAdeProjectCommand } from './adeEditingProject.js';
 import { runAdeSpecificationCommand } from './adeEditingSpecification.js';
 import { runAdeStructureCommand } from './adeEditingStructure.js';
 import { runAdeDiagramCommand } from './adeEditingDiagram.js';
+import { AdeFormDialog } from './adeFormDialog.js';
 
 /** Owns dialog revision checks and dispatches typed commands to focused handlers. */
 class EditingUI implements AdeEditingContext {
@@ -46,11 +47,12 @@ class EditingUI implements AdeEditingContext {
 		this.project.editBatch(Array.isArray(edit) ? edit : [edit]);
 	}
 
-	name(value?: string, title = localize('ade.name', "Name")): Promise<string | undefined> {
-		return this.quickInput.input({
-			title, value,
-			validateInput: async value => value.trim() ? undefined : localize('ade.nameRequired', "Enter a name.")
-		});
+	async name(value?: string, title = localize('ade.name', "Name")): Promise<string | undefined> {
+		const dialog = new AdeFormDialog(this.container, { title });
+		try {
+			const input = dialog.text(dialog.body, title, value, { required: true });
+			return await dialog.open(() => input.value.trim());
+		} finally { dialog.dispose(); }
 	}
 
 	async feature(id?: string): Promise<SemanticElement | undefined> {

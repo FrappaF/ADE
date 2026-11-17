@@ -5,6 +5,7 @@
 
 import { localize } from '../../../../nls.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { type IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { editAdeMessaging } from './adeMessagingEditing.js';
 import { readAdeMessagingScenario } from './adeMessagingCriteria.js';
 import { compileModelMessaging, simulateMessaging } from '../common/modelMessaging.js';
@@ -15,6 +16,7 @@ import { editAdeStack } from './adeStackEditing.js';
 import { editAdeTask } from './adeTaskEditing.js';
 import { type BlueprintEditMode } from './adeBlueprintEditing.js';
 import { AdeBlueprintWizard } from './adeBlueprintWizard.js';
+import { AdeEditingWizard } from './adeEditingWizard.js';
 import { type AdeEditingContext } from './adeEditingContext.js';
 import { type AdeEditingCommand } from './adeEditingCommands.js';
 
@@ -22,34 +24,47 @@ import { type AdeEditingCommand } from './adeEditingCommands.js';
 export async function runAdeSpecificationCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'taskIntent' | 'createPureFeature' | 'selectStructuralProfile' | 'messaging' | 'simulateMessaging' | 'stateMachine' | 'interaction' | 'predicate' | 'prepareStructuralContext' | 'blueprint' | 'projectDecisions'>, id?: string, mode?: BlueprintEditMode): Promise<void> {
 	const view = ui.project.activeView;
 	const model = ui.project.model;
-	if (command === 'taskIntent') { if ((model.version === 4 || model.version === 5)) { const edits = await editAdeTask(ui.quickInput, model); if (edits) { ui.edit(edits); } } return; }
+	const collect = async <T>(title: string, callback: (quick: Pick<IQuickInputService, 'pick' | 'input'>) => Promise<T | undefined>): Promise<T | undefined> => {
+		const disposables = new DisposableStore();
+		try { return await disposables.add(new AdeEditingWizard(ui.container)).run(title, model.name, callback); }
+		finally { disposables.dispose(); }
+	};
+	if (command === 'taskIntent') { if ((model.version === 4 || model.version === 5)) { const edits = await collect(localize('ade.task.edit', "Tasks and Clarifications"), quick => editAdeTask(quick, model)); if (edits) { ui.edit(edits); } } return; }
 	if (command === 'createPureFeature') { await ui.project.createPureFeature(); return; }
 	if (command === 'selectStructuralProfile') { if ((model.version === 4 || model.version === 5)) { const edits = await editAdeStack(ui.quickInput, model, ui.dialogs); if (edits?.length) { ui.edit(edits); } } return; }
-	if (command === 'messaging') { if ((model.version !== 4 && model.version !== 5)) { return; } const edits = await editAdeMessaging(ui.quickInput, model); if (edits?.length) { const entry = edits.find(edit => edit.kind === 'messaging'); if (view && entry?.kind === 'messaging') { edits.push({ kind: 'viewMessaging', viewId: view.id, messagingId: entry.entry.id }); } ui.edit(edits); } return; }
+	if (command === 'messaging') { if ((model.version !== 4 && model.version !== 5)) { return; } const edits = await collect(localize('ade.messaging.edit', "Edit Messaging"), quick => editAdeMessaging(quick, model)); if (edits?.length) { const entry = edits.find(edit => edit.kind === 'messaging'); if (view && entry?.kind === 'messaging') { edits.push({ kind: 'viewMessaging', viewId: view.id, messagingId: entry.entry.id }); } ui.edit(edits); } return; }
 	if (command === 'simulateMessaging') {
 		if ((model.version !== 4 && model.version !== 5)) { return; }
-		const selected = await ui.quickInput.pick((model.foundation.messaging ?? []).map(topology => ({ label: topology.id, topology })), { title: localize('ade.messaging.simulate', "Simulate Messaging · No Broker") }); if (!selected) { return; }
-		const scenario = await readAdeMessagingScenario(ui.quickInput, model, selected.topology); if (!scenario) { return; }
-		const result = simulateMessaging(compileModelMessaging(model, selected.topology.id), scenario);
+		const configured = await collect(localize('ade.messaging.simulate', "Simulate Messaging · No Broker"), async quick => {
+			const selected = await quick.pick((model.foundation.messaging ?? []).map(topology => ({ label: topology.id, topology })), { title: localize('ade.messaging.simulate', "Simulate Messaging · No Broker") });
+			if (!selected) { return; }
+			const scenario = await readAdeMessagingScenario(quick, model, selected.topology);
+			return scenario ? { topologyId: selected.topology.id, scenario } : undefined;
+		});
+		if (!configured) { return; }
+		const result = simulateMessaging(compileModelMessaging(model, configured.topologyId), configured.scenario);
 		const labels = { published: localize('ade.messaging.observedPublication', "Publication Observation"), deliveries: localize('ade.messaging.observedDelivery', "Worker Delivery Observation"), deadLetters: localize('ade.messaging.observedDlq', "Dead-letter Outcome"), errors: localize('ade.messaging.observedRejection', "Rejected Step") };
 		const observations = (['published', 'deliveries', 'deadLetters', 'errors'] as const).flatMap(kind => result[kind].map(value => ({ label: value, description: labels[kind] })));
 		if (!observations.length) { observations.push({ label: localize('ade.messaging.emptySimulation', "No Messages or Deliveries in This Scenario"), description: localize('ade.messaging.emptySimulationHelp', "Add Publish Message or Deliver to Worker steps to observe messaging behavior.") }); }
 		await ui.quickInput.pick(observations, { title: localize('ade.messaging.simResult', "Simulation Result · Zero AI Calls · No Network"), placeHolder: localize('ade.messaging.simSummary', "Publication Observations: {0} · Delivery Observations: {1} · Dead Letters: {2} · Rejections: {3}", result.published.length, result.deliveries.length, result.deadLetters.length, result.errors.length) }); return;
 	}
-	if (command === 'stateMachine') { if ((model.version !== 4 && model.version !== 5)) { return; } const edits = await editAdeStateMachine(ui.quickInput, model); if (edits?.length) { const entry = edits.find(edit => edit.kind === 'stateMachine'); if (view?.kind === 'state' && entry?.kind === 'stateMachine') { edits.push({ kind: 'viewStateMachine', viewId: view.id, stateMachineId: entry.entry.id }); } ui.edit(edits); } return; }
+	if (command === 'stateMachine') { if ((model.version !== 4 && model.version !== 5)) { return; } const edits = await collect(localize('ade.states.edit', "Edit State Machine"), quick => editAdeStateMachine(quick, model)); if (edits?.length) { const entry = edits.find(edit => edit.kind === 'stateMachine'); if (view?.kind === 'state' && entry?.kind === 'stateMachine') { edits.push({ kind: 'viewStateMachine', viewId: view.id, stateMachineId: entry.entry.id }); } ui.edit(edits); } return; }
 	if (command === 'interaction') {
 		if ((model.version !== 4 && model.version !== 5)) { return; }
-		const edits = await editAdeInteraction(ui.quickInput, model, id ?? ui.project.selectedId); if (edits?.length) { const entry = edits[0]; if (view?.kind === 'sequence' && entry.kind === 'interaction') { edits.push({ kind: 'viewInteraction', viewId: view.id, interactionId: entry.entry.interaction.id }); } ui.edit(edits); } return;
+		const edits = await collect(localize('ade.interaction.edit', "Edit Interaction"), quick => editAdeInteraction(quick, model, id ?? ui.project.selectedId)); if (edits?.length) { const entry = edits[0]; if (view?.kind === 'sequence' && entry.kind === 'interaction') { edits.push({ kind: 'viewInteraction', viewId: view.id, interactionId: entry.entry.interaction.id }); } ui.edit(edits); } return;
 	}
 	if (command === 'predicate') {
 		if ((model.version !== 4 && model.version !== 5)) { throw new Error(localize('ade.predicate.upgrade', "Upgrade the model to version 4 to edit predicates.")); }
-		const edits = await editAdePredicate(ui.quickInput, model, id ?? ui.project.selectedId); if (edits?.length) { ui.edit(edits); } return;
+		const edits = await collect(localize('ade.predicate.edit', "Edit Predicate"), quick => editAdePredicate(quick, model, id ?? ui.project.selectedId)); if (edits?.length) { ui.edit(edits); } return;
 	}
 	if (command === 'prepareStructuralContext') {
 		if ((model.version !== 4 && model.version !== 5)) { return; }
-		const operation = await ui.quickInput.pick((model.foundation.blueprint?.operations ?? []).map(operation => ({ label: operation.name, operation })), { title: localize('ade.task.target', "Structural Task Operation") }); if (!operation) { return; }
-		const intent = model.foundation.tasks?.findLast(task => task.target.kind === 'operation' && task.target.id === operation.operation.id)?.text ?? await ui.name(undefined, localize('ade.task.intent', "Task Intent")); if (!intent) { return; }
-		await ui.project.prepareStructuralContext(operation.operation.id, intent); return;
+		const configured = await collect(localize('ade.task.prepare', "Prepare Structural Context"), async quick => {
+			const operation = await quick.pick((model.foundation.blueprint?.operations ?? []).map(operation => ({ label: operation.name, operation })), { title: localize('ade.task.target', "Structural Task Operation") }); if (!operation) { return; }
+			const intent = model.foundation.tasks?.findLast(task => task.target.kind === 'operation' && task.target.id === operation.operation.id)?.text ?? await quick.input({ title: localize('ade.task.intent', "Task Intent"), validateInput: async value => value.trim() ? undefined : localize('ade.task.required', "Enter a value.") });
+			return intent ? { operationId: operation.operation.id, intent } : undefined;
+		});
+		if (configured) { await ui.project.prepareStructuralContext(configured.operationId, configured.intent); } return;
 	}
 	if (command === 'blueprint' || command === 'projectDecisions') {
 		if ((model.version !== 4 && model.version !== 5)) { throw new Error(localize('ade.blueprint.upgrade', "Upgrade the model to version 4 to edit its blueprint.")); }

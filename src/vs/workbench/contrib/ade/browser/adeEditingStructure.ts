@@ -12,6 +12,8 @@ import { editAdeBehavior } from './adeBehaviorEditing.js';
 import { getElementPath } from '../common/visualNavigation.js';
 import { type AdeEditingContext } from './adeEditingContext.js';
 import { type AdeEditingCommand } from './adeEditingCommands.js';
+import { AdeFormDialog } from './adeFormDialog.js';
+import { AdeEditingWizard } from './adeEditingWizard.js';
 
 /** Collects structure intent; domain mutation remains in the project service. */
 export async function runAdeStructureCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'addFeature' | 'parent' | 'notation' | 'relationNotation' | 'renameFeature' | 'deleteFeature' | 'renameElement' | 'description' | 'behavior' | 'deleteElement'>, id?: string): Promise<void> {
@@ -38,12 +40,12 @@ export async function runAdeStructureCommand(ui: AdeEditingContext, command: Ext
 		if (parent) { ui.edit({ kind: 'parent', id: selected.id, parentId: parent.parentId }); }
 	}
 	if (command === 'notation' && selected) {
-		const details = await editAdeElementNotation(ui.quickInput, selected, model.version);
+		const details = await editAdeElementNotation(ui.container, selected, model.version);
 		if (details) { ui.edit({ kind: 'elementDetails', id: selected.id, details }); }
 	}
 	if (command === 'relationNotation' && id) {
 		const relation = model.semantics.relations.find(relation => relation.id === id);
-		if (relation) { const details = await editAdeRelationNotation(ui.quickInput, relation); if (details) { ui.edit({ kind: 'relationDetails', id, details }); } }
+		if (relation) { const details = await editAdeRelationNotation(ui.container, relation); if (details) { ui.edit({ kind: 'relationDetails', id, details }); } }
 	}
 	if (command === 'renameFeature' || command === 'deleteFeature') {
 		const feature = await ui.feature(id);
@@ -58,12 +60,19 @@ export async function runAdeStructureCommand(ui: AdeEditingContext, command: Ext
 		if (name) { ui.edit({ kind: 'rename', target: 'element', id: selected.id, name }); }
 	}
 	if (command === 'description' && selected) {
-		const description = await ui.quickInput.input({ title: localize('ade.description', "Description"), value: selected.description });
-		if (description !== undefined) { ui.edit({ kind: 'description', id: selected.id, description }); }
+		const dialog = new AdeFormDialog(ui.container, { title: localize('ade.descriptionTitle', "Description · {0}", selected.name) });
+		try {
+			const input = dialog.text(dialog.body, localize('ade.description', "Description"), selected.description, { multiline: true });
+			const description = await dialog.open(() => input.value);
+			if (description !== undefined) { ui.edit({ kind: 'description', id: selected.id, description }); }
+		} finally { dialog.dispose(); }
 	}
 	if (command === 'behavior' && selected) {
-		const behavior = await editAdeBehavior(ui.quickInput, model, selected);
-		if (behavior) { ui.edit({ kind: 'behavior', id: selected.id, behavior }); }
+		const wizard = new AdeEditingWizard(ui.container);
+		try {
+			const behavior = await wizard.run(localize('ade.behavior.title', "Behavioral Contract: {0}", selected.name), model.name, quick => editAdeBehavior(quick, model, selected));
+			if (behavior) { ui.edit({ kind: 'behavior', id: selected.id, behavior }); }
+		} finally { wizard.dispose(); }
 	}
 	if (command === 'deleteElement' && selected) {
 		await ui.deleteElement(selected);
