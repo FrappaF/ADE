@@ -21,12 +21,12 @@ import { AdeInput } from '../../browser/adeInput.js';
 
 suite('A.D.E diagram layout ownership', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
-	function fixture(split = false, panelVisible = true) {
+	function fixture(split = false, panelVisible = true, sidebarVisible = true) {
 		const active = store.add(new Emitter<void>()), visible = store.add(new Emitter()), partChanged = store.add(new Emitter<IPartVisibilityChangeEvent>());
 		const root = dom.append(document.body, dom.$('div')); store.add(toDisposable(() => root.remove()));
 		const ade: AdeInput = Object.create(AdeInput.prototype), other = store.add(new TestEditorInput(URI.file('/other.txt'), 'test.other'));
 		const editors = Object.assign(new (mock<IEditorService>())(), { activeEditor: ade, visibleEditors: split ? [ade, other] : [ade], onDidActiveEditorChange: active.event, onDidVisibleEditorsChange: visible.event });
-		const parts = new Map<Parts, boolean>([Parts.ACTIVITYBAR_PART, Parts.STATUSBAR_PART, Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.PANEL_PART].map(part => [part, part === Parts.PANEL_PART ? panelVisible : true]));
+		const parts = new Map<Parts, boolean>([Parts.ACTIVITYBAR_PART, Parts.STATUSBAR_PART, Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.PANEL_PART].map(part => [part, part === Parts.PANEL_PART ? panelVisible : part === Parts.SIDEBAR_PART ? sidebarVisible : true]));
 		const layout = Object.assign(new (mock<IWorkbenchLayoutService>())(), { mainContainer: root, onDidChangePartVisibility: partChanged.event, isVisible: (part: Parts) => parts.get(part) === true, setPartHidden: (hidden: boolean, part: Parts) => { parts.set(part, !hidden); } });
 		let tabsHidden = false;
 		const mainPart = Object.assign(new (mock<IEditorPart>())(), { enforcePartOptions: () => { tabsHidden = true; return toDisposable(() => { tabsHidden = false; }); } });
@@ -34,9 +34,9 @@ suite('A.D.E diagram layout ownership', () => {
 		const controller = store.add(new AdeDiagramLayout(layout, groups, editors, new TestConfigurationService(), store.add(new InMemoryStorageService())));
 		return { controller, active, partChanged, editors, parts, root, get tabsHidden() { return tabsHidden; } };
 	}
-	test('diagram focus hides native chrome and restores it when another editor opens', () => {
-		const f = fixture();
-		assert.deepStrictEqual([f.tabsHidden, [...f.parts.values()], f.root.classList.contains('ade-diagram-focus')], [true, [false, false, false, false, false], true]);
+	test('diagram focus opens navigation, hides native chrome and restores it when another editor opens', () => {
+		const f = fixture(false, true, false);
+		assert.deepStrictEqual([f.tabsHidden, [...f.parts.values()], f.root.classList.contains('ade-diagram-focus')], [true, [false, false, true, false, false], true]);
 		Object.assign(f.editors, { activeEditor: undefined, visibleEditors: [] }); f.active.fire();
 		assert.deepStrictEqual([f.tabsHidden, [...f.parts.values()], f.root.classList.contains('ade-diagram-focus')], [false, [true, true, true, true, true], false]);
 	});
@@ -53,6 +53,8 @@ suite('A.D.E diagram layout ownership', () => {
 		const f = fixture();
 		for (const partId of [Parts.STATUSBAR_PART, Parts.ACTIVITYBAR_PART, Parts.SIDEBAR_PART, Parts.PANEL_PART]) { f.parts.set(partId, true); f.partChanged.fire({ partId, visible: true }); }
 		assert.deepStrictEqual([f.parts.get(Parts.STATUSBAR_PART), f.parts.get(Parts.ACTIVITYBAR_PART), f.parts.get(Parts.SIDEBAR_PART), f.parts.get(Parts.PANEL_PART)], [false, false, true, true]);
+		f.parts.set(Parts.SIDEBAR_PART, false); f.partChanged.fire({ partId: Parts.SIDEBAR_PART, visible: false }); f.active.fire();
+		assert.strictEqual(f.parts.get(Parts.SIDEBAR_PART), false);
 	});
 
 });

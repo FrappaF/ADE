@@ -29,7 +29,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		const projectFile = path.join(folder, '.ade/model.json');
 		const empty = JSON.parse(await readFile(projectFile, 'utf8'));
 		assert.deepEqual([empty.semantics.elements, empty.semantics.relations, empty.views], [[], [], []]);
-		await shell.getByRole('button', { name: 'Add Feature', exact: true }).click();
+		await shell.getByRole('button', { name: 'Create First Feature', exact: true }).click();
 		await enterValue(window, 'Name', 'Acquisizione dati');
 		await shell.getByRole('region', { name: 'Diagram: Acquisizione dati · Structure', exact: true }).waitFor();
 		for (const [kind, name] of [['Actor', 'Tecnico'], ['Interface', 'Console'], ['Controller', 'Raccoglitore'], ['Resource', 'Campione']]) { await addElement(window, kind, name); }

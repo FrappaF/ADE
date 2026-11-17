@@ -47,7 +47,7 @@ export class AdeDiagramLayout extends Disposable {
 		this.storage.store(this.storageKey, this.original, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		this.layout.mainContainer.classList.add('ade-diagram-focus');
 		this.tabs.value = this.groups.mainPart.enforcePartOptions({ showTabs: 'none', editorActionsLocation: 'hidden' });
-		for (const part of this.parts) { this.layout.setPartHidden(true, part); }
+		for (const part of this.parts) { this.layout.setPartHidden(part !== Parts.SIDEBAR_PART, part); }
 	}
 
 	private restore(): void {

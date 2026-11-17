@@ -22,7 +22,7 @@ export class AdeControls extends Disposable {
 	private readonly listeners = this._register(new DisposableStore());
 	private readonly targets = new Map<string, HTMLElement | SVGElement>();
 	private readonly disclosures = new Map<string, HTMLDetailsElement>();
-	private readonly expanded = new Set<string>();
+	private readonly expanded = new Map<string, boolean>();
 	private deferredFocus: string | undefined;
 
 	trackFocus(id: string, element: HTMLElement | SVGElement): void {
@@ -38,7 +38,7 @@ export class AdeControls extends Disposable {
 	}
 
 	setExpanded(id: string, open: boolean): void {
-		if (open) { this.expanded.add(id); } else { this.expanded.delete(id); }
+		this.expanded.set(id, open);
 		const details = this.disclosures.get(id);
 		if (details) { details.open = open; }
 	}
@@ -62,9 +62,9 @@ export class AdeControls extends Disposable {
 	}
 
 	/** Keep secondary actions available to keyboard users without crowding the diagram. */
-	details(parent: HTMLElement, label: string, id: string, options: { popup?: boolean } = {}): HTMLElement {
+	details(parent: HTMLElement, label: string, id: string, options: { popup?: boolean; openByDefault?: boolean } = {}): HTMLElement {
 		const details = dom.append(parent, dom.$<HTMLDetailsElement>('details.ade-options'));
-		details.open = this.expanded.has(id);
+		details.open = this.expanded.get(id) ?? options.openByDefault ?? false;
 		const summary = dom.append(details, dom.$('summary'));
 		summary.textContent = label;
 		this.trackFocus(id, summary);
@@ -86,7 +86,7 @@ export class AdeControls extends Disposable {
 		const focused = [...this.targets].find(([, button]) => button === active)?.[0] ?? (active === root ? this.deferredFocus : undefined);
 		this.deferredFocus = undefined;
 		for (const [id, details] of this.disclosures) {
-			if (details.open) { this.expanded.add(id); } else { this.expanded.delete(id); }
+			this.expanded.set(id, details.open);
 		}
 		this.disclosures.clear();
 		this.listeners.clear();
