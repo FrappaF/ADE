@@ -1,14 +1,19 @@
 GUIDA COMPLETA AD ADE
 
+Edizione revisionata del 17 novembre 2026 · ADE desktop, main al commit 8a069e4b.
+
 1. Apri Guida-ADE.html nel browser oppure Guida-ADE.pdf.
-2. Estrai progetti-esempio.zip in una cartella di lavoro tua.
+2. Verifica che ADE si avvii (A1), poi estrai progetti-esempio.zip in una cartella di lavoro tua, conservando i file nascosti.
 3. In ADE scegli Open Project sulla cartella 01-bottega-visuale.
 4. Segui la Parte I: acquisto, resi e rimborsi.
 5. Nella Parte II costruisci Mercato da zero. Parti da 07-mercato-laboratorio/inizio o da una cartella nuova.
-6. Usa la Parte III come atlante delle 16 notazioni.
-7. Per System Map, accessi e filtri cumulativi consulta A9 nelle appendici.
-8. Per New > Structural Blueprint e le fasi Choose, Configure e Review parti da L3.
+6. Dopo L12 puoi provare il reverse in L20. L13-L15 sono moduli autonomi; L17-L19 richiedono i prerequisiti indicati e sono facoltativi.
+7. Consulta la Parte III per scegliere una delle 16 notazioni e L21 per consegnare il progetto.
+8. Per System Map, accessi e filtri cumulativi consulta A9 nelle appendici.
+9. Per New > Structural Blueprint e le fasi Choose, Configure e Review parti da L3.
 
 Il materiale comprende tre parti e appendici operative, 52 capitoli e 36 immagini dell’interfaccia. Bottega ha due feature e otto viste. Mercato include 18 viste, due checkpoint, moduli eseguibili e codice di esempio. Ogni sottoprogetto ADE va aperto sulla propria root.
 
 Progettazione e laboratori locali non richiedono un account IA né modifiche manuali al JSON. Le lezioni IA indicano account, modello, contesto e review richiesti.
+
+REVISIONE-GUIDA.md documenta modifiche, discrepanze, fonti e limiti delle verifiche. La cartella originale nel repository conserva il PDF e il testo precedenti.

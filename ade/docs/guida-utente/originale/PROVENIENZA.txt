@@ -1,0 +1,6 @@
+Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License.
+
+Originali prima della revisione del 17 novembre 2026.
+Fonte: origin/main, commit 8a069e4b (README.md e Guida-ADE.pdf copiati senza modifiche).
+Il sorgente HTML originale e le immagini sono conservati nella storia Git dello stesso commit.
+Questa cartella non viene inclusa nel kit utente e non viene modificata dal generatore.
