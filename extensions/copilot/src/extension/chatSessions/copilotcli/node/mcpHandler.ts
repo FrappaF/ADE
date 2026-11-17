@@ -85,7 +85,11 @@ export class CopilotCLIMCPHandler implements ICopilotCLIMCPHandler {
 			if (gateway) {
 				disposable.add(gateway);
 				for (const server of gateway.servers) {
-					const serverId = this.normalizeServerName(server.label) ?? `vscode-mcp-server-${Object.keys(mcpConfig).length}`;
+					const baseId = this.normalizeServerName(server.label) ?? `vscode-mcp-server-${Object.keys(mcpConfig).length}`;
+					let serverId = baseId;
+					for (let suffix = 2; Object.hasOwn(mcpConfig, serverId); suffix++) {
+						serverId = `${baseId}_${suffix}`;
+					}
 					mcpConfig[serverId] = {
 						type: 'http',
 						url: server.address.toString(),

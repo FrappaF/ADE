@@ -11,7 +11,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/comm
 import type { Client, IPCServer } from '../../../base/parts/ipc/common/ipc.js';
 import { NullLogService } from '../../../platform/log/common/log.js';
 import type { IAgentHostIpcConnectionOptions } from '../../../platform/agentHost/common/agentService.js';
-import { AgentHostChannel, IAgentHostUpstreamEndpoint, IUpstreamConnection, UnavailableAgentHostChannel } from '../../node/agentHostChannel.js';
+import { AgentHostChannel, IAgentHostUpstreamEndpoint, IUpstreamConnection, UnavailableAgentHostChannel, WebSocketUpstreamConnection } from '../../node/agentHostChannel.js';
 
 class TestLogService extends NullLogService {
 	readonly infos: string[] = [];
@@ -74,6 +74,29 @@ class FakeIPCServer {
 
 suite('AgentHostChannel', () => {
 	const ds = ensureNoDisposablesAreLeakedInTestSuite();
+
+	for (const pendingModule of ['ws', 'net']) {
+		test(`does not open a WebSocket when disposed while loading ${pendingModule}`, async () => {
+			const gate = new DeferredPromise<void>();
+			const entered = new DeferredPromise<void>();
+			let socketCount = 0;
+			const wsModule = { WebSocket: class { constructor() { socketCount++; } } } as unknown as typeof import('ws');
+			const connection = ds.add(new WebSocketUpstreamConnection(
+				{ socketPath: 'unused.sock' }, new NullLogService(),
+				async () => {
+					if (pendingModule === 'ws') { entered.complete(); await gate.p; }
+					return wsModule;
+				},
+				async () => { entered.complete(); await gate.p; return {} as typeof import('net'); },
+			));
+			const connected = connection.connect();
+			await entered.p;
+			connection.dispose();
+			gate.complete();
+			await assert.rejects(connected, /disposed/);
+			assert.strictEqual(socketCount, 0);
+		});
+	}
 
 	function createChannel(): { channel: AgentHostChannel<string>; upstreams: Map<string, FakeUpstream>; ipc: FakeIPCServer } {
 		const ipc = ds.add(new FakeIPCServer());

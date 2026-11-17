@@ -69,7 +69,7 @@ jobs:
       - name: Smoke ADE packaged AI workflow with a simulated CLI
         run: node ade/scripts/smoke-ai.mjs
       - name: Test ADE AI controller with injected services
-        run: node ade/scripts/test-ai-service.mjs
+        run: node ade/scripts/test-ai-service.ts
       - name: Test ADE CLI executable lookup and account status
         run: node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/node/adeCliExecutable.test.ts --run src/vs/workbench/contrib/ade/test/node/adeCliAccount.test.ts
       - name: Test ADE project lifecycle
@@ -87,10 +87,10 @@ jobs:
           save-cache: 'true'
       - name: Native ADE AI orchestration tests on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run -a ./scripts/test.sh --no-sandbox --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts
+        run: xvfb-run -a ./scripts/test.sh --no-sandbox --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts --run src/vs/workbench/contrib/ade/test/electron-browser/adeCodeService.test.ts
       - name: Native ADE AI orchestration tests on macOS
         if: runner.os == 'macOS'
-        run: ./scripts/test.sh --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts
+        run: ./scripts/test.sh --run src/vs/workbench/contrib/ade/test/electron-browser/adeAiService.test.ts --run src/vs/workbench/contrib/ade/test/electron-browser/adeCodeService.test.ts
       - name: Native ADE AI workflow with simulated CLI on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a node ade/scripts/smoke-desktop.mjs --ai-only

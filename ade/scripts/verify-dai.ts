@@ -9,59 +9,66 @@ import { resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cpus, arch, platform, release, totalmem } from 'node:os';
 import { createHash } from 'node:crypto';
-import { runDaiCorpus, daiCorpusGate } from '../benchmarks/dai-corpus.mjs';
+import { runDaiCorpus, daiCorpusGate, type DaiCorpus } from '../benchmarks/dai-corpus.ts';
 import { measureDaiContext } from '../benchmarks/dai-context.mjs';
+import { errorCode } from '../runtime/errors.ts';
+
+interface ProcessResult { code: number | null; signal: NodeJS.Signals | null; error?: string; text: string }
+interface SuiteResult extends Omit<ProcessResult, 'text'> { name: string; command: string[]; status: 'passed' | 'failed'; durationMs: number; log: string; logSha256: string }
+type BunAvailability = { status: 'available'; path: string; version: string; sha256: string } | { status: 'not-executed'; reason: string };
+type ScaleMetric = 'validation' | 'edit' | 'impact' | 'evidencePacking';
+interface ScaleReport { memory: { withinBudget: boolean }; fixtures: Record<ScaleMetric, { withinBudget: boolean }>[] }
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const sha = value => createHash('sha256').update(value).digest('hex');
-const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
-const json = async path => JSON.parse(await readFile(resolve(root, path), 'utf8'));
-const optional = async path => { try { return (await readFile(path, 'utf8')).trim(); } catch { return null; } };
+const sha = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
+const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+const json = async <T = unknown>(path: string): Promise<T> => JSON.parse(await readFile(resolve(root, path), 'utf8'));
+const optional = async (path: string) => { try { return (await readFile(path, 'utf8')).trim(); } catch { return null; } };
 
 async function sourceHashes() {
 	const files = [...new Set(git('ls-files', '-c', '-m', '-o', '--exclude-standard', '--', 'ade', 'src/vs/workbench/contrib/ade', 'package.json', '.github/workflows/ade-dai.yml').split('\n'))].filter(path => /\.(?:ts|mjs|json|yml)$/.test(path) && !path.startsWith('ade/docs/'));
 	return Object.fromEntries(await Promise.all(files.sort().map(async path => {
 		try { return [path, sha(await readFile(resolve(root, path)))]; }
-		catch (error) { if (error.code === 'ENOENT') { return [path, null]; } throw error; }
+		catch (error) { if (errorCode(error) === 'ENOENT') { return [path, null]; } throw error; }
 	})));
 }
 
 async function main() {
 	const [destination, ...flags] = process.argv.slice(2);
-	if (!destination || flags.some(flag => flag !== '--require-release') || new Set(flags).size !== flags.length) { throw new Error('Usage: node ade/scripts/verify-dai.mjs NEW_REPORT_DIRECTORY [--require-release]'); }
+	if (!destination || flags.some(flag => flag !== '--require-release') || new Set(flags).size !== flags.length) { throw new Error('Usage: node ade/scripts/verify-dai.ts NEW_REPORT_DIRECTORY [--require-release]'); }
 	if (process.version !== 'v24.22.1') { throw new Error('DAI verification requires Node 24.22.1, as pinned by the trusted archetype'); }
 	const output = resolve(destination);
 	// An existing report is immutable. Never overwrite historical evidence.
 	await mkdir(output);
 	const policyPath = 'ade/docs/diagram-driven-ai/budgets.v1.json', corpusPath = 'ade/docs/diagram-driven-ai/corpus.v1.json';
-	const policy = await json(policyPath), corpus = await json(corpusPath), hashes = await sourceHashes();
+	const policy = await json(policyPath), corpus = await json<DaiCorpus>(corpusPath), hashes = await sourceHashes();
 	const controller = new AbortController(), cancel = () => controller.abort();
 	process.on('SIGINT', cancel); process.on('SIGTERM', cancel);
-	const suites = [];
-	const run = async (name, args, env = process.env) => {
+	const suites: SuiteResult[] = [];
+	const run = async (name: string, args: string[], env = process.env) => {
 		controller.signal.throwIfAborted();
 		console.log(`DAI: ${name}`);
 		const started = Date.now();
-		const result = await new Promise(resolveResult => {
+		const result = await new Promise<ProcessResult>(resolveResult => {
 			const child = spawn(process.execPath, args, { cwd: root, env, shell: false, signal: controller.signal, timeout: 600000 });
-			const chunks = []; let size = 0, error;
+			const chunks: Buffer[] = []; let size = 0, error: string | undefined;
 			for (const stream of [child.stdout, child.stderr]) { stream.on('data', data => { size += data.length; if (size <= 16 * 1024 * 1024) { chunks.push(data); } else { error = 'Verification output exceeds 16 MiB'; child.kill(); } }); }
 			child.on('error', value => { error = value.message; });
 			child.on('close', (code, signal) => resolveResult({ code, signal, error, text: Buffer.concat(chunks).toString('utf8') }));
 		});
 		await writeFile(resolve(output, name + '.log'), result.text, { flag: 'wx' });
-		const row = { name, command: [process.execPath, ...args], status: result.code === 0 && !result.error ? 'passed' : 'failed', code: result.code, signal: result.signal, ...(result.error ? { error: result.error } : {}), durationMs: Date.now() - started, log: name + '.log', logSha256: sha(result.text) };
+		const row: SuiteResult = { name, command: [process.execPath, ...args], status: result.code === 0 && !result.error ? 'passed' : 'failed', code: result.code, signal: result.signal, ...(result.error ? { error: result.error } : {}), durationMs: Date.now() - started, log: name + '.log', logSha256: sha(result.text) };
 		suites.push(row); return row;
 	};
 	try {
-		let bun;
+		let bun: BunAvailability;
 		try {
 			if (!process.env.ADE_BUN_EXECUTABLE || !isAbsolute(process.env.ADE_BUN_EXECUTABLE)) { throw new Error('Set ADE_BUN_EXECUTABLE to an absolute Bun 1.3.2 path'); }
 			const path = await realpath(process.env.ADE_BUN_EXECUTABLE), version = execFileSync(path, ['--version'], { encoding: 'utf8', timeout: 5000, env: {} }).trim();
 			if (version !== '1.3.2') { throw new Error('Expected Bun 1.3.2, received ' + version); }
 			bun = { path, version, sha256: sha(await readFile(path)), status: 'available' };
-		} catch (error) { bun = { status: 'not-executed', reason: error.message }; }
-		const files = async directory => (await readdir(resolve(root, directory))).filter(file => /\.test\.(?:mjs|ts)$/.test(file)).sort().map(file => directory + '/' + file);
+		} catch (error) { bun = { status: 'not-executed', reason: error instanceof Error ? error.message : String(error) }; }
+		const files = async (directory: string) => (await readdir(resolve(root, directory))).filter(file => /\.test\.(?:mjs|ts)$/.test(file)).sort().map(file => directory + '/' + file);
 		await run('domain', ['--test', '--test-isolation=none', ...await files('ade/test')]);
 		await run('ai', ['--test', '--test-isolation=none', ...await files('ade/ai/test')]);
 		await run('import', ['--test', ...await files('ade/code-import/test')]);
@@ -81,8 +88,9 @@ async function main() {
 		const results = await runDaiCorpus(corpus), corpusGate = daiCorpusGate(corpus, ['node.esm', 'bun.esm'], results);
 		await writeFile(resolve(output, 'corpus.json'), JSON.stringify({ gate: corpusGate, results }, null, '\t') + '\n', { flag: 'wx' });
 		const after = await sourceHashes(), sourceUnchanged = JSON.stringify(hashes) === JSON.stringify(after);
-		const scale = await json(resolve(output, 'scale.json'));
-		const performancePass = scale.memory.withinBudget && scale.fixtures.every(f => ['validation', 'edit', 'impact', 'evidencePacking'].every(key => f[key].withinBudget)) && context.records.every(r => r.candidate.inputBudgetPass && r.candidate.timing.withinBudget);
+		const scale = await json<ScaleReport>(resolve(output, 'scale.json'));
+		const metrics: ScaleMetric[] = ['validation', 'edit', 'impact', 'evidencePacking'];
+		const performancePass = scale.memory.withinBudget && scale.fixtures.every(f => metrics.every(key => f[key].withinBudget)) && context.records.every(r => r.candidate.inputBudgetPass && r.candidate.timing.withinBudget);
 		const localPassed = suites.every(s => s.status === 'passed') && bun.status === 'available' && corpusGate.failed === 0 && sourceUnchanged && performancePass;
 		const external = [
 			{ id: 'live-provider', status: 'not-measured', reason: 'Deterministic runner sends no provider requests. Three configured live runs per case/candidate and comparable usage/prices remain required.' },
@@ -102,4 +110,4 @@ async function main() {
 	} finally { process.off('SIGINT', cancel); process.off('SIGTERM', cancel); }
 }
 
-try { await main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
+try { await main(); } catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; }

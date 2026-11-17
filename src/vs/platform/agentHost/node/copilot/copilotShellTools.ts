@@ -573,7 +573,7 @@ export async function createShellTools(
 
 	const writeTool: Tool<IWriteShellArgs> = {
 		name: `write_${shellType}`,
-		description: `Send input to a running ${shellType} shell (e.g. answering a prompt, sending Ctrl+C).`,
+		description: `Send input to a running ${shellType} shell (e.g. answering a prompt, sending Ctrl+C). When sandboxing is enabled, raw terminal input requires approval to run outside the sandbox and may be disabled by policy.`,
 		parameters: {
 			type: 'object',
 			properties: {
@@ -583,11 +583,31 @@ export async function createShellTools(
 		},
 		overridesBuiltInTool: true,
 		skipPermission: true,
-		handler: async (args) => {
+			handler: async (args, invocation) => {
 			const shells = shellManager.listShells();
 			const shell = shells[shells.length - 1];
 			if (!shell) {
 				return makeFailureResult('No active shell found.', 'no_shell');
+			}
+			// The persistent PTY itself is outside the per-command sandbox.
+			// Even input intended for a running command can reach its outer
+			// shell if that command exits before the write, so treat all raw
+			// input as an unsandboxed operation rather than trusting busy state.
+			if (await engine.isEnabled()) {
+				if (!engine.areUnsandboxedCommandsAllowed()) {
+					return makeFailureResult('Raw terminal input is disabled because execution outside the sandbox is not allowed.', 'unsandboxed_disabled');
+				}
+				if (!confirmUnsandboxedExecution || !await confirmUnsandboxedExecution({
+					toolCallId: invocation.toolCallId,
+					toolName: invocation.toolName,
+					shellExecutable: shell.executable,
+					command: args.command,
+				})) {
+					return makeFailureResult('Raw terminal input requires approval to run outside the sandbox.', 'sandbox_blocked');
+				}
+				if (!engine.areUnsandboxedCommandsAllowed()) {
+					return makeFailureResult('Execution outside the sandbox is no longer allowed.', 'unsandboxed_disabled');
+				}
 			}
 			await terminalManager.sendText(shell.terminalUri, args.command, { shouldExecute: false });
 			return makeSuccessResult('Input sent to shell.');

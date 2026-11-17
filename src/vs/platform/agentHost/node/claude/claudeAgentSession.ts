@@ -1157,7 +1157,7 @@ export class ClaudeAgentSession extends Disposable {
 	 */
 	private async _rebindForSyncedState(): Promise<void> {
 		this._pendingClientToolCalls.rejectAll(new CancellationError());
-		await this._requirePipeline().rebindForRestart();
+		await this._requirePipeline().rebindForRestart(resolveCurrentPermissionMode(this._configurationService, this._owner.get(), this._chatChannelUri, this._inheritedPermissionMode, this._permissionModeFallback));
 		this._onDidCustomizationsChange.fire();
 	}
 

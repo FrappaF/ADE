@@ -421,7 +421,7 @@ export class RipgrepParser extends EventEmitter {
 					previewRange: searchRangeToRange(e.preview),
 				}
 			)),
-			internalResult.previewText);
+			internalResult.previewText, internalResult.fullMatchTexts);
 	}
 
 	private createTextSearchContexts(data: IRgMatch, uri: URI): TextSearchContext2[] {

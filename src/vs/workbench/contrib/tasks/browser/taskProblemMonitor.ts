@@ -11,13 +11,13 @@ import { IMarkerData, MarkerSeverity, IMarker as ITaskMarker } from '../../../..
 
 interface ITerminalMarkerData {
 	readonly resources: Map<string, URI>;
-	readonly markers: Map<string, Map<string, IMarkerData>>;
+	readonly markers: Map<string, Map<string, ITaskMarker>>;
 }
 
 export class TaskProblemMonitor extends Disposable {
 
 	private readonly terminalMarkerMap: Map<number, ITerminalMarkerData> = new Map();
-	private readonly terminalDisposables = new DisposableMap<number>();
+	private readonly terminalDisposables = this._register(new DisposableMap<number>());
 
 	constructor() {
 		super();
@@ -26,7 +26,7 @@ export class TaskProblemMonitor extends Disposable {
 	addTerminal(terminal: ITerminalInstance, problemMatcher: AbstractProblemCollector) {
 		this.terminalMarkerMap.set(terminal.instanceId, {
 			resources: new Map<string, URI>(),
-			markers: new Map<string, Map<string, IMarkerData>>()
+			markers: new Map<string, Map<string, ITaskMarker>>()
 		});
 
 		const store = new DisposableStore();
@@ -54,7 +54,7 @@ export class TaskProblemMonitor extends Disposable {
 							markerMap = new Map();
 							markerData.markers.set(marker.owner, markerMap);
 						}
-						markerMap.set(marker.resource.toString(), marker);
+						markerMap.set(JSON.stringify([marker.resource.toString(), IMarkerData.makeKey(marker)]), marker);
 						this.terminalMarkerMap.set(terminal.instanceId, markerData);
 					}
 				}
@@ -66,7 +66,7 @@ export class TaskProblemMonitor extends Disposable {
 			markerData?.resources.clear();
 			this.terminalMarkerMap.set(terminal.instanceId, {
 				resources: new Map<string, URI>(),
-				markers: new Map<string, Map<string, IMarkerData>>()
+				markers: new Map<string, Map<string, ITaskMarker>>()
 			});
 		}));
 	}
@@ -88,8 +88,8 @@ export class TaskProblemMonitor extends Disposable {
 		for (const [owner, markersMap] of markerData.markers) {
 			const resources: URI[] = [];
 			const markers: IMarkerData[] = [];
-			for (const [resource, marker] of markersMap) {
-				resources.push(markerData.resources.get(resource)!);
+			for (const marker of markersMap.values()) {
+				resources.push(marker.resource);
 				markers.push(marker);
 			}
 			result.set(owner, { resources, markers });

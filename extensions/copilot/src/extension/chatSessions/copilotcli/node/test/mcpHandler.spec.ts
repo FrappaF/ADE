@@ -5,8 +5,15 @@
 
 import type { SweCustomAgent } from '@github/copilot/sdk';
 import { describe, expect, it } from 'vitest';
+import { IAuthenticationService } from '../../../../../platform/authentication/common/authentication';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configurationService';
+import { NullMcpService } from '../../../../../platform/mcp/common/mcpService';
+import { TestLogService } from '../../../../../platform/testing/common/testLogService';
+import { mock } from '../../../../../util/common/test/simpleMock';
+import { Event } from '../../../../../util/vs/base/common/event';
+import { URI } from '../../../../../util/vs/base/common/uri';
 import type { LanguageModelToolInformation } from '../../../../../vscodeTypes';
-import { buildMcpServerMappings, type MCPServerConfig, type McpServerMappings, remapCustomAgentTools } from '../mcpHandler';
+import { buildMcpServerMappings, CopilotCLIMCPHandler, type MCPServerConfig, type McpServerMappings, remapCustomAgentTools } from '../mcpHandler';
 
 function makeAgent(partial: { slug: string; tools?: string[] }): SweCustomAgent {
 	return partial as unknown as SweCustomAgent;
@@ -23,6 +30,36 @@ function makeTool(fullReferenceName: string | undefined, sourceLabel?: string): 
 function makeToolsMap(...entries: [LanguageModelToolInformation, boolean][]): ReadonlyMap<LanguageModelToolInformation, boolean> {
 	return new Map(entries);
 }
+
+describe('CopilotCLIMCPHandler gateway names', () => {
+	it('keeps every server when labels normalize to the same name, including suffix collisions', async () => {
+		const mcpService = new class extends NullMcpService {
+			override async startMcpGateway() {
+				return {
+					servers: ['A.B', 'A_B', 'a_b_2', 'A.B'].map((label, index) => ({ label, address: URI.parse(`http://localhost/server-${index}`) })),
+					onDidChangeServers: Event.None,
+					dispose() { },
+				};
+			}
+		}();
+		const configuration = new class extends mock<IConfigurationService>() {
+			override getNonExtensionConfig<T>(): T | undefined { return true as T; }
+		}();
+		const handler = new CopilotCLIMCPHandler(new TestLogService(), new class extends mock<IAuthenticationService>() { }(), configuration, mcpService);
+		const result = await handler.loadMcpConfig(URI.parse('copilotcli:/test'));
+		try {
+			expect(Object.entries(result.mcpConfig ?? {}).map(([name, config]) => [name, 'url' in config ? config.url : undefined, config.displayName])).toEqual([
+				['a_b', 'http://localhost/server-0', 'A.B'],
+				['a_b_2', 'http://localhost/server-1', 'A_B'],
+				['a_b_2_2', 'http://localhost/server-2', 'a_b_2'],
+				['a_b_3', 'http://localhost/server-3', 'A.B'],
+			]);
+		} finally {
+			result.disposable.dispose();
+			mcpService.dispose();
+		}
+	});
+});
 
 describe('buildMcpServerMappings', () => {
 	it('should extract simple server name from fullReferenceName', () => {

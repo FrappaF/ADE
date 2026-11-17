@@ -34,42 +34,41 @@ export async function getSession(): Promise<AuthenticationSession> {
 	return await authentication.getSession('github', scopes, { createIfNone: true });
 }
 
-let _octokit: Promise<Octokit> | undefined;
+export async function getOctokit(): Promise<Octokit> {
+	// Resolve the selected account for each operation. A cached client retains
+	// its token after refresh, sign-out, or an account preference change.
+	const session = await getSession();
+	const { Octokit } = await import('@octokit/rest');
+	return new Octokit({
+		request: { agent: getAgent() },
+		userAgent: 'GitHub VSCode',
+		auth: `token ${session.accessToken}`
+	});
+}
 
-export function getOctokit(): Promise<Octokit> {
-	if (!_octokit) {
-		_octokit = getSession().then(async session => {
-			const token = session.accessToken;
-			const agent = getAgent();
-
-			const { Octokit } = await import('@octokit/rest');
-
-			return new Octokit({
-				request: { agent },
-				userAgent: 'GitHub VSCode',
-				auth: `token ${token}`
-			});
-		}).then(null, async err => {
-			_octokit = undefined;
-			throw err;
-		});
-	}
-
-	return _octokit;
+async function createOctokitGraphql(token: string): Promise<graphql> {
+	const { graphql } = await import('@octokit/graphql');
+	return graphql.defaults({
+		headers: { authorization: `token ${token}` },
+		request: { agent: getAgent() }
+	});
 }
 
 export class OctokitService {
 	private _octokitGraphql: graphql | undefined;
+	private _sessionGeneration = 0;
+	private _isDisposed = false;
 
 	private readonly _onDidChangeSessions = new EventEmitter<void>();
 	readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
 	private readonly _disposables = new DisposableStore();
 
-	constructor() {
+	constructor(private readonly _createOctokitGraphql = createOctokitGraphql) {
 		this._disposables.add(this._onDidChangeSessions);
 		this._disposables.add(authentication.onDidChangeSessions(e => {
 			if (e.provider.id === 'github') {
+				this._sessionGeneration++;
 				this._octokitGraphql = undefined;
 				this._onDidChangeSessions.fire();
 			}
@@ -78,29 +77,40 @@ export class OctokitService {
 
 	@sequentialize
 	public async getOctokitGraphql(): Promise<graphql> {
-		if (!this._octokitGraphql) {
+		if (this._isDisposed) {
+			throw new AuthenticationError('GitHub authentication service has been disposed.');
+		}
+		while (!this._octokitGraphql) {
+			const generation = this._sessionGeneration;
 			try {
 				const session = await authentication.getSession('github', scopes, { silent: true });
+				if (this._isDisposed) {
+					throw new AuthenticationError('GitHub authentication service has been disposed.');
+				}
+				if (generation !== this._sessionGeneration) {
+					continue;
+				}
 
 				if (!session) {
 					throw new AuthenticationError('No GitHub authentication session available.');
 				}
 
-				const token = session.accessToken;
-				const { graphql } = await import('@octokit/graphql');
-
-				this._octokitGraphql = graphql.defaults({
-					headers: {
-						authorization: `token ${token}`
-					},
-					request: {
-						agent: getAgent()
-					}
-				});
-
-				return this._octokitGraphql;
+				const client = await this._createOctokitGraphql(session.accessToken);
+				if (this._isDisposed) {
+					throw new AuthenticationError('GitHub authentication service has been disposed.');
+				}
+				if (generation !== this._sessionGeneration) {
+					continue;
+				}
+				this._octokitGraphql = client;
 			} catch (err) {
 				this._octokitGraphql = undefined;
+				if (this._isDisposed) {
+					throw new AuthenticationError('GitHub authentication service has been disposed.');
+				}
+				if (generation !== this._sessionGeneration) {
+					continue;
+				}
 				throw new AuthenticationError(err.message);
 			}
 		}
@@ -109,6 +119,8 @@ export class OctokitService {
 	}
 
 	dispose(): void {
+		this._isDisposed = true;
+		this._sessionGeneration++;
 		this._octokitGraphql = undefined;
 		this._disposables.dispose();
 	}

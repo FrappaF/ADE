@@ -579,6 +579,10 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 							dependency.uri.toString()
 						));
 						this._showOutput();
+						promises.push(Promise.resolve({ exitCode: 1 }));
+						if (task.configurationProperties.dependsOrder === DependsOrder.sequence) {
+							break;
+						}
 					}
 				}
 			}
@@ -827,7 +831,7 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 			} else {
 				// Allows the taskExecutions array to be updated in the extension host
 				this._fireTaskEvent(TaskEvent.general(TaskEventKind.End, task));
-				return Promise.resolve({ exitCode: 0 });
+				return Promise.resolve({ exitCode: resolvedVariables ? 0 : 1 });
 			}
 		}, reason => {
 			return Promise.reject(reason);

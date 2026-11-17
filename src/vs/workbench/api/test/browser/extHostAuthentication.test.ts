@@ -7,13 +7,14 @@ import assert from 'assert';
 import type { ProgressOptions } from 'vscode';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { raceCancellationError } from '../../../../base/common/async.js';
 import { CancellationError, isCancellationError } from '../../../../base/common/errors.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { IAuthorizationServerMetadata } from '../../../../base/common/oauth.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { mock } from '../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
-import { ILogger, ILoggerService, NullLogger } from '../../../../platform/log/common/log.js';
+import { AdapterLogger, ILogger, ILoggerService, LogLevel, NullLogger } from '../../../../platform/log/common/log.js';
 import { INotificationSource } from '../../../../platform/notification/common/notification.js';
 import { Progress } from '../../../../platform/progress/common/progress.js';
 import { IAuthenticationProviderSessionOptions } from '../../../services/authentication/common/authentication.js';
@@ -68,6 +69,14 @@ suite('DynamicAuthProvider', () => {
 	class TestDynamicAuthProvider extends DynamicAuthProvider {
 		generateNewClientIdCalls = 0;
 
+		exchangeCodeForTesting(code: string, verifier: string) {
+			return this.exchangeCodeForToken(code, verifier, 'https://vscode.dev/redirect');
+		}
+
+		generateClientIdForTesting() {
+			return super._generateNewClientId();
+		}
+
 		protected override async _generateNewClientId(): Promise<void> {
 			this.generateNewClientIdCalls++;
 		}
@@ -120,16 +129,21 @@ suite('DynamicAuthProvider', () => {
 		readonly providerId?: string;
 		readonly fetcher?: typeof fetch;
 		readonly onDidOpenUri?: (uri: string) => void;
+		readonly onDidPersistTokens?: (tokens: IAuthorizationToken[]) => void;
+		readonly waitForUriHandler?: (uri: UriComponents, token: CancellationToken) => Promise<UriComponents>;
+		readonly logger?: ILogger;
+		readonly clientSecret?: string;
 	}): TestDynamicAuthProvider {
 		const loggerService = new class extends mock<ILoggerService>() {
 			override createLogger(): ILogger {
-				return new NullLogger();
+				return options.logger ?? new NullLogger();
 			}
 		}();
 		const proxy = new class extends mock<Proxied<MainThreadAuthenticationShape>>() {
-			override $setSessionsForDynamicAuthProvider = (): Promise<void> => Promise.resolve();
+			override $promptForClientRegistration: Proxied<MainThreadAuthenticationShape>['$promptForClientRegistration'] = async () => undefined;
+			override $setSessionsForDynamicAuthProvider = async (_providerId: string, _clientId: string, tokens: IAuthorizationToken[]): Promise<void> => { options.onDidPersistTokens?.(tokens); };
 			// Never settles, so an abandoned authorization flow leaves no rejected promise behind.
-			override $waitForUriHandler = (): Promise<UriComponents> => new Promise<UriComponents>(() => { });
+			override $waitForUriHandler = (uri: UriComponents, token: CancellationToken): Promise<UriComponents> => options.waitForUriHandler?.(uri, token) ?? new Promise<UriComponents>(() => { });
 		}();
 		const extHostWindow = new class extends mock<IExtHostWindow>() {
 			override async openUri(uri: string | URI): Promise<boolean> {
@@ -161,7 +175,7 @@ suite('DynamicAuthProvider', () => {
 			options.serverMetadata,
 			{ resource: options.resource },
 			'client-id',
-			undefined,
+			options.clientSecret,
 			disposables.add(new Emitter()),
 			options.initialTokens ?? [],
 			options.providerId,
@@ -219,6 +233,95 @@ suite('DynamicAuthProvider', () => {
 			clientId: 'client-id',
 		});
 	});
+
+	test('preserves a non-rotating refresh token through repeated refreshes and persistence', async () => {
+		const refreshTokens: (string | null)[] = [];
+		const persisted: IAuthorizationToken[][] = [];
+		const provider = createProvider({
+			...servers.nonMicrosoft,
+			resource,
+			initialTokens: [{ access_token: jwt({ sub: 'account' }), token_type: 'Bearer', scope: '', refresh_token: 'original-refresh', expires_in: 1, created_at: 0 }],
+			onDidPersistTokens: tokens => persisted.push(tokens),
+			fetcher: async (_input, init) => {
+				refreshTokens.push(new URLSearchParams(String(init?.body)).get('refresh_token'));
+				return new Response(JSON.stringify({ access_token: jwt({ sub: 'account', jti: String(refreshTokens.length) }), token_type: 'Bearer', expires_in: 60 }));
+			},
+		});
+		await provider.getSessions([], { silent: true });
+		await provider.getSessions([], { silent: true });
+		assert.deepStrictEqual({ refreshTokens, persisted: persisted.map(tokens => tokens.map(token => token.refresh_token)) }, {
+			refreshTokens: ['original-refresh', 'original-refresh'], persisted: [['original-refresh'], ['original-refresh']]
+		});
+	});
+
+	for (const expired of [false, true]) {
+		for (const failure of ['network', 'server', 'invalid_grant']) {
+			test(`handles ${failure} while refreshing an ${expired ? 'expired' : 'unexpired'} token`, async () => {
+				let fetchCalls = 0;
+				const persisted: IAuthorizationToken[][] = [];
+				const original = { access_token: jwt({ sub: 'account' }), token_type: 'Bearer', scope: '', refresh_token: 'original-refresh', expires_in: 60, created_at: expired ? 0 : Date.now() };
+				const provider = createProvider({
+					...servers.nonMicrosoft, resource, initialTokens: [original],
+					onDidPersistTokens: tokens => persisted.push(tokens),
+					fetcher: async () => {
+						if (++fetchCalls === 1) {
+							if (failure === 'network') {
+								throw new TypeError('Failed to fetch');
+							}
+							return new Response(JSON.stringify({ error: failure === 'server' ? 'server_error' : 'invalid_grant' }), { status: failure === 'server' ? 503 : 400 });
+						}
+						return new Response(JSON.stringify({ access_token: jwt({ sub: 'account', jti: 'renewed' }), token_type: 'Bearer', expires_in: 3600, refresh_token: 'rotated-refresh' }));
+					}
+				});
+				const first = await provider.getSessions([], { silent: true });
+				const persistedAfterFailure = persisted.length;
+				const second = await provider.getSessions([], { silent: true });
+				const permanent = failure === 'invalid_grant';
+				assert.deepStrictEqual({ first: first.map(session => session.accessToken), second: second.length, fetchCalls, persistedAfterFailure, lastRefresh: persisted.at(-1)?.map(token => token.refresh_token) }, {
+					first: expired || permanent ? [] : [original.access_token], second: permanent ? 0 : 1, fetchCalls: permanent ? 1 : 2, persistedAfterFailure: permanent ? 1 : 0, lastRefresh: permanent ? [] : ['rotated-refresh']
+				});
+			});
+		}
+	}
+
+	test('cancels the callback waiter when opening the browser fails', async () => {
+		let waiter: CancellationToken | undefined;
+		const provider = createProvider({
+			...servers.nonMicrosoft, resource,
+			waitForUriHandler: (_uri, token) => {
+				waiter = token;
+				return raceCancellationError(new Promise<UriComponents>(() => { }), token);
+			}
+		});
+		await assert.rejects(provider.createSession([], {}), isCancellationError);
+		assert.strictEqual(waiter?.isCancellationRequested, true);
+	});
+
+	test('does not log authorization codes, PKCE verifiers, client secrets, or invalid token payloads', async () => {
+		const logs: string[] = [];
+		const logger = disposables.add(new AdapterLogger({ log: (_level, args) => logs.push(JSON.stringify(args)) }, LogLevel.Trace));
+		const provider = createProvider({
+			...servers.nonMicrosoft, resource, logger, clientSecret: 'test-client-secret',
+			fetcher: async () => new Response(JSON.stringify({ access_token: 'test-access-token', refresh_token: 'test-refresh-token' }))
+		});
+		await assert.rejects(provider.exchangeCodeForTesting('test-authorization-code', 'test-code-verifier'), /Invalid authorization token response/);
+		assert.deepStrictEqual(['test-client-secret', 'test-authorization-code', 'test-code-verifier', 'test-access-token', 'test-refresh-token'].filter(secret => logs.some(log => log.includes(secret))), []);
+	});
+
+	for (const status of [200, 400]) {
+		test(`does not log credentials from a rejected DCR response (${status})`, async () => {
+			const secret = 'synthetic-dcr-client-secret';
+			const logs: string[] = [];
+			const logger = disposables.add(new AdapterLogger({ log: (_level, args) => logs.push(JSON.stringify(args)) }, LogLevel.Trace));
+			const provider = createProvider({
+				...servers.nonMicrosoft, resource, logger,
+				serverMetadata: { ...servers.nonMicrosoft.serverMetadata, registration_endpoint: 'https://auth.example.com/register' },
+				fetcher: async () => new Response(JSON.stringify({ client_secret: secret, error_description: secret }), { status })
+			});
+			await assert.rejects(provider.generateClientIdForTesting(), /Failed to fetch new client ID/);
+			assert.deepStrictEqual({ leaked: logs.some(log => log.includes(secret)), prompted: logs.some(log => log.includes('Prompting user')) }, { leaked: false, prompted: true });
+		});
+	}
 
 	test('refresh sends scope without resource for Microsoft auth, and resource without scope otherwise', async () => {
 		const results: Record<string, { body: Record<string, string>; scopes: (readonly string[])[] }> = {};

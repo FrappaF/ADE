@@ -129,23 +129,24 @@ export async function handleWritePermission(
 ): Promise<PermissionRequestResult> {
 	const workingDirectory = getWorkingDirectory(workspaceInfo);
 	const editFile = getFileBeingEdited(permissionRequest, toolCall);
+	const isolationEnabled = isIsolationEnabled(workspaceInfo);
 
 	// Auto-approve writes within the workspace/working directory when appropriate.
 	if (workingDirectory && editFile) {
 		const isWorkspaceFile = workspaceService.getWorkspaceFolder(editFile);
-		const isWorkingDirectoryFile = !workspaceService.getWorkspaceFolder(workingDirectory) && extUriBiasedIgnorePathCase.isEqualOrParent(editFile, workingDirectory);
+		const isWorkingDirectoryFile = (isolationEnabled || !workspaceService.getWorkspaceFolder(workingDirectory)) && extUriBiasedIgnorePathCase.isEqualOrParent(editFile, workingDirectory);
 
 		let autoApprove = false;
 		// If isolation is enabled, we only auto-approve writes within the working directory.
-		if (isIsolationEnabled(workspaceInfo) && isWorkingDirectoryFile) {
+		if (isolationEnabled && isWorkingDirectoryFile) {
 			autoApprove = true;
 		}
 		// If its a workspace file, and not editing protected files, we auto-approve.
-		if (!autoApprove && isWorkspaceFile && !(await requiresFileEditconfirmation(instantiationService, permissionRequest, toolCall))) {
+		if (!isolationEnabled && !autoApprove && isWorkspaceFile && !(await requiresFileEditconfirmation(instantiationService, permissionRequest, toolCall))) {
 			autoApprove = true;
 		}
 		// If we're working in the working directory (non-isolation), and not editing protected files, we auto-approve.
-		if (!autoApprove && isWorkingDirectoryFile && !(await requiresFileEditconfirmation(instantiationService, permissionRequest, toolCall, workingDirectory))) {
+		if (!isolationEnabled && !autoApprove && isWorkingDirectoryFile && !(await requiresFileEditconfirmation(instantiationService, permissionRequest, toolCall, workingDirectory))) {
 			autoApprove = true;
 		}
 
@@ -166,7 +167,7 @@ export async function handleWritePermission(
 	// Fall back to interactive confirmation. If approved, track the edit.
 	let workspaceFolderForFile: URI | undefined;
 	if (editFile) {
-		workspaceFolderForFile = workspaceService.getWorkspaceFolder(editFile);
+		workspaceFolderForFile = isolationEnabled ? undefined : workspaceService.getWorkspaceFolder(editFile);
 		if (workingDirectory && extUriBiasedIgnorePathCase.isEqualOrParent(editFile, workingDirectory)) {
 			workspaceFolderForFile = workingDirectory;
 		}

@@ -403,6 +403,14 @@ suite('SearchResult', () => {
 		return voidPromise.then(() => assert.ok(testObject.isEmpty()));
 	});
 
+	test('replaceAll propagates failures and retains results for retry', async () => {
+		instantiationService.stub(IReplaceService, 'replace', () => Promise.reject(new Error('changed file')));
+		const result = aSearchResult();
+		addToSearchResult(result, [aRawMatch('/1', new TextSearchMatch('foo', lineOneRange))]);
+		await assert.rejects(result.replaceAll(null!), /changed file/);
+		assert.strictEqual(result.fileCount(), 1);
+	});
+
 	test('batchRemove should trigger the onChange event correctly', function () {
 		const target = sinon.spy();
 		const testObject = getPopulatedSearchResult();

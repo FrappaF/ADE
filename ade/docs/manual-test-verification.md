@@ -41,7 +41,7 @@ Dopo il setup e la build del client:
 npm run ade:setup:test
 npm run ade:test
 npm --prefix ade/ai test
-node ade/scripts/test-ai-service.mjs
+node ade/scripts/test-ai-service.ts
 node test/unit/node/index.js --run src/vs/workbench/contrib/ade/test/node/adeCliExecutable.test.ts --run src/vs/workbench/contrib/ade/test/node/adeCliAccount.test.ts
 node ade/scripts/smoke-desktop.mjs --followup-only
 node ade/scripts/smoke-desktop.mjs --ai-only

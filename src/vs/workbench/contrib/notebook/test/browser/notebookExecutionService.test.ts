@@ -169,6 +169,28 @@ suite('NotebookExecutionService', () => {
 			assert.strictEqual(exeStateService.getCellExecution(cell.uri), undefined);
 		});
 	});
+
+	for (const failure of ['participant', 'dispatch']) {
+		test(`clears unconfirmed executions after a ${failure} failure and allows retry`, async () => {
+			await withTestNotebook([], async (viewModel, textModel) => {
+				const kernel = new TestNotebookKernel({ languages: ['javascript'] });
+				disposables.add(kernelService.registerKernel(kernel));
+				kernelService.selectKernelForNotebook(kernel, textModel);
+				const service = disposables.add(instantiationService.createInstance(NotebookExecutionService));
+				let shouldFail = true;
+				let dispatched = 0;
+				disposables.add(service.registerExecutionParticipant({ async onWillExecuteCell() { if (shouldFail && failure === 'participant') { throw new Error('preparation failed'); } } }));
+				kernel.executeNotebookCellsRequest = async () => { dispatched++; if (shouldFail && failure === 'dispatch') { throw new Error('dispatch failed'); } };
+				const cell = disposables.add(insertCellAtIndex(viewModel, 0, 'code', 'javascript', CellKind.Code, {}, [], true, true));
+				await assert.rejects(service.executeNotebookCells(textModel, [cell.model], contextKeyService));
+				const state = instantiationService.get(INotebookExecutionStateService);
+				assert.strictEqual(state.getCellExecution(cell.uri), undefined);
+				shouldFail = false;
+				await service.executeNotebookCells(textModel, [cell.model], contextKeyService);
+				assert.strictEqual(dispatched, failure === 'dispatch' ? 2 : 1);
+			});
+		});
+	}
 });
 
 class TestNotebookKernel implements INotebookKernel {

@@ -11,9 +11,9 @@ import { Range } from '../../../../../editor/common/core/range.js';
 
 export function textSearchResultToMatches(rawMatch: ITextSearchMatch, fileMatch: ISearchTreeFileMatch, isAiContributed: boolean): ISearchTreeMatch[] {
 	const previewLines = rawMatch.previewText.split('\n');
-	return rawMatch.rangeLocations.map((rangeLocation) => {
+	return rawMatch.rangeLocations.map((rangeLocation, index) => {
 		const previewRange: ISearchRange = rangeLocation.preview;
-		return new MatchImpl(fileMatch, previewLines, previewRange, rangeLocation.source, isAiContributed);
+		return new MatchImpl(fileMatch, previewLines, previewRange, rangeLocation.source, isAiContributed, rawMatch.fullMatchTexts?.[index]);
 	});
 }
 
@@ -27,7 +27,7 @@ export class MatchImpl implements ISearchTreeMatch {
 	// For replace
 	private _fullPreviewRange: ISearchRange;
 
-	constructor(protected _parent: ISearchTreeFileMatch, private _fullPreviewLines: string[], _fullPreviewRange: ISearchRange, _documentRange: ISearchRange, private readonly _isReadonly: boolean = false) {
+	constructor(protected _parent: ISearchTreeFileMatch, private _fullPreviewLines: string[], _fullPreviewRange: ISearchRange, _documentRange: ISearchRange, private readonly _isReadonly: boolean = false, private readonly _fullSourceText?: string) {
 		this._oneLinePreviewText = _fullPreviewLines[_fullPreviewRange.startLineNumber];
 		const adjustedEndCol = _fullPreviewRange.startLineNumber === _fullPreviewRange.endLineNumber ?
 			_fullPreviewRange.endColumn :
@@ -122,6 +122,9 @@ export class MatchImpl implements ISearchTreeMatch {
 	}
 
 	fullMatchText(includeSurrounding = false): string {
+		if (!includeSurrounding && this._fullSourceText !== undefined) {
+			return this._fullSourceText;
+		}
 		let thisMatchPreviewLines: string[];
 		if (includeSurrounding) {
 			thisMatchPreviewLines = this._fullPreviewLines;

@@ -9,7 +9,7 @@ import { DiffStateManager } from '../diffState';
 import { makeTextResult } from './utils';
 import { ILogger } from '../../../../../platform/log/common/logService';
 
-export function registerCloseDiffTool(server: McpServer, logger: ILogger, diffState: DiffStateManager): void {
+export function registerCloseDiffTool(server: McpServer, logger: ILogger, diffState: DiffStateManager, sessionId: string): void {
 	const schema = {
 		tab_name: z.string().describe('The tab name of the diff to close (must match the tab_name used when opening the diff)'),
 	};
@@ -23,7 +23,7 @@ export function registerCloseDiffTool(server: McpServer, logger: ILogger, diffSt
 		async (args: { tab_name: string }) => {
 			const { tab_name } = args;
 			logger.debug(`Closing diff: ${tab_name}`);
-			const diff = diffState.getByTabName(tab_name);
+			const diff = diffState.getByTabName(tab_name, sessionId);
 
 			if (!diff) {
 				logger.debug(`No active diff found with tab name: ${tab_name}`);

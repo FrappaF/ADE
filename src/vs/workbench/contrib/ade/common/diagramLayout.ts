@@ -128,10 +128,11 @@ export function notationNodeSize(element: SemanticElement): { width: number; hei
 export function notationBoundaries(model: SemanticModel, view: ModelView): { elementId: string; name: string; x: number; y: number; width: number; height: number }[] {
 	if (!['c4Container', 'c4Component', 'component', 'package', 'deployment', 'network', 'useCase', 'databaseSchema'].includes(view.kind)) { return []; }
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
+	const groupMembers = notationGroupResolver(model, view);
 	return view.nodes.flatMap(node => {
 		const element = elements.get(node.elementId)!;
 		if (!['system', 'container', 'package', 'deploymentNode', 'networkNode', 'dataStore', 'resource'].includes(element.kind)) { return []; }
-		const children = notationGroupMembers(model, view, element.id);
+		const children = groupMembers(element.id);
 		children.delete(element.id);
 		const nodes = view.nodes.filter(child => children.has(child.elementId));
 		if (!nodes.length) { return []; }
@@ -143,10 +144,22 @@ export function notationBoundaries(model: SemanticModel, view: ModelView): { ele
 
 /** A visible boundary moves its declared descendants and hosted elements as one local layout edit. */
 export function notationGroupMembers(model: SemanticModel, view: ModelView, root: string): Set<string> {
-	const members = new Set([root]);
-	for (let count = 0; count < model.semantics.elements.length; count++) {
-		for (const child of model.semantics.elements) { const parent = (model.version === 4 || model.version === 5) ? model.foundation.ownership.find(entry => entry.elementId === child.id && entry.role === 'architecture')?.ownerId : child.parentId; if (parent && members.has(parent)) { members.add(child.id); } }
-		for (const relation of model.semantics.relations) { if (view.relationIds.includes(relation.id) && relation.kind === 'hosting' && members.has(relation.from)) { members.add(relation.to); } }
+	return notationGroupResolver(model, view)(root);
+}
+
+/** Build adjacency once per geometry pass, then visit each reachable element once. */
+function notationGroupResolver(model: SemanticModel, view: ModelView): (root: string) => Set<string> {
+	const children = new Map<string, string[]>(), owners = new Map<string, string>();
+	if (model.version === 4 || model.version === 5) {
+		for (const entry of model.foundation.ownership) { if (entry.role === 'architecture' && !owners.has(entry.elementId)) { owners.set(entry.elementId, entry.ownerId); } }
 	}
-	return members;
+	const add = (parent: string, child: string) => { const entries = children.get(parent) ?? []; entries.push(child); children.set(parent, entries); };
+	for (const child of model.semantics.elements) { const parent = model.version === 4 || model.version === 5 ? owners.get(child.id) : child.parentId; if (parent) { add(parent, child.id); } }
+	const visible = new Set(view.relationIds);
+	for (const relation of model.semantics.relations) { if (relation.kind === 'hosting' && visible.has(relation.id)) { add(relation.from, relation.to); } }
+	return root => {
+		const members = new Set([root]), queue = [root];
+		for (let index = 0; index < queue.length; index++) { for (const child of children.get(queue[index]) ?? []) { if (!members.has(child)) { members.add(child); queue.push(child); } } }
+		return members;
+	};
 }

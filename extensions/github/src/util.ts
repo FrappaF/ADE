@@ -23,13 +23,37 @@ export class DisposableStore {
 
 	dispose(): void {
 		this.isDisposed = true;
+		this.clear();
+	}
 
+	clear(): void {
 		for (const disposable of this.disposables) {
 			disposable.dispose();
 		}
 
 		this.disposables.clear();
 	}
+}
+
+/** Keeps the enablement listener alive while replacing the enabled contributions. */
+export function registerOnEnablement(onDidChangeEnablement: vscode.Event<boolean>, enabled: boolean, register: (store: DisposableStore) => void): DisposableStore {
+	const disposables = new DisposableStore();
+	const registrations = new DisposableStore();
+	disposables.add(registrations);
+	const update = (enabled: boolean) => {
+		registrations.clear();
+		if (enabled) {
+			register(registrations);
+		}
+	};
+	disposables.add(onDidChangeEnablement(update));
+	try {
+		update(enabled);
+	} catch (error) {
+		disposables.dispose();
+		throw error;
+	}
+	return disposables;
 }
 
 function decorate(decorator: (fn: Function, key: string) => Function): Function {

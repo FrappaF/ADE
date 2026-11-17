@@ -49,6 +49,7 @@ describe('closeDiff tool', () => {
 	const createMockDiff = (tabName: string, diffIdSuffix?: string): ActiveDiff => ({
 		diffId: `/tmp/modified-${diffIdSuffix ?? tabName}.ts`,
 		tabName: tabName,
+		sessionId: 'session-1',
 		originalUri: { fsPath: `/path/to/original-${tabName}.ts`, scheme: 'file' } as any,
 		modifiedUri: { fsPath: `/tmp/modified-${diffIdSuffix ?? tabName}.ts`, scheme: 'file' } as any,
 		newContents: `// new contents for ${tabName}`,
@@ -62,14 +63,14 @@ describe('closeDiff tool', () => {
 
 	it('should register the close_diff tool', () => {
 		const mockServer = new MockMcpServer();
-		registerCloseDiffTool(mockServer as any, logger, diffState);
+		registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 		expect(mockServer.getToolHandler('close_diff')).toBeDefined();
 	});
 
 	it('should close an active diff by tab name', async () => {
 		const mockServer = new MockMcpServer();
-		registerCloseDiffTool(mockServer as any, logger, diffState);
+		registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 		const diff = createMockDiff('My Test Diff');
 		diffState.register(diff);
@@ -91,7 +92,7 @@ describe('closeDiff tool', () => {
 
 	it('should return success with already_closed=true for non-existent tab', async () => {
 		const mockServer = new MockMcpServer();
-		registerCloseDiffTool(mockServer as any, logger, diffState);
+		registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 		const handler = mockServer.getToolHandler('close_diff')!;
 		const result = await handler({ tab_name: 'Non-existent Tab' });
@@ -103,9 +104,29 @@ describe('closeDiff tool', () => {
 		expect(parsed.message).toContain('may already be closed');
 	});
 
+	it('only closes matching diffs owned by the calling session', async () => {
+		const mockServer = new MockMcpServer();
+		registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
+		const other = { ...createMockDiff('Shared Name', 'other'), sessionId: 'session-2' };
+		const own = createMockDiff('Shared Name', 'own');
+		diffState.register(other);
+		diffState.register(own);
+		const handler = mockServer.getToolHandler('close_diff')!;
+
+		await handler({ tab_name: 'Shared Name' });
+		diffState.unregister(own.diffId);
+		const result = await handler({ tab_name: 'Shared Name' });
+
+		expect({ ownClosed: vi.mocked(own.resolve).mock.calls, otherClosed: vi.mocked(other.resolve).mock.calls, alreadyClosed: parseToolResult<CloseDiffResult>(result).already_closed }).toEqual({
+			ownClosed: [[{ status: 'REJECTED', trigger: 'closed_via_tool' }]],
+			otherClosed: [],
+			alreadyClosed: true,
+		});
+	});
+
 	it('should be idempotent - closing same tab twice returns success', async () => {
 		const mockServer = new MockMcpServer();
-		registerCloseDiffTool(mockServer as any, logger, diffState);
+		registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 		const diff = createMockDiff('Idempotent Test');
 		diffState.register(diff);
@@ -127,7 +148,7 @@ describe('closeDiff tool', () => {
 
 	it('should close the correct diff when multiple diffs are open', async () => {
 		const mockServer = new MockMcpServer();
-		registerCloseDiffTool(mockServer as any, logger, diffState);
+		registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 		const diff1 = createMockDiff('First Diff');
 		const diff2 = createMockDiff('Second Diff');
@@ -158,7 +179,7 @@ describe('closeDiff tool', () => {
 	describe('edge cases', () => {
 		it('should handle empty tab name', async () => {
 			const mockServer = new MockMcpServer();
-			registerCloseDiffTool(mockServer as any, logger, diffState);
+			registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 			const handler = mockServer.getToolHandler('close_diff')!;
 			const result = await handler({ tab_name: '' });
@@ -170,7 +191,7 @@ describe('closeDiff tool', () => {
 
 		it('should handle tab name with special characters', async () => {
 			const mockServer = new MockMcpServer();
-			registerCloseDiffTool(mockServer as any, logger, diffState);
+			registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 			const diff = createMockDiff('Diff: src/file.ts → modified (2024-01-23)');
 			diffState.register(diff);
@@ -186,7 +207,7 @@ describe('closeDiff tool', () => {
 
 		it('should handle closing tab that was never opened', async () => {
 			const mockServer = new MockMcpServer();
-			registerCloseDiffTool(mockServer as any, logger, diffState);
+			registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 			const handler = mockServer.getToolHandler('close_diff')!;
 			const result = await handler({ tab_name: 'Never Existed Tab' });
@@ -199,7 +220,7 @@ describe('closeDiff tool', () => {
 
 		it('should handle multiple diffs with same tab name but different diffIds', async () => {
 			const mockServer = new MockMcpServer();
-			registerCloseDiffTool(mockServer as any, logger, diffState);
+			registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 			const diff1 = createMockDiff('Duplicate Name', 'diff1');
 			const diff2 = createMockDiff('Duplicate Name', 'diff2');
@@ -223,7 +244,7 @@ describe('closeDiff tool', () => {
 
 		it('should handle rapid successive closes of different tabs', async () => {
 			const mockServer = new MockMcpServer();
-			registerCloseDiffTool(mockServer as any, logger, diffState);
+			registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 			const diff1 = createMockDiff('Tab A');
 			const diff2 = createMockDiff('Tab B');
@@ -251,7 +272,7 @@ describe('closeDiff tool', () => {
 
 		it('should handle tab name that is very long', async () => {
 			const mockServer = new MockMcpServer();
-			registerCloseDiffTool(mockServer as any, logger, diffState);
+			registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 			const longTabName = 'A'.repeat(1000);
 			const diff = createMockDiff(longTabName);
@@ -268,7 +289,7 @@ describe('closeDiff tool', () => {
 
 		it('should handle whitespace-only tab name', async () => {
 			const mockServer = new MockMcpServer();
-			registerCloseDiffTool(mockServer as any, logger, diffState);
+			registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 			const handler = mockServer.getToolHandler('close_diff')!;
 			const result = await handler({ tab_name: '   ' });
@@ -280,7 +301,7 @@ describe('closeDiff tool', () => {
 
 		it('should handle tab name with unicode characters', async () => {
 			const mockServer = new MockMcpServer();
-			registerCloseDiffTool(mockServer as any, logger, diffState);
+			registerCloseDiffTool(mockServer as any, logger, diffState, 'session-1');
 
 			const diff = createMockDiff('编辑文件 🔧 файл.ts');
 			diffState.register(diff);

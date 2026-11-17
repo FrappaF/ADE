@@ -6,6 +6,7 @@
 import * as esbuild from 'esbuild';
 import * as fs from 'fs';
 import * as path from 'path';
+import { once } from 'node:events';
 import { promisify } from 'util';
 
 import glob from 'glob';
@@ -19,7 +20,7 @@ import { getBootstrapEntryPointsForTarget, type BuildTarget } from '../lib/esbui
 import product from '../../product.json' with { type: 'json' };
 import packageJson from '../../package.json' with { type: 'json' };
 import { isWebExtension, type IScannedBuiltinExtension } from '../lib/extensions.ts';
-import { buildAdeCode } from '../lib/adeCode.ts';
+import { adeCodeWatchInputs, buildAdeCode, isAdeCodeInput } from '../lib/adeCode.ts';
 import { runBuildFast } from './build-fast.ts';
 import { bundleDevTunnelsWeb, devTunnelsWebOutDir } from './devTunnelsWeb.ts';
 import { agentHostCryptoOutDir, bundleAgentHostCrypto } from './agentHostCrypto.ts';
@@ -28,6 +29,7 @@ import { copyResources } from './resources.ts';
 import { optimizeSvgFiles } from './svg.ts';
 import { getBundleOptions } from './bundle.ts';
 import { compileStandaloneFiles } from './standalone.ts';
+import { watchBuild } from './watch.ts';
 
 const globAsync = promisify(glob);
 
@@ -730,26 +732,9 @@ async function watch(): Promise<void> {
 
 	const outDir = OUT_DIR;
 
-	// Initial setup
-	await cleanDir(outDir);
-	console.log(`[transpile] ${SRC_DIR} → ${outDir}`);
-
-	// Initial full build
-	const t1 = Date.now();
-	try {
-		await transpile(outDir, false);
-		await copyAllNonTsFiles(outDir, false);
-		await bundleAgentHostCrypto({ outDir: path.join(outDir, agentHostCryptoOutDir) });
-					await buildAdeCode(outDir);
-		console.log(`Finished transpilation with 0 errors after ${Date.now() - t1} ms`);
-	} catch (err) {
-		console.error('[watch] Initial build failed:', err);
-		console.log(`Finished transpilation with 1 errors after ${Date.now() - t1} ms`);
-		// Continue watching anyway
-	}
-
 	let pendingTsFiles: Set<string> = new Set();
 	let pendingCopyFiles: Set<string> = new Set();
+	let pendingAdeCode = false;
 	let processingChanges = false;
 
 	const processChanges = async () => {
@@ -759,11 +744,13 @@ async function watch(): Promise<void> {
 
 		processingChanges = true;
 		try {
-			while (pendingTsFiles.size > 0 || pendingCopyFiles.size > 0) {
+			while (pendingTsFiles.size > 0 || pendingCopyFiles.size > 0 || pendingAdeCode) {
 				console.log('Starting transpilation...');
 				const t1 = Date.now();
 				const tsFiles = [...pendingTsFiles];
 				const filesToCopy = [...pendingCopyFiles];
+				const rebuildAdeCode = pendingAdeCode;
+				pendingAdeCode = false;
 				pendingTsFiles = new Set();
 				pendingCopyFiles = new Set();
 
@@ -787,6 +774,7 @@ async function watch(): Promise<void> {
 						});
 					}
 
+					if (rebuildAdeCode) { await buildAdeCode(outDir); }
 					console.log(`Finished transpilation with 0 errors after ${Date.now() - t1} ms`);
 				} catch (err) {
 					console.error('[watch] Rebuild failed:', err);
@@ -799,23 +787,36 @@ async function watch(): Promise<void> {
 	};
 
 	// Watch src directory using existing gulp-watch based watcher
-	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-	const srcDir = path.join(REPO_ROOT, SRC_DIR);
-	const watchStream = gulpWatch('src/**', { base: srcDir, readDelay: 200 });
-
-	watchStream.on('data', (file: { path: string }) => {
-		if (file.path.endsWith('.ts') && !file.path.endsWith('.d.ts')) {
+	const watchStream = gulpWatch(['src/**', ...adeCodeWatchInputs], { base: REPO_ROOT, readDelay: 200 });
+	// Chokidar suppresses initial add events, so wait for its subscriptions
+	// before reading any inputs. The Windows adapter starts its native watcher directly.
+	const ready = process.platform === 'win32' ? Promise.resolve() : once(watchStream, 'ready');
+	await watchBuild<{ path: string }>(listener => watchStream.on('data', listener), async () => {
+		await ready;
+		await cleanDir(outDir);
+		console.log(`[transpile] ${SRC_DIR} → ${outDir}`);
+		const t1 = Date.now();
+		try {
+			await transpile(outDir, false);
+			await copyAllNonTsFiles(outDir, false);
+			await bundleAgentHostCrypto({ outDir: path.join(outDir, agentHostCryptoOutDir) });
+			await buildAdeCode(outDir);
+			console.log(`Finished transpilation with 0 errors after ${Date.now() - t1} ms`);
+		} catch (err) {
+			console.error('[watch] Initial build failed:', err);
+			console.log(`Finished transpilation with 1 errors after ${Date.now() - t1} ms`);
+			// Continue watching and drain changes collected during the failed build.
+		}
+	}, file => {
+		const relative = path.relative(REPO_ROOT, file.path).replaceAll('\\', '/');
+		pendingAdeCode ||= isAdeCodeInput(relative);
+		if (relative.startsWith('src/') && file.path.endsWith('.ts') && !file.path.endsWith('.d.ts')) {
 			pendingTsFiles.add(file.path);
-		} else {
+		} else if (relative.startsWith('src/')) {
 			// Copy any non-TS file (matches old gulp build's `src/**` behavior)
 			pendingCopyFiles.add(file.path);
 		}
-
-		if (pendingTsFiles.size > 0 || pendingCopyFiles.size > 0) {
-			clearTimeout(debounceTimer);
-			debounceTimer = setTimeout(processChanges, 200);
-		}
-	});
+	}, processChanges);
 
 	console.log('[watch] Watching src/**/*.{ts,css,...} (Ctrl+C to stop)');
 

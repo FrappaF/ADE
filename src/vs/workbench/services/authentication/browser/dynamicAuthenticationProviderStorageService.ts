@@ -170,9 +170,14 @@ export class DynamicAuthenticationProviderStorageService extends Disposable impl
 		const key = JSON.stringify({ isDynamicAuthProvider: true, authProviderId, clientId });
 		const value = await this.secretStorageService.get(key);
 		if (value) {
-			const parsed = JSON.parse(value);
-			if (!Array.isArray(parsed) || !parsed.every((t) => typeof t.created_at === 'number' && isAuthorizationTokenResponse(t))) {
-				this.logService.error(`Invalid session data for ${authProviderId} (${clientId}) in secret storage:`, parsed);
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(value);
+			} catch {
+				// Malformed stored JSON may contain tokens as well. Do not log it.
+			}
+			if (!Array.isArray(parsed) || !parsed.every(t => t && typeof t.created_at === 'number' && isAuthorizationTokenResponse(t))) {
+				this.logService.error(`Invalid session data for ${authProviderId} (${clientId}) in secret storage.`);
 				await this.secretStorageService.delete(key);
 				return undefined;
 			}
@@ -185,7 +190,7 @@ export class DynamicAuthenticationProviderStorageService extends Disposable impl
 		const key = JSON.stringify({ isDynamicAuthProvider: true, authProviderId, clientId });
 		const value = JSON.stringify(sessions);
 		await this.secretStorageService.set(key, value);
-		this.logService.trace(`Set session data for ${authProviderId} (${clientId}) in secret storage:`, sessions);
+		this.logService.trace(`Set session data for ${authProviderId} (${clientId}) in secret storage: ${sessions.length} sessions.`);
 	}
 }
 

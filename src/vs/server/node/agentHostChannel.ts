@@ -190,7 +190,7 @@ class LazyUpstreamConnection extends Disposable implements IUpstreamConnection {
 	}
 }
 
-class WebSocketUpstreamConnection extends Disposable implements IUpstreamConnection {
+export class WebSocketUpstreamConnection extends Disposable implements IUpstreamConnection {
 	private readonly _onFrame = this._register(new Emitter<string>());
 	readonly onFrame: Event<string> = this._onFrame.event;
 
@@ -204,6 +204,8 @@ class WebSocketUpstreamConnection extends Disposable implements IUpstreamConnect
 	constructor(
 		private readonly _endpoint: IAgentHostUpstreamEndpoint,
 		private readonly _logService: ILogService,
+		private readonly _loadWs = loadWs,
+		private readonly _loadNet = loadNet,
 	) {
 		super();
 	}
@@ -216,9 +218,15 @@ class WebSocketUpstreamConnection extends Disposable implements IUpstreamConnect
 	}
 
 	private async _doConnect(): Promise<void> {
-		const ws = await loadWs();
+		const ws = await this._loadWs();
+		if (this._store.isDisposed) {
+			throw new Error('UpstreamConnection is disposed');
+		}
 		const url = this._buildUrl();
 		const wsOptions = await this._buildWsOptions();
+		if (this._store.isDisposed) {
+			throw new Error('UpstreamConnection is disposed');
+		}
 
 		const socket = new ws.WebSocket(url, wsOptions);
 		this._ws = socket;
@@ -302,7 +310,7 @@ class WebSocketUpstreamConnection extends Disposable implements IUpstreamConnect
 		if (!this._endpoint.socketPath) {
 			return undefined;
 		}
-		const net = await loadNet();
+		const net = await this._loadNet();
 		const socketPath = this._endpoint.socketPath;
 		// Note: `createConnection` shape required by `ws` differs slightly
 		// across versions; we cast through `unknown` to match the local typings.

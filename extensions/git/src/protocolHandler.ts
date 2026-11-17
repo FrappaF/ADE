@@ -6,6 +6,7 @@
 import { UriHandler, Uri, window, Disposable, commands, LogOutputChannel, l10n } from 'vscode';
 import { dispose, isWindows } from './util';
 import * as querystring from 'querystring';
+import { sanitizeGitLog } from './log';
 
 const schemes = isWindows ?
 	new Set(['git', 'http', 'https', 'ssh']) :
@@ -23,7 +24,7 @@ export class GitProtocolHandler implements UriHandler {
 
 	// example code-oss://vscode.git/clone?url=https://github.com/microsoft/vscode
 	handleUri(uri: Uri): void {
-		this.logger.info(`[GitProtocolHandler][handleUri] URI:(${uri.toString()})`);
+		this.logger.info(`[GitProtocolHandler][handleUri] Path: ${uri.path}`);
 
 		switch (uri.path) {
 			case '/clone': this.clone(uri);
@@ -35,17 +36,17 @@ export class GitProtocolHandler implements UriHandler {
 		const ref = data.ref;
 
 		if (!data.url) {
-			this.logger.warn('[GitProtocolHandler][clone] Failed to open URI:' + uri.toString());
+			this.logger.warn('[GitProtocolHandler][clone] Failed to open clone URI.');
 			return;
 		}
 
 		if (Array.isArray(data.url) && data.url.length === 0) {
-			this.logger.warn('[GitProtocolHandler][clone] Failed to open URI:' + uri.toString());
+			this.logger.warn('[GitProtocolHandler][clone] Failed to open clone URI.');
 			return;
 		}
 
 		if (ref !== undefined && typeof ref !== 'string') {
-			this.logger.warn('[GitProtocolHandler][clone] Failed to open URI due to multiple references:' + uri.toString());
+			this.logger.warn('[GitProtocolHandler][clone] Failed to open clone URI due to multiple references.');
 			return;
 		}
 
@@ -70,7 +71,7 @@ export class GitProtocolHandler implements UriHandler {
 			}
 		}
 		catch (ex) {
-			this.logger.warn('[GitProtocolHandler][clone] Invalid URI:' + uri.toString());
+			this.logger.warn('[GitProtocolHandler][clone] Invalid clone URI.');
 			return;
 		}
 
@@ -87,7 +88,7 @@ export class GitProtocolHandler implements UriHandler {
 			return;
 		} else {
 			const cloneTarget = cloneUri.toString(true);
-			this.logger.info(`[GitProtocolHandler][clone] Executing git.clone for ${cloneTarget}`);
+			this.logger.info(`[GitProtocolHandler][clone] Executing git.clone for ${sanitizeGitLog(cloneTarget)}`);
 			commands.executeCommand('git.clone', cloneTarget, undefined, { ref: ref });
 		}
 	}

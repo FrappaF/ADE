@@ -1472,7 +1472,8 @@ export class DebugSession implements IDebugSession {
 				return false;
 			}
 
-			if (bp.column && (bp.column < startColumn || bp.column > endColumn)) {
+			if (bp.column && ((bp.lineNumber === startLineNumber && bp.column < startColumn)
+				|| (bp.lineNumber === endLineNumber && bp.column > endColumn))) {
 				return false;
 			}
 			return true;

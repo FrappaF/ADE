@@ -22,6 +22,16 @@ const create = (m = checkoutStates, boot = replies(), snapshot) => executeStateP
 const emitted = async m => import('data:text/javascript;base64,' + Buffer.from(emitModelStateMachine(m, id)).toString('base64'));
 const exercise = async (t, m = checkoutStates, boot = replies()) => { const instance = await create(m, boot); t.after(() => instance.dispose()); return instance; };
 
+test('v5 state machines validate, compile and execute after additive migration', async t => {
+	const { migrateSemanticModelToV5 } = await import('../../src/vs/workbench/contrib/ade/common/modelMigration.ts');
+	const upgraded = migrateSemanticModelToV5(checkoutStates);
+	assert.deepEqual(validateModelStateMachine(upgraded, id), []);
+	const instance = await exercise(t, upgraded);
+	assert.equal(instance.inspect().stateId, 'Draft');
+	const malformed = structuredClone(upgraded); malformed.foundation.stateMachines[0].initialIds = [];
+	assert.ok(validateModelStateMachine(malformed, id).includes('stateInitialOrIdentity'));
+});
+
 test('DAI07 V01 authored fixture is valid and generated artifacts are reproducible', () => {
 	assert.deepEqual([validateSemanticModel(checkoutStates), validateModelStateMachine(checkoutStates, id)], [[], []]);
 	execFileSync(process.execPath, ['ade/scripts/build-state-runtime.mjs', '--check']); execFileSync(process.execPath, ['ade/scripts/build-interaction-runtime.mjs', '--check']);

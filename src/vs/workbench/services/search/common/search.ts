@@ -215,6 +215,8 @@ export interface ITextSearchMatch<U extends UriComponents = URI> {
 	uri?: U;
 	rangeLocations: SearchRangeSetPairing[];
 	previewText: string;
+	/** Complete source text for each range, captured before publication for safe replacement. */
+	fullMatchTexts?: readonly string[];
 	webviewIndex?: number;
 	cellFragment?: string;
 }
@@ -320,6 +322,7 @@ export interface SearchRangeSetPairing {
 export class TextSearchMatch implements ITextSearchMatch {
 	rangeLocations: SearchRangeSetPairing[] = [];
 	previewText: string;
+	fullMatchTexts: readonly string[];
 	webviewIndex?: number;
 
 	constructor(text: string, ranges: ISearchRange | ISearchRange[], previewOptions?: ITextSearchPreviewOptions, webviewIndex?: number) {
@@ -329,6 +332,14 @@ export class TextSearchMatch implements ITextSearchMatch {
 		// Otherwise send the full text, like for replace or for showing multiple previews.
 		// TODO this is fishy.
 		const rangesArr = Array.isArray(ranges) ? ranges : [ranges];
+		const sourceLines = text.split('\n');
+		const firstSourceLine = rangesArr[0]?.startLineNumber ?? 0;
+		this.fullMatchTexts = rangesArr.map(range => {
+			const lines = sourceLines.slice(range.startLineNumber - firstSourceLine, range.endLineNumber - firstSourceLine + 1);
+			lines[lines.length - 1] = lines[lines.length - 1].slice(0, range.endColumn);
+			lines[0] = lines[0].slice(range.startColumn);
+			return lines.join('\n');
+		});
 
 		if (previewOptions && previewOptions.matchLines === 1 && isSingleLineRangeList(rangesArr)) {
 			// 1 line preview requested

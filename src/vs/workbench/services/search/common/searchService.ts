@@ -4,17 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as arrays from '../../../../base/common/arrays.js';
-import { DeferredPromise, raceCancellationError } from '../../../../base/common/async.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { CancellationError } from '../../../../base/common/errors.js';
-import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { DeferredPromise, Limiter, raceCancellationError } from '../../../../base/common/async.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { CancellationError, isCancellationError } from '../../../../base/common/errors.js';
+import { Disposable, IDisposable, IReference, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap, ResourceSet } from '../../../../base/common/map.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { randomChance } from '../../../../base/common/numbers.js';
 import { StopWatch } from '../../../../base/common/stopwatch.js';
-import { isNumber } from '../../../../base/common/types.js';
+import { hasKey, isNumber } from '../../../../base/common/types.js';
 import { URI, URI as uri } from '../../../../base/common/uri.js';
+import { Range } from '../../../../editor/common/core/range.js';
+import { USUAL_WORD_SEPARATORS } from '../../../../editor/common/core/wordHelper.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
+import { IResolvedTextEditorModel, ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
@@ -22,7 +25,7 @@ import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uri
 import { EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
 import { IEditorService } from '../../editor/common/editorService.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { DEFAULT_MAX_SEARCH_RESULTS, deserializeSearchError, FileMatch, IAITextQuery, ICachedSearchStats, IFileMatch, IFileQuery, IFileSearchStats, IFolderQuery, IProgressMessage, isAIKeyword, ISearchComplete, ISearchEngineStats, ISearchProgressItem, ISearchQuery, ISearchResultProvider, ISearchService, isFileMatch, isProgressMessage, ITextQuery, pathIncludedInQuery, QueryType, SEARCH_RESULT_LANGUAGE_ID, SearchError, SearchErrorCode, SearchProviderType } from './search.js';
+import { DEFAULT_MAX_SEARCH_RESULTS, deserializeSearchError, FileMatch, IAITextQuery, ICachedSearchStats, IFileMatch, IFileQuery, IFileSearchStats, IFolderQuery, IProgressMessage, isAIKeyword, ISearchComplete, ISearchEngineStats, ISearchProgressItem, ISearchQuery, ISearchResultProvider, ISearchService, isFileMatch, isProgressMessage, ITextQuery, ITextSearchMatch, pathIncludedInQuery, QueryType, SEARCH_RESULT_LANGUAGE_ID, SearchError, SearchErrorCode, SearchProviderType } from './search.js';
 import { getTextSearchMatchWithModelContext, editorMatchesToTextSearchResults } from './searchHelpers.js';
 
 export class SearchService extends Disposable implements ISearchService {
@@ -47,6 +50,7 @@ export class SearchService extends Disposable implements ISearchService {
 		@IExtensionService private readonly extensionService: IExtensionService,
 		@IFileService private readonly fileService: IFileService,
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
+		@ITextModelService private readonly textModelService: ITextModelService,
 	) {
 		super();
 	}
@@ -188,37 +192,135 @@ export class SearchService extends Disposable implements ISearchService {
 				return Promise.reject(new CancellationError());
 			}
 
+			// Legacy providers may send only a truncated preview. Establish the replacement
+			// baseline before publishing it, without retaining models or resolving every result.
+			const admissions = new CancellationTokenSource(token);
+			const limiter = new Limiter<ITextSearchMatch[] | undefined>(2);
+			const snapshots = new WeakMap<ITextSearchMatch, Promise<ITextSearchMatch | undefined>>();
+			const pendingProgress: Promise<void>[] = [];
+			let acceptingProgress = true;
+			let progressError: unknown;
+			const admitFile = async (file: IFileMatch): Promise<IFileMatch | undefined> => {
+				if (query.type !== QueryType.Text || !file.results) {
+					return file;
+				}
+				// Copy the array: the remote provider appends subsequent chunks to its first file result.
+				const results = [...file.results];
+				const incomplete = results.filter((result): result is ITextSearchMatch => hasKey(result, { rangeLocations: true }) && needsMatchSnapshot(result) && !snapshots.has(result));
+				if (incomplete.length) {
+					const admission = limiter.queue(() => this.snapshotLegacyMatches(file.resource, incomplete, query, admissions.token));
+					incomplete.forEach((match, index) => snapshots.set(match, admission.then(matches => matches?.[index])));
+				}
+				const admitted = await Promise.all(results.map(result => hasKey(result, { rangeLocations: true }) ? snapshots.get(result) ?? result : result));
+				return admitted.some(result => result === undefined) ? undefined : { ...file, results: arrays.coalesce(admitted) };
+			};
 			const progressCallback = (item: ISearchProgressItem) => {
-				if (token && token.isCancellationRequested) {
+				if (!acceptingProgress || admissions.token.isCancellationRequested) {
 					return;
 				}
 
-				onProgress?.(item);
+				if (query.type === QueryType.Text && isFileMatch(item)) {
+					pendingProgress.push(admitFile(item).then(file => {
+						if (file && acceptingProgress && !token?.isCancellationRequested) {
+							onProgress?.(file);
+						}
+					}).catch(error => { progressError ??= error; }));
+				} else {
+					onProgress?.(item);
+				}
 			};
 
-			const exists = await Promise.all(query.folderQueries.map(query => this.fileService.exists(query.folder)));
-			query.folderQueries = query.folderQueries.filter((_, i) => exists[i]);
+			try {
+				const exists = await Promise.all(query.folderQueries.map(query => this.fileService.exists(query.folder)));
+				query.folderQueries = query.folderQueries.filter((_, i) => exists[i]);
 
-			let completes = await this.searchWithProviders(query, progressCallback, token);
-			completes = arrays.coalesce(completes);
-			if (!completes.length) {
+				let completes = await raceCancellationError(this.searchWithProviders(query, progressCallback, token), admissions.token);
+				completes = arrays.coalesce(completes);
+				completes = await Promise.all(completes.map(async complete => ({ ...complete, results: arrays.coalesce(await Promise.all(complete.results.map(admitFile))) })));
+				await Promise.all(pendingProgress);
+				if (progressError) {
+					throw progressError;
+				}
+				if (!completes.length) {
+					return { limitHit: false, results: [], messages: [] };
+				}
 				return {
-					limitHit: false,
-					results: [],
-					messages: [],
+					limitHit: completes.some(complete => complete.limitHit),
+					stats: completes[0].stats,
+					messages: arrays.coalesce(completes.flatMap(i => i.messages)).filter(arrays.uniqueFilter(message => message.type + message.text + message.trusted)),
+					results: completes.flatMap((c: ISearchComplete) => c.results),
+					aiKeywords: completes.flatMap((c: ISearchComplete) => c.aiKeywords).filter(keyword => keyword !== undefined),
 				};
+			} finally {
+				acceptingProgress = false;
+				admissions.cancel();
+				await Promise.all(pendingProgress);
+				await limiter.whenIdle();
+				limiter.dispose();
+				admissions.dispose();
 			}
-
-			return {
-				limitHit: completes[0] && completes[0].limitHit,
-				stats: completes[0].stats,
-				messages: arrays.coalesce(completes.flatMap(i => i.messages)).filter(arrays.uniqueFilter(message => message.type + message.text + message.trusted)),
-				results: completes.flatMap((c: ISearchComplete) => c.results),
-				aiKeywords: completes.flatMap((c: ISearchComplete) => c.aiKeywords).filter(keyword => keyword !== undefined),
-			};
 		})();
 
 		return token ? raceCancellationError<ISearchComplete>(providerPromise, token) : providerPromise;
+	}
+
+	private async snapshotLegacyMatches(resource: URI, matches: ITextSearchMatch[], query: ITextQuery, token: CancellationToken): Promise<ITextSearchMatch[] | undefined> {
+		if (token.isCancellationRequested) {
+			return undefined;
+		}
+		try {
+			const referencePromise = this.textModelService.createModelReference(resource);
+			let reference: IReference<IResolvedTextEditorModel> | undefined;
+			try {
+				reference = await raceCancellationError(referencePromise, token);
+				if (token.isCancellationRequested) {
+					return undefined;
+				}
+				const model = reference.object.textEditorModel;
+				const pattern = query.contentPattern;
+				const currentRanges = new Set(model.findMatches(pattern.pattern, model.getFullModelRange(), !!pattern.isRegExp, !!pattern.isCaseSensitive, pattern.isWordMatch ? pattern.wordSeparators ?? USUAL_WORD_SEPARATORS : null, false, Number.MAX_SAFE_INTEGER).map(match => match.range.toString()));
+				const snapshots: ITextSearchMatch[] = [];
+				for (const match of matches) {
+					const previewLines = match.previewText.split('\n');
+					const fullMatchTexts: string[] = [];
+					for (const [index, { source, preview }] of match.rangeLocations.entries()) {
+						const range = new Range(source.startLineNumber + 1, source.startColumn + 1, source.endLineNumber + 1, source.endColumn + 1);
+						if (!currentRanges.has(range.toString())) {
+							return undefined;
+						}
+						for (let line = preview.startLineNumber; line <= preview.endLineNumber && line < previewLines.length; line++) {
+							const fragment = previewLines[line].slice(line === preview.startLineNumber ? preview.startColumn : 0, line === preview.endLineNumber ? preview.endColumn : undefined).replace(/\r$/, '');
+							const sourceLine = source.startLineNumber + line - preview.startLineNumber + 1;
+							const sourceColumn = line === preview.startLineNumber ? source.startColumn : 0;
+							if (sourceLine > source.endLineNumber + 1 || model.getLineContent(sourceLine).slice(sourceColumn, sourceColumn + fragment.length) !== fragment) {
+								return undefined;
+							}
+						}
+						const text = model.getValueInRange(range);
+						const existingBaseline = match.fullMatchTexts?.[index];
+						if (existingBaseline !== undefined && existingBaseline.replace(/\r\n/g, '\n') !== text.replace(/\r\n/g, '\n')) {
+							return undefined;
+						}
+						fullMatchTexts.push(existingBaseline ?? text);
+					}
+					snapshots.push({ ...match, fullMatchTexts });
+				}
+				return snapshots;
+			} finally {
+				if (reference) {
+					reference.dispose();
+				} else {
+					// Resolution cannot be canceled. Release its reference if it arrives after the race.
+					referencePromise.then(reference => reference.dispose(), () => { });
+				}
+			}
+		} catch (error) {
+			// One unavailable result (including a disappeared file) must not fail the whole search.
+			if (!isCancellationError(error)) {
+				this.logService.warn('SearchService: unable to snapshot truncated search result', resource.toString(), error);
+			}
+			return undefined;
+		}
 	}
 
 	private getSchemesInQuery(query: ISearchQuery): Set<string> {
@@ -579,4 +681,19 @@ export class SearchService extends Disposable implements ISearchService {
 			.map(provider => provider && provider.clearCache(cacheKey));
 		await Promise.all(clearPs);
 	}
+}
+
+function needsMatchSnapshot(match: ITextSearchMatch): boolean {
+	const lines = match.previewText.split('\n');
+	return match.rangeLocations.some(({ source, preview }, index) => {
+		if (match.fullMatchTexts?.[index] !== undefined) {
+			return false;
+		}
+		// For multiline previews the lengths of omitted source lines cannot be inferred.
+		// A complete single-line preview, however, already supplies the entire baseline.
+		return source.startLineNumber !== source.endLineNumber
+			|| preview.startLineNumber !== preview.endLineNumber
+			|| source.endColumn - source.startColumn !== preview.endColumn - preview.startColumn
+			|| preview.endColumn > (lines[preview.endLineNumber]?.length ?? -1);
+	});
 }

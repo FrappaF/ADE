@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { checkShape, semanticModelV4Schema } from './modelSchema.js';
+import { checkShape, semanticModelV4Schema, semanticModelV5Schema } from './modelSchema.js';
 import { readSemanticDraft } from './modelValidation.js';
 import { type ModelDiagnostic, type ModelField, type ModelStateMachine, type SemanticModelV4 } from './modelTypes.js';
 import { checkModelExpression, evaluateModelExpression, fieldValueType, isModelValue, resolveValueType, type ExpressionScope, type ModelValue } from './modelValues.js';
@@ -24,7 +24,7 @@ const scopeFor = (fields: ModelField[]): ExpressionScope => Object.fromEntries(f
 
 /** Generation validation never upgrades descriptive or hierarchical state diagrams. */
 export function validateModelStateMachine(model: SemanticModelV4, id: string): string[] {
-	const shape: ModelDiagnostic[] = []; checkShape(model, semanticModelV4Schema, '', shape); if (shape.length) { return ['stateShape']; }
+	const shape: ModelDiagnostic[] = []; checkShape(model, model.version === 5 ? semanticModelV5Schema : semanticModelV4Schema, '', shape); if (shape.length) { return ['stateShape']; }
 	const m = model.foundation.stateMachines?.find(machine => machine.id === id); if (!m) { return ['stateMissing']; } if (model.foundation.stateMachines!.filter(machine => machine.id === id).length !== 1) { return ['stateIdentity']; }
 	const errors: string[] = [], operations = model.foundation.blueprint?.operations ?? [], root = operations.find(operation => operation.id === m.operationId);
 	const owner = model.semantics.elements.find(element => element.id === m.ownerId);
@@ -70,7 +70,7 @@ export function compileModelStateMachine(model: SemanticModelV4, id: string): St
 	const operationIds = new Set([machine.operationId, ...machine.events.map(event => event.operationId)]);
 	const operations = model.foundation.blueprint!.operations.filter(operation => operationIds.has(operation.id));
 	const typeIds = new Set(operations.flatMap(operation => operation.inputs.map(field => field.typeId!)));
-	for (const expression of [...machine.transitions.flatMap(transition => transition.guard ? [transition.guard] : []), ...machine.actions.flatMap(action => action.arguments.map(arg => arg.expression))]) { for (const node of expression.nodes) { if ('typeId' in node) { typeIds.add(node.typeId); } } }
+	for (const expression of [...machine.transitions.flatMap(transition => transition.guard ? [transition.guard] : []), ...machine.actions.flatMap(action => action.arguments.map(arg => arg.expression))]) { for (const node of expression.nodes) { if (node.kind === 'literal' || node.kind === 'collection' && node.operator === 'count') { typeIds.add(node.typeId); } } }
 	for (const id of typeIds) { const type = model.foundation.types.find(type => type.id === id); for (const nested of [...type?.fields.map(field => field.typeId) ?? [], type?.itemTypeId, type?.targetTypeId]) { if (nested) { typeIds.add(nested); } } }
 	const runtime: SemanticModelV4 = { version: 4, id: model.id, name: '', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [], foundation: { ownership: [], memberships: [], integrations: [], types: model.foundation.types.filter(type => typeIds.has(type.id)), occurrences: [], frames: [], interactions: [], assertions: [], decisions: [], platform: { bindings: [] }, blueprint: { operations, interfaces: [], ports: [], connections: [], transports: [], modules: [], fieldMappings: [] } } };
 	return structuredClone({ version: 1, rules: stateRules, targetId: id, machine, model: runtime, actions });
@@ -96,6 +96,7 @@ function stateRestore(program: StateProgram, instanceId: string, input: Record<s
 }
 
 /** Local instance: copied enqueue, cooperative do cancellation, error latch and quiescent checkpoints. */
+/* eslint-disable prefer-const -- These declarations are serialized into persisted project regions; keep their emitted bytes compatible. */
 export async function executeStateProgram(source: StateProgram, initial: Record<string, ModelValue>, instanceId: string, bootstrap: StateReplies = {}, restore?: StateSnapshot, parentSignal?: AbortSignal): Promise<StateInstance> {
 	const program = structuredClone(source), input = structuredClone(initial), m = program.machine, model = program.model, operations = model.foundation.blueprint!.operations, contract = operations.find(operation => operation.id === m.operationId)!;
 	bootstrap = structuredClone(bootstrap); restore = restore ? structuredClone(restore) : undefined;
@@ -163,6 +164,7 @@ export async function runStateScenario(program: StateProgram, scenario: StateSce
 		return { stateId: current.stateId, error: current.error, doStatus: current.doStatus, statuses: results.map(result => result.status), errors: results.map(result => result.error ?? null), transitions: results.map(result => result.transitionId ?? null), calls: traces.filter(item => item.phase === 'call').map(item => item.id), phases: traces.filter(item => item.phase !== 'call').map(item => item.phase + ':' + item.id) };
 	} finally { await instance.dispose(); }
 }
+/* eslint-enable prefer-const */
 // </state-runtime>
 
 export async function interpretModelStateMachine(model: SemanticModelV4, id: string, scenario: StateScenario, externalSignal?: AbortSignal): Promise<StateObservation> { return runStateScenario(compileModelStateMachine(model, id), scenario, externalSignal); }

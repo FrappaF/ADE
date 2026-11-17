@@ -299,8 +299,9 @@ export class PlainTextSearchHeadingImpl extends TextSearchHeadingImpl<ITextQuery
 		return promise.then(() => {
 			this.replacingAll = false;
 			this.clear();
-		}, () => {
+		}, error => {
 			this.replacingAll = false;
+			throw error;
 		});
 	}
 

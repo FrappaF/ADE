@@ -123,6 +123,8 @@ export interface ICodexAppServerTransport {
 	kill(signal?: NodeJS.Signals): boolean;
 	/** Fires when the underlying process exits. */
 	readonly onExit: Event<{ readonly code: number | null; readonly signal: NodeJS.Signals | null }>;
+	/** Spawn/process errors can occur without an exit event. */
+	readonly onError?: Event<Error>;
 	/** Registers a one-shot exit listener that may outlive client disposal. */
 	onExitOnce(listener: (e: { readonly code: number | null; readonly signal: NodeJS.Signals | null }) => void): void;
 }
@@ -219,6 +221,7 @@ export class CodexAppServerClient extends Disposable implements ICodexAppServerC
 
 	private _exited = false;
 	private _disposed = false;
+	private _transportError: Error | undefined;
 	private _buf = '';
 
 	constructor(
@@ -228,6 +231,14 @@ export class CodexAppServerClient extends Disposable implements ICodexAppServerC
 	) {
 		super();
 		this._register(this._transport.onExit(e => this._handleExit(e)));
+		if (this._transport.onError) {
+			this._register(this._transport.onError(error => this._handleTransportError(error)));
+		}
+		for (const stream of [this._transport.stdin, this._transport.stdout]) {
+			const onError = (error: Error) => this._handleTransportError(error);
+			stream.on('error', onError);
+			this._register(toDisposable(() => stream.removeListener('error', onError)));
+		}
 		this._transport.stdout.setEncoding?.('utf8');
 		this._register(this._listenToStdout());
 	}
@@ -343,16 +354,28 @@ export class CodexAppServerClient extends Disposable implements ICodexAppServerC
 	}
 
 	private _writeMessage(message: unknown): boolean {
-		if (this._exited || this._disposed) {
+		if (this._exited || this._disposed || this._transportError) {
 			return false;
 		}
 		try {
 			this._transport.stdin.write(JSON.stringify(message) + '\n');
 			return true;
 		} catch (err) {
-			this._onTransportError.fire(err instanceof Error ? err : new Error(String(err)));
+			this._handleTransportError(err instanceof Error ? err : new Error(String(err)));
 			return false;
 		}
+	}
+
+	private _handleTransportError(error: Error): void {
+		if (this._disposed || this._exited || this._transportError) {
+			return;
+		}
+		this._transportError = error;
+		for (const [id, pending] of this._pending) {
+			pending.reject(new JsonRpcError(JsonRpcErrorCode.InternalError, `Codex transport failed: ${error.message}; request id=${id} (${pending.method}) aborted`));
+		}
+		this._pending.clear();
+		this._onTransportError.fire(error);
 	}
 
 	private _handleExit(e: { code: number | null; signal: NodeJS.Signals | null }): void {
@@ -378,6 +401,9 @@ export class CodexAppServerClient extends Disposable implements ICodexAppServerC
 		}
 		if (this._exited) {
 			return Promise.reject(new JsonRpcError(JsonRpcErrorCode.InternalError, 'transport has exited'));
+		}
+		if (this._transportError) {
+			return Promise.reject(new JsonRpcError(JsonRpcErrorCode.InternalError, `transport failed: ${this._transportError.message}`));
 		}
 		const id = this._nextId++;
 		return new Promise<R>((resolve, reject) => {
@@ -475,7 +501,13 @@ export class CodexAppServerClient extends Disposable implements ICodexAppServerC
  * built around `node:stream`'s `PassThrough` or similar.
  */
 export function transportFromChildProcess(
-	child: { stdin: Writable | null; stdout: Readable | null; kill: (signal?: NodeJS.Signals) => boolean; on: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => unknown; once: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => unknown; removeListener: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => unknown },
+	child: Event.NodeEventEmitter & {
+		stdin: Writable | null;
+		stdout: Readable | null;
+		stderr?: Readable | null;
+		kill(signal?: NodeJS.Signals): boolean;
+		once(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
+	},
 ): ICodexAppServerTransport {
 	if (!child.stdin || !child.stdout) {
 		throw new Error('Child process has no stdio pair');
@@ -485,6 +517,10 @@ export function transportFromChildProcess(
 		stdout: child.stdout,
 		kill: signal => child.kill(signal),
 		onExit: Event.fromNodeEventEmitter(child, 'exit', (code: number | null, signal: NodeJS.Signals | null) => ({ code, signal })),
+		onError: Event.any(
+			Event.fromNodeEventEmitter(child, 'error', (error: Error) => error),
+			child.stderr ? Event.fromNodeEventEmitter(child.stderr, 'error', (error: Error) => error) : Event.None,
+		),
 		onExitOnce: listener => child.once('exit', (code, signal) => listener({ code, signal })),
 	};
 }

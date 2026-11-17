@@ -1282,6 +1282,12 @@ export function mapTurnCompleted(
 	fallbackDuration?: number,
 	retainedOutputResources?: ReadonlyMap<string, string>,
 ): (SessionAction | ChatAction)[] {
+	if (state.currentTurnId !== undefined && state.currentTurnId !== params.turn.id) {
+		// An interrupted turn can complete after its replacement has started.
+		// Publish the old turn's terminal action without finalizing the new
+		// turn's parts, tool calls, pre-flight, or deferred response actions.
+		return mapTurnCompleted(createCodexSessionMapState(), params, fallbackDuration, retainedOutputResources);
+	}
 	state.currentTurnId = undefined;
 	state.itemToPartId.clear();
 	state.itemToReasoningPartId.clear();

@@ -43,6 +43,7 @@ class ModelDialogs extends mock<IFileDialogService>() {
 
 class DelayedFileService extends FileService {
 	delay: { resource: URI; gate: DeferredPromise<void> } | undefined;
+	failCreate: URI | undefined;
 	private readonly watchers = new Set<{ resource: URI; emitter: Emitter<FileChangesEvent> }>();
 	get watcherCount(): number { return this.watchers.size; }
 	override createWatcher(resource: URI): IFileSystemWatcher {
@@ -61,6 +62,10 @@ class DelayedFileService extends FileService {
 	override async readFile(resource: URI): Promise<IFileContent> {
 		if (resource.toString() === this.delay?.resource.toString()) { await this.delay.gate.p; }
 		return super.readFile(resource);
+	}
+	override async createFile(...args: Parameters<FileService['createFile']>): ReturnType<FileService['createFile']> {
+		if (args[0].toString() === this.failCreate?.toString()) { throw new Error('Interrupted criteria creation'); }
+		return super.createFile(...args);
 	}
 }
 
@@ -894,6 +899,12 @@ suite('A.D.E project context', () => {
 		const criteria = JSON.parse((await files.readFile(URI.parse('test:/pure-project/.ade/criteria.json'))).value.toString());
 		assert.deepStrictEqual(criteria.cases.map((entry: { expected: boolean | null | string }) => entry.expected), [false, false, true, true, null, 'typeError', 'typeError', 'typeError']);
 		await project.undo(); assert.strictEqual(project.model.semantics.elements.length, 0); await project.redo();
+		const starter = project.model;
+		await project.undo(); await project.createPureFeature(); assert.deepStrictEqual(project.model, starter);
+		assert.deepStrictEqual(JSON.parse((await files.readFile(URI.parse('test:/pure-project/.ade/criteria.json'))).value.toString()), criteria);
+		await project.undo(); await files.del(URI.parse('test:/pure-project/.ade/criteria.json'));
+		await project.createPureFeature(); assert.deepStrictEqual(project.model, starter);
+		assert.deepStrictEqual(JSON.parse((await files.readFile(URI.parse('test:/pure-project/.ade/criteria.json'))).value.toString()), criteria);
 		await project.save(); await project.openProject(URI.parse('test:/pure-project'));
 		assert.strictEqual(project.model.version === 4 && project.model.foundation.predicates?.length, 1);
 	});
@@ -901,6 +912,74 @@ suite('A.D.E project context', () => {
 	test('pure starter never replaces an existing specification', async () => {
 		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs)); await project.openModelResource(resource);
 		await assert.rejects(project.createPureFeature(), /empty version 4/); assert.deepStrictEqual(project.model, checkoutModel);
+	});
+
+	test('pure starter retry preserves edited criteria and a new service never claims an existing file', async () => {
+		const root = URI.parse('test:/pure-retry'), criteria = URI.joinPath(root, '.ade', 'criteria.json');
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.createProject('Retry', root); await project.save();
+		await project.createPureFeature(); await project.undo();
+		await files.writeFile(criteria, VSBuffer.fromString('independent user criteria'));
+		await assert.rejects(project.createPureFeature(), /criteria changed/);
+		assert.strictEqual((await files.readFile(criteria)).value.toString(), 'independent user criteria');
+		await project.save();
+		const reopened = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await reopened.openProject(root);
+		await assert.rejects(reopened.createPureFeature());
+		assert.strictEqual((await files.readFile(criteria)).value.toString(), 'independent user criteria');
+	});
+
+	test('pure starter identities survive undo, save, and reopening with fresh workspace storage', async () => {
+		const root = URI.parse('test:/pure-reload'), criteria = URI.joinPath(root, '.ade', 'criteria.json');
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.createProject('Reload', root); await project.createPureFeature();
+		const starter = project.model, criteriaText = (await files.readFile(criteria)).value.toString();
+		await project.undo(); await project.save(); project.dispose();
+		const reopened = disposables.add(new AdeProjectService(disposables.add(new InMemoryStorageService()), files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await reopened.openProject(root); await reopened.createPureFeature();
+		assert.deepStrictEqual({ model: reopened.model, criteria: (await files.readFile(criteria)).value.toString() }, { model: starter, criteria: criteriaText });
+		await reopened.undo(); assert.strictEqual(reopened.model.semantics.elements.length, 0);
+		await reopened.redo(); assert.deepStrictEqual(reopened.model, starter);
+	});
+
+	test('pure starter resumes interrupted criteria creation after reopening', async () => {
+		const root = URI.parse('test:/pure-interrupted'), criteria = URI.joinPath(root, '.ade', 'criteria.json');
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.createProject('Interrupted', root); await project.save();
+		files.failCreate = criteria;
+		await assert.rejects(project.createPureFeature(), /Interrupted criteria creation/);
+		const manifest = (await files.readFile(URI.joinPath(root, '.ade', 'pure-starter.json'))).value.toString();
+		assert.strictEqual(project.model.semantics.elements.length, 0);
+		files.failCreate = undefined; project.dispose();
+		const reopened = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await reopened.openProject(root); await reopened.createPureFeature();
+		assert.deepStrictEqual({ manifest: (await files.readFile(URI.joinPath(root, '.ade', 'pure-starter.json'))).value.toString(), elements: reopened.model.semantics.elements.length }, { manifest, elements: 4 });
+	});
+
+	test('pure starter migrates unchanged legacy criteria without rewriting them', async () => {
+		const root = URI.parse('test:/pure-legacy'), criteria = URI.joinPath(root, '.ade', 'criteria.json');
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.createProject('Legacy', root); await project.createPureFeature();
+		const criteriaText = (await files.readFile(criteria)).value.toString();
+		await project.undo(); await project.save(); await files.del(URI.joinPath(root, '.ade', 'pure-starter.json')); project.dispose();
+		const reopened = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await reopened.openProject(root); await reopened.createPureFeature();
+		assert.strictEqual((await files.readFile(criteria)).value.toString(), criteriaText);
+		assert.strictEqual(reopened.model.version === 4 && reopened.model.foundation.predicates?.[0].id, JSON.parse(criteriaText).cases[0].predicateId);
+		assert.strictEqual(await files.exists(URI.joinPath(root, '.ade', 'pure-starter.json')), true);
+	});
+
+	test('pure starter rejects malformed or foreign provenance without changing criteria', async () => {
+		const root = URI.parse('test:/pure-invalid'), criteria = URI.joinPath(root, '.ade', 'criteria.json'), manifest = URI.joinPath(root, '.ade', 'pure-starter.json');
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.createProject('Invalid', root); await project.createPureFeature();
+		const criteriaText = (await files.readFile(criteria)).value.toString(), provenance = JSON.parse((await files.readFile(manifest)).value.toString());
+		await project.undo();
+		for (const invalid of ['{', JSON.stringify({ ...provenance, projectId: 'another-project' }), JSON.stringify({ ...provenance, identities: provenance.identities.slice(1) })]) {
+			await files.writeFile(manifest, VSBuffer.fromString(invalid));
+			await assert.rejects(project.createPureFeature(), /starter data changed or is invalid/);
+			assert.deepStrictEqual({ criteria: (await files.readFile(criteria)).value.toString(), elements: project.model.semantics.elements.length }, { criteria: criteriaText, elements: 0 });
+		}
 	});
 
 	test('linked sequence selections use projected participants and exact steps without manual nodes', async () => {

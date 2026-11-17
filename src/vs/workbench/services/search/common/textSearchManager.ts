@@ -122,7 +122,7 @@ export class TextSearchManager {
 	}
 
 	private trimResultToSize(result: TextSearchMatch2, size: number): TextSearchMatch2 {
-		return new TextSearchMatch2(result.uri, result.ranges.slice(0, size), result.previewText);
+		return new TextSearchMatch2(result.uri, result.ranges.slice(0, size), result.previewText, result.fullMatchTexts?.slice(0, size));
 	}
 
 	private async doSearch(folderQueries: IFolderQuery<URI>[], onResult: (result: TextSearchResult2, folderIdx: number) => void, token: CancellationToken, onKeywordResult?: (keyword: AISearchKeyword) => void): Promise<TextSearchComplete2 | null | undefined> {
@@ -291,6 +291,7 @@ function extensionResultToFrontendResult(data: TextSearchResult2): ITextSearchRe
 	if (data instanceof TextSearchMatch2) {
 		return {
 			previewText: data.previewText,
+			...(data.fullMatchTexts ? { fullMatchTexts: data.fullMatchTexts } : {}),
 			rangeLocations: data.ranges.map(r => ({
 				preview: {
 					startLineNumber: r.previewRange.start.line,

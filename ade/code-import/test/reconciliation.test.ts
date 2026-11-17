@@ -21,6 +21,37 @@ const { runProcess } = await import('../../ai/process.ts');
 const config = { version: 1, provider: 'codex', connection: 'cli', model: 'economical-test-model', executable: 'codex', timeoutMs: 10000, maxContextBytes: 262144, maxCalls: 1 };
 const empty = () => ({ summary: 'Reviewed reconciliation', questions: [], modelEdits: [], sourceEdits: [], bindings: [] });
 
+test('snapshot copies keep private sources private regardless of the process umask', async t => {
+	if (process.platform === 'win32') { t.skip('POSIX permissions'); return; }
+	const root = await mkdtemp(join(tmpdir(), 'ade-private-snapshot-'));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	await writeFile(join(root, 'private.py'), 'def private():\n    return 42\n', { mode: 0o600 });
+	const engine = createCodeEngine();
+	const result = JSON.parse(await engine.execute(JSON.stringify({ operation: 'import', root, syntaxOnly: true })));
+	for (const directory of [join(root, '.ade'), join(root, '.ade', 'imports'), result.snapshot]) { assert.equal((await stat(directory)).mode & 0o077, 0, directory); }
+	for (const file of ['common-code.json', 'import-state.json', 'model.ade.json', 'snapshot.json']) { assert.equal((await stat(join(result.snapshot, file))).mode & 0o077, 0, file); }
+});
+
+test('identity handles never translate names, source names or prototype properties', async t => {
+	const f = await fixture(t, 'i0.py', 'def i0(amount):\n    return amount > 0\n');
+	const snapshot = await readSnapshot(f.initial.snapshot);
+	const action = snapshot.model.semantics.elements.find(element => element.kind === 'action');
+	action.description = 'constructor';
+	await writeFile(f.initial.model, JSON.stringify(snapshot.model));
+	f.setReply(context => {
+		const changed = context.changes.elements.find(entry => entry.model?.description === 'constructor');
+		assert.ok(changed);
+		return { ...empty(), modelEdits: [{ collection: 'elements', id: changed.id, value: { ...changed.model, name: 'i0', description: 'toString' } }], bindings: [{ elementId: changed.id, file: 'i0.py', name: 'i0', syntaxKind: 'function_definition' }] };
+	});
+	const preview = await f.call({ operation: 'preview', snapshot: f.initial.snapshot });
+	const { prepared, result } = await f.propose(preview, ['i0.py']);
+	assert.equal(JSON.parse(prepared.designContents).changes.elements.find(entry => entry.model?.description === 'constructor').model.description, 'constructor');
+	assert.notEqual(result.reconciliation.status, 'verificationFailed', JSON.stringify(result.reconciliation.diagnostics));
+	assert.equal(result.ai.modelEdits[0].value.name, 'i0');
+	assert.equal(result.ai.modelEdits[0].value.description, 'toString');
+	assert.equal(result.ai.bindings[0].name, 'i0');
+});
+
 test('reconciliation transport uses strict structured output objects and nullable optional fields', () => {
 	const inspect = schema => {
 		assert.equal(schema.oneOf, undefined);
@@ -184,8 +215,8 @@ test('undo and restart recovery restore exact images and preserve unrecognized m
 		const item = context.changes.elements.find(item => item.model?.name === 'renamed');
 		return { ...empty(), sourceEdits: [{ file: 'pay.py', revision: context.sources[0].revision, search: source, replacement: source.replace('pay(', 'renamed(') }], bindings: [{ elementId: item.id, file: 'pay.py', name: 'renamed', syntaxKind: 'function_definition' }] };
 	});
-	let preview = await f.call({ operation: 'preview', snapshot: f.initial.snapshot });
-	let proposal = (await f.propose(preview)).result;
+	const preview = await f.call({ operation: 'preview', snapshot: f.initial.snapshot });
+	const proposal = (await f.propose(preview)).result;
 	const applied = await f.call({ operation: 'apply', token: proposal.token });
 	const history = await f.call({ operation: 'history', snapshot: applied.snapshot });
 	const operation = history.operations[0];

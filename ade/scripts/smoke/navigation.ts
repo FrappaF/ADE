@@ -8,7 +8,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { clickAdeButton, openModelFile, enterValue, pickValue, readAccessibleText, searchSystem, contractEntry } from './helpers.ts';
+import { clickAdeButton, revealAdeText, openDiagramNavigation, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, searchSystem, contractEntry, runCommand } from './helpers.ts';
 
 /** navigation scenarios share only the harness values listed here. */
 export function createNavigationScenarios(harness: SmokeHarness) {
@@ -20,7 +20,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await enterValue(window, 'Field Name', 'amount');
 		await enterValue(window, 'Field Type', 'Money');
 		await pickValue(window, 'Field Presence', 'Required');
-		await shell.getByText('Input: amount (Money), Required', { exact: true }).waitFor();
+		await revealAdeText(window, 'Input: amount (Money), Required');
 		await contractEntry(window, 'Contratto pagamento', 'Inputs');
 		await window.locator('.quick-input-widget').getByText('Field Name', { exact: true }).waitFor();
 		await window.locator('.quick-input-widget input:visible').fill('amount');
@@ -36,7 +36,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await enterValue(window, 'Field Name', 'receipt');
 		await enterValue(window, 'Field Type', 'Receipt');
 		await pickValue(window, 'Field Presence', 'Optional');
-		await shell.getByText('Output: receipt (Receipt), Optional', { exact: true }).waitFor();
+		await revealAdeText(window, 'Output: receipt (Receipt), Optional');
 		for (const [section, value] of [['Preconditions', 'Amount is positive'], ['Postconditions', 'At most one payment is authorized']]) {
 			await contractEntry(window, 'Contratto pagamento', section);
 			await enterValue(window, section, value);
@@ -44,37 +44,36 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await contractEntry(window, 'Contratto pagamento', 'Errors');
 		await enterValue(window, 'Error Code', 'payment-declined');
 		await enterValue(window, 'Error Description', 'No order is confirmed');
-		await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).waitFor();
+		await revealAdeText(window, 'Error payment-declined: No order is confirmed');
 		await contractEntry(window, 'Contratto pagamento', 'Outputs', 'receipt');
 		await enterValue(window, 'Field Name', 'receipt');
 		await enterValue(window, 'Field Type', 'PaymentReceipt');
 		await pickValue(window, 'Field Presence', 'Required');
-		await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+		await revealAdeText(window, 'Output: receipt (PaymentReceipt), Required');
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
-		await shell.getByText('Output: receipt (Receipt), Optional', { exact: true }).waitFor();
+		await revealAdeText(window, 'Output: receipt (Receipt), Optional');
 		await shell.getByRole('button', { name: 'Redo', exact: true }).click();
-		await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
-		await shell.locator('.ade-properties').getByRole('button', { name: 'Edit Behavioral Contract', exact: true }).click();
+		await revealAdeText(window, 'Output: receipt (PaymentReceipt), Required');
+		await clickAdeButton(window, 'Edit Behavioral Contract');
 		await pickValue(window, 'Behavioral Contract: Contratto pagamento', 'Preconditions');
 		await pickValue(window, 'Preconditions', 'Amount is positive');
 		await pickValue(window, 'Contract Entry: Amount is positive', 'Remove Entry');
 		await shell.getByText('Precondition: Amount is positive', { exact: true }).waitFor({ state: 'hidden' });
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
-		await shell.getByText('Precondition: Amount is positive', { exact: true }).waitFor();
+		await revealAdeText(window, 'Precondition: Amount is positive');
 		for (const diagram of ['Esito pagamento', 'Percorso acquisto']) {
 			await window.locator('.ade-sidebar').getByRole('button', { name: diagram, exact: true }).click();
-			const options = shell.locator('details').filter({ hasText: 'Diagram Options' });
-			if (!await options.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await options.locator('summary').click(); }
-			await shell.getByRole('button', { name: 'Add Existing Element', exact: true }).click();
+			await clickAdeButton(window, 'Add Existing Element');
 			await pickValue(window, 'Add Existing Element', 'Contratto pagamento');
 			await shell.locator('.ade-node[aria-pressed="true"]').filter({ hasText: 'Contratto pagamento' }).waitFor();
-			await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+			await openProperties(window);
+			await revealAdeText(window, 'Output: receipt (PaymentReceipt), Required');
 		}
-		await shell.locator('.ade-properties').getByRole('button', { name: 'Element Details', exact: true }).click();
+		await clickAdeButton(window, 'Element Details');
 		await shell.getByRole('button', { name: 'Read Element Details', exact: true }).click();
 		await readAccessibleText(window, ['Output: receipt (PaymentReceipt), Required']);
 		await window.keyboard.press('Escape');
-		await shell.getByText('Error payment-declined: No order is confirmed', { exact: true }).scrollIntoViewIfNeeded();
+		await (await revealAdeText(window, 'Error payment-declined: No order is confirmed')).scrollIntoViewIfNeeded();
 		await window.screenshot({ path: path.join(evidence, 'behavioral-contract.png') });
 		console.log('PASS: native contract creation, validation, cancellation, editing, removal, undo/redo and shared details across two diagrams with accessible reading.');
 	}
@@ -82,7 +81,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 	async function checkSemanticNavigation() {
 		let window = await launch();
 		let shell = window.locator('.ade-shell');
-		await shell.getByRole('button', { name: 'Explore Purchase Example', exact: true }).click();
+		await clickAdeButton(window, 'Explore Purchase Example');
 		const sidebar = () => window.locator('.ade-sidebar');
 		const cancellationDetails = () => sidebar().locator('section[aria-label="Annullamento acquisto"] > details');
 		const purchaseButton = sidebar().getByRole('button', { name: 'Percorso acquisto', exact: true });
@@ -90,7 +89,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await shell.locator('.ade-node').getByText('Richiedi pagamento', { exact: true }).click();
 		assert.equal(await purchaseButton.getAttribute('data-integration-identity'), 'original', 'Selecting a node preserves the sidebar DOM');
 		await sidebar().getByRole('button', { name: 'Percorso annullamento', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Percorso annullamento', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Percorso annullamento', exact: true }).waitFor();
 		await shell.locator('.ade-node').getByText('Ordine', { exact: true }).click();
 		await purchaseButton.click();
 		assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'Richiedi pagamento');
@@ -128,7 +127,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		assert.equal(await connection.evaluate(element => element.parentElement instanceof HTMLDetailsElement && element.parentElement.open), true, 'Map disclosure survives a semantic visit');
 		await shell.locator('.ade-navigation').getByRole('button', { name: 'Diagrams', exact: true }).click();
 		await pickValue(window, 'Choose Diagram', 'Percorso acquisto');
-		await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Percorso acquisto', exact: true }).waitFor();
 		await searchSystem(window, 'Contract', 'Pagamento');
 		await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
 		assert.equal(await shell.locator('.ade-canvas').count(), 0);
@@ -137,34 +136,37 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await window.locator('.accessible-view:visible').getByText('Element Details: Pagamento', { exact: true }).waitFor();
 		await window.keyboard.press('Escape');
 		await shell.getByRole('button', { name: 'Back', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
-		await shell.getByRole('button', { name: 'Forward', exact: true }).click();
+		await shell.getByRole('region', { name: 'Diagram: Percorso acquisto', exact: true }).waitFor();
+		await runCommand(window, 'A.D.E: Go Forward');
 		await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
-		await shell.locator('.ade-properties').getByRole('button', { name: 'Richiedi pagamento → Pagamento: realizza contratto', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+		await clickAdeButton(window, 'Richiedi pagamento → Pagamento: realizza contratto');
+		await shell.getByRole('region', { name: 'Diagram: Percorso acquisto', exact: true }).waitFor();
 		assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'Richiedi pagamento');
 		assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').evaluate(element => element === document.activeElement), true);
-		await shell.locator('.ade-properties').getByRole('button', { name: 'Esito pagamento', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
+		await openProperties(window);
+		await clickAdeButton(window, 'Esito pagamento');
+		await shell.getByRole('region', { name: 'Diagram: Esito pagamento', exact: true }).waitFor();
 		assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'Richiedi pagamento');
-		await shell.getByRole('button', { name: 'Back', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+		await runCommand(window, 'A.D.E: Go Back');
+		await shell.getByRole('region', { name: 'Diagram: Percorso acquisto', exact: true }).waitFor();
 		assert.equal(await shell.locator('.ade-node[aria-pressed="true"]').textContent(), 'Richiedi pagamento');
-		await shell.getByRole('button', { name: 'Forward', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
-		await shell.getByRole('navigation', { name: 'Semantic Path', exact: true }).getByRole('button', { name: 'Conferma acquisto', exact: true }).click();
+		await runCommand(window, 'A.D.E: Go Forward');
+		await shell.getByRole('region', { name: 'Diagram: Esito pagamento', exact: true }).waitFor();
+		await searchSystem(window, 'Feature', 'Conferma acquisto');
 		await shell.getByRole('heading', { level: 1, name: 'Conferma acquisto', exact: true }).waitFor();
 		await shell.getByRole('heading', { name: 'Feature Diagrams', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Back', exact: true }).click();
 		await searchSystem(window, 'Diagrams', 'Struttura carrello');
-		await shell.getByRole('heading', { level: 1, name: 'Struttura carrello', exact: true }).waitFor();
-		assert.equal(await shell.getByRole('button', { name: 'Forward', exact: true }).isEnabled(), false, 'New navigation discards the forward branch');
-		await shell.getByRole('button', { name: 'Back', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
-		await clickAdeButton(window, 'Search System');
-		await window.locator('.quick-input-widget').getByText('Search Filter', { exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Struttura carrello', exact: true }).waitFor();
+		await runCommand(window, 'A.D.E: Go Forward');
+		await shell.getByRole('region', { name: 'Diagram: Struttura carrello', exact: true }).waitFor();
+		assert.equal(await shell.locator('.ade-workspace-bar .ade-diagram-picker').getAttribute('aria-label'), 'Struttura carrello', 'New navigation discards the forward branch');
+		await runCommand(window, 'A.D.E: Go Back');
+		await shell.getByRole('region', { name: 'Diagram: Esito pagamento', exact: true }).waitFor();
+		await runCommand(window, 'A.D.E: Search System');
+		await window.locator('.quick-input-widget').getByText('Search System', { exact: true }).waitFor();
 		await window.keyboard.press('Escape');
-		await shell.getByRole('heading', { level: 1, name: 'Esito pagamento', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Esito pagamento', exact: true }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'semantic-navigation.png') });
 		assert.equal(await readFile(modelFile, 'utf8'), JSON.stringify(checkoutModel));
 		console.log('PASS: typed semantic search, unplaced contract details, accessible reading, relationship navigation, shared identity across diagrams, breadcrumbs and back/forward branching.');
@@ -175,7 +177,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		assert.equal(await cancellationDetails().evaluate(details => details instanceof HTMLDetailsElement && details.open), false);
 		await searchSystem(window, 'Contract', 'Pagamento');
 		await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
-		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+		await clickAdeButton(window, 'Rename Element');
 		await enterValue(window, 'Name', 'Contratto pagamento');
 		await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
@@ -184,7 +186,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
 		await checkContractEditing(window);
 		await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+s`);
-		await shell.getByText('Saved', { exact: true }).waitFor();
+		await shell.getByText('Model Saved Locally', { exact: true }).waitFor();
 		const saved = JSON.parse(await readFile(modelFile, 'utf8'));
 		assert.deepEqual(validateSemanticModel(saved), []);
 		assert.equal(saved.semantics.elements.find((element: SemanticElement) => element.id === 'payment-contract').name, 'Contratto pagamento');
@@ -194,8 +196,9 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		window = await launch();
 		shell = window.locator('.ade-shell');
 		await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();
-		await shell.getByText('Output: receipt (PaymentReceipt), Required', { exact: true }).waitFor();
+		await revealAdeText(window, 'Output: receipt (PaymentReceipt), Required');
 		assert.equal(await cancellationDetails().evaluate(details => details instanceof HTMLDetailsElement && details.open), false, 'Collapsed groups survive a workspace restart');
+		await openDiagramNavigation(window);
 		await cancellationDetails().locator(':scope > summary').focus();
 		await window.keyboard.press('Enter');
 		await cancellationDetails().getByRole('button', { name: 'Percorso annullamento', exact: true }).waitFor();
@@ -211,7 +214,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 			view.nodes = view.nodes.filter((node: ModelView['nodes'][number]) => node.elementId !== 'payment-contract');
 		}
 		await writeFile(modelFile, JSON.stringify(removed));
-		await shell.getByRole('heading', { level: 1, name: 'Percorso acquisto', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Percorso acquisto', exact: true }).waitFor();
 		assert.equal(await shell.getByRole('alert').count(), 0);
 		console.log('PASS: semantic inspector edits use native undo/redo/save, restart restores the inspected identity, and external deletion repairs context without stale details.');
 		await clickAdeButton(window, 'System Map');
@@ -242,8 +245,10 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await writeFile(modelFile, JSON.stringify(shared));
 		await cancellationDetails().getByText('Related Diagrams', { exact: true }).waitFor();
 		await cancellationDetails().getByRole('button', { name: 'Shared Review', exact: true }).click();
-		await shell.getByRole('heading', { level: 1, name: 'Shared Review', exact: true }).waitFor();
-		await shell.getByRole('navigation', { name: 'Semantic Path', exact: true }).getByRole('button', { name: 'Conferma acquisto', exact: true }).waitFor();
+		await shell.getByRole('region', { name: 'Diagram: Shared Review', exact: true }).waitFor();
+		await clickAdeButton(window, 'Read Diagram');
+		await readAccessibleText(window, ['Diagram: Shared Review', 'Feature: Conferma acquisto']);
+		await window.keyboard.press('Escape');
 		assert.equal(await sidebar().getByRole('button', { name: 'Shared Review', exact: true }).count(), 2, 'Owner and related feature reference the same diagram');
 		await shell.getByRole('region', { name: 'Diagram: Shared Review', exact: true }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'integrated-m2-sidebar.png') });

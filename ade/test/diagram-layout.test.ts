@@ -8,6 +8,18 @@ import assert from 'node:assert/strict';
 import '../scripts/source-loader.mjs';
 const { arrangeDiagram, diagramNodeWidth, diagramNodeHeight } = await import('../../src/vs/workbench/contrib/ade/common/diagramLayout.ts');
 const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');
+const { notationGroupMembers } = await import('../../src/vs/workbench/contrib/ade/common/diagramLayout.ts');
+
+test('group traversal preserves ownership/hosting closure, including cycles and hidden descendants', () => {
+	for (const version of [3, 4, 5]) {
+		const model = fixture(8); model.version = version;
+		for (let i = 1; i < 8; i++) { model.semantics.elements[i].parentId = model.semantics.elements[i - 1].id; }
+		model.foundation = { ownership: model.semantics.elements.slice(1).map(element => ({ elementId: element.id, ownerId: element.parentId, role: 'architecture' })) };
+		model.semantics.relations = [{ id: 'cycle', kind: 'hosting', from: 'n07', to: 'n00' }, { id: 'excluded', kind: 'hosting', from: 'n00', to: 'outside' }];
+		model.views[0].relationIds = ['cycle']; model.views[0].nodes = model.views[0].nodes.slice(0, 2);
+		assert.deepEqual([...notationGroupMembers(model, model.views[0], 'n00')].sort(), model.semantics.elements.map(element => element.id));
+	}
+});
 
 function fixture(count) {
 	const elements = Array.from({ length: count }, (_, i) => ({ id: `n${String(i).padStart(2, '0')}`, kind: 'component', name: `Component ${i} with a long descriptive name` }));

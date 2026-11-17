@@ -9,6 +9,13 @@ import { ReplacePattern } from '../../common/replace.js';
 suite('Replace Pattern test', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
+	test('replaces the exact offset with search case and replacement grammar intact', () => {
+		assert.strictEqual(new ReplacePattern('$1$1', { pattern: '(?<=x)(\\d)', isRegExp: true }).getReplaceString('x1 x2', false, 4), '22');
+		assert.strictEqual(new ReplacePattern('$1BAR', { pattern: '(foo)', isRegExp: true }).getReplaceString('foo', true, 0), 'foobar');
+		assert.strictEqual(new ReplacePattern('$`-$\'', { pattern: 'foo', isRegExp: true }).getReplaceString('xfooY', false, 1), 'x-Y');
+		assert.strictEqual(new ReplacePattern('\\U$1', { pattern: '(foo)', isRegExp: true }).getReplaceString('xfoo', false, 1), 'FOO');
+	});
+
 	test('parse replace string', () => {
 		const testParse = (input: string, expected: string, expectedHasParameters: boolean) => {
 			let actual = new ReplacePattern(input, { pattern: 'somepattern', isRegExp: true });

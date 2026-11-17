@@ -6,7 +6,7 @@
 import * as nls from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
 import * as network from '../../../../base/common/network.js';
-import { Disposable, IReference } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IReference } from '../../../../base/common/lifecycle.js';
 import { IReplaceService } from './replace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
@@ -16,7 +16,9 @@ import { IProgress, IProgressStep } from '../../../../platform/progress/common/p
 import { ITextModelService, ITextModelContentProvider } from '../../../../editor/common/services/resolverService.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { ScrollType } from '../../../../editor/common/editorCommon.js';
-import { ITextModel } from '../../../../editor/common/model.js';
+import { EndOfLinePreference, FindMatch, ITextModel } from '../../../../editor/common/model.js';
+import { USUAL_WORD_SEPARATORS } from '../../../../editor/common/core/wordHelper.js';
+import { SearchParams } from '../../../../editor/common/model/textModelSearch.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { createTextBufferFactoryFromSnapshot } from '../../../../editor/common/model/textModel.js';
 import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
@@ -31,8 +33,16 @@ import { CellUri, IResolvedNotebookEditorModel } from '../../notebook/common/not
 import { INotebookEditorModelResolverService } from '../../notebook/common/notebookEditorModelResolverService.js';
 import { ISearchTreeFileMatch, isSearchTreeFileMatch, ISearchTreeMatch, FileMatchOrMatch, isSearchTreeMatch } from './searchTreeModel/searchTreeCommon.js';
 import { isIMatchInNotebook } from './notebookSearch/notebookSearchModelBase.js';
+import { IPatternInfo } from '../../../services/search/common/search.js';
+import { ReplacePattern } from '../../../services/search/common/replace.js';
 
 const REPLACE_PREVIEW = 'replacePreview';
+
+class SearchReplaceEdit extends ResourceTextEdit {
+	constructor(resource: URI, range: Range, text: string, readonly expectedText: string, readonly pattern: IPatternInfo | undefined, readonly replacement: ReplacePattern | null, readonly preserveCase: boolean) {
+		super(resource, { range, text });
+	}
+}
 
 const toReplaceResource = (fileResource: URI): URI => {
 	return fileResource.with({ scheme: network.Schemas.internal, fragment: REPLACE_PREVIEW, query: JSON.stringify({ scheme: fileResource.scheme }) });
@@ -114,27 +124,93 @@ export class ReplaceService implements IReplaceService {
 	replace(match: FileMatchOrMatch, progress?: IProgress<IProgressStep>, resource?: URI): Promise<any>;
 	async replace(arg: any, progress: IProgress<IProgressStep> | undefined = undefined, resource: URI | null = null): Promise<any> {
 		const edits = this.createEdits(arg, resource);
-		await this.bulkEditorService.apply(edits, { progress });
-
-		const rawTextPromises = edits.map(async e => {
-			if (e.resource.scheme === network.Schemas.vscodeNotebookCell) {
-				const notebookResource = CellUri.parse(e.resource)?.notebook;
-				if (notebookResource) {
-					let ref: IReference<IResolvedNotebookEditorModel> | undefined;
-					try {
-						ref = await this.notebookEditorModelResolverService.resolve(notebookResource);
-						await ref.object.save({ source: ReplaceService.REPLACE_SAVE_SOURCE });
-					} finally {
-						ref?.dispose();
-					}
+		const references = new DisposableStore();
+		try {
+			const models = new Map<string, ITextModel>();
+			await Promise.all([...new Map(edits.map(edit => [edit.resource.toString(), edit.resource])).values()].map(async uri => {
+				const ref = await this.textModelResolverService.createModelReference(uri);
+				if (references.isDisposed) {
+					ref.dispose();
+					return;
 				}
-				return;
-			} else {
-				return this.textFileService.files.get(e.resource)?.save({ source: ReplaceService.REPLACE_SAVE_SOURCE });
-			}
-		});
+				references.add(ref);
+				models.set(uri.toString(), ref.object.textEditorModel);
+			}));
+			const currentMatches = new Map<string, { matches: Map<string, FindMatch>; regex: RegExp | undefined }>();
+			const currentTexts = new Map<string, string>();
+			const validatedEdits = edits.map(edit => {
+				const model = models.get(edit.resource.toString())!;
+				let matchesPattern = true;
+				let currentMatch: FindMatch | undefined;
+				let searchRegExp: RegExp | undefined;
+				if (edit.pattern) {
+					const key = JSON.stringify([edit.resource.toString(), edit.pattern]);
+					let search = currentMatches.get(key);
+					if (!search) {
+						const pattern = edit.pattern;
+						const matches = new Map(model.findMatches(pattern.pattern, model.getFullModelRange(), !!pattern.isRegExp, !!pattern.isCaseSensitive, pattern.isWordMatch ? pattern.wordSeparators ?? USUAL_WORD_SEPARATORS : null, false, Number.MAX_SAFE_INTEGER).map(match => [match.range.toString(), match]));
+						// Word boundaries were validated by the model using its configured
+						// separators. Reuse its regex grammar without adding JavaScript \b.
+						const regex = new SearchParams(pattern.pattern, !!pattern.isRegExp, !!pattern.isCaseSensitive, null).parseSearchRequest()?.regex;
+						search = { matches, regex };
+						currentMatches.set(key, search);
+					}
+					currentMatch = search.matches.get(Range.lift(edit.textEdit.range).toString());
+					searchRegExp = search.regex;
+					matchesPattern = currentMatch !== undefined;
+				}
+				if (model.getValueInRange(Range.lift(edit.textEdit.range)).replace(/\r\n/g, '\n') !== edit.expectedText.replace(/\r\n/g, '\n')
+					|| !matchesPattern) {
+					throw new Error(nls.localize('searchReplace.changed', "The search results for {0} are out of date. Run the search again before replacing.", edit.resource.toString()));
+				}
+				let textEdit = edit.textEdit;
+				if (currentMatch && edit.replacement && searchRegExp) {
+					const key = edit.resource.toString();
+					const range = currentMatch.range;
+					let text: string;
+					let offset: number;
+					if (searchRegExp.multiline) {
+						text = currentTexts.get(key) ?? model.getValue(EndOfLinePreference.LF);
+						currentTexts.set(key, text);
+						offset = model.getValueLengthInRange(new Range(1, 1, range.startLineNumber, range.startColumn), EndOfLinePreference.LF);
+					} else {
+						// Non-multiline model searches run one line at a time, including
+						// anchors and lookaround. Keep that context for replacement too.
+						text = model.getLineContent(range.startLineNumber);
+						offset = range.startColumn - 1;
+					}
+					const replacement = edit.replacement.getReplaceString(text, edit.preserveCase, offset, searchRegExp);
+					if (replacement === null) {
+						throw new Error(nls.localize('searchReplace.patternChanged', "The search results for {0} no longer match. Run the search again before replacing.", edit.resource.toString()));
+					}
+					textEdit = { ...edit.textEdit, text: replacement };
+				}
+				return new ResourceTextEdit(edit.resource, textEdit, model.getVersionId());
+			});
+			await this.bulkEditorService.apply(validatedEdits, { progress });
 
-		return Promises.settled(rawTextPromises);
+			const rawTextPromises = edits.map(async e => {
+				if (e.resource.scheme === network.Schemas.vscodeNotebookCell) {
+					const notebookResource = CellUri.parse(e.resource)?.notebook;
+					if (notebookResource) {
+						let ref: IReference<IResolvedNotebookEditorModel> | undefined;
+						try {
+							ref = await this.notebookEditorModelResolverService.resolve(notebookResource);
+							await ref.object.save({ source: ReplaceService.REPLACE_SAVE_SOURCE });
+						} finally {
+							ref?.dispose();
+						}
+					}
+					return;
+				} else {
+					return this.textFileService.files.get(e.resource)?.save({ source: ReplaceService.REPLACE_SAVE_SOURCE });
+				}
+			});
+
+			return await Promises.settled(rawTextPromises);
+		} finally {
+			references.dispose();
+		}
 	}
 
 	async openReplacePreview(element: FileMatchOrMatch, preserveFocus?: boolean, sideBySide?: boolean, pinned?: boolean): Promise<any> {
@@ -198,8 +274,8 @@ export class ReplaceService implements IReplaceService {
 		replaceModel.pushEditOperations([], modelEdits.sort((a, b) => Range.compareRangesUsingStarts(a.range, b.range)), () => []);
 	}
 
-	private createEdits(arg: FileMatchOrMatch | ISearchTreeFileMatch[], resource: URI | null = null): ResourceTextEdit[] {
-		const edits: ResourceTextEdit[] = [];
+	private createEdits(arg: FileMatchOrMatch | ISearchTreeFileMatch[], resource: URI | null = null): SearchReplaceEdit[] {
+		const edits: SearchReplaceEdit[] = [];
 
 		if (isSearchTreeMatch(arg)) {
 			if (!arg.isReadonly) {
@@ -231,11 +307,15 @@ export class ReplaceService implements IReplaceService {
 		return edits;
 	}
 
-	private createEdit(match: ISearchTreeMatch, text: string, resource: URI | null = null): ResourceTextEdit {
+	private createEdit(match: ISearchTreeMatch, text: string, resource: URI | null = null): SearchReplaceEdit {
 		const fileMatch: ISearchTreeFileMatch = match.parent();
-		return new ResourceTextEdit(
+		const searchModel = fileMatch.parent().searchModel;
+		const queryPattern = searchModel.searchResult.query?.contentPattern;
+		const pattern = queryPattern ? { ...queryPattern } : undefined;
+		const replacement = searchModel.replacePattern;
+		return new SearchReplaceEdit(
 			resource ?? fileMatch.resource,
-			{ range: match.range(), text }, undefined, undefined
+			match.range(), text, match.fullMatchText(), pattern, replacement, searchModel.preserveCase
 		);
 	}
 }

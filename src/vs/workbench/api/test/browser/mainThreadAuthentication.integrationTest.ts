@@ -41,6 +41,25 @@ import { DynamicAuthenticationProviderStorageService } from '../../../services/a
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
+import { toDisposable } from '../../../../base/common/lifecycle.js';
+import { IURLHandler, IURLService } from '../../../../platform/url/common/url.js';
+import { AbstractURLService } from '../../../../platform/url/common/urlService.js';
+import { runWithFakedTimers } from '../../../../base/test/common/virtualScheduling/index.js';
+
+class TestAuthenticationURLService extends AbstractURLService {
+	handlerCount = 0;
+	create(): URI { return URI.parse('test://authentication'); }
+	override registerHandler(handler: IURLHandler) {
+		const registration = super.registerHandler(handler);
+		this.handlerCount++;
+		return toDisposable(() => {
+			this.handlerCount--;
+			registration.dispose();
+		});
+	}
+}
 
 class TestAuthUsageService implements IAuthenticationUsageService {
 	_serviceBrand: undefined;
@@ -57,6 +76,7 @@ suite('MainThreadAuthentication', () => {
 	let mainThreadAuthentication: MainThreadAuthentication;
 	let instantiationService: TestInstantiationService;
 	let rpcProtocol: TestRPCProtocol;
+	let urlService: TestAuthenticationURLService;
 
 	setup(async () => {
 		// services
@@ -85,10 +105,49 @@ suite('MainThreadAuthentication', () => {
 		instantiationService.stub(ITelemetryService, NullTelemetryService);
 		instantiationService.stub(IBrowserWorkbenchEnvironmentService, TestEnvironmentService);
 		instantiationService.stub(IProductService, TestProductService);
+		urlService = disposables.add(new TestAuthenticationURLService());
+		instantiationService.stub(IURLService, urlService);
 
 		rpcProtocol = disposables.add(new TestRPCProtocol());
 		mainThreadAuthentication = disposables.add(instantiationService.createInstance(MainThreadAuthentication, rpcProtocol));
 		rpcProtocol.set(MainContext.MainThreadAuthentication, mainThreadAuthentication);
+	});
+
+	test('a cancelled callback waiter cannot consume a later sign-in callback', async () => {
+		const cancellation = disposables.add(new CancellationTokenSource());
+		const abandoned = mainThreadAuthentication.$waitForUriHandler(URI.parse('test://auth/authorize?nonce=first'), cancellation.token);
+		const rejection = assert.rejects(abandoned, isCancellationError);
+		cancellation.cancel();
+		await rejection;
+		const callback = URI.parse('test://auth/authorize?nonce=second&code=test-code');
+		const current = mainThreadAuthentication.$waitForUriHandler(URI.parse('test://auth/authorize?nonce=second'), CancellationToken.None);
+		const handled = await urlService.open(callback);
+		assert.deepStrictEqual({ handled, result: URI.revive(await current).toString(), handlers: urlService.handlerCount }, { handled: true, result: callback.toString(), handlers: 0 });
+	});
+
+	test('correlates concurrent callbacks with their nonce', async () => {
+		const first = mainThreadAuthentication.$waitForUriHandler(URI.parse('test://auth/authorize?nonce=first'), CancellationToken.None);
+		const second = mainThreadAuthentication.$waitForUriHandler(URI.parse('test://auth/authorize?nonce=second'), CancellationToken.None);
+		const callback = URI.parse('test://auth/authorize?nonce=second&code=second-code&windowId=1');
+		assert.strictEqual(await urlService.open(callback), true);
+		assert.strictEqual(URI.revive(await second).query, callback.query);
+		assert.strictEqual(urlService.handlerCount, 1);
+		await urlService.open(URI.parse('test://auth/authorize?nonce=first&code=first-code'));
+		await first;
+		assert.strictEqual(urlService.handlerCount, 0);
+	});
+
+	test('cleans up callback waiters after timeout', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+		await assert.rejects(mainThreadAuthentication.$waitForUriHandler(URI.parse('test://auth/authorize?nonce=expired'), CancellationToken.None), /Timed out/);
+		assert.strictEqual(urlService.handlerCount, 0);
+	}));
+
+	test('disposing the authentication bridge cancels pending callbacks', async () => {
+		const pending = mainThreadAuthentication.$waitForUriHandler(URI.parse('test://auth/authorize?nonce=disposed'), CancellationToken.None);
+		const rejection = assert.rejects(pending, isCancellationError);
+		mainThreadAuthentication.dispose();
+		await rejection;
+		assert.strictEqual(urlService.handlerCount, 0);
 	});
 
 	test('provider registration completes without errors', async () => {

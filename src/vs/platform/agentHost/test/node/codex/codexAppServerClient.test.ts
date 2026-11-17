@@ -5,6 +5,7 @@
 
 import assert from 'assert';
 import { PassThrough } from 'stream';
+import { EventEmitter } from 'events';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
@@ -12,6 +13,7 @@ import {
 	CodexAppServerClient,
 	JsonRpcError,
 	JsonRpcErrorCode,
+	transportFromChildProcess,
 	type ICodexAppServerTransport,
 } from '../../../node/codex/codexAppServerClient.js';
 
@@ -353,6 +355,45 @@ suite('CodexAppServerClient', () => {
 			peer.dispose();
 		}
 	});
+
+	for (const source of ['process', 'stderr'] as const) {
+		test(`a child ${source} error rejects pending initialization without an exit event`, async () => {
+			const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true });
+			const client = new CodexAppServerClient(transportFromChildProcess(child), undefined, 1);
+			try {
+				const errors: string[] = [];
+				const listener = client.onTransportError(error => errors.push(error.message));
+				const pending = client.request('initialize', { clientInfo: { name: 'test', title: null, version: '1' }, capabilities: null });
+				(source === 'process' ? child : child.stderr).emit('error', new Error('spawn EAGAIN'));
+				await assert.rejects(pending, /spawn EAGAIN/);
+				await assert.rejects(client.request('getAuthStatus', { refreshToken: false, includeToken: false }), /transport failed/);
+				assert.deepStrictEqual(errors, ['spawn EAGAIN']);
+				listener.dispose();
+			} finally {
+				client.dispose();
+				child.emit('exit', 0, null);
+				child.stdin.destroy();
+				child.stdout.destroy();
+				child.stderr.destroy();
+			}
+		});
+	}
+
+	for (const stream of ['stdin', 'stdout'] as const) {
+		test(`an asynchronous ${stream} error rejects all requests without an exit event`, async () => {
+			const peer = makeFakePeer();
+			const client = new CodexAppServerClient(peer.transport);
+			try {
+				const pending = client.request('getAuthStatus', { refreshToken: false, includeToken: false });
+				peer.transport[stream].emit('error', new Error('stdio failed'));
+				await assert.rejects(pending, /stdio failed/);
+			} finally {
+				client.dispose();
+				peer.exit(0);
+				peer.dispose();
+			}
+		});
+	}
 
 	test('dispose rejects pending requests with CancellationError', async () => {
 		const peer = makeFakePeer();

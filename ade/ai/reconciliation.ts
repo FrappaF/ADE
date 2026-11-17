@@ -64,8 +64,10 @@ export const reconciliationSchema = strictOutputSchema(proposalSchema as OutputS
 
 /** Restore optional model fields; required null values still represent explicit deletions. */
 function readTransportProposal(value: unknown): unknown {
-	if (!value || typeof value !== 'object' || !('modelEdits' in value) || !Array.isArray(value.modelEdits)) { return value; }
-	return { ...value, modelEdits: value.modelEdits.map(edit => {
+	if (!value || typeof value !== 'object' || !Object.hasOwn(value, 'modelEdits')) { return value; }
+	const edits: unknown = Reflect.get(value, 'modelEdits');
+	if (!Array.isArray(edits)) { return value; }
+	return { ...value, modelEdits: edits.map(edit => {
 		if (!edit || typeof edit !== 'object' || !edit.value || typeof edit.value !== 'object' || Array.isArray(edit.value)) { return edit; }
 		const optional = edit.collection === 'elements' ? ['description', 'parentId', 'behavior', 'legacyKind', 'details'] : edit.collection === 'relations' ? ['condition', 'errorCode', 'classification', 'details'] : [];
 		return { ...edit, value: Object.fromEntries(Object.entries(edit.value).filter(([key, item]) => item !== null || !optional.includes(key))) };
@@ -91,11 +93,20 @@ export interface PreparedReconciliation {
 	clarification: string;
 }
 
-/** Recursively translates exact identity references, never substrings or source text. */
-function identities<T>(value: T, table: Record<string, string>): T {
-	if (typeof value === 'string') { return (table[value] ?? value) as T; }
-	if (Array.isArray(value)) { return value.map(item => identities(item, table)) as T; }
-	if (value && typeof value === 'object') { return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, identities(item, table)])) as T; }
+/** Translate identity slots only: names, descriptions, contracts and source evidence are data. */
+function identities<T>(value: T, table: Record<string, string>, key = ''): T {
+	if (typeof value === 'string') { return (['id', 'parentId', 'elementId', 'from', 'to', 'featureId', 'subjectId', 'relationIds', 'contextIds'].includes(key) && Object.hasOwn(table, value) ? table[value] : value) as T; }
+	if (Array.isArray(value)) { return value.map(item => identities(item, table, key)) as T; }
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(Object.entries(value).map(([key, item]) => {
+			if (key === 'details') { return [key, item]; }
+			if (key === 'behavior' && item && typeof item === 'object') {
+				const behavior = item as NonNullable<SemanticElement['behavior']>;
+				return [key, { ...behavior, permissions: behavior.permissions.map(permission => ({ ...permission, actorId: Object.hasOwn(table, permission.actorId) ? table[permission.actorId] : permission.actorId })) }];
+			}
+			return [key, identities(item, table, key)];
+		})) as T;
+	}
 	return value;
 }
 
@@ -125,8 +136,8 @@ export async function prepareAiReconciliation(previous: ImportSnapshot, next: Co
 	const config = readProviderConfig(configValue);
 	if (clarification.length > 8000) { throw new Error('Reconciliation clarification exceeds 8000 characters'); }
 	if (new Set(sourceFiles).size !== sourceFiles.length) { throw new Error('Select unique source files'); }
-	const handles: Record<string, string> = {};
-	const inverse: Record<string, string> = {};
+	const handles: Record<string, string> = Object.create(null);
+	const inverse: Record<string, string> = Object.create(null);
 	const ids = [...new Set([previous.commonModel, previous.model, next.model].flatMap(model => [...model.semantics.elements, ...model.semantics.relations, ...model.views].map(item => item.id)))].sort();
 	ids.forEach((id, index) => { handles[`i${index}`] = id; inverse[id] = `i${index}`; });
 	const changedFiles = new Set(next.files.filter(file => previous.state.files.find(old => old.file === file.file)?.revision !== file.revision).map(file => file.file));
@@ -201,7 +212,9 @@ async function validateReconciliationProposal(value: unknown, prepared: Prepared
 		const binding = proposal.bindings.find(binding => item.path === `/semantics/elements/${binding.elementId}`);
 		const current = previous.model.semantics.elements.find(element => element.id === binding?.elementId);
 		const proposed = proposal.modelEdits.find(edit => edit.id === binding?.elementId)?.value ?? current;
-		return !binding || !current || !proposed || 'from' in proposed || !isDeepStrictEqual(current.description, proposed.description) || !isDeepStrictEqual(current.behavior, proposed.behavior);
+		if (!binding || !current || !proposed || Object.hasOwn(proposed, 'from')) { return true; }
+		const element = proposed as SemanticElement;
+		return !isDeepStrictEqual(current.description, element.description) || !isDeepStrictEqual(current.behavior, element.behavior);
 	});
 	if (unresolved.length && !proposal.questions.length) { throw new Error('Concurrent changes require explicit user resolutions or clarification questions'); }
 	const model = structuredClone(previous.model);

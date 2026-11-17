@@ -25,13 +25,13 @@ import { DiagramContext, getViewSelectionIds, normalizeDiagramContext, resolveEl
 import { modelProjectProfile } from '../common/modelProfiles.js';
 import { modelTaskIntent } from '../common/modelWorkflow.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
+import { generateUuid, isUUID } from '../../../../base/common/uuid.js';
 import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { ITextFileService, IResolvedTextFileEditorModel } from '../../../services/textfile/common/textfiles.js';
 import { applyVisualEdit, VisualEdit } from '../common/visualEditing.js';
 import { migrateSemanticModelToV4 } from '../common/modelMigration.js';
 import { getModelReadiness, type GenerationProfile } from '../common/modelReadiness.js';
-import { createPureProject } from '../common/modelProject.js';
+import { createPureProject, type ProjectCriteria } from '../common/modelProject.js';
 import { compileModelTaskContext, type ModelTaskPacket } from '../common/modelTaskContext.js';
 import { compileModelContext, type ModelContextRequest } from '../common/modelContext.js';
 import { diagnosticMessage } from './adeDiagnostics.js';
@@ -40,6 +40,13 @@ import { type SemanticModel } from '../common/modelTypes.js';
 import { SaveReason } from '../../../common/editor.js';
 
 export const IAdeProjectService = createDecorator<AdeProjectService>('adeProjectService');
+
+interface PureStarterRecord {
+	version: 1;
+	projectId: string;
+	identities: string[];
+	criteria: string;
+}
 
 /** Workspace-owned editable model and visual context shared by native workbench surfaces. */
 export class AdeProjectService extends Disposable {
@@ -409,13 +416,57 @@ export class AdeProjectService extends Disposable {
 	async createPureFeature(): Promise<void> {
 		if (!this.canCreatePureFeature) { throw new Error(localize('ade.pure.empty', "Create an empty version 4 or 5 project first.")); }
 		const version = this.documentVersion;
-		const { model, criteria } = createPureProject(this.model.name, generateUuid); model.id = this.model.id;
+		const projectId = this.model.id, name = this.model.name;
+		const target = URI.joinPath(this.projectRoot!, '.ade', 'criteria.json');
+		const manifest = URI.joinPath(this.projectRoot!, '.ade', 'pure-starter.json');
+		const invalidStarter = () => new Error(localize('ade.pure.invalidStarter', "The starter data changed or is invalid. Preserve it before creating another starter."));
+		let prior: PureStarterRecord | undefined;
+		if (await this.fileService.exists(manifest)) {
+			try {
+				const value: Partial<PureStarterRecord> = JSON.parse((await this.fileService.readFile(manifest, { limits: { size: 16384 } })).value.toString());
+				if (value?.version !== 1 || value.projectId !== projectId || !Array.isArray(value.identities) || value.identities.length > 64 || value.identities.some(id => typeof id !== 'string' || !isUUID(id)) || new Set(value.identities).size !== value.identities.length || typeof value.criteria !== 'string') { throw invalidStarter(); }
+				prior = { version: 1, projectId: value.projectId, identities: value.identities, criteria: value.criteria };
+			} catch { throw invalidStarter(); }
+		}
+		const existingCriteria = await this.fileService.exists(target) ? (await this.fileService.readFile(target, { limits: { size: 16384 } })).value.toString() : undefined;
+		const legacyIds = new Map<number, string>();
+		if (!prior && existingCriteria !== undefined) {
+			// Older starters have no manifest. Recover only their canonical test
+			// data's references; arbitrary or edited criteria remain untouched.
+			try {
+				const value: Partial<ProjectCriteria> = JSON.parse(existingCriteria);
+				const first = value?.cases?.[0];
+				const input = first?.input && Object.keys(first.input);
+				if (!first || !input || input.length !== 1 || ![first.predicateId, first.criterionId, input[0]].every(id => typeof id === 'string' && isUUID(id))) { throw invalidStarter(); }
+				legacyIds.set(6, input[0]); legacyIds.set(10, first.predicateId); legacyIds.set(11, first.criterionId);
+			} catch { throw invalidStarter(); }
+		}
+		const identities: string[] = [];
+		const identity = () => {
+			const id = prior ? prior.identities[identities.length] : legacyIds.get(identities.length) ?? generateUuid();
+			if (!id) { throw invalidStarter(); }
+			identities.push(id); return id;
+		};
+		const { model, criteria } = createPureProject(name, identity); model.id = projectId;
 		const feature = model.semantics.elements.find(element => element.kind === 'feature')!;
 		const system = model.semantics.elements.find(element => element.kind === 'system')!;
 		const container = model.semantics.elements.find(element => element.kind === 'container')!;
-		model.views = [{ id: generateUuid(), name: localize('ade.pure.structure', "Quantity Validation · Structure"), kind: 'structure', featureId: feature.id, subjectId: system.id, contextIds: [], nodes: [{ elementId: container.id, x: 80, y: 80 }], relationIds: [] }];
-		const target = URI.joinPath(this.projectRoot!, '.ade', 'criteria.json');
-		await this.fileService.createFile(target, VSBuffer.fromString(JSON.stringify(criteria, null, '\t') + '\n'), { overwrite: false });
+		model.views = [{ id: identity(), name: localize('ade.pure.structure', "Quantity Validation · Structure"), kind: 'structure', featureId: feature.id, subjectId: system.id, contextIds: [], nodes: [{ elementId: container.id, x: 80, y: 80 }], relationIds: [] }];
+		const criteriaText = prior?.criteria ?? existingCriteria ?? JSON.stringify(criteria, null, '\t') + '\n';
+		try {
+			if (!equals(JSON.parse(criteriaText), criteria) || prior && prior.identities.length !== identities.length || new Set(identities).size !== identities.length) { throw invalidStarter(); }
+		} catch { throw invalidStarter(); }
+		if (version !== this.documentVersion) { throw new Error(localize('ade.pure.stale', "The project changed while preparing the feature.")); }
+		if (!prior) {
+			// Publish provenance before editing the model or creating criteria so
+			// interruption and reload can resume with exactly the same identities.
+			await this.fileService.createFile(manifest, VSBuffer.fromString(JSON.stringify({ version: 1, projectId: model.id, identities, criteria: criteriaText } satisfies PureStarterRecord)), { overwrite: false });
+		}
+		if (await this.fileService.exists(target)) {
+			if ((await this.fileService.readFile(target, { limits: { size: 16384 } })).value.toString() !== criteriaText) { throw new Error(localize('ade.pure.criteriaChanged', "The starter criteria changed. Preserve them before creating another starter.")); }
+		} else {
+			await this.fileService.createFile(target, VSBuffer.fromString(criteriaText), { overwrite: false });
+		}
 		if (version !== this.documentVersion) { throw new Error(localize('ade.pure.stale', "The project changed while preparing the feature.")); }
 		this.replaceDocument(model); this.showDiagram(model.views[0].id);
 	}

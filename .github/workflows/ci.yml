@@ -28,7 +28,7 @@ jobs:
       - run: npm --prefix ade/prototype run check
       - run: npm --prefix ade/prototype test
       - run: npm --prefix ade/runtime ci --ignore-scripts
-      - run: node --test ade/test/*.test.mjs
+      - run: node --test "ade/test/*.test.{mjs,ts}"
   code-import:
     runs-on: ubuntu-latest
     timeout-minutes: 15

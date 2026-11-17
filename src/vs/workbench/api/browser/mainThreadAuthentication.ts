@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import * as nls from '../../../nls.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, getDynamicAuthenticationProviderId, IAuthenticationProvider, IAuthenticationService, IAuthenticationExtensionsService, AuthenticationSessionAccount, IAuthenticationProviderSessionOptions, isAuthenticationWwwAuthenticateRequest, IAuthenticationConstraint, IAuthenticationWwwAuthenticateRequest, withoutWorkbenchOnlySessionOptions } from '../../services/authentication/common/authentication.js';
@@ -25,7 +25,8 @@ import { ILogService } from '../../../platform/log/common/log.js';
 import { ExtensionHostKind } from '../../services/extensions/common/extensionHostKind.js';
 import { Dto, Proxied } from '../../services/extensions/common/proxyIdentifier.js';
 import { IURLService } from '../../../platform/url/common/url.js';
-import { DeferredPromise, raceTimeout } from '../../../base/common/async.js';
+import { DeferredPromise, raceCancellationError, raceTimeout } from '../../../base/common/async.js';
+import { CancellationToken } from '../../../base/common/cancellation.js';
 import { fetchAuthorizationServerMetadata, IAuthorizationTokenResponse } from '../../../base/common/oauth.js';
 import { IDynamicAuthenticationProviderStorageService } from '../../services/authentication/common/dynamicAuthenticationProviderStorage.js';
 import { IClipboardService } from '../../../platform/clipboard/common/clipboardService.js';
@@ -133,6 +134,7 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 	private readonly _proxy: Proxied<ExtHostAuthenticationShape>;
 
 	private readonly _registrations = this._register(new DisposableMap<string>());
+	private readonly _uriHandlerRequests = this._register(new DisposableStore());
 	private _sentProviderUsageEvents = new Set<string>();
 	private _suppressUnregisterEvent = false;
 
@@ -306,23 +308,36 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 		return this.authenticationService.removeSession(providerId, sessionId);
 	}
 
-	async $waitForUriHandler(expectedUri: UriComponents): Promise<UriComponents> {
+	async $waitForUriHandler(expectedUri: UriComponents, token: CancellationToken): Promise<UriComponents> {
+		if (token.isCancellationRequested || this._uriHandlerRequests.isDisposed) {
+			throw new CancellationError();
+		}
 		const deferredPromise = new DeferredPromise<UriComponents>();
-		const disposable = this.urlService.registerHandler({
+		const request = this._uriHandlerRequests.add(new DisposableStore());
+		request.add(toDisposable(() => deferredPromise.cancel()));
+		const expectedQuery = new URLSearchParams(expectedUri.query);
+		request.add(this.urlService.registerHandler({
 			handleURL: async (uri: URI) => {
 				if (uri.scheme !== expectedUri.scheme || uri.authority !== expectedUri.authority || uri.path !== expectedUri.path) {
 					return false;
 				}
+				const query = new URLSearchParams(uri.query);
+				if ([...expectedQuery].some(([key, value]) => query.getAll(key).length !== expectedQuery.getAll(key).length || !query.getAll(key).includes(value))) {
+					return false;
+				}
 				deferredPromise.complete(uri);
-				disposable.dispose();
 				return true;
 			}
-		});
-		const result = await raceTimeout(deferredPromise.p, 5 * 60 * 1000); // 5 minutes
-		if (!result) {
-			throw new Error('Timed out waiting for URI handler');
+		}));
+		try {
+			const result = await raceTimeout(raceCancellationError(deferredPromise.p, token), 5 * 60 * 1000); // 5 minutes
+			if (!result) {
+				throw new Error('Timed out waiting for URI handler');
+			}
+			return result;
+		} finally {
+			this._uriHandlerRequests.delete(request);
 		}
-		return await deferredPromise.p;
 	}
 
 	$showContinueNotification(message: string): Promise<boolean> {

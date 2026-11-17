@@ -58,12 +58,16 @@ export class ReplacePattern {
 	* Returns the replace string for the first match in the given text.
 	* If text has no matches then returns null.
 	*/
-	getReplaceString(text: string, preserveCase?: boolean): string | null {
-		this._regExp.lastIndex = 0;
-		const match = this._regExp.exec(text);
+	getReplaceString(text: string, preserveCase?: boolean, matchOffset?: number, searchRegExp: RegExp = this._regExp): string | null {
+		// A replacement from search results must use this exact occurrence,
+		// including lookaround captures, rather than the first match in its line.
+		const regex = matchOffset === undefined ? searchRegExp : new RegExp(searchRegExp.source, searchRegExp.flags.replace(/[gy]/g, '') + 'y');
+		regex.lastIndex = matchOffset ?? 0;
+		const match = regex.exec(text);
 		if (match) {
 			if (this.hasParameters) {
-				const replaceString = this.replaceWithCaseOperations(text, this._regExp, this.buildReplaceString(match, preserveCase));
+				regex.lastIndex = matchOffset ?? 0;
+				const replaceString = this.replaceWithCaseOperations(text, regex, this.buildReplaceString(match, preserveCase));
 				if (match[0] === text) {
 					return replaceString;
 				}
@@ -90,7 +94,9 @@ export class ReplacePattern {
 			return text.replace(regex, replaceString);
 		}
 		// Store the values of the search parameters.
+		const matchOffset = regex.lastIndex;
 		const firstMatch = regex.exec(text);
+		regex.lastIndex = matchOffset;
 		if (firstMatch === null) {
 			return text.replace(regex, replaceString);
 		}

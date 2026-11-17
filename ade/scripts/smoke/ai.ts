@@ -7,7 +7,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { writeFile, rm, readFile, readdir, chmod } from 'node:fs/promises';
 import path from 'node:path';
-import { openAiSettings, openModelFile, enterValue, pickValue, runCommand } from './helpers.ts';
+import { openCodeActions, openModelFile, enterValue, pickValue, runCommand, installSimulatedCodex } from './helpers.ts';
 
 /** ai scenarios share only the harness values listed here. */
 export function createAiScenarios(harness: SmokeHarness) {
@@ -33,15 +33,18 @@ export function createAiScenarios(harness: SmokeHarness) {
 			await writeFile(executable, `#!${process.execPath}\nimport {readFileSync,writeFileSync,writeSync,existsSync} from 'node:fs';
 const args=process.argv.slice(2);
 if(args[0]==='login'&&args[1]==='status'){writeSync(1,'Logged in using ChatGPT (simulated)');process.exit(0);}
+if(!args.includes('--output-schema')){writeSync(2,'Simulated smoke CLI supports only account status and reviewed requests');process.exit(1);}
 const schema=JSON.parse(readFileSync(args[args.indexOf('--output-schema')+1],'utf8'));
 const counter=${JSON.stringify(counter)};
 writeFileSync(counter,String(Number(readFileSync(counter,'utf8'))+1));
 writeFileSync(args[args.indexOf('--output-last-message')+1],JSON.stringify(schema.properties.steps?${JSON.stringify(f.plan)}:${JSON.stringify(f.generated)}));
 writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_tokens:20}})+'\\n');\n`);
 			await chmod(executable, 0o700);
+			await installSimulatedCodex(harness, executable);
 		}
 		let window = await launch();
 		await openModelFile(window, path.join(f.snapshot, 'model.ade.json'));
+		await openCodeActions(window);
 		await window.locator('.ade-shell').getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 		await runCommand(window, 'A.D.E: Connect Claude Code or Codex');
 		await pickValue(window, 'Choose AI CLI', 'Codex');
@@ -54,16 +57,16 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 			await pickValue(window, 'Choose a Model Available to Your Account', process.env.ADE_AI_MODEL_LABEL || model);
 		} else { await window.keyboard.press('Enter'); }
 		await enterValue(window, 'Original CLI Executable', executable);
-		await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan and Implementation · At Most Two Agent Runs');
+		await pickValue(window, 'Agent Run Budget · Provider Usage Is Managed by Its CLI', 'Plan and Implementation');
 		if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 0); }
 		await runCommand(window, 'A.D.E: Implement Feature');
 		await pickValue(window, 'Implement Feature', 'checkout');
 		await enterValue(window, 'Requested Behavior', `For the supported boolean inputs, checkout(false) must return exactly 'declined' and checkout(true) must retain exactly 'paid'. No behavior for non-boolean inputs is requested.`);
 		await widget.getByText('Review Source Files to Share · Suggested from Model Evidence', { exact: true }).waitFor();
 		await window.keyboard.press('Enter');
-		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Send Context', exact: true }).click();
+		await pickValue(window, 'Review Implementation Context', 'Send Context to Codex');
 		console.log('M5: context approved; awaiting the CLI plan.');
-		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Generate in Worktree', exact: true }).click({ timeout: aiLive ? 200000 : 30000 });
+		await pickValue(window, 'Review Implementation Plan', 'Generate in Worktree', aiLive ? 200000 : 30000);
 		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Changes Ready for Review' }).last().waitFor({ timeout: aiLive ? 200000 : 30000 });
 		console.log('M5: implementation staged; checking independent acceptance.');
 		const ids = await readdir(path.join(f.root, '.ade/collaboration'));
@@ -71,44 +74,42 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:10,output_
 		const session = await readSession(f.root, ids[0]);
 		if (aiLive) { assert.equal(session.prepared.config.model, model); }
 		const checkBehavior = async (folder: string) => {
-			const result = await runProcess(process.execPath, ['--input-type=module', '-e', `import assert from 'node:assert/strict'; import {checkout} from '../checkout.mjs'; assert.deepEqual([checkout(false), checkout(true)], ['declined', 'paid']);`], folder);
-			assert.equal(result.code, 0, 'Independent payment refusal and approval checks must pass');
+			const result = await runProcess(process.execPath, ['--input-type=module', '-e', `import assert from 'node:assert/strict'; import {checkout} from './checkout.mjs'; assert.deepEqual([checkout(false), checkout(true)], ['declined', 'paid']);`], folder);
+			assert.equal(result.code, 0, `Independent payment refusal and approval checks must pass: ${result.stderr}`);
 		};
 		await checkBehavior(session.worktree);
 		const returnToModel = async () => {
 			await runCommand(window, 'A.D.E: Return to Model');
-			const collaboration = await openAiSettings(window);
-			const more = collaboration.locator('details').filter({ has: window.locator('summary', { hasText: /^Review, Recovery and Other AI Actions$/ }) });
-			if (!await more.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await more.locator('summary').click(); }
-			return collaboration;
+			return openCodeActions(window);
 		};
 		let collaboration = await returnToModel();
-		await collaboration.getByText('Changes Ready for Review', { exact: true }).waitFor();
+		await collaboration.getByRole('button', { name: 'Run Tests', exact: true }).waitFor();
 		if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 2); }
 		assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), original);
 		await collaboration.getByRole('button', { name: 'Run Tests', exact: true }).click();
 		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Run Tests', exact: true }).click();
 		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Tests Passed · Ready to Apply' }).last().waitFor();
 		collaboration = await returnToModel();
-		await collaboration.getByText('Tests Passed · Ready to Apply', { exact: true }).waitFor();
 		await collaboration.getByRole('button', { name: 'Apply Verified Changes', exact: true }).click();
 		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Apply Changes', exact: true }).click();
-		await collaboration.getByText('Applied · Undo Available', { exact: true }).waitFor();
+		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Applied · Undo Available' }).last().waitFor();
 		for (const file of session.generated.files) {
 			if (file.content === null) { await assert.rejects(readFile(path.join(f.root, file.file)), { code: 'ENOENT' }); }
 			else { assert.deepEqual(await readFile(path.join(f.root, file.file)), Buffer.from(file.content)); }
 		}
 		await checkBehavior(f.root);
 		await window.screenshot({ path: path.join(evidence, aiLive ? 'm5-live-applied.png' : 'm5-applied.png') });
+		await returnToModel();
 		await harness.app.close(); harness.app = undefined;
 		window = await launch();
+		await openCodeActions(window);
 		await window.locator('.ade-shell').getByRole('button', { name: 'Update Code', exact: true, disabled: false }).waitFor({ timeout: 90000 });
 		await runCommand(window, 'A.D.E: Resume Implementation');
 		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Applied · Undo Available' }).last().waitFor();
 		collaboration = await returnToModel();
-		await collaboration.getByRole('button', { name: 'Undo Implementation', exact: true }).click();
+		await runCommand(window, 'A.D.E: Undo Implementation');
 		await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Undo Implementation', exact: true }).click();
-		await collaboration.getByText('Changes Undone', { exact: true }).waitFor();
+		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'Changes Undone' }).last().waitFor();
 		assert.equal(await readFile(path.join(f.root, 'checkout.mjs'), 'utf8'), original);
 		if (!aiLive) { assert.equal(Number(await readFile(counter, 'utf8')), 2); }
 		for (const before of session.before) {

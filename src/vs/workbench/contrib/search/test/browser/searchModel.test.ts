@@ -148,6 +148,15 @@ suite('SearchModel', () => {
 		};
 	}
 
+	test('retains a synchronous editor search limit in the combined completion', async () => {
+		instantiationService.stub(INotebookSearchService, notebookSearchServiceWithInfo([], undefined));
+		const service = searchServiceWithResults([], { results: [], messages: [], limitHit: false });
+		service.textSearchSplitSyncAsync = () => ({ syncResults: { results: [], messages: [], limitHit: true }, asyncResults: Promise.resolve({ results: [], messages: [], limitHit: false }) });
+		instantiationService.stub(ISearchService, service);
+		const model = store.add(instantiationService.createInstance(SearchModelImpl));
+		assert.strictEqual((await model.search({ contentPattern: { pattern: 'test' }, type: QueryType.Text, folderQueries }).asyncResults).limitHit, true);
+	});
+
 	function searchServiceWithError(error: Error): ISearchService {
 		return <ISearchService>{
 			textSearch(query: ISearchQuery, token?: CancellationToken, onProgress?: (result: ISearchProgressItem) => void): Promise<ISearchComplete> {

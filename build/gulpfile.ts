@@ -43,7 +43,8 @@ task.task(transpileClientTask);
 const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), compilation.copyCodiconsTask, compilation.compileApiProposalNamesTask, compilation.compileExtensionPointNamesTask, compilation.compileTask('src', 'out'), bundleAgentHostCryptoTask, bundleAdeCodeTask));
 task.task(compileClientTask);
 
-const watchClientTask = task.define('watch-client', task.parallel(compilation.watchTypeCheckTask('src'), compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask, compilation.watchCodiconsTask, bundleAgentHostCryptoTask, bundleAdeCodeTask));
+// The transpile watcher owns ADE's initial bundle and serialized incremental rebuilds.
+const watchClientTask = task.define('watch-client', task.parallel(compilation.watchTypeCheckTask('src'), compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask, compilation.watchCodiconsTask, bundleAgentHostCryptoTask));
 task.task(watchClientTask);
 
 // All

@@ -17,6 +17,7 @@ import type { Commit as ApiCommit, Ref, Branch, Remote, LogOptions, Change, Comm
 import { RefType, ForcePushMode, GitErrorCodes, Status } from './api/git.constants';
 import * as byline from 'byline';
 import { StringDecoder } from 'string_decoder';
+import { sanitizeGitLog } from './log';
 
 // https://github.com/microsoft/vscode/issues/65693
 const MAX_CLI_LENGTH = 30000;
@@ -731,7 +732,7 @@ export class Git {
 	}
 
 	private log(output: string): void {
-		this._onOutput.emit('log', output);
+		this._onOutput.emit('log', sanitizeGitLog(output));
 	}
 
 	async mergeFile(options: { input1Path: string; input2Path: string; basePath: string; diff3?: boolean }): Promise<string> {

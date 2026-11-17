@@ -85,6 +85,14 @@ class ModelEditTask implements IDisposable {
 	}
 
 	validate(): ValidationResult {
+		// Validate every resource before applying any of them. The text buffer
+		// rejects overlaps only when applying, which is too late for a workspace edit.
+		const ranges = this._edits.map(edit => this.model.validateRange(edit.range)).sort(Range.compareRangesUsingEnds);
+		for (let i = 1; i < ranges.length; i++) {
+			if (ranges[i].getStartPosition().isBefore(ranges[i - 1].getEndPosition())) {
+				throw new Error('Overlapping ranges are not allowed!');
+			}
+		}
 		if (typeof this._expectedModelVersionId === 'undefined' || this.model.getVersionId() === this._expectedModelVersionId) {
 			return { canApply: true };
 		}
@@ -228,9 +236,14 @@ export class BulkTextEdits {
 
 		const tasks: ModelEditTask[] = [];
 		const promises: Promise<any>[] = [];
+		let failed = false;
 
 		for (const [key, edits] of this._edits) {
-			const promise = this._textModelResolverService.createModelReference(key).then(async ref => {
+			const promise = Promise.resolve().then(() => this._textModelResolverService.createModelReference(key)).then(async ref => {
+				if (failed) {
+					ref.dispose();
+					return;
+				}
 				let task: ModelEditTask;
 				let makeMinimal = false;
 				if (this._editor?.getModel()?.uri.toString() === ref.object.textEditorModel.uri.toString()) {
@@ -277,7 +290,13 @@ export class BulkTextEdits {
 			promises.push(promise);
 		}
 
-		await Promise.all(promises);
+		try {
+			await Promise.all(promises);
+		} catch (error) {
+			failed = true;
+			dispose(tasks);
+			throw error;
+		}
 		return tasks;
 	}
 
