@@ -3,10 +3,33 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { Page } from 'playwright-core';
+import type { Locator, Page } from 'playwright-core';
 import path from 'node:path';
 import { mkdir, symlink } from 'node:fs/promises';
 import type { SmokeHarness } from './harness.ts';
+
+/** Reveal semantic tab panels and disclosures in document order, without relying on their labels. */
+async function revealAdeAncestors(window: Page, target: Locator) {
+	await target.waitFor({ state: 'attached' });
+	const ancestors = target.locator('xpath=ancestor::*[@role="tabpanel" or self::details]');
+	for (const ancestor of await ancestors.all()) {
+		if (await ancestor.getAttribute('role') === 'tabpanel') {
+			if (!await ancestor.evaluate(element => element.hasAttribute('hidden'))) { continue; }
+			const labels = (await ancestor.getAttribute('aria-labelledby'))?.split(/\s+/) ?? [];
+			const panelId = await ancestor.getAttribute('id');
+			let activated = false;
+			for (const tab of await window.getByRole('tab', { includeHidden: true }).all()) {
+				if (labels.includes(await tab.getAttribute('id') ?? '') && await tab.getAttribute('aria-controls') === panelId) {
+					await tab.click(); activated = true; break;
+				}
+			}
+			if (!activated) { throw new Error('No accessible tab controls the hidden ADE panel.'); }
+		} else if (!await ancestor.evaluate(element => element instanceof HTMLDetailsElement && element.open)) {
+			await ancestor.locator(':scope > summary').click();
+		}
+	}
+	await target.waitFor();
+}
 
 export async function revealAdeButton(window: Page, name: string) {
 	const shell = window.locator('.ade-shell');
@@ -16,9 +39,7 @@ export async function revealAdeButton(window: Page, name: string) {
 		else { await openProjectSection(window, 'Project Settings'); }
 		button = shell.getByRole('button', { name, exact: true, includeHidden: true });
 	}
-	for (const disclosure of await button.locator('xpath=ancestor::details').all()) {
-		if (!await disclosure.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await disclosure.locator(':scope > summary').click(); }
-	}
+	await revealAdeAncestors(window, button);
 	return button;
 }
 
@@ -39,12 +60,10 @@ export async function closeCanvasActions(window: Page) {
 
 export async function revealAdeText(window: Page, text: string) {
 	const target = window.locator('.ade-shell').getByText(text, { exact: true });
-	await target.waitFor({ state: 'attached' });
-	for (const disclosure of await target.locator('xpath=ancestor::details').all()) {
-		if (!await disclosure.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await disclosure.locator(':scope > summary').click(); }
-	}
-	await target.waitFor();
-	return target;
+	await revealAdeAncestors(window, target);
+	// Decorated disclosures put their visible label in a span; retain the summary identity.
+	const summary = target.locator('xpath=ancestor-or-self::summary[1]');
+	return await summary.count() ? summary : target;
 }
 
 export async function chooseAdeDiagram(window: Page, name: string) {

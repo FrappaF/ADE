@@ -9,7 +9,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, copyFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { openModelFile, enterValue, pickValue, runCommand } from './helpers.ts';
+import { openModelFile, pickValue, runCommand, chooseAdeDiagram, submitAdeForm, revealAdeButton } from './helpers.ts';
 
 /** canvas scenarios share only the harness values listed here. */
 export function createCanvasScenarios(harness: SmokeHarness) {
@@ -66,7 +66,7 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		assert.deepEqual(await matrix(), beforeSelection, 'Opening details preserves the diagram camera');
 		const visibleNode = await first.boundingBox(); assert.ok(visibleNode);
 		assert.ok(visibleNode.x + visibleNode.width > box.x && visibleNode.x < box.x + box.width && visibleNode.y + visibleNode.height > box.y && visibleNode.y < box.y + box.height, 'The selected node stays visible');
-		assert.ok(panel.width <= 300 && panel.height <= 450); assert.equal(after.width, box.width); assert.equal(after.height, box.height);
+		assert.ok(panel.width < after.width / 2 && panel.height < after.height, 'The inspector leaves most of the canvas available'); assert.equal(after.width, box.width); assert.equal(after.height, box.height);
 		await window.screenshot({ path: path.join(evidence, 'infinite-canvas-details.png') });
 		await first.focus(); const nodeLeft = await first.evaluate(element => parseFloat(element.style.left));
 		await window.keyboard.press('ArrowLeft');
@@ -85,12 +85,12 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		const savedCamera = await matrix();
 		await harness.app.close(); harness.app = undefined;
 		window = await launch(); shell = window.locator('.ade-shell');
-		await shell.getByRole('heading', { name: 'Game Flow', exact: true }).waitFor();
+		await shell.locator('.ade-workspace-bar').getByRole('button', { name: 'Game Flow', exact: true }).waitFor();
 		assert.deepEqual(await matrix(), savedCamera, 'The camera survives application restart');
 		await shell.getByRole('button', { name: 'Diagrams', exact: true }).click();
 		await pickValue(window, 'Choose Diagram', 'Game Sequence');
 		await shell.locator('.ade-sequence-message').click();
-		await shell.locator('aside.ade-properties').getByRole('heading', { name: 'Relationship Properties', exact: true }).waitFor();
+		await shell.locator('aside.ade-properties[aria-label="Relationship Properties"]').waitFor();
 		await shell.locator('aside.ade-properties').getByText('Initialize Game', { exact: true }).waitFor();
 		await harness.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(640, 760));
 		await window.waitForFunction(() => (document.querySelector('.ade-shell')?.clientWidth ?? Infinity) < 650);
@@ -144,9 +144,8 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		const model = JSON.parse(await readFile(file, 'utf8'));
 		const window = await launch(); await openModelFile(window, file);
 		for (const view of model.views) {
-			await window.locator('.ade-floating-menu').getByRole('button', { name: 'Diagrams', exact: true }).click();
-			await pickValue(window, 'Choose Diagram', view.name);
-			await window.locator('.ade-floating-menu h1').filter({ hasText: view.name }).waitFor();
+			await chooseAdeDiagram(window, view.name);
+			await window.locator('.ade-workspace-bar .ade-diagram-picker').filter({ hasText: view.name }).waitFor();
 			await window.locator('.ade-shell').getByRole('button', { name: 'Fit Diagram', exact: true }).click();
 			assert.equal(await window.locator('.ade-node, .ade-sequence-participant').count(), view.nodes.length);
 			const overflow = await window.locator('.ade-node').evaluateAll(nodes => nodes.filter(node => node.scrollHeight > node.clientHeight + 2).map(node => node.textContent));
@@ -154,11 +153,10 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 			await window.screenshot({ path: path.join(evidence, `notation-${view.kind}.png`) });
 		}
 		const c4 = model.views.find((view: ModelView) => view.kind === 'c4Container');
-		await window.locator('.ade-floating-menu').getByRole('button', { name: 'Diagrams', exact: true }).click();
-		await pickValue(window, 'Choose Diagram', c4.name);
+		await chooseAdeDiagram(window, c4.name);
 		const actions = window.locator('.ade-floating-menu > details');
 		if (!await actions.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await actions.locator(':scope > summary').click(); }
-		const labels = actions.getByRole('button', { name: 'Show Relationship Labels', exact: true });
+		const labels = await revealAdeButton(window, 'Show Relationship Labels');
 		assert.equal(await labels.getAttribute('aria-pressed'), 'true');
 		const captions = await window.locator('.ade-edge-caption.is-visible').count();
 		await labels.click();
@@ -175,16 +173,18 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		assert.deepEqual(['Task System', 'Task API', 'Task Data', 'Task Owner'].map(name => after[name] - before[name]), [20, 20, 20, 0], 'moving a boundary moves its members once and keeps external actors fixed');
 		await window.screenshot({ path: path.join(evidence, 'notation-c4-move.png') });
 		const schema = model.views.find((view: ModelView) => view.kind === 'databaseSchema');
-		await window.locator('.ade-floating-menu').getByRole('button', { name: 'Diagrams', exact: true }).click();
-		await pickValue(window, 'Choose Diagram', schema.name);
+		await chooseAdeDiagram(window, schema.name);
 		await window.locator('.ade-node[aria-label="tasks"]').click();
 		await runCommand(window, 'A.D.E: Edit Attributes and Technology');
-		await pickValue(window, 'tasks', 'Add Attribute or Method');
-		await pickValue(window, 'Member Kind', 'Attribute / Column');
-		await enterValue(window, 'Member Name', 'priority');
-		await enterValue(window, 'Type or Method Signature (Empty if Unknown)', 'INTEGER');
-		await pickValue(window, 'Key Kind', 'No Key');
-		await pickValue(window, 'Nullability', 'Required / Not Null');
+		const notation = window.locator('dialog.ade-form-dialog');
+		await notation.getByRole('heading', { name: 'Attributes and Technology · tasks', exact: true }).waitFor();
+		await notation.getByRole('button', { name: 'Add Attribute', exact: true }).click();
+		const member = notation.locator('fieldset.ade-form-member').last();
+		await member.getByLabel('Member Name', { exact: true }).fill('priority');
+		await member.getByLabel('Type or Method Signature', { exact: true }).fill('INTEGER');
+		await member.getByLabel('Key Kind', { exact: true }).selectOption({ label: 'No Key' });
+		await member.getByRole('checkbox').setChecked(true);
+		await submitAdeForm(window);
 		await window.locator('.ade-node[aria-label="tasks"]').getByText('priority: INTEGER', { exact: true }).waitFor();
 		await window.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
 		await window.waitForFunction(() => document.querySelector('.ade-shell')?.textContent.includes('Saved'));

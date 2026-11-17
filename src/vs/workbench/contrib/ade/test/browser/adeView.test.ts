@@ -43,7 +43,7 @@ suite('A.D.E sidebar project shortcuts', () => {
 		instantiation.stub(IViewDescriptorService, { onDidChangeLocation: Event.None, onDidChangeContainer: Event.None, getViewLocationById: () => ViewContainerLocation.Sidebar, getViewDescriptorById: () => null, getViewContainerByViewId: () => container, getViewContainerModel: () => Object.assign(new (mock<IViewContainerModel>())(), { title: 'System and Features', onDidChangeContainerInfo: Event.None }), getDefaultContainerById: () => container });
 		const view = store.add(instantiation.createInstance(AdeView, { id: 'ade-shortcuts-test', title: 'System and Features' }));
 		view.render(); root.appendChild(view.element);
-		const buttons = () => [...root.querySelectorAll<HTMLButtonElement>('.ade-outline-tools .ade-options-content > button')];
+		const buttons = () => [...root.querySelectorAll<HTMLButtonElement>('.ade-outline-tools .ade-menu-action')];
 		return { view, project, ai, code, changed, aiChanged, codeChanged, commands, configuration, buttons };
 	}
 
@@ -51,7 +51,7 @@ suite('A.D.E sidebar project shortcuts', () => {
 		const f = fixture();
 		for (const button of f.buttons()) { button.click(); }
 		await Promise.resolve();
-		assert.deepStrictEqual({ actions: f.buttons().map(button => button.textContent), commands: f.commands, hasCodeActions: root.textContent?.includes('Update Codebase'), title: root.querySelector('.ade-navigation-group > summary .ade-nav-label')?.textContent }, { actions: ['Add Feature', 'Add Diagram', 'Structural Blueprint'], commands: ['ade.addFeature', 'ade.addDiagram', 'ade.blueprint'], hasCodeActions: false, title: 'ecommerce-ade' });
+		assert.deepStrictEqual({ actions: f.buttons().map(button => button.getAttribute('aria-label')), commands: f.commands, hasCodeActions: root.textContent?.includes('Update Codebase'), title: root.querySelector('.ade-navigation-group > summary .ade-nav-label')?.textContent }, { actions: ['Add Feature', 'Add Diagram', 'Structural Blueprint'], commands: ['ade.addFeature', 'ade.addDiagram', 'ade.blueprint'], hasCodeActions: false, title: 'ecommerce-ade' });
 	});
 
 	test('System Map stays directly reachable while the project is collapsed', async () => {
@@ -62,12 +62,13 @@ suite('A.D.E sidebar project shortcuts', () => {
 		assert.deepStrictEqual({ label: map.textContent, hiddenInOptions: !!map.closest('details'), commands: f.commands }, { label: 'System Map', hiddenInOptions: false, commands: ['ade.showSystemMap'] });
 	});
 
-	test('the blueprint wizard is inside New after Add Diagram and is blocked while edits are busy', async () => {
+	test('New separates creation from architecture and blocks blueprint editing while busy', async () => {
 		const f = fixture();
 		Object.assign(f.project, { model: structuredClone(blueprintFixture) }); f.changed.fire();
 		const blueprint = () => root.querySelector<HTMLButtonElement>('.ade-sidebar-blueprint')!;
 		blueprint().click(); await Promise.resolve();
-		assert.deepStrictEqual({ label: blueprint().textContent, previousAction: blueprint().previousElementSibling?.textContent, menu: blueprint().closest('details')?.querySelector('summary')?.textContent, menuOpen: blueprint().closest('details')?.open, commands: f.commands }, { label: 'Structural Blueprint', previousAction: 'Add Diagram', menu: 'New', menuOpen: false, commands: ['ade.blueprint'] });
+		assert.deepStrictEqual({ label: blueprint().getAttribute('aria-label'), sections: [...root.querySelectorAll('.ade-outline-tools .ade-menu-section h3')].map(heading => heading.textContent), menu: blueprint().closest('details')?.querySelector('summary')?.textContent, menuOpen: blueprint().closest('details')?.open, commands: f.commands }, { label: 'Structural Blueprint', sections: ['Create', 'Define Architecture'], menu: 'New', menuOpen: false, commands: ['ade.blueprint'] });
+		assert.ok(f.buttons().every(button => button.querySelector('.codicon[aria-hidden="true"]') && button.hasAttribute('aria-describedby')));
 		f.ai.busy = true; f.aiChanged.fire(); blueprint().click();
 		assert.deepStrictEqual([blueprint().disabled, f.commands], [true, ['ade.blueprint']]);
 	});
@@ -80,6 +81,18 @@ suite('A.D.E sidebar project shortcuts', () => {
 		assert.deepStrictEqual([f.buttons().every(button => button.disabled), root.querySelector<HTMLDetailsElement>('.ade-navigation-group')!.open, f.commands], [true, false, []]);
 		f.ai.busy = false; f.aiChanged.fire();
 		assert.ok(f.buttons().every(button => !button.disabled));
+	});
+
+	test('feature deletion is isolated after its normal management actions', async () => {
+		const f = fixture();
+		f.project.model.semantics.elements.push({ id: 'delivery', kind: 'feature', name: 'Delivery' });
+		f.project.model.views.push({ id: 'delivery-flow', name: 'Delivery Flow', kind: 'activity', featureId: 'delivery', nodes: [], relationIds: [] });
+		Object.assign(f.project, { modelRevision: 1 }); f.changed.fire();
+		const options = root.querySelector('.ade-feature-options')!;
+		const actions = [...options.querySelectorAll<HTMLButtonElement>('.ade-menu-action')];
+		assert.deepStrictEqual({ labels: actions.map(button => button.getAttribute('aria-label')), danger: actions.map(button => !!button.closest('.ade-menu-danger')), icons: actions.every(button => !!button.querySelector('.codicon[aria-hidden="true"]')) }, { labels: ['Add Diagram', 'Rename Feature', 'Delete Feature'], danger: [false, false, true], icons: true });
+		actions[2].click(); await Promise.resolve();
+		assert.deepStrictEqual(f.commands, ['ade.deleteFeature']);
 	});
 
 	test('source inventories and readonly projects do not offer manual creation', () => {

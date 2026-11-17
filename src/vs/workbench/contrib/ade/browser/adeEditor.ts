@@ -18,6 +18,7 @@ import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { IAdeCodeService } from './adeCodeService.js';
 import { IAdeAiService } from './adeAiService.js';
 import { AdeInput } from './adeInput.js';
+import { AdeActionMenu } from './adeActionMenu.js';
 import { renderStructuralReview } from './adeStructuralReview.js';
 import { renderAdeWelcome, renderAdeProjectHome } from './adeWelcome.js';
 import { adeDocumentStatus } from './adeDocumentStatus.js';
@@ -232,16 +233,20 @@ export class AdeEditor extends EditorPane {
 		bar.setAttribute('aria-label', localize('ade.workspaceSections', "Workspace"));
 		const menu = this.controls.details(bar, this.project.section === 'home' && !this.project.modelUri ? localize('ade.project.menu', "Project") : this.project.model.name, 'workspace-project-menu', { popup: true });
 		menu.parentElement!.classList.add('ade-project-menu');
-		const action = (label: string, run: () => void) => this.button(menu, label, () => { this.controls.setExpanded('workspace-project-menu', false); run(); });
-		action(localize('ade.home', "Home"), () => { this.activeTab = 'workspace'; this.project.showHome(); });
-		action(localize('ade.openProject', "Open Project"), () => { void this.commandService.executeCommand('ade.openProject'); });
-		action(localize('ade.createProject', "Create Project"), () => { void this.commandService.executeCommand('ade.createProject'); });
-		const importCode = action(localize('ade.importCode', "Import Codebase"), () => { void this.code.importCodebase(); });
+		const actions = new AdeActionMenu(this.controls);
+		actions.header(menu, this.project.model.name, localize('ade.project.menuSubtitle', "Project Workspace"), Codicon.folder);
+		const navigation = actions.section(menu, localize('ade.menu.navigate', "Navigate"), { compact: true });
+		const project = actions.section(menu, localize('ade.project.menu', "Project"));
+		const preferences = actions.section(menu, localize('ade.menu.preferences', "Preferences"), { compact: true });
+		const action = (parent: HTMLElement, label: string, icon: ThemeIcon, run: () => void, description?: string, navigation = false) => actions.action(parent, label, () => { this.controls.setExpanded('workspace-project-menu', false); run(); }, { icon, description, kind: navigation ? 'navigation' : 'action' });
+		action(navigation, localize('ade.home', "Home"), Codicon.home, () => { this.activeTab = 'workspace'; this.project.showHome(); }, undefined, true);
+		action(project, localize('ade.openProject', "Open Project"), Codicon.folderOpened, () => { void this.commandService.executeCommand('ade.openProject'); });
+		action(project, localize('ade.createProject', "Create Project"), Codicon.newFolder, () => { void this.commandService.executeCommand('ade.createProject'); });
+		const importCode = action(project, localize('ade.importCode', "Import Codebase"), Codicon.repo, () => { void this.code.importCodebase(); }, !this.code.available || this.code.busy || this.ai.busy ? localize('ade.welcome.importUnavailable', "Code import is unavailable here or an import is already running.") : localize('ade.menu.importHelp', "Build a model from an existing codebase."));
 		importCode.disabled = !this.code.available || this.code.busy || this.ai.busy;
-		if (importCode.disabled) { this.paragraph(menu, localize('ade.welcome.importUnavailable', "Code import is unavailable here or an import is already running.")); }
-		action(localize('ade.project.settingsTitle', "Project Settings"), () => { this.activeTab = 'project'; this.render(); });
-		action(localize('ade.ai.settings', "AI Settings"), () => { this.activeTab = 'ai'; this.render(); });
-		action(this.configurationService.getValue<boolean>('ade.focusDiagrams') === false ? localize('ade.layout.focus', "Focus on Diagrams") : localize('ade.layout.showIDE', "Show IDE"), () => { void this.commandService.executeCommand('ade.toggleWorkbench'); });
+		action(preferences, localize('ade.project.settingsTitle', "Project Settings"), Codicon.settingsGear, () => { this.activeTab = 'project'; this.render(); }, undefined, true);
+		action(preferences, localize('ade.ai.settings', "AI Settings"), Codicon.sparkle, () => { this.activeTab = 'ai'; this.render(); }, undefined, true);
+		action(preferences, this.configurationService.getValue<boolean>('ade.focusDiagrams') === false ? localize('ade.layout.focus', "Focus on Diagrams") : localize('ade.layout.showIDE', "Show IDE"), Codicon.layout, () => { void this.commandService.executeCommand('ade.toggleWorkbench'); });
 		if (this.activeTab === 'workspace' && this.project.section === 'diagram' && this.project.activeView) {
 			const diagram = this.button(bar, this.project.activeView.name, () => { this.controls.setExpanded('workspace-project-menu', false); void this.chooseDiagram(); }, 'workspace-diagram');
 			diagram.classList.add('ade-diagram-picker'); diagram.setAttribute('aria-haspopup', 'listbox'); diagram.setAttribute('aria-label', this.project.activeView.name);
@@ -580,7 +585,7 @@ export class AdeEditor extends EditorPane {
 		const self = this;
 		this.canvas = this._register(new AdeCanvasController({ get root() { return self.root; } }, this.controls, this.project, storageService));
 		this.surface = new AdeCanvasSurface({ button: (parent, label, action, id) => this.button(parent, label, action, id), chooseDiagram: () => this.chooseDiagram(), focusSelection: () => this.focusSelection(), renderBreadcrumbs: (parent) => this.renderBreadcrumbs(parent), renderNavigation: (parent, canvas) => this.renderNavigation(parent, canvas), renderPrimaryActions: (parent) => this.renderPrimaryActions(parent), documentStatus: () => this.documentStatus(), render: () => this.render(), iconButton: (parent, label, icon, action, id) => this.iconButton(parent, label, icon, action, id), paragraph: (parent, content) => this.paragraph(parent, content), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId) }, this.canvas, this.controls, this.project, this.commandService, this.quick, this.contextMenus, this.notifications);
-		this.inspector = new AdeInspector({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId), relationMenu: (id, x, y) => this.surface.relationMenu(id, x, y) }, this.controls, this.project, this.code, this.commandService);
+		this.inspector = new AdeInspector({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId), relationMenu: (id, x, y) => this.surface.relationMenu(id, x, y), beginConnection: id => this.surface.beginConnection(id) }, this.controls, this.project, this.code, this.commandService);
 		this.workflow = new AdeWorkflowContent({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), documentStatus: () => this.documentStatus(), get root() { return self.root; }, showReview: () => this.showReview() }, this.controls, this.project, this.ai, this.configurationService, this.notifications, this.code, this.commandService);
 
 		this._register(code.onDidChange(() => { if (this.root) { this.render(); } }));

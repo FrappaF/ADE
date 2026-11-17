@@ -40,7 +40,7 @@ suite('A.D.E blueprint diagram controls', () => {
 		});
 	};
 	const button = (label: string) => {
-		const button = [...root.querySelectorAll('button')].find(button => button.textContent === label);
+		const button = [...root.querySelectorAll('button')].find(button => (button.getAttribute('aria-label') ?? button.textContent) === label);
 		assert.ok(button, `Missing button: ${label}`); button.click();
 	};
 	const select = (label: string) => {
@@ -70,7 +70,7 @@ suite('A.D.E blueprint diagram controls', () => {
 		test(`${presentation} exposes visibility and dependency editing for the current blueprint`, () => {
 			const { surface, project, commands } = fixture();
 			if (presentation === 'canvas') { surface.renderCanvasMenus(root, project.activeView!); } else { surface.renderEditingToolbar(root); }
-			const buttons = [...root.querySelectorAll('button')].filter(button => ['Edit Visible Elements', 'Edit Context Dependencies'].includes(button.textContent!));
+			const buttons = [...root.querySelectorAll('button')].filter(button => ['Edit Visible Elements', 'Edit Context Dependencies'].includes(button.getAttribute('aria-label') ?? button.textContent!));
 			for (const button of buttons) { button.click(); }
 			assert.deepStrictEqual(commands, [{ command: 'ade.blueprint', args: [undefined, 'c4Visibility'] }, { command: 'ade.blueprint', args: [undefined, 'c4Dependencies'] }]);
 		});

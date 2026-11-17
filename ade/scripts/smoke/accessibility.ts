@@ -159,17 +159,18 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		if (await options.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await summary.click(); }
 		await summary.focus();
 		await window.keyboard.press('Enter');
-		const contents = options.locator('details').filter({ has: window.getByText('Contents', { exact: true }) });
-		const contentsSummary = contents.locator(':scope > summary');
-		if (await contents.evaluate(element => element instanceof HTMLDetailsElement && element.open)) { await contentsSummary.click(); }
-		await contentsSummary.focus();
-		await window.keyboard.press('Enter');
-		await shell.getByRole('button', { name: 'Rename Diagram', exact: true }).waitFor();
+		const contents = options.getByRole('tab', { name: 'Contents', exact: true });
+		await contents.focus();
+		await window.keyboard.press('End');
+		await window.keyboard.press('Home');
+		assert.equal(await contents.getAttribute('aria-selected'), 'true');
+		await revealAdeButton(window, 'Rename Diagram');
+		const selectedTab = await options.getByRole('tab', { selected: true }).textContent();
 		await runCommand(window, 'A.D.E: Rename Diagram');
 		await enterValue(window, 'Name', 'Keyboard diagram');
 		await shell.getByRole('region', { name: 'Diagram: Keyboard diagram', exact: true }).waitFor();
 		assert.equal(await options.evaluate(element => element instanceof HTMLDetailsElement && element.open), true);
-		assert.equal(await contents.evaluate(element => element instanceof HTMLDetailsElement && element.open), true);
+		assert.equal(await options.getByRole('tab', { selected: true }).textContent(), selectedTab);
 		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 		await window.keyboard.press(`${modifier}+s`);
 		await shell.getByText('Model Saved Locally', { exact: true }).waitFor();

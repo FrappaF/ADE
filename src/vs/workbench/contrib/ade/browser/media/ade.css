@@ -3065,3 +3065,560 @@
 		padding: var(--vscode-spacing-size160);
 	}
 }
+
+/* Action surfaces share roles, while ordinary information disclosures keep their own layout. */
+.ade-menu-header {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size120);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+}
+
+.ade-menu-header-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.ade-shell .ade-action-menu .ade-menu-header h2,
+.ade-sidebar .ade-action-menu .ade-menu-header h2 {
+	margin: 0;
+	font-size: var(--vscode-fontSize-heading3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	color: var(--vscode-editor-foreground);
+	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-action-menu .ade-menu-header p,
+.ade-sidebar .ade-action-menu .ade-menu-header p {
+	margin: var(--vscode-spacing-size40) 0 0;
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-menu-section {
+	padding-block: var(--vscode-spacing-size80);
+}
+
+.ade-menu-section + .ade-menu-section,
+.ade-menu-section.ade-menu-danger {
+	border-block-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	margin-block-start: var(--vscode-spacing-size40);
+}
+
+.ade-shell .ade-action-menu .ade-menu-section-title,
+.ade-sidebar .ade-action-menu .ade-menu-section-title {
+	margin: 0;
+	padding: 0 var(--vscode-spacing-size80) var(--vscode-spacing-size60);
+	font-size: var(--vscode-fontSize-label1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-menu-section-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size20);
+	min-width: 0;
+}
+
+.ade-menu-section-compact {
+	padding-block: var(--vscode-spacing-size40);
+}
+
+.ade-menu-section-description {
+	margin: 0;
+	padding: 0 var(--vscode-spacing-size80) var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.5;
+}
+
+.ade-shell .ade-action-menu button.ade-menu-action,
+.ade-sidebar .ade-action-menu button.ade-menu-action {
+	display: grid;
+	grid-template-columns: var(--vscode-spacing-size160) minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--vscode-spacing-size100);
+	margin: 0;
+	padding: var(--vscode-spacing-size80);
+	width: 100%;
+	min-height: var(--vscode-spacing-size360);
+	text-align: start;
+	white-space: normal;
+	background: transparent;
+	color: var(--vscode-editor-foreground);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, transparent);
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.ade-shell .ade-action-menu button.ade-menu-action:hover:not(:disabled),
+.ade-sidebar .ade-action-menu button.ade-menu-action:hover:not(:disabled) {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.ade-menu-action-text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size20);
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.ade-menu-action-label {
+	font-size: var(--vscode-fontSize-body1);
+	font-weight: var(--vscode-fontWeight-regular);
+}
+
+.ade-menu-action-description,
+.ade-menu-action-detail {
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+	font-weight: var(--vscode-fontWeight-regular);
+	line-height: 1.5;
+}
+
+.ade-menu-action-detail {
+	max-width: 12ch;
+	overflow-wrap: anywhere;
+}
+
+.ade-menu-action-trailing {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	min-width: 0;
+}
+
+.ade-menu-action-arrow,
+.ade-menu-action > .codicon,
+.ade-menu-header > .codicon {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-action-menu .codicon {
+	font-size: var(--vscode-codiconFontSize);
+}
+
+.ade-menu-header > .codicon {
+	margin-block-start: var(--vscode-spacing-size20);
+}
+
+.ade-shell .ade-action-menu button.ade-menu-action-primary,
+.ade-sidebar .ade-action-menu button.ade-menu-action-primary {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.ade-shell .ade-action-menu button.ade-menu-action-primary:hover:not(:disabled),
+.ade-sidebar .ade-action-menu button.ade-menu-action-primary:hover:not(:disabled) {
+	background: var(--vscode-button-hoverBackground);
+}
+
+.ade-menu-action-primary > .codicon,
+.ade-menu-action-primary .ade-menu-action-description,
+.ade-menu-action-primary .ade-menu-action-detail {
+	color: inherit;
+}
+
+.ade-menu-action-primary .ade-menu-action-label {
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-shell .ade-action-menu button.ade-menu-action-destructive,
+.ade-sidebar .ade-action-menu button.ade-menu-action-destructive,
+.ade-menu-action-destructive > .codicon {
+	color: var(--vscode-errorForeground);
+}
+
+.ade-shell .ade-action-menu button.ade-menu-action:disabled,
+.ade-sidebar .ade-action-menu button.ade-menu-action:disabled {
+	color: var(--vscode-disabledForeground);
+	cursor: default;
+}
+
+.ade-shell .ade-action-menu button.ade-menu-action[aria-current="true"],
+.ade-sidebar .ade-action-menu button.ade-menu-action[aria-current="true"] {
+	color: var(--vscode-editor-foreground);
+	background: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.ade-menu-fact {
+	display: grid;
+	grid-template-columns: minmax(6em, 1fr) minmax(0, 1.5fr);
+	gap: var(--vscode-spacing-size120);
+	padding: var(--vscode-spacing-size60) var(--vscode-spacing-size80);
+	margin: 0;
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.ade-menu-fact dt {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-menu-fact dd {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-action-menu .ade-menu-disclosure > summary,
+.ade-sidebar .ade-action-menu .ade-menu-disclosure > summary {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size100);
+	width: 100%;
+	margin: 0;
+	padding: var(--vscode-spacing-size100) var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-label1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	background: transparent;
+	list-style: none;
+}
+
+.ade-menu-disclosure > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ade-menu-disclosure-label {
+	flex: 1;
+	min-width: 0;
+}
+
+.ade-menu-disclosure-chevron {
+	display: flex;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-menu-disclosure[open] > summary .ade-menu-disclosure-chevron {
+	transform: rotate(90deg);
+}
+
+.ade-shell .ade-action-menu .ade-menu-disclosure[open] > .ade-menu-disclosure-body,
+.ade-sidebar .ade-action-menu .ade-menu-disclosure[open] > .ade-menu-disclosure-body {
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80) var(--vscode-spacing-size80);
+	background: transparent;
+	border-inline-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	border-radius: 0;
+	max-height: none;
+	overflow: visible;
+}
+
+.ade-shell .ade-inspector-sheet .ade-inspector-summary,
+.ade-shell .ade-inspector-sheet .ade-inspector-description {
+	margin: 0;
+	padding: 0 var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	font-size: var(--vscode-fontSize-label1);
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.5;
+}
+
+.ade-canvas-mode aside.ade-properties.ade-inspector-sheet {
+	width: min(352px, calc(100% - 24px));
+	max-height: min(76%, 720px);
+	padding: var(--vscode-spacing-size120);
+}
+
+.ade-canvas-mode .ade-inspector-sheet .ade-menu-header h2 {
+	font-size: var(--vscode-fontSize-heading2);
+}
+
+.ade-shell .ade-workspace-bar .ade-project-menu > .ade-action-menu {
+	width: min(304px, calc(100% - 24px));
+	max-height: min(720px, calc(100vh - 80px));
+	padding: var(--vscode-spacing-size80);
+	overflow-y: auto;
+}
+
+.ade-shell .ade-floating-menu > .ade-options > .ade-action-menu {
+	width: min(336px, calc(100cqw - 24px));
+}
+
+@media (pointer: coarse) {
+	.ade-shell .ade-action-menu button.ade-menu-action,
+	.ade-sidebar .ade-action-menu button.ade-menu-action {
+		min-height: calc(var(--vscode-spacing-size400) + var(--vscode-spacing-size40));
+	}
+}
+
+.ade-tabs {
+	display: flex;
+	flex-shrink: 0;
+	gap: var(--vscode-spacing-size40);
+	border-block-end: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-shell .ade-tabs > button[role="tab"] {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	min-height: var(--vscode-spacing-size400);
+	margin: 0;
+	padding: var(--vscode-spacing-size100) var(--vscode-spacing-size60);
+	border-radius: 0;
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+	text-align: center;
+	overflow-wrap: anywhere;
+}
+
+.ade-shell .ade-tabs > button[role="tab"]:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.ade-shell .ade-tabs > button[aria-selected="true"] {
+	color: var(--vscode-editor-foreground);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-tabs > button[aria-selected="true"]::after {
+	content: '';
+	position: absolute;
+	inset-inline: var(--vscode-spacing-size60);
+	bottom: 0;
+	height: var(--vscode-spacing-size20);
+	background: var(--vscode-tab-activeBorderTop, var(--vscode-focusBorder));
+}
+
+.ade-tab-panel[hidden] {
+	display: none;
+}
+
+.ade-tab-panel:focus-visible {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: -2px;
+}
+
+.ade-canvas-mode aside.ade-properties.ade-inspector-tabbed {
+	display: flex;
+	flex-direction: column;
+	width: min(384px, calc(100% - 24px));
+	height: min(82%, 760px);
+	max-height: min(82%, 760px);
+	padding: 0;
+	overflow: hidden;
+}
+
+.ade-inspector-tabbed > .ade-menu-header {
+	flex-shrink: 0;
+	padding: var(--vscode-spacing-size160);
+	padding-inline-end: var(--vscode-spacing-size400);
+}
+
+.ade-canvas-mode aside.ade-properties.ade-inspector-tabbed > button:first-child {
+	position: absolute;
+	top: var(--vscode-spacing-size100);
+	right: var(--vscode-spacing-size100);
+	margin: 0;
+	z-index: 1;
+}
+
+.ade-canvas-mode.ade-narrow aside.ade-properties.ade-inspector-tabbed {
+	height: min(82%, 760px, calc(100% - 84px));
+	max-height: calc(100% - 84px);
+}
+
+.ade-inspector-tabs {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.ade-inspector-tabs > .ade-tabs {
+	padding-inline: var(--vscode-spacing-size120);
+}
+
+.ade-inspector-tabs > .ade-tab-panels {
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.ade-inspector-tab-content {
+	padding: var(--vscode-spacing-size160);
+}
+
+.ade-shell .ade-inspector-tab-content > button.ade-menu-action-primary {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.ade-inspector-tab-content > .ade-menu-section:first-child {
+	padding-block-start: 0;
+}
+
+.ade-inspector-empty {
+	margin: 0 0 var(--vscode-spacing-size120);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+	line-height: 1.5;
+}
+
+.ade-inspector-members {
+	width: 100%;
+	border-collapse: collapse;
+	margin-block-end: var(--vscode-spacing-size120);
+	font-size: var(--vscode-fontSize-label1);
+	table-layout: fixed;
+}
+
+.ade-inspector-members th,
+.ade-inspector-members td {
+	padding: var(--vscode-spacing-size80);
+	text-align: start;
+	vertical-align: top;
+	overflow-wrap: anywhere;
+	border-block-end: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-inspector-members th {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+	font-weight: var(--vscode-fontWeight-regular);
+}
+
+.ade-inspector-members td:last-child {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-inspector-members tbody th {
+	color: var(--vscode-editor-foreground);
+	font-size: var(--vscode-fontSize-label1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-inspector-member-properties > span {
+	display: block;
+	line-height: 1.5;
+}
+
+.ade-inspector-member-key {
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-inspector-footer {
+	flex-shrink: 0;
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	border-block-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-inspector-footer .ade-menu-section-title {
+	font-size: var(--vscode-fontSize-body2);
+	padding-block-end: var(--vscode-spacing-size40);
+}
+
+.ade-inspector-footer .ade-menu-section {
+	padding-block: 0;
+}
+
+.ade-canvas-mode .ade-inspector-tabbed > .ade-inspector-footer {
+	max-height: 45%;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.ade-shell .ade-diagram-menu {
+	display: flex;
+	flex-direction: column;
+	height: min(560px, var(--ade-canvas-menu-max-height, 65vh));
+	padding: 0;
+	overflow: hidden;
+}
+
+.ade-shell .ade-floating-menu > .ade-options > .ade-diagram-menu {
+	display: flex;
+	width: min(384px, calc(100cqw - 24px));
+	padding: 0;
+	overflow: hidden;
+}
+
+.ade-shell .ade-diagram-menu > .ade-menu-header {
+	flex-shrink: 0;
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+}
+
+.ade-diagram-tabs {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.ade-diagram-tabs > .ade-tabs {
+	padding-inline: var(--vscode-spacing-size80);
+}
+
+.ade-diagram-tabs > .ade-tab-panels {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.ade-diagram-tabs .ade-tab-panel {
+	padding: var(--vscode-spacing-size120);
+}
+
+.ade-diagram-menu > .ade-menu-disclosure {
+	flex-shrink: 0;
+	max-height: 45%;
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	border-block-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.ade-shell .ade-editing > .ade-options {
+	position: relative;
+}
+
+.ade-shell .ade-editing > .ade-options > .ade-diagram-menu {
+	position: absolute;
+	z-index: 10;
+	top: 100%;
+	left: 0;
+	width: min(384px, calc(100cqw - 24px));
+	max-height: 65vh;
+	background: var(--vscode-editorWidget-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-large);
+	box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+}
+
+.ade-shell .ade-options:not([open]) > .ade-diagram-menu {
+	display: none;
+}
+
+@media (max-height: 600px) {
+	.ade-inspector-tabbed > .ade-menu-header {
+		max-height: 28%;
+		padding: var(--vscode-spacing-size120);
+		padding-inline-end: var(--vscode-spacing-size400);
+		overflow-y: auto;
+	}
+
+	.ade-canvas-mode .ade-inspector-tabbed .ade-menu-header h2 {
+		font-size: var(--vscode-fontSize-heading3);
+	}
+
+	.ade-canvas-mode .ade-inspector-tabbed > .ade-inspector-footer {
+		max-height: 25%;
+	}
+
+	.ade-inspector-tab-content {
+		padding: var(--vscode-spacing-size120);
+	}
+}
+
+@media (pointer: coarse) {
+	.ade-shell .ade-tabs > button[role="tab"] {
+		min-height: calc(var(--vscode-spacing-size400) + var(--vscode-spacing-size40));
+	}
+}

@@ -5,6 +5,14 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { localize } from '../../../../nls.js';
+
+interface AdeTabGroup {
+	readonly panels: ReadonlyMap<string, HTMLElement>;
+	readonly activeId: string;
+	select(id: string, focus?: boolean): void;
+}
 
 /** Native actions with stable focus identities across presentation updates. */
 export class AdeControls extends Disposable {
@@ -23,6 +31,8 @@ export class AdeControls extends Disposable {
 	private readonly targets = new Map<string, HTMLElement | SVGElement>();
 	private readonly disclosures = new Map<string, HTMLDetailsElement>();
 	private readonly expanded = new Map<string, boolean>();
+	private readonly tabSelections = new Map<string, string>();
+	private readonly tabGroups = new Map<string, AdeTabGroup>();
 	private deferredFocus: string | undefined;
 
 	trackFocus(id: string, element: HTMLElement | SVGElement): void {
@@ -61,6 +71,68 @@ export class AdeControls extends Disposable {
 		return button;
 	}
 
+	/** Tabs retain their selected area while the underlying selection or document is refreshed. */
+	tabs(parent: HTMLElement, id: string, entries: readonly { id: string; label: string }[], initialId = entries[0]?.id): AdeTabGroup {
+		if (!entries.length) { throw new Error('An ADE tab group requires at least one tab.'); }
+		const instance = generateUuid();
+		const list = dom.append(parent, dom.$('div.ade-tabs', { role: 'tablist', 'aria-label': localize('ade.tabs.sections', "Detail Sections") }));
+		const content = dom.append(parent, dom.$('div.ade-tab-panels'));
+		const panels = new Map<string, HTMLElement>();
+		const buttons = new Map<string, HTMLButtonElement>();
+		const previous = this.tabSelections.get(id) ?? initialId;
+		let activeId = entries.find(entry => entry.id === previous)?.id ?? entries[0].id;
+		const select = (tabId: string, focus = false) => {
+			if (!panels.has(tabId)) { return; }
+			const current = dom.getActiveElement();
+			const hiddenFocus = current && [...panels].some(([id, panel]) => id !== tabId && panel.contains(current));
+			activeId = tabId; this.tabSelections.set(id, tabId);
+			for (const [id, button] of buttons) {
+				button.setAttribute('aria-selected', String(id === tabId));
+				button.tabIndex = id === tabId ? 0 : -1;
+				panels.get(id)!.hidden = id !== tabId;
+			}
+			if (focus || hiddenFocus) { buttons.get(tabId)!.focus(); }
+		};
+		for (const entry of entries) {
+			const button = this.button(list, entry.label, () => select(entry.id), `tab:${id}:${entry.id}`);
+			button.id = `${instance}-tab-${entry.id}`;
+			button.setAttribute('role', 'tab');
+			const panel = dom.append(content, dom.$('section.ade-tab-panel', { id: `${instance}-panel-${entry.id}`, role: 'tabpanel', 'aria-labelledby': button.id, tabindex: '0' }));
+			this.trackFocus(`tabpanel:${id}:${entry.id}`, panel);
+			button.setAttribute('aria-controls', panel.id);
+			buttons.set(entry.id, button); panels.set(entry.id, panel);
+			this.listeners.add(dom.addDisposableListener(button, 'keydown', (event: KeyboardEvent) => {
+				const index = entries.findIndex(candidate => candidate.id === entry.id);
+				let next: number;
+				switch (event.key) {
+					case 'ArrowRight': next = (index + 1) % entries.length; break;
+					case 'ArrowLeft': next = (index - 1 + entries.length) % entries.length; break;
+					case 'Home': next = 0; break;
+					case 'End': next = entries.length - 1; break;
+					default: return;
+				}
+				event.preventDefault(); event.stopPropagation(); select(entries[next].id, true);
+			}));
+		}
+		select(activeId);
+		const group: AdeTabGroup = { panels, get activeId() { return activeId; }, select };
+		this.tabGroups.set(id, group);
+		return group;
+	}
+
+	/** Reveal a known area before restoring focus to a control in that panel. */
+	selectTab(groupId: string, tabId: string, focus = false): void {
+		this.tabGroups.get(groupId)?.select(tabId, focus);
+	}
+
+	/** Context actions enter the same tabbed surface as ordinary diagram inspection. */
+	focusTabGroup(groupId: string): boolean {
+		const group = this.tabGroups.get(groupId);
+		if (!group) { return false; }
+		group.select(group.activeId, true);
+		return true;
+	}
+
 	/** Keep secondary actions available to keyboard users without crowding the diagram. */
 	details(parent: HTMLElement, label: string, id: string, options: { popup?: boolean; openByDefault?: boolean } = {}): HTMLElement {
 		const details = dom.append(parent, dom.$<HTMLDetailsElement>('details.ade-options'));
@@ -89,6 +161,7 @@ export class AdeControls extends Disposable {
 			this.expanded.set(id, details.open);
 		}
 		this.disclosures.clear();
+		this.tabGroups.clear();
 		this.listeners.clear();
 		this.targets.clear();
 		render();

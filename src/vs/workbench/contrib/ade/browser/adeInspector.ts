@@ -5,9 +5,9 @@
 
 import { localize } from '../../../../nls.js';
 import * as dom from '../../../../base/browser/dom.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { notationRelationLabel } from '../common/modelNotation.js';
-import { ModelView, SemanticModel } from '../common/modelTypes.js';
+import { ModelView, SemanticElement, SemanticModel, SemanticRelation } from '../common/modelTypes.js';
 import { IAdeCodeService } from './adeCodeService.js';
 import { renderModelTaskPreview } from './adeTaskPreview.js';
 import { specificationEditors } from './adeSpecificationContent.js';
@@ -17,9 +17,10 @@ import { renderBlueprintDetails, renderBlueprintOperation } from './adeBlueprint
 import { getProjectedInteraction, getViewSelectionIds } from '../common/visualNavigation.js';
 import { adeInteractionRows } from './adeInteractionContent.js';
 import { AdeControls } from './adeControls.js';
+import { AdeActionMenu } from './adeActionMenu.js';
+import { diagramIcon, elementIcon } from './adeIcons.js';
 import { elementLabels, relationLabels } from './adeLabels.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
-import { notationLines } from '../common/diagramLayout.js';
 import { renderRecordedEvidence } from './adeImpact.js';
 
 interface AdeInspectorHost {
@@ -27,169 +28,316 @@ interface AdeInspectorHost {
 	button(parent: HTMLElement, label: string, action: () => void, id?: string): HTMLButtonElement;
 	readonly root: HTMLElement;
 	revealElement(id: string, viewId?: string): void;
+	beginConnection?(id: string): Promise<void>;
 	relationMenu(id: string, x: number, y: number): void;
 }
 
-/** Renders contextual element and relationship properties for the ADE editor. */
+/** Presents contextual facts, editing and navigation as a structured information sheet. */
 export class AdeInspector {
+	private readonly menu: AdeActionMenu;
+
 	renderProperties(detail: HTMLElement, model: SemanticModel, view?: ModelView): void {
 		detail.setAttribute('aria-label', localize('ade.properties', "Properties"));
-		dom.append(detail, dom.$('h2')).textContent = localize('ade.properties', "Properties");
+		detail.classList.add('ade-inspector-sheet');
 		const interaction = view && getProjectedInteraction(model, view);
 		if (interaction && (model.version === 4 || model.version === 5)) {
 			const row = adeInteractionRows(model, interaction.id).find(row => row.id === this.project.selectedId);
 			if (row) {
-				dom.append(detail, dom.$('h3')).textContent = row.label;
-				this.host.paragraph(detail, row.text);
 				const call = model.foundation.occurrences.find(call => call.id === row.id);
-				for (const id of [...new Set(call ? [call.from, call.to] : [])]) {
-					this.host.button(detail, model.semantics.elements.find(element => element.id === id)?.name ?? id, () => this.project.selectElement(id), `participant:${id}`);
-				}
 				const frame = model.foundation.frames.find(frame => frame.id === row.id);
 				const referenced = frame?.kind === 'ref' ? model.foundation.interactions.find(entry => entry.id === frame.interactionId) : undefined;
 				const operation = model.foundation.blueprint?.operations.find(operation => operation.id === (call?.operationId ?? referenced?.execution?.operationId));
-				if (operation) { renderBlueprintOperation(detail, model, operation, this.controls, id => this.project.inspectElement(id)); }
-				if (this.project.editable && interaction.execution) { this.host.button(detail, localize('ade.interaction.edit', "Edit Executable Interaction"), () => { void this.commandService.executeCommand('ade.interaction', interaction.id); }); }
+				const contract = model.foundation.blueprint?.operations.find(operation => operation.id === interaction.execution?.operationId);
+				this.menu.header(detail, call ? call.name ?? operation?.name ?? row.label : row.label, contract?.name ?? localize('ade.inspector.interaction', "Interaction"), Codicon.symbolMethod);
+				detail.classList.add('ade-inspector-tabbed');
+				const tabHost = dom.append(detail, dom.$('div.ade-inspector-tabs'));
+				const tabs = this.controls.tabs(tabHost, 'interaction-inspector', [
+					{ id: 'properties', label: localize('ade.properties', "Properties") },
+					{ id: 'behavior', label: localize('ade.inspector.behavior', "Behavior") },
+					{ id: 'architecture', label: localize('ade.properties.architecture', "Architecture") }
+				]);
+				const properties = tabs.panels.get('properties')!, behavior = tabs.panels.get('behavior')!, architecture = tabs.panels.get('architecture')!;
+				for (const panel of tabs.panels.values()) { panel.classList.add('ade-inspector-tab-content'); }
+				if (this.project.editable && interaction.execution) { this.menu.action(behavior, localize('ade.interaction.edit', "Edit Executable Interaction"), () => { void this.commandService.executeCommand('ade.interaction', interaction.id); }, { icon: Codicon.edit, emphasis: 'primary' }); }
+				this.menu.info(properties, localize('ade.inspector.interaction', "Interaction"), contract?.name ?? interaction.id);
+				if (call) {
+					this.menu.info(properties, localize('ade.inspector.source', "Source"), model.semantics.elements.find(element => element.id === call.from)?.name ?? call.from);
+					this.menu.info(properties, localize('ade.inspector.target', "Target"), model.semantics.elements.find(element => element.id === call.to)?.name ?? call.to);
+					if (call.name || operation) { this.menu.info(properties, localize('ade.name', "Name"), call.name ?? operation!.name); }
+				} else if (frame) {
+					this.menu.info(properties, localize('ade.inspector.messages', "Messages"), String(frame.occurrenceIds.length));
+					if (frame.kind === 'ref') { this.menu.info(properties, localize('ade.inspector.revision', "Referenced Revision"), frame.revision); }
+				} else { this.host.paragraph(properties, row.text); }
+				this.host.paragraph(behavior, row.text);
+				if (operation) { renderBlueprintOperation(behavior, model, operation, this.controls, id => this.project.inspectElement(id)); }
+				if (operation) { this.menu.info(architecture, localize('ade.inspector.operation', "Operation"), operation.name, Codicon.symbolMethod); }
+				const owners = [...new Set([interaction.ownerId, operation?.ownerId].filter((id): id is string => !!id))];
+				for (const id of owners) {
+					const owner = model.semantics.elements.find(element => element.id === id);
+					this.menu.action(architecture, owner?.name ?? id, () => this.project.inspectElement(id), { id: `interaction-owner:${id}`, kind: 'navigation', icon: owner ? elementIcon(owner.kind) : Codicon.organization, description: localize('ade.inspector.operationOwner', "Interaction or Operation Owner") });
+				}
+				if (!owners.length && !operation) { dom.append(architecture, dom.$('p.ade-inspector-empty')).textContent = localize('ade.inspector.noInteractionArchitecture', "No operation or architectural owner declared for this step."); }
+				const participants = [...new Set(call ? [call.from, call.to] : interaction.ownerId ? [interaction.ownerId] : [])];
+				if (participants.length) {
+					const footer = dom.append(detail, dom.$('footer.ade-inspector-footer'));
+					const explore = this.menu.section(footer, localize('ade.inspector.explore', "Explore"), { compact: true });
+					for (const id of participants) {
+						const participant = model.semantics.elements.find(element => element.id === id);
+						this.menu.action(explore, participant?.name ?? id, () => this.project.selectElement(id), { id: `participant:${id}`, kind: 'navigation', icon: participant ? elementIcon(participant.kind) : Codicon.symbolClass });
+					}
+				}
 				return;
 			}
 		}
 		const element = model.semantics.elements.find(element => element.id === this.project.selectedId);
-		if (!element) { this.host.paragraph(detail, localize('ade.properties.noSelection', "Select an element or relationship in the diagram to view its properties.")); return; }
-		dom.append(detail, dom.$('h3')).textContent = element.name;
-		this.host.paragraph(detail, localize('ade.elementKind', "Type: {0}", elementLabels[element.kind]));
-		if (this.code.context) { this.host.button(detail, localize('ade.openSource', "Open Source"), () => { void this.code.inspect(element.id); }, `source:${element.id}`).disabled = this.code.busy; }
-
-		const floating = this.host.root.classList.contains('ade-canvas-mode') && !!view;
-		if (floating) {
-			if (element.description) { this.host.paragraph(detail, element.description); }
+		if (!element) {
+			this.menu.header(detail, localize('ade.properties', "Properties"), undefined, Codicon.info);
+			this.host.paragraph(detail, localize('ade.properties.noSelection', "Select an element or relationship in the diagram to view its properties.")); return;
+		}
+		const ownerId = element.parentId ?? ((model.version === 4 || model.version === 5) ? model.foundation.ownership.find(owner => owner.elementId === element.id)?.ownerId : undefined);
+		const ownerName = model.semantics.elements.find(parent => parent.id === ownerId)?.name;
+		this.menu.header(detail, element.name, ownerName ? localize('ade.inspector.elementContext', "{0} · {1}", elementLabels[element.kind], ownerName) : elementLabels[element.kind], elementIcon(element.kind));
+		detail.classList.add('ade-inspector-tabbed');
+		const tabHost = dom.append(detail, dom.$('div.ade-inspector-tabs'));
+		const tabs = this.controls.tabs(tabHost, 'element-inspector', [
+			{ id: 'properties', label: localize('ade.properties', "Properties") },
+			{ id: 'behavior', label: localize('ade.inspector.behavior', "Behavior") },
+			{ id: 'architecture', label: localize('ade.properties.architecture', "Architecture") }
+		]);
+		const properties = tabs.panels.get('properties')!, behavior = tabs.panels.get('behavior')!, architecture = tabs.panels.get('architecture')!;
+		for (const panel of tabs.panels.values()) { panel.classList.add('ade-inspector-tab-content'); }
+		if (element.description) { dom.append(properties, dom.$('p.ade-inspector-description')).textContent = element.description; }
+		if (this.project.editable) { this.menu.action(properties, localize('ade.notation.edit', "Edit Attributes and Technology"), () => { void this.commandService.executeCommand('ade.notation', element.id); }, { icon: Codicon.symbolField, emphasis: 'primary' }); }
+		if (element.details?.technology) { this.menu.info(properties, localize('ade.notation.technology', "Technology"), element.details.technology, Codicon.code); }
+		if (element.details?.environment) { this.menu.info(properties, localize('ade.notation.environment', "Environment"), element.details.environment, Codicon.symbolProperty); }
+		this.renderMembers(properties, element, model);
+		this.renderBehavior(behavior, model, element);
+		if (this.project.editable) {
+			if (model.version === 4 || model.version === 5) { this.menu.action(architecture, localize('ade.blueprint.edit', "Edit Blueprint"), () => { void this.commandService.executeCommand('ade.blueprint', element.id); }, { icon: Codicon.edit, emphasis: 'primary' }); }
+			else { this.menu.action(architecture, localize('ade.notation.parent', "Change Boundary or Parent"), () => { void this.commandService.executeCommand('ade.parent', element.id); }, { icon: Codicon.organization, emphasis: 'primary' }); }
+		}
+		this.menu.info(architecture, localize('ade.inspector.parent', "Boundary / Parent"), ownerName ?? ownerId ?? localize('ade.inspector.noParent', "Not Declared"), Codicon.organization);
+		if (model.version === 4 || model.version === 5) {
 			if (this.project.editable) {
-				for (const [label, command] of [[localize('ade.renameElement', "Rename Element"), 'ade.renameElement'], [localize('ade.editDescription', "Edit Description"), 'ade.description'], [localize('ade.connectSelection', "Connect Selection"), 'ade.connect']]) { if (interaction && command === 'ade.connect') { continue; } this.host.button(detail, label, () => { void this.commandService.executeCommand(command); }).disabled = command === 'ade.connect' && view?.kind === 'state' && element.kind !== 'state'; }
+				const edit = this.menu.disclosure(architecture, localize('ade.inspector.editArchitecture', "Edit Architecture"), `element-architecture:${element.id}`, { icon: Codicon.edit });
+				for (const property of specificationEditors(model, element.id)) { this.menu.action(edit, property.label, () => { void this.commandService.executeCommand('ade.blueprint', element.id, property.mode); }, { id: `property:${property.mode}:${element.id}`, icon: Codicon.edit }); }
 			}
-		}
-		if ((model.version === 4 || model.version === 5)) {
-			const architecture = this.controls.details(detail, localize('ade.properties.architecture', "Architecture"), `element-architecture:${element.id}`);
-			renderBlueprintDetails(architecture, model, element.id, this.controls, (viewId, elementId) => { this.project.showDiagram(viewId); this.project.selectElement(elementId); }, id => this.project.inspectElement(id));
-			if (this.project.editable) { for (const property of specificationEditors(model, element.id)) { this.host.button(architecture, property.label, () => { void this.commandService.executeCommand('ade.blueprint', element.id, property.mode); }, `property:${property.mode}:${element.id}`); } }
-			if (this.project.editable) { this.host.button(architecture, localize('ade.blueprint.edit', "Edit Blueprint"), () => { void this.commandService.executeCommand('ade.blueprint', element.id); }); }
-			const generation = this.controls.details(detail, localize('ade.properties.generation', "Code Generation"), `element-generation:${element.id}`);
-			this.host.button(generation, localize('ade.predicate.edit', "Edit Pure Predicate"), () => { void this.commandService.executeCommand('ade.predicate', element.id); });
-			this.host.button(generation, localize('ade.task.preview', "Structural AI Context Preview"), () => { void this.commandService.executeCommand('ade.prepareStructuralContext'); });
+			const generation = this.menu.disclosure(architecture, localize('ade.properties.generation', "Code Generation"), `element-generation:${element.id}`, { icon: Codicon.code });
+			if (this.project.editable) {
+				this.menu.action(generation, localize('ade.predicate.edit', "Edit Pure Predicate"), () => { void this.commandService.executeCommand('ade.predicate', element.id); }, { icon: Codicon.symbolMethod });
+				this.menu.action(generation, localize('ade.task.preview', "Structural AI Context Preview"), () => { void this.commandService.executeCommand('ade.prepareStructuralContext'); }, { icon: Codicon.search });
+			}
 			if (this.project.taskPreview) { renderModelTaskPreview(generation, this.project.taskPreview, this.controls); }
-			const readiness = this.project.readiness(element.id);
-			for (const diagnostic of readiness.diagnostics) { const route = readinessEditor(diagnostic); this.host.button(generation, readinessDiagnosticMessage(model, diagnostic), () => { void this.commandService.executeCommand(route.command, diagnostic.object?.id ?? element.id, route.mode); }, `readiness:${diagnostic.code}:${diagnostic.object?.id}:${diagnostic.field}`); }
+			for (const diagnostic of this.project.readiness(element.id).diagnostics) {
+				const label = readinessDiagnosticMessage(model, diagnostic);
+				if (this.project.editable) {
+					const route = readinessEditor(diagnostic);
+					this.menu.action(generation, label, () => { void this.commandService.executeCommand(route.command, diagnostic.object?.id ?? element.id, route.mode); }, { id: `readiness:${diagnostic.code}:${diagnostic.object?.id}:${diagnostic.field}`, icon: Codicon.warning });
+				} else { this.host.paragraph(generation, label); }
+			}
+			if (this.project.editable) {
+				const technical = this.menu.disclosure(architecture, localize('ade.properties.technical', "Technical Details"), `element-technical:${element.id}`, { icon: Codicon.fileCode });
+				this.menu.action(technical, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); }, { icon: Codicon.fileCode });
+			}
+			renderBlueprintDetails(architecture, model, element.id, this.controls, (viewId, elementId) => { this.project.showDiagram(viewId); this.project.selectElement(elementId); }, id => this.project.inspectElement(id));
 		}
-		if (floating) {
-			detail = this.controls.details(detail, localize('ade.elementMore', "Details and Actions"), `element-more:${element.id}`);
-		}
-
-		if (this.project.section !== 'impact') { this.host.button(detail, localize('ade.showImpact.button', "Show Change Impact"), () => this.project.showImpact(element.id), 'show-impact'); }
+		const relations = model.semantics.relations.filter(relation => relation.from === element.id || relation.to === element.id);
+		const relationships = this.menu.section(architecture, localize('ade.inspector.relationships', "Relationships"), { compact: true });
+		if (!relations.length) { dom.append(relationships, dom.$('p.ade-inspector-empty')).textContent = localize('ade.inspector.noRelationships', "No relationships declared."); }
+		for (const relation of relations) { this.renderElementRelation(relationships, model, element, relation, view, !!interaction); }
+		const footer = dom.append(detail, dom.$('footer.ade-inspector-footer'));
+		const explore = this.menu.section(footer, localize('ade.inspector.explore', "Explore"), { compact: true });
+		if (this.code.context) { this.menu.action(explore, localize('ade.openSource', "Open Source"), () => { void this.code.inspect(element.id); }, { id: `source:${element.id}`, kind: 'navigation', icon: Codicon.goToFile }).disabled = this.code.busy; }
+		if (this.project.section !== 'impact') { this.menu.action(explore, localize('ade.showImpact.button', "Show Change Impact"), () => this.project.showImpact(element.id), { id: 'show-impact', kind: 'navigation', icon: Codicon.references }); }
+		if (this.project.section === 'diagram') { this.menu.action(explore, localize('ade.elementDetails', "Element Details"), () => this.project.inspectElement(element.id), { kind: 'navigation', icon: Codicon.info }); }
 		if (element.kind === 'state' && element.parentId) {
 			const resource = model.semantics.elements.find(candidate => candidate.id === element.parentId && candidate.kind === 'resource');
-			if (resource) { this.host.button(detail, localize('ade.state.resource', "Resource: {0}", resource.name), () => this.project.inspectElement(resource.id), `state-owner:${resource.id}`); }
+			if (resource) { this.menu.action(explore, localize('ade.state.resource', "Resource: {0}", resource.name), () => this.project.inspectElement(resource.id), { id: `state-owner:${resource.id}`, kind: 'navigation', icon: elementIcon(resource.kind) }); }
 		}
-		if (this.project.section === 'diagram') {
-			this.host.button(detail, localize('ade.elementDetails', "Element Details"), () => this.project.inspectElement(element.id));
+		if (this.project.editable && this.host.beginConnection && view && !interaction && (view.kind !== 'state' || element.kind === 'state')) {
+			this.menu.action(footer, localize('ade.inspector.createOnCanvas', "Create Relationship on Canvas…"), () => { void this.host.beginConnection?.(element.id); }, { id: `canvas-connect:${element.id}`, icon: Codicon.link, description: localize('ade.inspector.createOnCanvasHelp', "Choose the target directly in the diagram") });
 		}
 		const views = model.views.filter(candidate => getViewSelectionIds(model, candidate).includes(element.id));
 		if (views.length) {
-			const perspectives = dom.append(detail, dom.$('section'));
-			dom.append(perspectives, dom.$('h3')).textContent = localize('ade.elementViews', "Diagrams Containing This Element");
-			for (const candidate of views) {
-				this.host.button(perspectives, candidate.name, () => this.host.revealElement(element.id, candidate.id), `element-view:${candidate.id}`).disabled = candidate.id === view?.id;
-			}
-		} else if (element.kind !== 'feature') { this.host.paragraph(detail, localize('ade.notPlaced', "This element is not placed in a diagram.")); }
+			const perspectives = this.menu.disclosure(footer, localize('ade.elementViews', "Diagrams Containing This Element"), `element-views:${element.id}`, { icon: Codicon.graph });
+			for (const candidate of views) { this.menu.action(perspectives, candidate.name, () => this.host.revealElement(element.id, candidate.id), { id: `element-view:${candidate.id}`, kind: 'navigation', current: candidate.id === view?.id, icon: diagramIcon(candidate.kind) }); }
+		} else if (element.kind !== 'feature') { this.host.paragraph(explore, localize('ade.notPlaced', "This element is not placed in a diagram.")); }
 		if (this.project.editable) {
-			if (view?.kind === 'state') {
-				this.host.button(detail, element.kind === 'state' ? localize('ade.state.removeState', "Remove State from Diagram") : localize('ade.state.removeContext', "Remove Element from Diagram"), () => this.project.edit({ kind: 'exclude', viewId: view.id, id: element.id, target: 'element' }));
-			}
-			if (view?.kind === 'sequence' && !interaction) {
-				const index = view.nodes.findIndex(node => node.elementId === element.id);
-				this.host.button(detail, localize('ade.sequence.left', "Move Participant Left"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: element.id, target: 'participant', direction: -1 })).disabled = index <= 0;
-				this.host.button(detail, localize('ade.sequence.right', "Move Participant Right"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: element.id, target: 'participant', direction: 1 })).disabled = index === view.nodes.length - 1;
-				this.host.button(detail, localize('ade.sequence.removeParticipant', "Remove Participant from Diagram"), () => this.project.edit({ kind: 'sequenceRemove', viewId: view.id, id: element.id, target: 'participant' }));
-			}
-			for (const [label, command] of [
-				[localize('ade.renameElement', "Rename Element"), 'ade.renameElement'],
-				[localize('ade.editDescription', "Edit Description"), 'ade.description'],
-				[localize('ade.editBehavior', "Edit Behavioral Contract"), 'ade.behavior'],
-				[localize('ade.connectSelection', "Connect Selection"), 'ade.connect'],
-				[localize('ade.deleteElement', "Delete Element"), 'ade.deleteElement']
-			]) {
-				if (command === 'ade.connect' && (!view || interaction) || floating && ['ade.renameElement', 'ade.description', 'ade.connect'].includes(command)) { continue; }
-				this.host.button(detail, label, () => { void this.commandService.executeCommand(command); }).disabled = command === 'ade.connect' && view?.kind === 'state' && element.kind !== 'state';
-			}
-		}
-		for (const line of notationLines(element)) { this.host.paragraph(detail, line); }
-		if (this.project.editable) { this.host.button(detail, localize('ade.notation.edit', "Edit Attributes and Technology"), () => { void this.commandService.executeCommand('ade.notation', element.id); }); }
-		if (this.project.editable && (model.version !== 4 && model.version !== 5)) { this.host.button(detail, localize('ade.notation.parent', "Change Boundary or Parent"), () => { void this.commandService.executeCommand('ade.parent', element.id); }); }
-		if (this.project.editable && (model.version === 4 || model.version === 5)) { const technical = this.controls.details(detail, localize('ade.properties.technical', "Technical Details"), `element-technical:${element.id}`); this.host.button(technical, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); }); }
-		if (element.parentId) { this.host.paragraph(detail, localize('ade.notation.parentName', "Boundary / Parent: {0}", model.semantics.elements.find(parent => parent.id === element.parentId)?.name ?? element.parentId)); }
-		if (element.description && !floating) { this.host.paragraph(detail, element.description); }
-		if (element.behavior) {
-			dom.append(detail, dom.$('h3')).textContent = localize('ade.behavior.heading', "Behavioral Contract");
-			this.host.paragraph(detail, localize('ade.behavior.intent', "Contract declarations describe expected behavior."));
-			for (const field of element.behavior.inputs) { this.host.paragraph(detail, localize('ade.input', "Input: {0} ({1}), {2}", field.name, field.type, field.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional"))); }
-			for (const field of element.behavior.outputs) { this.host.paragraph(detail, localize('ade.output', "Output: {0} ({1}), {2}", field.name, field.type, field.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional"))); }
-			for (const condition of element.behavior.preconditions) { this.host.paragraph(detail, localize('ade.precondition', "Precondition: {0}", condition)); }
-			for (const condition of element.behavior.postconditions) { this.host.paragraph(detail, localize('ade.postcondition', "Postcondition: {0}", condition)); }
-			for (const error of element.behavior.errors) { this.host.paragraph(detail, localize('ade.behavior.error', "Error {0}: {1}", error.code, error.description)); }
-			for (const permission of element.behavior.permissions) {
-				this.host.paragraph(detail, localize('ade.permission', "Authorization: {0} · {1}", model.semantics.elements.find(element => element.id === permission.actorId)!.name, permission.capability));
-			}
-			for (const criterion of element.behavior.acceptanceCriteria) {
-				this.host.paragraph(detail, localize('ade.acceptance', "Given {0}, when {1}, then {2}.", criterion.given, criterion.when, criterion.then));
-			}
-		}
-		for (const relation of model.semantics.relations.filter(relation => relation.from === element.id || relation.to === element.id)) {
-			const targetId = relation.from === element.id ? relation.to : relation.from;
-			const from = model.semantics.elements.find(element => element.id === relation.from)!;
-			const to = model.semantics.elements.find(element => element.id === relation.to)!;
-			const label = localize('ade.relation', "{0} → {1}: {2}", from.name, to.name, relation.name || relation.kind);
-			this.host.button(detail, label, () => this.host.revealElement(targetId), `relation:${relation.id}`);
-			if (this.project.editable && view?.kind === 'sequence' && !interaction && view.relationIds.includes(relation.id)) {
-				const messages = getSequenceDiagram(model, view).messages;
-				const index = messages.findIndex(message => message.id === relation.id);
-				const actions = this.controls.details(detail, localize('ade.sequence.messageOptions', "Sequence Message Options: {0}", relation.name || relationLabels[relation.kind]), `sequence-options:${relation.id}`);
-				this.host.button(actions, localize('ade.sequence.earlier', "Move Message Earlier"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: relation.id, target: 'message', direction: -1 }), `earlier:${relation.id}`).disabled = index <= 0;
-				this.host.button(actions, localize('ade.sequence.later', "Move Message Later"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: relation.id, target: 'message', direction: 1 }), `later:${relation.id}`).disabled = index < 0 || index === messages.length - 1;
-				this.host.button(actions, localize('ade.sequence.removeMessage', "Remove Message from Diagram"), () => this.project.edit({ kind: 'sequenceRemove', viewId: view.id, id: relation.id, target: 'message' }), `remove-message:${relation.id}`);
-			}
-			if (this.project.editable) {
-				if (relation.kind === 'transition') {
-					this.host.button(detail, localize('ade.state.editEvent', "Edit Transition Event"), () => { void this.commandService.executeCommand('ade.renameRelation', relation.id); }, `event:${relation.id}`);
+			if (view && !interaction && (view.kind !== 'state' || element.kind === 'state')) { this.menu.action(footer, localize('ade.connectSelection', "Connect Selection"), () => { void this.commandService.executeCommand('ade.connect'); }, { icon: Codicon.link, description: localize('ade.inspector.connectFormHelp', "Choose the endpoints and details in a form") }); }
+			const manage = this.manage(footer, `element-manage:${element.id}`, localize('ade.inspector.moreElementActions', "More Element Actions"));
+			const edit = this.menu.section(manage, localize('ade.inspector.edit', "Edit"), { compact: true });
+			this.menu.action(edit, localize('ade.renameElement', "Rename Element"), () => { void this.commandService.executeCommand('ade.renameElement'); }, { icon: Codicon.edit });
+			this.menu.action(edit, localize('ade.editDescription', "Edit Description"), () => { void this.commandService.executeCommand('ade.description'); }, { icon: Codicon.info });
+			if (view && !interaction && (view.kind === 'state' || view.kind === 'sequence')) {
+				const diagram = this.menu.section(manage, localize('ade.inspector.inDiagram', "In This Diagram"), { compact: true });
+				if (view.kind === 'state') { this.menu.action(diagram, element.kind === 'state' ? localize('ade.state.removeState', "Remove State from Diagram") : localize('ade.state.removeContext', "Remove Element from Diagram"), () => this.project.edit({ kind: 'exclude', viewId: view.id, id: element.id, target: 'element' }), { icon: Codicon.remove }); }
+				if (view.kind === 'sequence') {
+					const index = view.nodes.findIndex(node => node.elementId === element.id);
+					this.menu.action(diagram, localize('ade.sequence.left', "Move Participant Left"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: element.id, target: 'participant', direction: -1 }), { icon: Codicon.arrowLeft }).disabled = index <= 0;
+					this.menu.action(diagram, localize('ade.sequence.right', "Move Participant Right"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: element.id, target: 'participant', direction: 1 }), { icon: Codicon.arrowRight }).disabled = index < 0 || index === view.nodes.length - 1;
+					this.menu.action(diagram, localize('ade.sequence.removeParticipant', "Remove Participant from Diagram"), () => this.project.edit({ kind: 'sequenceRemove', viewId: view.id, id: element.id, target: 'participant' }), { icon: Codicon.remove });
 				}
-				if (view?.kind === 'state' && view.relationIds.includes(relation.id)) {
-					this.host.button(detail, localize('ade.state.removeTransition', "Remove Relationship from Diagram"), () => this.project.edit({ kind: 'exclude', viewId: view.id, id: relation.id, target: 'relation' }), `exclude:${relation.id}`);
-				}
-				this.host.button(detail, localize('ade.editCondition', "Edit Condition"), () => { void this.commandService.executeCommand('ade.condition', relation.id); }, `condition:${relation.id}`);
-				this.host.button(detail, localize('ade.editRelationError', "Edit Relationship Error"), () => { void this.commandService.executeCommand('ade.relationError', relation.id); }, `error:${relation.id}`);
-				this.host.button(detail, localize('ade.deleteRelationship', "Delete Relationship"), () => { void this.commandService.executeCommand('ade.deleteRelation', relation.id); }, `delete:${relation.id}`);
 			}
-			if (relation.condition) { this.host.paragraph(detail, localize('ade.condition', "Condition: {0}", relation.condition)); }
-			if (relation.errorCode) { this.host.paragraph(detail, localize('ade.errorCodeLabel', "Error: {0}", relation.errorCode)); }
+			const danger = this.menu.section(manage, localize('ade.inspector.deleteFromSystem', "Delete from System"), { tone: 'danger', compact: true, description: localize('ade.inspector.deleteElementHelp', "Affects every diagram containing this element.") });
+			this.menu.action(danger, localize('ade.deleteElement', "Delete Element"), () => { void this.commandService.executeCommand('ade.deleteElement'); }, { kind: 'destructive', icon: Codicon.trash });
 		}
-		renderRecordedEvidence(detail, model, element.id, this.controls);
+	}
+
+	private manage(parent: HTMLElement, id: string, label: string): HTMLElement {
+		const body = this.menu.disclosure(parent, localize('ade.inspector.manage', "Manage"), id, { icon: Codicon.settingsGear });
+		body.parentElement!.firstElementChild!.setAttribute('aria-label', label);
+		return body;
+	}
+
+	private renderMembers(parent: HTMLElement, element: SemanticElement, model: SemanticModel): void {
+		const members = element.details?.members ?? [];
+		if (!members.length) { dom.append(parent, dom.$('p.ade-inspector-empty')).textContent = localize('ade.inspector.noMembers', "No attributes or methods declared."); return; }
+		const table = dom.append(parent, dom.$<HTMLTableElement>('table.ade-inspector-members', { 'aria-label': localize('ade.notation.members', "Attributes and Methods") }));
+		const heading = dom.append(dom.append(table, dom.$('thead')), dom.$('tr'));
+		for (const label of [localize('ade.name', "Name"), localize('ade.inspector.type', "Type"), localize('ade.properties', "Properties")]) { dom.append(heading, dom.$('th', { scope: 'col' })).textContent = label; }
+		const body = dom.append(table, dom.$('tbody'));
+		const keys = { none: '', primary: localize('ade.notation.pk', "Primary Key"), foreign: localize('ade.notation.fk', "Foreign Key"), unique: localize('ade.notation.unique', "Unique Key") };
+		for (const member of members) {
+			const row = dom.append(body, dom.$('tr'));
+			dom.append(row, dom.$('th', { scope: 'row' })).textContent = member.kind === 'method' ? localize('ade.inspector.methodName', "{0}()", member.name) : member.name;
+			const typeName = (model.version === 4 || model.version === 5) ? model.foundation.types.find(type => type.id === member.typeId)?.name : undefined;
+			dom.append(row, dom.$('td')).textContent = typeName || member.type || localize('ade.inspector.unspecified', "Not Specified");
+			const metadata = dom.append(row, dom.$('td.ade-inspector-member-properties'));
+			if (member.key !== 'none') { dom.append(metadata, dom.$('span.ade-inspector-member-key')).textContent = keys[member.key]; }
+			dom.append(metadata, dom.$('span')).textContent = member.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional");
+			if (model.version >= 4) {
+				dom.append(metadata, dom.$('span')).textContent = member.nullable?.state === 'known' ? member.nullable.value === true ? localize('ade.notation.null', "Null Allowed") : localize('ade.notation.notNull', "Non-null Value") : localize('ade.inspector.nullabilityUnknown', "Nullability Unknown");
+			}
+		}
+	}
+
+	private renderBehavior(parent: HTMLElement, model: SemanticModel, element: SemanticElement): void {
+		if (this.project.editable) { this.menu.action(parent, localize('ade.editBehavior', "Edit Behavioral Contract"), () => { void this.commandService.executeCommand('ade.behavior'); }, { icon: Codicon.symbolMethod, emphasis: 'primary' }); }
+		const behavior = element.behavior;
+		if (!behavior || ![behavior.inputs, behavior.outputs, behavior.preconditions, behavior.postconditions, behavior.errors, behavior.permissions, behavior.acceptanceCriteria].some(entries => entries.length)) {
+			dom.append(parent, dom.$('p.ade-inspector-empty')).textContent = localize('ade.inspector.noBehavior', "No behavioral declarations yet.");
+		} else {
+			this.host.paragraph(parent, localize('ade.behavior.intent', "Contract declarations describe expected behavior."));
+			if (behavior.inputs.length) {
+				const inputs = this.menu.section(parent, localize('ade.behavior.inputs', "Inputs"), { compact: true });
+				for (const field of behavior.inputs) { this.host.paragraph(inputs, localize('ade.input', "Input: {0} ({1}), {2}", field.name, field.type, field.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional"))); }
+			}
+			if (behavior.outputs.length) {
+				const outputs = this.menu.section(parent, localize('ade.behavior.outputs', "Outputs"), { compact: true });
+				for (const field of behavior.outputs) { this.host.paragraph(outputs, localize('ade.output', "Output: {0} ({1}), {2}", field.name, field.type, field.required ? localize('ade.field.required', "Required") : localize('ade.field.optional', "Optional"))); }
+			}
+			if (behavior.preconditions.length || behavior.postconditions.length) {
+				const conditions = this.menu.section(parent, localize('ade.inspector.conditions', "Conditions"), { compact: true });
+				for (const condition of behavior.preconditions) { this.host.paragraph(conditions, localize('ade.precondition', "Precondition: {0}", condition)); }
+				for (const condition of behavior.postconditions) { this.host.paragraph(conditions, localize('ade.postcondition', "Postcondition: {0}", condition)); }
+			}
+			if (behavior.errors.length) {
+				const errors = this.menu.section(parent, localize('ade.behavior.errors', "Errors"), { compact: true });
+				for (const error of behavior.errors) { this.host.paragraph(errors, localize('ade.behavior.error', "Error {0}: {1}", error.code, error.description)); }
+			}
+			if (behavior.permissions.length) {
+				const permissions = this.menu.section(parent, localize('ade.inspector.permissions', "Permissions"), { compact: true });
+				for (const permission of behavior.permissions) { this.host.paragraph(permissions, localize('ade.permission', "Authorization: {0} · {1}", model.semantics.elements.find(element => element.id === permission.actorId)?.name ?? permission.actorId, permission.capability)); }
+			}
+			if (behavior.acceptanceCriteria.length) {
+				const criteria = this.menu.section(parent, localize('ade.inspector.criteria', "Acceptance Criteria"), { compact: true });
+				for (const criterion of behavior.acceptanceCriteria) { this.host.paragraph(criteria, localize('ade.acceptance', "Given {0}, when {1}, then {2}.", criterion.given, criterion.when, criterion.then)); }
+			}
+		}
+		renderRecordedEvidence(parent, model, element.id, this.controls);
+	}
+
+	private renderElementRelation(parent: HTMLElement, model: SemanticModel, element: SemanticElement, relation: SemanticRelation, view: ModelView | undefined, interaction: boolean): void {
+		const from = model.semantics.elements.find(element => element.id === relation.from)!, to = model.semantics.elements.find(element => element.id === relation.to)!;
+		const label = localize('ade.relation', "{0} → {1}: {2}", from.name, to.name, relation.name || relation.kind);
+		const detail = this.menu.disclosure(parent, relation.name || relationLabels[relation.kind], `relation-actions:${relation.id}`, { icon: Codicon.link, description: localize('ade.inspector.relationEndpoints', "{0} → {1}", from.name, to.name) });
+		if (this.project.editable) {
+			const edit = this.menu.section(detail, localize('ade.inspector.edit', "Edit"), { compact: true });
+			if (relation.kind === 'transition') { this.menu.action(edit, localize('ade.state.editEvent', "Edit Transition Event"), () => { void this.commandService.executeCommand('ade.renameRelation', relation.id); }, { id: `event:${relation.id}`, icon: Codicon.symbolEvent }); }
+			this.menu.action(edit, localize('ade.editCondition', "Edit Condition"), () => { void this.commandService.executeCommand('ade.condition', relation.id); }, { id: `condition:${relation.id}`, icon: Codicon.edit });
+			this.menu.action(edit, localize('ade.editRelationError', "Edit Relationship Error"), () => { void this.commandService.executeCommand('ade.relationError', relation.id); }, { id: `error:${relation.id}`, icon: Codicon.warning });
+		}
+		this.menu.action(detail, label, () => this.host.revealElement(relation.from === element.id ? relation.to : relation.from), { id: `relation:${relation.id}`, kind: 'navigation', icon: Codicon.arrowRight });
+		if (relation.condition) { this.menu.info(detail, localize('ade.inspector.condition', "Condition"), relation.condition); }
+		if (relation.errorCode) { this.menu.info(detail, localize('ade.inspector.error', "Error"), relation.errorCode); }
+		if (!this.project.editable) { return; }
+
+		if (view && !interaction && view.relationIds.includes(relation.id) && (view.kind === 'sequence' || view.kind === 'state')) {
+			const diagram = this.menu.section(detail, localize('ade.inspector.inDiagram', "In This Diagram"), { compact: true });
+			this.renderRelationDiagramActions(diagram, model, view, relation);
+		}
+		const danger = this.menu.section(detail, localize('ade.inspector.deleteFromSystem', "Delete from System"), { tone: 'danger', compact: true });
+		this.menu.action(danger, localize('ade.deleteRelationship', "Delete Relationship"), () => { void this.commandService.executeCommand('ade.deleteRelation', relation.id); }, { id: `delete:${relation.id}`, kind: 'destructive', icon: Codicon.trash });
+	}
+
+	private renderRelationDiagramActions(parent: HTMLElement, model: SemanticModel, view: ModelView, relation: SemanticRelation): void {
+		if (view.kind === 'sequence') {
+			const messages = getSequenceDiagram(model, view).messages;
+			const index = messages.findIndex(message => message.id === relation.id);
+			this.menu.action(parent, localize('ade.sequence.earlier', "Move Message Earlier"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: relation.id, target: 'message', direction: -1 }), { id: `earlier:${relation.id}`, icon: Codicon.arrowUp }).disabled = index <= 0;
+			this.menu.action(parent, localize('ade.sequence.later', "Move Message Later"), () => this.project.edit({ kind: 'sequenceOrder', viewId: view.id, id: relation.id, target: 'message', direction: 1 }), { id: `later:${relation.id}`, icon: Codicon.arrowDown }).disabled = index < 0 || index === messages.length - 1;
+			this.menu.action(parent, localize('ade.sequence.removeMessage', "Remove Message from Diagram"), () => this.project.edit({ kind: 'sequenceRemove', viewId: view.id, id: relation.id, target: 'message' }), { id: `remove-message:${relation.id}`, icon: Codicon.remove });
+		} else {
+			this.menu.action(parent, localize('ade.state.removeTransition', "Remove Relationship from Diagram"), () => this.project.edit({ kind: 'exclude', viewId: view.id, id: relation.id, target: 'relation' }), { id: `exclude:${relation.id}`, icon: Codicon.remove });
+		}
 	}
 
 	renderRelationProperties(parent: HTMLElement, id: string): void {
-		const relation = this.project.model.semantics.relations.find(relation => relation.id === id);
+		const model = this.project.model;
+		const relation = model.semantics.relations.find(relation => relation.id === id);
 		if (!relation) { return; }
 		parent.setAttribute('aria-label', localize('ade.relationshipProperties', "Relationship Properties"));
-		dom.append(parent, dom.$('h2')).textContent = localize('ade.relationshipProperties', "Relationship Properties");
-		this.host.paragraph(parent, relation.name || relationLabels[relation.kind]);
-		this.host.paragraph(parent, relationLabels[relation.kind]);
-		if (relation.details) { this.host.paragraph(parent, notationRelationLabel(relation)); }
-		if ((this.project.model.version === 4 || this.project.model.version === 5)) {
-			for (const transport of this.project.model.foundation.blueprint?.transports.filter(transport => transport.relationId === id) ?? []) { this.host.paragraph(parent, localize('ade.blueprint.transportDetails', "Transport: {0} · Payload: {1} · Schema: {2} · Version: {3}", transport.protocol, transport.format, this.project.model.foundation.types.find(type => type.id === transport.schemaTypeId)?.name ?? '', transport.schemaVersion)); }
+		parent.classList.add('ade-inspector-sheet', 'ade-inspector-tabbed');
+		this.menu.header(parent, relation.name || relationLabels[relation.kind], relationLabels[relation.kind], Codicon.link);
+		const tabHost = dom.append(parent, dom.$('div.ade-inspector-tabs'));
+		const tabs = this.controls.tabs(tabHost, 'relation-inspector', [
+			{ id: 'properties', label: localize('ade.properties', "Properties") },
+			{ id: 'behavior', label: localize('ade.inspector.behavior', "Behavior") },
+			{ id: 'architecture', label: localize('ade.properties.architecture', "Architecture") }
+		]);
+		const properties = tabs.panels.get('properties')!, behavior = tabs.panels.get('behavior')!, architecture = tabs.panels.get('architecture')!;
+		for (const panel of tabs.panels.values()) { panel.classList.add('ade-inspector-tab-content'); }
+		const from = model.semantics.elements.find(element => element.id === relation.from)!, to = model.semantics.elements.find(element => element.id === relation.to)!;
+		if (this.project.editable) { this.menu.action(properties, localize('ade.notation.editRelation', "Edit Cardinalities and Protocol"), () => { void this.commandService.executeCommand('ade.relationNotation', id); }, { icon: Codicon.symbolProperty, emphasis: 'primary' }); }
+		if (this.project.editable) { this.menu.action(architecture, localize('ade.notation.editRelation', "Edit Cardinalities and Protocol"), () => { void this.commandService.executeCommand('ade.relationNotation', id); }, { id: `relation-protocol:${id}`, icon: Codicon.symbolProperty, emphasis: 'primary' }); }
+		this.menu.info(architecture, localize('ade.inspector.source', "Source"), from.name, elementIcon(from.kind));
+		this.menu.info(architecture, localize('ade.inspector.target', "Target"), to.name, elementIcon(to.kind));
+		if (this.project.editable) {
+			if (relation.kind === 'transition') { this.menu.action(behavior, localize('ade.state.editEvent', "Edit Transition Event"), () => { void this.commandService.executeCommand('ade.renameRelation', id); }, { id: `event:${id}`, icon: Codicon.symbolEvent }); }
+			this.menu.action(behavior, localize('ade.editCondition', "Edit Condition"), () => { void this.commandService.executeCommand('ade.condition', id); }, { id: `condition:${id}`, icon: Codicon.edit });
+			this.menu.action(behavior, localize('ade.editRelationError', "Edit Relationship Error"), () => { void this.commandService.executeCommand('ade.relationError', id); }, { id: `error:${id}`, icon: Codicon.warning });
 		}
-		if (this.project.editable) { this.host.button(parent, localize('ade.notation.editRelation', "Edit Cardinalities and Protocol"), () => { void this.commandService.executeCommand('ade.relationNotation', id); }); }
-		for (const target of [relation.from, relation.to]) {
-			this.host.button(parent, this.project.model.semantics.elements.find(element => element.id === target)!.name, () => this.host.revealElement(target));
+		this.menu.info(behavior, localize('ade.inspector.condition', "Condition"), relation.condition || localize('ade.inspector.noCondition', "No Condition Declared"));
+		this.menu.info(behavior, localize('ade.inspector.error', "Error"), relation.errorCode || localize('ade.inspector.noError', "No Error Assigned"));
+		if (relation.kind === 'transition') { this.menu.info(behavior, localize('ade.inspector.transitionEvent', "Transition Event"), relation.name || localize('ade.inspector.unspecified', "Not Specified")); }
+
+		if (relation.details) {
+			for (const [key, label] of [
+				['sourceMultiplicity', localize('ade.notation.sourceMultiplicity', "Source Multiplicity")],
+				['targetMultiplicity', localize('ade.notation.targetMultiplicity', "Target Multiplicity")],
+				['sourceMember', localize('ade.notation.sourceColumn', "Source Attribute / Column")],
+				['targetMember', localize('ade.notation.targetColumn', "Target Attribute / Column")]
+			] as const) { if (relation.details[key]) { this.menu.info(properties, label, relation.details[key]); } }
+		} else { dom.append(properties, dom.$('p.ade-inspector-empty')).textContent = localize('ade.inspector.noRelationNotation', "No cardinalities or attribute mappings declared."); }
+		this.menu.info(architecture, localize('ade.notation.protocol', "Protocol / Transport"), relation.details?.protocol || localize('ade.inspector.unspecified', "Not Specified"));
+		if (model.version === 4 || model.version === 5) {
+			for (const transport of model.foundation.blueprint?.transports.filter(transport => transport.relationId === id) ?? []) { this.host.paragraph(architecture, localize('ade.blueprint.transportDetails', "Transport: {0} · Payload: {1} · Schema: {2} · Version: {3}", transport.protocol, transport.format, model.foundation.types.find(type => type.id === transport.schemaTypeId)?.name ?? '', transport.schemaVersion)); }
 		}
-		if (relation.condition) { this.host.paragraph(parent, localize('ade.condition', "Condition: {0}", relation.condition)); }
-		if (relation.errorCode) { this.host.paragraph(parent, localize('ade.errorCodeLabel', "Error: {0}", relation.errorCode)); }
-		if (this.project.editable) { this.host.button(parent, localize('ade.context.editRelation', "Edit Relationship…"), () => { void this.commandService.executeCommand('ade.editRelation', id); }); }
-		this.host.button(parent, localize('ade.context.moreRelation', "More Relationship Actions…"), () => { const box = parent.getBoundingClientRect(); this.host.relationMenu(id, box.left, box.top); });
+		const footer = dom.append(parent, dom.$('footer.ade-inspector-footer'));
+		if (this.project.editable) { this.menu.action(footer, localize('ade.context.editRelation', "Edit Relationship…"), () => { void this.commandService.executeCommand('ade.editRelation', id); }, { icon: Codicon.edit, emphasis: 'primary' }); }
+		const explore = this.menu.section(footer, localize('ade.inspector.explore', "Explore"), { compact: true });
+		for (const endpoint of [{ element: from, role: 'source', label: localize('ade.inspector.source', "Source") }, { element: to, role: 'target', label: localize('ade.inspector.target', "Target") }]) { this.menu.action(explore, endpoint.element.name, () => this.host.revealElement(endpoint.element.id), { id: `relationship-${endpoint.role}:${id}`, kind: 'navigation', icon: elementIcon(endpoint.element.kind), description: endpoint.label }); }
+		if (this.project.editable) {
+			const manage = this.manage(footer, `relation-manage:${id}`, localize('ade.inspector.moreRelationActions', "More Relationship Actions"));
+			const view = this.project.activeView;
+			if (view?.relationIds.includes(id) && !getProjectedInteraction(model, view)) {
+				const diagram = this.menu.section(manage, localize('ade.inspector.inDiagram', "In This Diagram"), { compact: true });
+				if (view.kind === 'sequence' || view.kind === 'state') { this.renderRelationDiagramActions(diagram, model, view, relation); }
+				else { this.menu.action(diagram, localize('ade.state.removeTransition', "Remove Relationship from Diagram"), () => this.project.edit({ kind: 'exclude', viewId: view.id, id, target: 'relation' }), { id: `exclude:${id}`, icon: Codicon.remove }); }
+			}
+			const danger = this.menu.section(manage, localize('ade.inspector.deleteFromSystem', "Delete from System"), { tone: 'danger', compact: true, description: localize('ade.inspector.deleteRelationHelp', "Removes this relationship from every diagram.") });
+			this.menu.action(danger, localize('ade.deleteRelationship', "Delete Relationship"), () => { void this.commandService.executeCommand('ade.deleteRelation', id); }, { id: `delete:${id}`, kind: 'destructive', icon: Codicon.trash });
+		}
 	}
 
 	constructor(
@@ -198,6 +346,5 @@ export class AdeInspector {
 		private readonly project: AdeProjectService,
 		private readonly code: IAdeCodeService,
 		private readonly commandService: ICommandService
-	) {
-	}
+	) { this.menu = new AdeActionMenu(controls); }
 }

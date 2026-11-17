@@ -34,6 +34,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
 import { type ThemeIcon } from '../../../../base/common/themables.js';
 import { diagramIcon, prependAdeIcon } from './adeIcons.js';
+import { AdeActionMenu } from './adeActionMenu.js';
 
 export const ADE_VIEW_CONTAINER_ID = 'workbench.view.ade';
 export const ADE_VIEW_ID = 'ade.systemFeatures';
@@ -165,6 +166,7 @@ export class AdeView extends ViewPane {
 		body.setAttribute('aria-description', getAdeAccessibilityHint(this.configurationService, this.keybindingService));
 		this.controls.render(body, () => {
 			dom.clearNode(body);
+			const actionMenu = new AdeActionMenu(this.controls);
 			const toolbar = dom.append(body, dom.$('div.ade-outline-tools.ade-sidebar-navigation'));
 			prependAdeIcon(this.controls.button(toolbar, localize('ade.home', "Home"), () => { void this.commandService.executeCommand('ade.showHome').catch(error => this.notifications.error(error)); }), Codicon.home);
 			const map = this.controls.button(toolbar, localize('ade.systemMap', "System Map"), () => { void this.commandService.executeCommand('ade.showSystemMap').catch(error => this.notifications.error(error)); });
@@ -173,10 +175,17 @@ export class AdeView extends ViewPane {
 			search.disabled = this.project.loading || !!this.project.error; prependAdeIcon(search, Codicon.search);
 			if (this.project.editable && !isSourceEvidenceModel(model)) {
 				const create = this.controls.details(toolbar, localize('ade.outline.new', "New"), 'outline-new');
-				for (const [label, command] of [[localize('ade.addFeature', "Add Feature"), 'ade.addFeature'], [localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram'], [localize('ade.blueprint.sidebar', "Structural Blueprint"), 'ade.blueprint']]) {
-					const button = this.controls.button(create, label, () => { this.controls.setExpanded('outline-new', false); void this.commandService.executeCommand(command).catch(error => this.notifications.error(error)); });
+				create.classList.add('ade-action-menu');
+				const authored = actionMenu.section(create, localize('ade.outline.create', "Create"), { compact: true });
+				const architecture = actionMenu.section(create, localize('ade.outline.define', "Define Architecture"), { compact: true });
+				for (const [label, command, icon, description] of [
+					[localize('ade.addFeature', "Add Feature"), 'ade.addFeature', Codicon.symbolEvent, localize('ade.outline.featureHelp', "Group related diagrams and capabilities.")],
+					[localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram', Codicon.newFile, localize('ade.outline.diagramHelp', "Create a view of your system.")],
+					[localize('ade.blueprint.sidebar', "Structural Blueprint"), 'ade.blueprint', Codicon.symbolStructure, localize('ade.outline.blueprintHelp', "Define structure, ownership and shared contracts.")]
+				] as const) {
+					const button = actionMenu.action(command === 'ade.blueprint' ? architecture : authored, label, () => { this.controls.setExpanded('outline-new', false); void this.commandService.executeCommand(command).catch(error => this.notifications.error(error)); }, { icon, description });
 					button.disabled = this.ai.busy || this.code.busy || this.project.hasStructuralErrors || (command === 'ade.blueprint' && model.version !== 4 && model.version !== 5);
-					if (command === 'ade.blueprint') { button.classList.add('ade-sidebar-blueprint'); prependAdeIcon(button, Codicon.symbolStructure); }
+					if (command === 'ade.blueprint') { button.classList.add('ade-sidebar-blueprint'); }
 				}
 			}
 			if (this.project.loading || this.project.error) {
@@ -206,13 +215,16 @@ export class AdeView extends ViewPane {
 				if (this.project.editable && group.featureId) {
 					const actions = this.controls.details(context, localize('ade.featureOptions', "Feature Options"), `feature-options:${group.featureId}`);
 					actions.parentElement?.classList.add('ade-feature-options');
-					for (const [label, command] of [
-						[localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram'],
-						[localize('ade.renameFeature', "Rename Feature"), 'ade.renameFeature'],
-						[localize('ade.deleteFeature', "Delete Feature"), 'ade.deleteFeature']
-					]) {
-						this.controls.button(actions, label, () => { void this.commandService.executeCommand(command, group.featureId); }, `${command}:${group.featureId}`);
+					actionMenu.header(actions, group.name, localize('ade.feature', "Feature"), Codicon.symbolEvent);
+					const manage = actionMenu.section(actions, localize('ade.feature.manage', "Manage Feature"), { compact: true });
+					for (const [label, command, icon] of [
+						[localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram', Codicon.newFile],
+						[localize('ade.renameFeature', "Rename Feature"), 'ade.renameFeature', Codicon.edit]
+					] as const) {
+						actionMenu.action(manage, label, () => { void this.commandService.executeCommand(command, group.featureId); }, { id: `${command}:${group.featureId}`, icon });
 					}
+					const remove = actionMenu.section(actions, localize('ade.menu.remove', "Remove"), { compact: true, tone: 'danger' });
+					actionMenu.action(remove, localize('ade.deleteFeature', "Delete Feature"), () => { void this.commandService.executeCommand('ade.deleteFeature', group.featureId); }, { id: `ade.deleteFeature:${group.featureId}`, icon: Codicon.trash, kind: 'destructive', description: localize('ade.feature.deleteHelp', "Review the affected elements before deleting.") });
 				}
 				if (!group.views.length && !related.length) {
 					dom.append(context, dom.$('p')).textContent = localize('ade.noGroupDiagrams', "No diagrams in this context.");

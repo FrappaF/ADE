@@ -261,7 +261,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await clickAdeButton(window, 'Undo'); await closeCanvasActions(window);
 		assert.deepEqual((await participants()).slice(0, 3), ['Cliente', 'Checkout', 'Conferma ordine']);
 		await clickAdeButton(window, 'Redo'); await closeCanvasActions(window);
-		const options = (await revealAdeText(window, 'Sequence Message Options: crea ordine')).locator('..');
+		const options = (await revealAdeText(window, 'crea ordine')).locator('..');
 		await options.getByRole('button', { name: 'Move Message Earlier', exact: true }).click();
 		const reordered = [...ids];
 		[reordered[3], reordered[4]] = [reordered[4], reordered[3]];

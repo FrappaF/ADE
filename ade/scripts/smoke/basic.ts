@@ -51,7 +51,7 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await window.keyboard.press('Enter');
 			assert.equal(await declined.getAttribute('aria-pressed'), 'true');
 			assert.equal(await declined.evaluate(element => element === document.activeElement), true);
-			await revealAdeText(window, 'Condition: pagamento non autorizzato');
+			await revealAdeText(window, 'pagamento non autorizzato');
 			await clickAdeButton(window, 'Files');
 			await window.locator('.explorer-viewlet').waitFor();
 			await runCommand(window, 'A.D.E: Return to Model');

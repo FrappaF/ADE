@@ -231,7 +231,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 			assert.ok(generated.model.semantics.elements.some((item: SemanticElement) => item.kind === 'feature'));
 			await chooseAdeDiagram(window, 'Purchase Flow');
 			await shell.locator('.ade-canvas').getByRole('button', { name: 'checkout', exact: true }).click();
-			await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+			await clickAdeButton(window, 'Rename Element');
 			await enterValue(window, 'Name', 'reviewedPurchase');
 			await shell.getByRole('button', { name: 'Close Properties', exact: true }).click();
 			await (await codeAction(window, 'Update Code')).click();
@@ -326,7 +326,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await window.screenshot({ path: path.join(evidence, 'm4-code-sync.png') });
 		await chooseAdeDiagram(window, 'Purchase Flow');
 		await shell.locator('.ade-canvas').getByRole('button', { name: 'purchase', exact: true }).click();
-		await shell.locator('.ade-properties').getByRole('button', { name: 'Rename Element', exact: true }).click();
+		await clickAdeButton(window, 'Rename Element');
 		await enterValue(window, 'Name', 'reviewedPurchase');
 		await shell.getByRole('button', { name: 'Save', exact: true }).click();
 		await runCommand(window, 'A.D.E: Sync Project');

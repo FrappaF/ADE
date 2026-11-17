@@ -18,6 +18,9 @@ import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js
 import { type CodeDiagramExploration } from '../common/codeBridge.js';
 import { renderAdeCodeActions } from './adeCodeActions.js';
 import { assertPureProject } from '../common/modelProject.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { type ThemeIcon } from '../../../../base/common/themables.js';
+import { AdeActionMenu } from './adeActionMenu.js';
 
 interface AdeWorkflowContentHost {
 	paragraph(parent: HTMLElement, content: string): void;
@@ -220,32 +223,54 @@ export class AdeWorkflowContent {
 	}
 
 	renderProjectActions(parent: HTMLElement): void {
+		parent.classList.add('ade-action-menu');
 		dom.append(parent, dom.$('h1')).textContent = localize('ade.project.settingsTitle', "Project Settings");
-		const commands = (container: HTMLElement, entries: readonly (readonly [string, string])[]) => {
-			for (const [label, command] of entries) { this.host.button(container, label, () => { void this.commandService.executeCommand(command); }); }
+		const menu = new AdeActionMenu(this.controls);
+		const commands = (container: HTMLElement, entries: readonly (readonly [string, string, ThemeIcon, string?, ('action' | 'navigation')?])[]) => {
+			for (const [label, command, icon, description, kind] of entries) { menu.action(container, label, () => { void this.commandService.executeCommand(command); }, { icon, description, kind }); }
 		};
-		const files = this.controls.details(parent, localize('ade.project.files', "Open and Save"), 'project-files');
-		commands(files, [[localize('ade.saveCopy', "Save Project Copy"), 'ade.saveCopy'], [localize('ade.reload', "Reload Project"), 'ade.reload'], [localize('ade.importCode', "Import Codebase"), 'ade.importCodebase']]);
-		const modelFiles = this.controls.details(files, localize('ade.project.modelFiles', "Advanced · Model Files"), 'project-model-files');
-		commands(modelFiles, [[localize('ade.openModel', "Open Model"), 'ade.openModel']]);
+		const files = menu.disclosure(parent, localize('ade.project.files', "Open and Save"), 'project-files', { icon: Codicon.folderOpened, openByDefault: true });
+		commands(files, [
+			[localize('ade.saveCopy', "Save Project Copy"), 'ade.saveCopy', Codicon.saveAs, localize('ade.project.copyHelp', "Save a separate copy of this project.")],
+			[localize('ade.reload', "Reload Project"), 'ade.reload', Codicon.refresh, localize('ade.project.reloadHelp', "Read the saved project again; review unsaved changes first.")],
+			[localize('ade.importCode', "Import Codebase"), 'ade.importCodebase', Codicon.fileCode, localize('ade.project.importHelp', "Start a source inventory from an existing codebase.")]
+		]);
+		const modelFiles = menu.disclosure(files, localize('ade.project.modelFiles', "Advanced · Model Files"), 'project-model-files', { icon: Codicon.json });
+		commands(modelFiles, [[localize('ade.openModel', "Open Model"), 'ade.openModel', Codicon.goToFile, undefined, 'navigation']]);
 		if (this.project.error || this.project.loading) { return; }
-		const model = this.controls.details(parent, localize('ade.project.design', "Model and Architecture"), 'project-architecture');
-		commands(model, [[localize('ade.systemMap', "System Map"), 'ade.showSystemMap']]);
+		const model = menu.disclosure(parent, localize('ade.project.design', "Model and Architecture"), 'project-architecture', { icon: Codicon.symbolStructure, openByDefault: true });
+		const explore = menu.section(model, localize('ade.project.explore', "Explore"), { compact: true });
+		commands(explore, [[localize('ade.systemMap', "System Map"), 'ade.showSystemMap', Codicon.typeHierarchy, localize('ade.project.mapHelp', "Explore boundaries, elements and relationships."), 'navigation']]);
 		if ((this.project.model.version === 4 || this.project.model.version === 5) && this.project.editable) {
-			commands(model, [[localize('ade.blueprint.edit', "Edit Blueprint"), 'ade.blueprint'], [localize('ade.task.edit', "Tasks and Clarifications"), 'ade.taskIntent'], [localize('ade.task.profile', "Choose Runtime and Review Stack Plan"), 'ade.selectStructuralProfile']]);
-			const behavior = this.controls.details(parent, localize('ade.project.behavior', "Executable Behavior"), 'project-behavior');
-			const edit = this.controls.details(behavior, localize('ade.behavior.edit', "Edit Behavior"), 'project-edit-behavior');
-			commands(edit, [[localize('ade.states.edit', "Edit Executable State Machine"), 'ade.stateMachine'], [localize('ade.interaction.edit', "Edit Executable Interaction"), 'ade.interaction'], [localize('ade.predicate.edit', "Edit Pure Predicate"), 'ade.predicate'], [localize('ade.messaging.edit', "Edit Messaging Topology"), 'ade.messaging']]);
-			const verify = this.controls.details(behavior, localize('ade.behavior.verify', "Cases and Simulation"), 'project-simulate-behavior');
-			if (this.project.model.foundation.messaging?.length) { commands(verify, [[localize('ade.messaging.simulate', "Simulate Messaging"), 'ade.simulateMessaging']]); }
-			if (this.project.model.foundation.stateMachines?.length) { commands(verify, [[localize('ade.states.simulate', "Simulate State Machine"), 'ade.ai.simulateStates']]); }
-			this.host.button(verify, localize('ade.pure.expectations', "Independent Business Expectations"), () => { void this.ai.editPureCriteria(); });
-			const technical = this.controls.details(behavior, localize('ade.behavior.technical', "Code and Context"), 'project-behavior-code');
-			commands(technical, [[localize('ade.task.preview', "Structural AI Context Preview"), 'ade.prepareStructuralContext']]);
-			this.host.button(technical, localize('ade.pure.reverse', "Reverse Model Behavior from Code"), () => { void this.ai.structuralReverse(); });
+			const define = menu.section(model, localize('ade.project.define', "Edit Specification"), { compact: true });
+			commands(define, [
+				[localize('ade.blueprint.edit', "Edit Blueprint"), 'ade.blueprint', Codicon.edit, localize('ade.project.blueprintHelp', "Define structure, ownership and shared contracts.")],
+				[localize('ade.task.edit', "Tasks and Clarifications"), 'ade.taskIntent', Codicon.tasklist],
+				[localize('ade.task.profile', "Choose Runtime and Review Stack Plan"), 'ade.selectStructuralProfile', Codicon.server]
+			]);
+			const behavior = menu.disclosure(parent, localize('ade.project.behavior', "Executable Behavior"), 'project-behavior', { icon: Codicon.symbolMethod });
+			const edit = menu.section(behavior, localize('ade.behavior.edit', "Edit Behavior"), { compact: true });
+			commands(edit, [
+				[localize('ade.states.edit', "Edit Executable State Machine"), 'ade.stateMachine', Codicon.circleLarge],
+				[localize('ade.interaction.edit', "Edit Executable Interaction"), 'ade.interaction', Codicon.arrowSwap],
+				[localize('ade.predicate.edit', "Edit Pure Predicate"), 'ade.predicate', Codicon.symbolOperator],
+				[localize('ade.messaging.edit', "Edit Messaging Topology"), 'ade.messaging', Codicon.broadcast]
+			]);
+			const verify = menu.section(behavior, localize('ade.behavior.verify', "Cases and Simulation"), { compact: true });
+			if (this.project.model.foundation.messaging?.length) { commands(verify, [[localize('ade.messaging.simulate', "Simulate Messaging"), 'ade.simulateMessaging', Codicon.play]]); }
+			if (this.project.model.foundation.stateMachines?.length) { commands(verify, [[localize('ade.states.simulate', "Simulate State Machine"), 'ade.ai.simulateStates', Codicon.play]]); }
+			menu.action(verify, localize('ade.pure.expectations', "Independent Business Expectations"), () => { void this.ai.editPureCriteria(); }, { icon: Codicon.beaker });
+			const technical = menu.disclosure(behavior, localize('ade.behavior.technical', "Code and Context"), 'project-behavior-code', { icon: Codicon.code });
+			commands(technical, [[localize('ade.task.preview', "Structural AI Context Preview"), 'ade.prepareStructuralContext', Codicon.eye, undefined, 'navigation']]);
+			menu.action(technical, localize('ade.pure.reverse', "Reverse Model Behavior from Code"), () => { void this.ai.structuralReverse(); }, { icon: Codicon.arrowSwap });
 		}
-		const developer = this.controls.details(parent, localize('ade.project.developerTools', "Developer Tools"), 'project-developer-tools');
-		commands(developer, [[localize('ade.files', "Files"), 'ade.openFiles'], [localize('ade.terminal', "Terminal"), 'ade.openTerminal'], [localize('ade.debug', "Debug"), 'workbench.view.debug'], [localize('ade.git', "Git"), 'workbench.view.scm']]);
+		const developer = menu.disclosure(parent, localize('ade.project.developerTools', "Developer Tools"), 'project-developer-tools', { icon: Codicon.tools });
+		commands(developer, [
+			[localize('ade.files', "Files"), 'ade.openFiles', Codicon.files, undefined, 'navigation'],
+			[localize('ade.terminal', "Terminal"), 'ade.openTerminal', Codicon.terminal, undefined, 'navigation'],
+			[localize('ade.debug', "Debug"), 'workbench.view.debug', Codicon.debugAlt, undefined, 'navigation'],
+			[localize('ade.git', "Git"), 'workbench.view.scm', Codicon.sourceControl, undefined, 'navigation']
+		]);
 	}
 
 	constructor(

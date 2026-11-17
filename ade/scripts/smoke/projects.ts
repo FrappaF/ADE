@@ -59,7 +59,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await shell.locator('.ade-node').getByText('Campione', { exact: true }).click();
 		const messages = () => shell.locator('.ade-sequence-message').evaluateAll(buttons => buttons.map(button => button.dataset.relationId));
 		const before = await messages();
-		const options = (await revealAdeText(window, 'Sequence Message Options: Registra')).locator('..');
+		const options = (await revealAdeText(window, 'Registra')).locator('..');
 		await options.getByRole('button', { name: 'Move Message Earlier', exact: true }).click();
 		assert.deepEqual(await messages(), [before[0], before[2], before[1]]);
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
