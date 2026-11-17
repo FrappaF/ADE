@@ -1,6 +1,6 @@
 GUIDA COMPLETA AD ADE
 
-Edizione del 17 novembre 2026 · Scopi e motivazioni · ADE desktop, main al commit 8a069e4b.
+Edizione del 17 novembre 2026 · Scopi e motivazioni · ADE desktop, main al commit 30fd950e.
 
 1. Apri Guida-ADE.html nel browser oppure Guida-ADE.pdf.
 2. Verifica che ADE si avvii (A1), poi estrai progetti-esempio.zip in una cartella di lavoro tua, conservando i file nascosti.

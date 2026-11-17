@@ -2,7 +2,7 @@
 
 # Guida completa ad ADE
 
-**Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione del 17 novembre 2026 con scopi e motivazioni operative. Riferimento: ADE desktop, `main` al commit `8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c`.
+**Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione del 17 novembre 2026 con scopi e motivazioni operative. Riferimento: ADE desktop, `main` al commit `30fd950ea7351bf28e23a3acf3465f01660a35cd`.
 
 ADE è un ambiente di sviluppo integrato (IDE) desktop per progettare software con diagrammi, definire contratti e comportamenti, esplorare codice e lavorare con l’intelligenza artificiale (IA). I diagrammi chiariscono chi fa cosa, quali dati usa e cosa accade se qualcosa fallisce. Con questa guida costruirai un modello di negozio, lo salverai e proverai alcune regole locali. Il modello descrittivo, il codice prodotto e le verifiche hanno risultati distinti, indicati in ogni fase.
 
