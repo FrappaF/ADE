@@ -109,7 +109,7 @@ suite('A.D.E shared editing wizard', () => {
 		});
 		await page('Publish Time'); fill('10'); await next('Delivery Time'); fill('20'); await next('Review Your Changes');
 		button('Edit Publish Time'); await page('Publish Time'); fill('30'); await next('Delivery Time');
-		assert.deepStrictEqual({ draft: parent.querySelector<HTMLInputElement>('input[type="text"]')?.value, validation: parent.querySelector('[role="alert"]')?.textContent }, { draft: '20', validation: 'Delivery cannot precede publication.' });
+		assert.deepStrictEqual({ draft: parent.querySelector<HTMLInputElement>('input[type="text"]')?.value, validation: parent.querySelector('.ade-error-notice dd')?.textContent }, { draft: '20', validation: 'Delivery cannot precede publication.' });
 		fill('40'); await next('Review Your Changes'); button('Apply Changes');
 		assert.deepStrictEqual(await result, { published: 30, delivered: 40 });
 	});
@@ -129,5 +129,18 @@ suite('A.D.E shared editing wizard', () => {
 		assert.strictEqual(await result, undefined);
 		finishValidation('Late Error'); await Promise.resolve();
 		assert.strictEqual(parent.querySelector('dialog'), null);
+	});
+
+	test('a failed validator explains recovery without replacing the step or discarding its value', async () => {
+		let checks = 0;
+		const result = wizard.run('Create Entry', 'Project', quick => quick.input({ title: 'Entry Name', validateInput: async () => { if (++checks === 1) { throw new Error('Unexpected validation failure'); } return undefined; } }));
+		await page('Entry Name'); fill('Draft name'); button('Next');
+		await waitForDOM(() => !!parent.querySelector('.ade-error-notice'));
+		assert.deepStrictEqual({ step: parent.querySelector('h3')?.textContent, draft: parent.querySelector<HTMLInputElement>('input[type="text"]')?.value, labels: [...parent.querySelectorAll('.ade-error-notice dt')].map(label => label.textContent), nextDisabled: [...parent.querySelectorAll('button')].find(button => button.textContent === 'Next')?.disabled }, { step: 'Entry Name', draft: 'Draft name', labels: ['Cause', 'How to Resolve'], nextDisabled: false });
+		const input = parent.querySelector<HTMLInputElement>('input[type="text"]')!;
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		assert.strictEqual(parent.querySelector('.ade-error-notice'), null);
+		await next('Review Your Changes'); button('Apply Changes');
+		assert.strictEqual(await result, 'Draft name');
 	});
 });

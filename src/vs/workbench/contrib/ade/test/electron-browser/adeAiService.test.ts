@@ -336,6 +336,7 @@ suite('A.D.E native AI orchestration', () => {
 		assert.equal(f.service.diagramProgress?.status, 'failed');
 		assert.equal(f.service.diagramProgress?.error, 'Provider Offline');
 		assert.equal(f.service.diagramProgress?.completed, 0); assert.equal(f.opened.length, 0);
+		assert.deepStrictEqual({ alerts: f.errors.length, cause: /Cause:/.test(f.errors[0]), resolution: /How to resolve:/.test(f.errors[0]), originalProblem: /Provider Offline/.test(f.errors[0]) }, { alerts: 1, cause: true, resolution: true, originalProblem: true });
 		f.failDiagram(false); await f.service.resumeDiagrams();
 		assert.equal(f.diagramPrepares[1].resume, 'diagram-job');
 		assert.equal(f.closedAlerts, 1); assert.equal(f.opened.length, 1);

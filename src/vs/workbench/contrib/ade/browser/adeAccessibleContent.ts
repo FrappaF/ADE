@@ -32,6 +32,7 @@ export interface AdeReadingState {
 	readonly editable: boolean;
 	readonly diagnostics: readonly string[];
 	readonly hasStructuralErrors?: boolean;
+	readonly hasDiagramErrors?: boolean;
 }
 
 /** Describe visible semantic identities rather than SVG geometry or inferred runtime behavior. */
@@ -39,11 +40,11 @@ export function describeAdeDiagram(state: AdeReadingState): string {
 	const title = localize('ade.reading.title', "A.D.E Visual Workbench");
 	if (state.loading) { return [title, localize('ade.reading.loading', "Loading model. No current diagram is available.")].join('\n'); }
 	if (state.error) { return [title, state.error, localize('ade.reading.recovery', "Use Retry or Open Model to recover.")].join('\n'); }
-	if (state.hasStructuralErrors) { return [title, localize('ade.reading.draft', "Draft Needs Correction. Saving and Undo remain available. Correct the model specification before using its diagrams."), ...state.diagnostics].join('\n'); }
-	if (!state.loading && !state.error && isSourceEvidenceModel(state.model)) { return [title, localize('ade.reading.sourceEvidence', "Source Evidence Ready. Choose Build Diagrams with AI to create capability and flow diagrams. Files and symbols have not yet been interpreted into a semantic model.")].join('\n'); }
+	if (state.hasDiagramErrors ?? state.hasStructuralErrors) { return [title, localize('ade.reading.draft', "Draft Needs Correction. Saving and Undo remain available. Correct the model specification before using its diagrams."), ...state.diagnostics].join('\n'); }
+	if (!state.loading && !state.error && isSourceEvidenceModel(state.model)) { return [title, localize('ade.reading.sourceEvidence', "Source Evidence Ready. Choose Build Diagrams with AI to create capability and flow diagrams. Files and symbols have not yet been interpreted into a semantic model."), ...state.diagnostics].join('\n'); }
 	if (state.section === 'home') {
 		return [title, localize('ade.reading.home', "Home. Open Project continues saved work. Create Project starts a new design. Import Codebase builds a local source inventory. Examples and Model Files contains standalone model files and the read-only purchase example."),
-			localize('ade.reading.planned', "Import Codebase prepares a local inventory. Explore Architecture opens the exploration. Review a draft before applying it locally. Model to Code Review prepares supported executable changes; verification, application, commit and push are separate steps.")].join('\n');
+			localize('ade.reading.planned', "Import Codebase prepares a local inventory. Explore Architecture opens the exploration. Review a draft before applying it locally. Model to Code Review prepares supported executable changes; verification, application, commit and push are separate steps."), ...state.diagnostics].join('\n');
 	}
 	const model = state.model;
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));

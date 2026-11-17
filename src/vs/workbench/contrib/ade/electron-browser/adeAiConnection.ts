@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { adeErrorNotification } from '../browser/adeErrors.js';
 import { localize } from '../../../../nls.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
@@ -79,7 +80,7 @@ export class AdeAiConnection extends Disposable {
 				: localize('ade.ai.cliCheckFailed', "Could Not Verify the CLI Account ({0}). Open the AI CLI to Inspect Login, CLI Version and Configuration; Then Refresh Account and Models.", state.reason ?? 'failed');
 			this.setConnectionStatus(message); this.notifications.info(message);
 			return false;
-		} catch (error) { const message = localize('ade.ai.accountCheckError', "CLI Account Check Failed: {0}", error instanceof Error ? error.message : String(error)); this.setConnectionStatus(message); this.notifications.error(message); return false; }
+		} catch (error) { const message = localize('ade.ai.accountCheckError', "CLI Account Check Failed: {0}", error instanceof Error ? error.message : String(error)); this.setConnectionStatus(message); this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); return false; }
 	}
 
 	async refreshConnection(): Promise<void> {
@@ -127,7 +128,7 @@ export class AdeAiConnection extends Disposable {
 		const executable = await this.quick.input({ title: localize('ade.ai.executable', "Original CLI Executable"), value, prompt: hint, validateInput: validate, ignoreFocusLost: true });
 		if (!executable) { return undefined; }
 		const error = await validate(executable);
-		if (error) { this.setConnectionStatus(error); this.notifications.error(error); return undefined; }
+		if (error) { this.setConnectionStatus(error); this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); return undefined; }
 		return executable.trim();
 	}
 
@@ -155,7 +156,7 @@ export class AdeAiConnection extends Disposable {
 				: localize('ade.ai.installClaude', "Install the official Claude Code CLI using https://code.claude.com/docs/en/setup.");
 			const message = localize('ade.ai.cliMissing', "Cannot find or execute {0}: {1}. {2} If it is already installed, use Choose Model and CLI to set its absolute executable path. On macOS/Linux, run command -v {3} in your terminal to find it, then retry Sign In.", provider === 'codex' ? 'Codex' : 'Claude Code', executable, installation, provider);
 			this.setConnectionStatus(message);
-			this.notifications.error(message);
+			this.notifications.error(adeErrorNotification(message, 'ai', this.project.model));
 		}
 		return resolved;
 	}
@@ -164,7 +165,7 @@ export class AdeAiConnection extends Disposable {
 		const finish = (message: string, error = false) => {
 			this.loginWatch.clear();
 			this.setConnectionStatus(message);
-			if (error) { this.notifications.error(message); } else { this.notifications.info(message); }
+			if (error) { this.notifications.error(adeErrorNotification(message, 'ai', this.project.model)); } else { this.notifications.info(message); }
 		};
 		if (this.codexAccount.account.status === 'signedIn') {
 			finish(localize('ade.ai.alreadySignedIn', "Codex is already signed in to ChatGPT. Choose Model and CLI to continue."));
@@ -212,7 +213,7 @@ export class AdeAiConnection extends Disposable {
 			this.loginWatch.clear();
 			const message = localize('ade.ai.connectionError', "Could not start {0}: {1}. Check the CLI executable in Choose Model and CLI.", provider === 'codex' ? 'Codex' : 'Claude Code', error instanceof Error ? error.message : String(error));
 			this.setConnectionStatus(message);
-			this.notifications.error(message);
+			this.notifications.error(adeErrorNotification(message, 'ai', this.project.model));
 		}
 	}
 
@@ -276,7 +277,7 @@ export class AdeAiConnection extends Disposable {
 			await openAdeTerminal(this.terminals, this.terminalGroups, { name: staged ? localize('ade.ai.worktreeTerminal', "AI Review Worktree") : this._config!.provider === 'codex' ? 'Codex' : 'Claude Code', executable, args: ['--model', this._config!.model], cwd: staged ?? this.code.context?.sourceRoot ?? this.project.projectRoot, ...(this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) ? { env: { CODEX_HOME: this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) } } : {}) });
 			this.host.info(localize('ade.ai.cliOpened', "AI CLI Opened in the Integrated Terminal · {0}", staged ?? this.code.context?.sourceRoot ?? this.project.projectRoot?.fsPath ?? localize('ade.ai.workspaceDirectory', "Current Workspace")));
 		} catch (error) {
-			this.notifications.error(localize('ade.ai.openCliFailed', "Could not open the AI CLI: {0}", error instanceof Error ? error.message : String(error)));
+			this.notifications.error(adeErrorNotification(error, 'ai', this.project.model));
 		}
 	}
 

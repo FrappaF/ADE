@@ -27,6 +27,7 @@ import { runAdeSpecificationCommand } from './adeEditingSpecification.js';
 import { runAdeStructureCommand } from './adeEditingStructure.js';
 import { runAdeDiagramCommand } from './adeEditingDiagram.js';
 import { AdeFormDialog } from './adeFormDialog.js';
+import { adeErrorNotification } from './adeErrors.js';
 
 /** Owns dialog revision checks and dispatches typed commands to focused handlers. */
 class EditingUI implements AdeEditingContext {
@@ -137,7 +138,7 @@ for (const [command, title] of adeEditingCommands) {
 				await ui.run(command, id, mode);
 				if (ui.projectChanged) { await workspace?.align(); }
 				await editor.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
-			} catch (error) { notifications.error(localize('ade.editFailed', "Could not complete the project change: {0}", String(error.message ?? error))); }
+			} catch (error) { notifications.error(adeErrorNotification(error, 'edit', project.model)); }
 		}
 	});
 }

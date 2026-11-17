@@ -20,18 +20,20 @@ suite('A.D.E canvas controller', () => {
 	setup(() => { root = dom.append(document.body, dom.$('section')); });
 	teardown(() => root.remove());
 
-	function fixture() {
+	function fixture(failure?: Error) {
 		const model = structuredClone(checkoutModel), edits: VisualEdit[] = [];
+		const errors: unknown[] = [];
 		const project = new class extends mock<AdeProjectService>() {
 			override get model() { return model; }
-			override editBatch(batch: VisualEdit[]): void { edits.push(...batch); }
+			override editBatch(batch: VisualEdit[]): void { if (failure) { throw failure; } edits.push(...batch); }
+			override selectElement(): void { }
 		};
 		const controls = disposables.add(new AdeControls());
 		const storage = disposables.add(new InMemoryStorageService());
-		const canvas = disposables.add(new AdeCanvasController({ root }, controls, project, storage));
+		const canvas = disposables.add(new AdeCanvasController({ root, reportError: error => errors.push(error) }, controls, project, storage));
 		canvas.canvasViewport = root;
 		canvas.canvasContent = dom.append(root, dom.$('div'));
-		return { canvas, model, edits };
+		return { canvas, model, edits, errors };
 	}
 
 	test('pan listeners follow the current render and clearing them stops old DOM from changing the camera', () => {
@@ -60,5 +62,31 @@ suite('A.D.E canvas controller', () => {
 			edits: [{ kind: 'position', viewId: view.id, id: node.elementId, x: node.x + 40, y: node.y }],
 			model: before
 		});
+	});
+
+	test('failed keyboard movement reports the error without changing the model or keyboard focus', () => {
+		const failure = new Error('The project changed');
+		const { canvas, model, edits, errors } = fixture(failure), before = structuredClone(model);
+		const view = model.views[0], node = view.nodes[0];
+		const button = dom.append(root, dom.$<HTMLButtonElement>('button')); button.focus();
+		canvas.installNodeEditing(button, view, node.elementId, model, false);
+		const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+		button.dispatchEvent(event);
+		assert.deepStrictEqual({ errors, edits, model, focused: document.activeElement === button, prevented: event.defaultPrevented }, { errors: [failure], edits: [], model: before, focused: true, prevented: true });
+	});
+
+	test('a failed drag commit reaches the host error handler and leaves the project model intact', () => {
+		const failure = new Error('The selected element no longer exists');
+		const { canvas, model, edits, errors } = fixture(failure), before = structuredClone(model);
+		const view = model.views[0], node = view.nodes[0];
+		const button = dom.append(root, dom.$<HTMLButtonElement>('button'));
+		button.style.left = `${node.x}px`; button.style.top = `${node.y}px`;
+		// Synthetic pointer events have no native pointer to capture.
+		button.setPointerCapture = () => {};
+		canvas.installNodeEditing(button, view, node.elementId, model, false);
+		button.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, button: 0, clientX: 10, clientY: 20 }));
+		button.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 50, clientY: 60 }));
+		button.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 50, clientY: 60 }));
+		assert.deepStrictEqual({ errors, edits, model }, { errors: [failure], edits: [], model: before });
 	});
 });

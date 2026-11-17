@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { adeErrorNotification } from '../browser/adeErrors.js';
 import { localize } from '../../../../nls.js';
 import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -49,7 +50,7 @@ class AdeAiDialogService extends Disposable implements IAdeAiDialogService {
 					try { if (!resource.path.startsWith('/untitled-')) { await this.sessions.deleteChatSessionItem(resource, CancellationToken.None); } }
 					finally { await this.chatService.removeHistoryEntry(resource); }
 				}
-			} catch (error) { this.notifications.error(String(error)); }
+			} catch (error) { this.notifications.error(adeErrorNotification(error, 'ai')); }
 			finally { store.dispose(); if (this.current.value === store) { this.current.clear(); } await options.onClose(); }
 		})() }));
 		this.dialog = dialog;

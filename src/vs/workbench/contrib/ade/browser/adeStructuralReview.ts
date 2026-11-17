@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../base/browser/dom.js';
+import { describeAdeError } from './adeErrors.js';
+import { renderAdeErrorNotice } from './adeErrorNotice.js';
 import { localize } from '../../../../nls.js';
 import { type StructuralProjectSession } from '../common/modelProject.js';
 import { type SemanticModel } from '../common/modelTypes.js';
@@ -43,8 +45,7 @@ export function renderStructuralReview(parent: HTMLElement, model: SemanticModel
 	const body = dom.append(section, dom.$('div.ade-review-body'));
 	dom.append(body, dom.$('p.ade-supporting-text')).textContent = localize('ade.review.local', "Changes apply to this project on your computer. Commit and push are separate Git actions.");
 	if (actions.problem) {
-		const problem = dom.append(body, dom.$('p')); problem.setAttribute('role', 'alert');
-		problem.textContent = actions.problem;
+		renderAdeErrorNotice(body, describeAdeError(actions.problem, 'code', model), controls);
 		dom.append(body, dom.$('p.ade-supporting-text')).textContent = localize('ade.review.preserved', "Reviewed files and context have been preserved.");
 	}
 	dom.append(body, dom.$('p')).textContent = localize('ade.review.scope', "{0} · {1} · Zero AI Calls", session.direction === 'forward' ? localize('ade.review.forward', "Model to Code") : localize('ade.review.reverse', "Code to Model"), session.mutations.length === 1 ? localize('ade.review.oneFile', "1 File Change") : localize('ade.review.files', "{0} File Changes", session.mutations.length));

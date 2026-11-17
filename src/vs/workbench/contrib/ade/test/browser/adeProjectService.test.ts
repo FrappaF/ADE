@@ -20,7 +20,7 @@ import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { ConfirmResult, IDialogService, IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { FileService } from '../../../../../platform/files/common/fileService.js';
-import { FileChangesEvent, FileChangeType, IFileContent, IFileSystemWatcher } from '../../../../../platform/files/common/files.js';
+import { FileChangesEvent, FileChangeType, FileOperationError, FileOperationResult, IFileContent, IFileSystemWatcher } from '../../../../../platform/files/common/files.js';
 import { InMemoryFileSystemProvider } from '../../../../../platform/files/common/inMemoryFilesystemProvider.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { InMemoryStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
@@ -31,6 +31,8 @@ import { projectDocuments } from './testProjectDocuments.js';
 import { migrateSemanticModelToV4, migrateSemanticModelToV5 } from '../../common/modelMigration.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 import { libraryModel, observatoryModel } from '../common/independentProjects.js';
+import { InvalidSemanticModelError } from '../../common/modelValidation.js';
+import { type VisualEdit } from '../../common/visualEditing.js';
 
 class ModelDialogs extends mock<IFileDialogService>() {
 	selected: URI | undefined;
@@ -44,6 +46,7 @@ class ModelDialogs extends mock<IFileDialogService>() {
 class DelayedFileService extends FileService {
 	delay: { resource: URI; gate: DeferredPromise<void> } | undefined;
 	failCreate: URI | undefined;
+	failWrite: { resource: URI; error: Error } | undefined;
 	private readonly watchers = new Set<{ resource: URI; emitter: Emitter<FileChangesEvent> }>();
 	get watcherCount(): number { return this.watchers.size; }
 	override createWatcher(resource: URI): IFileSystemWatcher {
@@ -66,6 +69,11 @@ class DelayedFileService extends FileService {
 	override async createFile(...args: Parameters<FileService['createFile']>): ReturnType<FileService['createFile']> {
 		if (args[0].toString() === this.failCreate?.toString()) { throw new Error('Interrupted criteria creation'); }
 		return super.createFile(...args);
+	}
+	override async writeFile(...args: Parameters<FileService['writeFile']>): ReturnType<FileService['writeFile']> {
+		const failure = this.failWrite;
+		if (failure && args[0].toString() === failure.resource.toString()) { throw failure.error; }
+		return super.writeFile(...args);
 	}
 }
 
@@ -330,6 +338,37 @@ suite('A.D.E project context', () => {
 		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(checkoutModel)));
 		await project.retry();
 		assert.deepStrictEqual([project.loading, project.error, project.activeView?.id], [false, undefined, 'purchase-structure']);
+	});
+
+	test('load errors retain typed causes for the shared error component and clear them after recovery', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await files.writeFile(resource, VSBuffer.fromString('{'));
+		await project.openModelResource(resource);
+		assert.ok(project.errorCause instanceof SyntaxError);
+		await files.writeFile(resource, VSBuffer.fromString('{"version":5,"semantics":null}'));
+		await project.retry();
+		assert.ok(project.errorCause instanceof InvalidSemanticModelError);
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(checkoutModel)));
+		await project.retry();
+		assert.deepStrictEqual([project.error, project.errorCause], [undefined, undefined]);
+		await project.openModelResource(URI.parse('test:/missing.json'));
+		assert.ok(project.errorCause instanceof FileOperationError && project.errorCause.fileOperationResult === FileOperationResult.FILE_NOT_FOUND);
+		await project.useDemo();
+		assert.deepStrictEqual([project.error, project.errorCause], [undefined, undefined]);
+	});
+
+	test('save errors retain the original filesystem cause and clear it after a successful save', async () => {
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		project.edit({ kind: 'rename', target: 'element', id: 'checkout-controller', name: 'Unsaved Change' });
+		const error = new FileOperationError('Write permission denied', FileOperationResult.FILE_PERMISSION_DENIED);
+		files.failWrite = { resource, error };
+		assert.strictEqual(await project.save(), false);
+		assert.deepStrictEqual([project.saveErrorCause, project.dirty], [error, true]);
+		assert.ok(project.saveError?.includes(error.message));
+		files.failWrite = undefined;
+		assert.strictEqual(await project.save(), true);
+		assert.deepStrictEqual([project.saveError, project.saveErrorCause, project.dirty], [undefined, undefined, false]);
 	});
 
 	test('a superseded asynchronous load cannot overwrite a newer document or the demo', async () => {
@@ -796,6 +835,87 @@ suite('A.D.E project context', () => {
 		assert.strictEqual(project.hasStructuralErrors, true);
 	});
 
+	for (const migrate of [migrateSemanticModelToV4, migrateSemanticModelToV5]) {
+		const version = migrate(checkoutModel).version;
+		test(`invalid v${version} visual changes preserve diagram context, document bytes and native undo history`, async () => {
+			const model = migrate(checkoutModel), bytes = JSON.stringify(model);
+			await files.writeFile(resource, VSBuffer.fromString(bytes));
+			const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+			await project.openModelResource(resource);
+			project.showDiagram('purchase-structure'); project.selectElement('checkout-controller');
+			const document = await documents.textFiles.files.resolve(resource), revision = project.documentVersion;
+			const edits: [string, VisualEdit][] = [
+				['ownership', { kind: 'ownership', entry: { id: 'invalid.owner', elementId: 'checkout-controller', ownerId: 'customer', role: 'architecture' } }],
+				['incompatibleRelation', { kind: 'updateRelation', id: 'checkout-confirm', from: 'cart', to: 'customer', relationKind: 'invocation', name: 'Invalid' }],
+				['viewEndpoint', { kind: 'updateRelation', id: 'checkout-confirm', from: 'checkout', to: 'payment-contract', relationKind: 'invocation', name: 'Absent endpoint' }],
+				['duplicateId', { kind: 'feature', id: 'purchase', name: 'Duplicate' }]
+			];
+			for (const [code, edit] of edits) {
+				assert.throws(() => project.edit(edit), function matchesDiagnostic(error: unknown) { return error instanceof InvalidSemanticModelError && error.diagnostics.some(diagnostic => diagnostic.code === code); });
+				assert.deepStrictEqual([project.model, document.textEditorModel.getValue(), project.documentVersion, project.activeView?.id, project.selectedId, project.dirty, project.canUndo, project.hasDiagramErrors], [model, bytes, revision, 'purchase-structure', 'checkout-controller', false, false, false]);
+			}
+			assert.strictEqual((await files.readFile(resource)).value.toString(), bytes);
+		});
+
+		test(`v${version} drafts permit existing errors and validate a coherent final batch before recording one undo`, async () => {
+			const model = migrate(checkoutModel);
+			model.semantics.relations.push({ id: 'draft.invalid', kind: 'dependency', from: 'checkout-controller', to: 'not-declared', name: 'Incomplete' });
+			await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+			const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+			await project.openModelResource(resource);
+			project.edit({ kind: 'rename', target: 'element', id: 'checkout-controller', name: 'Recoverable Draft' });
+			const renamed = project.model, revision = project.documentVersion;
+			assert.throws(() => project.edit({ kind: 'updateRelation', id: 'draft.invalid', from: 'checkout-controller', to: 'another-missing', relationKind: 'dependency', name: 'Still incomplete' }), function matchesDiagnostic(error: unknown) { return error instanceof InvalidSemanticModelError && error.diagnostics.some(diagnostic => diagnostic.args.includes('another-missing')); });
+			assert.deepStrictEqual([project.model, project.documentVersion, project.hasDiagramErrors], [renamed, revision, true]);
+			project.editBatch([
+				{ kind: 'updateRelation', id: 'draft.invalid', from: 'checkout-controller', to: 'shipment', relationKind: 'dependency', name: 'Shipment dependency' },
+				{ kind: 'resource', id: 'shipment', name: 'Shipment', parentId: 'purchase' }
+			]);
+			const repaired = project.model;
+			assert.deepStrictEqual([project.error, project.hasStructuralErrors, project.hasDiagramErrors, project.activeView?.id], [undefined, false, false, 'purchase-structure']);
+			await project.undo(); assert.deepStrictEqual(project.model, renamed);
+			await project.undo(); assert.deepStrictEqual(project.model, model);
+			await project.redo(); await project.redo(); assert.deepStrictEqual(project.model, repaired);
+			await project.save(); await project.openModelResource(resource);
+			assert.deepStrictEqual([project.model, project.hasDiagramErrors], [repaired, false]);
+		});
+
+		test(`v${version} draft repairs preserve unchanged diagnostics when earlier elements, relations, views and nodes are removed`, async () => {
+			const model = migrate(checkoutModel);
+			model.semantics.elements.unshift({ id: 'early.element', kind: 'feature', name: 'Earlier Element' });
+			model.semantics.elements.find(element => element.id === 'checkout-controller')!.behavior!.inputs[0].typeId = 'missing.type';
+			model.semantics.relations.unshift({ id: 'early.relation', kind: 'dependency', from: 'customer', to: 'checkout', name: 'Earlier Relationship' });
+			model.semantics.relations.push({ id: 'late.relation', kind: 'dependency', from: 'checkout-controller', to: 'missing.element', name: 'Incomplete' });
+			model.views.unshift({ id: 'early.view', name: 'Earlier Diagram', kind: 'structure', nodes: [], relationIds: [] });
+			model.views.push({ id: 'late.view', name: 'Incomplete Diagram', kind: 'structure', nodes: ['customer', 'checkout', 'checkout-controller', 'missing.node'].map(elementId => ({ elementId, x: 0, y: 0 })), relationIds: ['checkout-confirm', 'missing.relation'] });
+			await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+			const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+			await project.openModelResource(resource);
+			const repairs: VisualEdit[] = [
+				{ kind: 'deleteElement', id: 'early.element' },
+				{ kind: 'deleteRelation', id: 'early.relation' },
+				{ kind: 'deleteDiagram', id: 'early.view' },
+				{ kind: 'exclude', viewId: 'late.view', id: 'customer', target: 'element' },
+				{ kind: 'exclude', viewId: 'late.view', id: 'checkout-confirm', target: 'relation' }
+			];
+			for (const edit of repairs) { project.edit(edit); }
+			assert.deepStrictEqual([project.hasDiagramErrors, project.dirty, project.model.views.at(-1)?.relationIds], [true, true, ['missing.relation']]);
+			for (let index = 0; index < repairs.length; index++) { await project.undo(); }
+			assert.deepStrictEqual(project.model, model);
+		});
+
+		test(`v${version} draft edits cannot add another occurrence of an existing duplicate-identity error`, async () => {
+			const model = migrate(checkoutModel);
+			model.semantics.elements.push({ id: 'duplicate', kind: 'feature', name: 'First' }, { id: 'duplicate', kind: 'feature', name: 'Second' });
+			await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(model)));
+			const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+			await project.openModelResource(resource);
+			const revision = project.documentVersion;
+			assert.throws(() => project.edit({ kind: 'feature', id: 'duplicate', name: 'Third' }), InvalidSemanticModelError);
+			assert.deepStrictEqual([project.model, project.documentVersion, project.dirty, project.canUndo], [model, revision, false, false]);
+		});
+	}
+
 	test('published v5 imports open, reload and restore without migration or source changes', async () => {
 		const folder = URI.parse('test:/published-import');
 		const snapshot = '11111111-1111-4111-8111-111111111111';
@@ -875,6 +995,24 @@ suite('A.D.E project context', () => {
 		project.edit({ kind: 'description', id: 'component.checkout', description: 'Draft responsibility' });
 		assert.strictEqual(await project.save(), true); await project.openModelResource(resource);
 		assert.strictEqual(project.hasStructuralErrors, true);
+	});
+
+	test('a required interface can be authored before its provider while keeping its diagram available', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(blueprintFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		project.showDiagram('c4.l1');
+		const port = { ...blueprintFixture.foundation.blueprint!.ports.find(port => port.id === 'port.required')!, id: 'port.pending' };
+		project.edit({ kind: 'blueprint', section: 'ports', entry: port });
+		assert.deepStrictEqual([project.hasStructuralErrors, project.hasDiagramErrors, project.activeView?.id], [true, false, 'c4.l1']);
+		assert.ok(project.diagnostics.some(message => message.includes('has no provider connection')));
+		await project.save(); await project.openModelResource(resource);
+		assert.deepStrictEqual([project.hasStructuralErrors, project.hasDiagramErrors, project.activeView?.id], [true, false, 'c4.l1']);
+		const connection = { ...blueprintFixture.foundation.blueprint!.connections[0], id: 'connection.pending', requiredPortId: port.id };
+		project.edit({ kind: 'blueprint', section: 'connections', entry: connection });
+		assert.deepStrictEqual([project.hasStructuralErrors, project.hasDiagramErrors, project.activeView?.id], [false, false, 'c4.l1']);
+		await project.undo();
+		assert.deepStrictEqual([project.hasStructuralErrors, project.hasDiagramErrors, project.activeView?.id], [true, false, 'c4.l1']);
 	});
 
 	test('pure predicates save, undo and reopen through the native document without replacing stable IDs', async () => {

@@ -6,6 +6,7 @@
 import * as dom from '../../../../base/browser/dom.js';
 import { FileAccess } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
+import { renderAdeErrorNotice } from './adeErrorNotice.js';
 import { localize } from '../../../../nls.js';
 import { type AdeDiagramReview } from './adeAiService.js';
 import { type AdeControls } from './adeControls.js';
@@ -69,9 +70,13 @@ export function renderAdeDiagramReview(parent: HTMLElement, review: AdeDiagramRe
 	if (reasons.length) {
 		const blocked = dom.append(section, dom.$('aside.ade-review-blockers'));
 		blocked.id = 'ade-review-blockers'; blocked.setAttribute('role', 'alert'); apply.setAttribute('aria-describedby', blocked.id);
-		dom.append(blocked, dom.$('strong')).textContent = localize('ade.review.whyBlocked', "Why Applying Is Unavailable");
-		const list = dom.append(blocked, dom.$('ul'));
-		for (const reason of reasons) { dom.append(list, dom.$('li')).textContent = reason; }
+		blocked.removeAttribute('role');
+		renderAdeErrorNotice(blocked, {
+			title: localize('ade.review.whyBlocked', "Why Applying Is Unavailable"),
+			cause: reasons.join('\n'),
+			resolution: localize('ade.review.correctDraft', "Continue generation to correct the draft, then refresh the review before applying it."),
+			details: review.problem
+		}, controls);
 		if (!ready && actions.continue) { controls.button(blocked, localize('ade.explore.continueProject', "Continue Generation"), actions.continue, 'diagram-review-continue').disabled = actions.busy; }
 	}
 	const body = dom.append(section, dom.$('div.ade-review-body'));

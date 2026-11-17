@@ -42,7 +42,11 @@ suite('A.D.E visual structural review', () => {
 	test('the actionable review-change reason is visible without opening technical details', () => {
 		const f = fixture(); f.actions.canVerify = false;
 		f.actions.problem = 'Independent business expectations changed. Prepare a new review before running verification or applying.';
-		f.render(); assert.strictEqual(root.querySelector('[role="alert"]')?.textContent, f.actions.problem);
+		f.render();
+		const notice = root.querySelector('[role="alert"]')!;
+		assert.ok(notice.querySelector('dd')?.textContent?.includes('business expectations changed'));
+		assert.ok(notice.querySelectorAll('dd')[1].textContent?.includes('new review'));
+		assert.deepStrictEqual([notice.querySelector('details')?.open, notice.querySelector('pre')?.textContent], [false, f.actions.problem]);
 		assert.ok(!root.textContent?.includes('The operation could not finish'));
 	});
 

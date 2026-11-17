@@ -7,7 +7,9 @@ import assert from 'assert';
 import { blueprintFixture } from '../common/blueprintFixture.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { describeAdeDiagram, describeAdeHelp, AdeReadingState } from '../../browser/adeAccessibleContent.js';
+import { diagnosticMessage, isAdeDiagramBlockingDiagnostic } from '../../browser/adeDiagnostics.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
+import { validateSemanticModel } from '../../common/modelValidation.js';
 
 suite('A.D.E accessible content', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -29,6 +31,24 @@ suite('A.D.E accessible content', () => {
 			assert.ok(content.includes(expected), expected);
 		}
 		assert.ok(!content.includes('legge carrello'));
+	});
+
+	test('a draft with a required interface awaiting its provider still reads its diagram and every diagnostic', () => {
+		const model = structuredClone(blueprintFixture);
+		model.foundation.blueprint!.connections = [];
+		const diagnostics = validateSemanticModel(model);
+		const messages = diagnostics.map(diagnostic => diagnosticMessage(diagnostic, model));
+		const content = describeAdeDiagram(state({ model, activeView: model.views.find(view => view.id === 'c4.l3'), selectedId: 'component.checkout', editable: true,
+			hasStructuralErrors: diagnostics.some(diagnostic => diagnostic.severity === 'error'), hasDiagramErrors: diagnostics.some(isAdeDiagramBlockingDiagnostic), diagnostics: messages }));
+		assert.deepStrictEqual({ missingProvider: diagnostics.some(diagnostic => diagnostic.args[1] === 'requiredInterfaceUnsatisfied'), diagram: content.includes('Diagram: API Components'), selected: content.includes('Selected Element: Checkout'), repair: content.includes('Interface Connection'), diagnostics: messages.every(message => content.includes(message)), blocked: content.includes('before using its diagrams') },
+			{ missingProvider: true, diagram: true, selected: true, repair: true, diagnostics: true, blocked: false });
+	});
+
+	test('diagram errors keep every diagnostic available without reading an unavailable diagram', () => {
+		const diagnostics = ['Missing endpoint', 'Invalid parent'];
+		const content = describeAdeDiagram(state({ hasStructuralErrors: true, hasDiagramErrors: true, diagnostics }));
+		assert.deepStrictEqual({ blocked: content.includes('before using its diagrams'), diagnostics: diagnostics.every(message => content.includes(message)), stale: content.includes('Diagram: Esito pagamento') },
+			{ blocked: true, diagnostics: true, stale: false });
 	});
 
 	test('distinguishes additional relationships of a shared selection from relationships drawn in the view', () => {

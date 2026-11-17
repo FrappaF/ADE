@@ -9,6 +9,8 @@ import { CancellationTokenSource } from '../../../../base/common/cancellation.js
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { AdeControls } from './adeControls.js';
+import { describeAdeError } from './adeErrors.js';
+import { renderAdeErrorNotice } from './adeErrorNotice.js';
 import { type AdeAiDialogOptions, type AdeAiMessage } from './adeAiDialog.js';
 import { type CodeAiProgress } from '../common/codeBridge.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -30,6 +32,7 @@ export class AdeAiDialog extends Disposable {
 	private turnActive = false;
 	private readonly responses = new Map<string, { text: string; element: HTMLElement }>();
 	private readonly messages: AdeAiMessage[] = [];
+	private readonly errorControls = this._register(new AdeControls());
 
 	constructor(parent: HTMLElement, private readonly options: AdeAiDialogOptions) {
 		super();
@@ -53,6 +56,8 @@ export class AdeAiDialog extends Disposable {
 		const status = dom.append(this.content, dom.$('p.ade-ai-dialog-status')); status.setAttribute('role', 'status');
 		this.executionStatus = status;
 		this.progress = dom.append(this.content, dom.$('p.ade-ai-dialog-status'));
+		const errors = dom.append(this.content, dom.$('div.ade-ai-dialog-error'));
+		const clearError = () => this.errorControls.render(errors, () => dom.clearNode(errors));
 		const form = dom.append(this.content, dom.$<HTMLFormElement>('form.ade-ai-composer'));
 		const input = dom.append(form, dom.$<HTMLTextAreaElement>('textarea'));
 		input.setAttribute('aria-label', localize('ade.ai.dialog.message', "Message the Assistant")); input.rows = 3;
@@ -84,7 +89,7 @@ export class AdeAiDialog extends Disposable {
 			if (!text || send.disabled || !this.options.send) { return; }
 			this.messages.push({ role: 'user', text }); append(this.messages[this.messages.length - 1]); input.value = '';
 			setSending(true); input.disabled = true; this.content.setAttribute('aria-busy', 'true');
-			this.turnActive = true; this.responses.clear();
+			this.turnActive = true; this.responses.clear(); clearError();
 			status.setAttribute('role', 'status');
 			status.textContent = localize('ade.ai.dialog.working', "Working… You Can Close This Dialog to Stop. Completed Drafts Are Saved.");
 			try {
@@ -94,7 +99,10 @@ export class AdeAiDialog extends Disposable {
 				if (![...this.responses.values()].some(item => item.text.trimEnd() === response.trimEnd())) { append(this.messages[this.messages.length - 1]); }
 				status.textContent = '';
 			} catch (error) {
-				if (!this.closed) { status.textContent = error instanceof Error ? error.message : String(error); status.setAttribute('role', 'alert'); }
+				if (!this.closed) {
+					status.textContent = '';
+					this.errorControls.render(errors, () => { dom.clearNode(errors); renderAdeErrorNotice(errors, describeAdeError(error, 'ai'), this.errorControls); });
+				}
 			} finally {
 				this.turnActive = false;
 				if (!this.closed) { setSending(false); input.disabled = false; this.content.setAttribute('aria-busy', 'false'); input.focus(); }

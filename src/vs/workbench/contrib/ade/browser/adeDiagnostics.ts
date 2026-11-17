@@ -7,6 +7,11 @@ import { localize } from '../../../../nls.js';
 import { type ReadinessDiagnostic } from '../common/modelReadiness.js';
 import { ModelDiagnostic, SemanticModel } from '../common/modelTypes.js';
 
+/** A required interface can be authored before its provider without making the diagram unsafe. */
+export function isAdeDiagramBlockingDiagnostic(diagnostic: ModelDiagnostic): boolean {
+	return diagnostic.severity === 'error' && !(diagnostic.code === 'contract' && diagnostic.args[1] === 'requiredInterfaceUnsatisfied');
+}
+
 /** Localized presentation of domain diagnostics, also usable by later editor adapters. */
 export function diagnosticMessage(diagnostic: ModelDiagnostic, model?: SemanticModel): string {
 	const args = diagnostic.args;

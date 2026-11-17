@@ -24,6 +24,8 @@ import { getDiagramGroups, getFeatureViews } from '../common/visualNavigation.js
 import { isSourceEvidenceModel } from '../common/modelFoundation.js';
 import { ModelView } from '../common/modelTypes.js';
 import { AdeControls } from './adeControls.js';
+import { adeErrorNotification, describeAdeError } from './adeErrors.js';
+import { renderAdeErrorNotice } from './adeErrorNotice.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { adeFocusedSurface, getAdeAccessibilityHint } from './adeAccessibilityContext.js';
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
@@ -41,7 +43,7 @@ export const ADE_VIEW_ID = 'ade.systemFeatures';
 /** Native sidebar, deliberately separate from the physical file explorer. */
 export class AdeView extends ViewPane {
 	private navigationBody: HTMLElement | undefined;
-	private readonly controls = this._register(new AdeControls());
+	private readonly controls = this._register(new AdeControls(error => this.notifications.error(adeErrorNotification(error, 'edit', this.project.model))));
 	private readonly groupListeners = this._register(new DisposableStore());
 	private readonly collapsed = new Map<string, Set<string>>();
 	private readonly groups = new Map<string, HTMLDetailsElement>();
@@ -153,7 +155,7 @@ export class AdeView extends ViewPane {
 		if (!body) { return; }
 		// Selection changes update the editor, not the sidebar's semantic groups.
 		// Dirty notifications can precede parsing at the same document version.
-		const state = JSON.stringify([this.project.modelUri?.toString(), this.project.model.id, this.project.documentVersion, this.project.modelRevision, this.project.section, this.project.activeView?.id, this.project.loading, this.project.error, this.project.editable, this.project.hasStructuralErrors, this.ai.busy, this.ai.available, this.code.busy, this.code.available, this.code.context?.sourceRoot]);
+		const state = JSON.stringify([this.project.modelUri?.toString(), this.project.model.id, this.project.documentVersion, this.project.modelRevision, this.project.section, this.project.activeView?.id, this.project.loading, this.project.error, this.project.editable, this.project.hasDiagramErrors, this.ai.busy, this.ai.available, this.code.busy, this.code.available, this.code.context?.sourceRoot]);
 		if (!force && this.renderedState === state) { return; }
 		this.renderedState = state;
 		this.captureGroups();
@@ -166,30 +168,29 @@ export class AdeView extends ViewPane {
 		this.controls.render(body, () => {
 			dom.clearNode(body);
 			const toolbar = dom.append(body, dom.$('div.ade-outline-tools.ade-sidebar-navigation'));
-			prependAdeIcon(this.controls.button(toolbar, localize('ade.home', "Home"), () => { void this.commandService.executeCommand('ade.showHome').catch(error => this.notifications.error(error)); }), Codicon.home);
-			const map = this.controls.button(toolbar, localize('ade.systemMap', "System Map"), () => { void this.commandService.executeCommand('ade.showSystemMap').catch(error => this.notifications.error(error)); });
+			prependAdeIcon(this.controls.button(toolbar, localize('ade.home', "Home"), () => this.commandService.executeCommand('ade.showHome').catch(error => this.notifications.error(adeErrorNotification(error, 'edit', this.project.model)))), Codicon.home);
+			const map = this.controls.button(toolbar, localize('ade.systemMap', "System Map"), () => this.commandService.executeCommand('ade.showSystemMap').catch(error => this.notifications.error(adeErrorNotification(error, 'edit', this.project.model))));
 			map.disabled = this.project.loading || !!this.project.error; map.setAttribute('aria-current', String(this.project.section === 'map')); prependAdeIcon(map, Codicon.typeHierarchy);
-			const search = this.controls.button(toolbar, localize('ade.search.button', "Search System"), () => { void this.commandService.executeCommand('ade.search').catch(error => this.notifications.error(error)); });
+			const search = this.controls.button(toolbar, localize('ade.search.button', "Search System"), () => this.commandService.executeCommand('ade.search').catch(error => this.notifications.error(adeErrorNotification(error, 'edit', this.project.model))));
 			search.disabled = this.project.loading || !!this.project.error; prependAdeIcon(search, Codicon.search);
 			if (this.project.editable && !isSourceEvidenceModel(model)) {
 				const create = this.controls.details(toolbar, localize('ade.outline.new', "New"), 'outline-new');
 				for (const [label, command] of [[localize('ade.addFeature', "Add Feature"), 'ade.addFeature'], [localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram'], [localize('ade.blueprint.sidebar', "Structural Blueprint"), 'ade.blueprint']]) {
-					const button = this.controls.button(create, label, () => { this.controls.setExpanded('outline-new', false); void this.commandService.executeCommand(command).catch(error => this.notifications.error(error)); });
-					button.disabled = this.ai.busy || this.code.busy || this.project.hasStructuralErrors || (command === 'ade.blueprint' && model.version !== 4 && model.version !== 5);
+					const button = this.controls.button(create, label, () => { this.controls.setExpanded('outline-new', false); void this.commandService.executeCommand(command).catch(error => this.notifications.error(adeErrorNotification(error, 'edit', this.project.model))); });
+					button.disabled = this.ai.busy || this.code.busy || this.project.hasDiagramErrors || (command === 'ade.blueprint' && model.version !== 4 && model.version !== 5);
 					if (command === 'ade.blueprint') { button.classList.add('ade-sidebar-blueprint'); prependAdeIcon(button, Codicon.symbolStructure); }
 				}
 			}
 			if (this.project.loading || this.project.error) {
-				const status = dom.append(body, dom.$('p.ade-status'));
-				status.setAttribute('role', this.project.error ? 'alert' : 'status');
-				status.textContent = this.project.error ?? localize('ade.loading', "Loading model…");
-				this.controls.button(body, localize('ade.openModel', "Open Model"), () => { void this.commandService.executeCommand('ade.openModel'); });
+				if (this.project.error) { renderAdeErrorNotice(body, describeAdeError(this.project.errorCause ?? this.project.error, 'load', model), this.controls); }
+				else { dom.append(body, dom.$('p.ade-status', { role: 'status' })).textContent = localize('ade.loading', "Loading model…"); }
+				this.controls.button(body, localize('ade.openModel', "Open Model"), () => this.commandService.executeCommand('ade.openModel'));
 				return;
 			}
 			const project = this.group(body, 'system', model.name, Codicon.server);
-			if (this.project.hasStructuralErrors) {
+			if (this.project.hasDiagramErrors) {
 				dom.append(body, dom.$('p')).textContent = localize('ade.draft.navigation', "Correct the Draft Specification to Restore Diagram Navigation. Saving and Undo Remain Available.");
-				this.controls.button(body, localize('ade.openModelSource', "Edit Model Specification"), () => { void this.commandService.executeCommand('ade.openModelSource'); });
+				this.controls.button(body, localize('ade.openModelSource', "Edit Model Specification"), () => this.commandService.executeCommand('ade.openModelSource'));
 				return;
 			}
 			if (isSourceEvidenceModel(model)) {
@@ -211,7 +212,7 @@ export class AdeView extends ViewPane {
 						[localize('ade.renameFeature', "Rename Feature"), 'ade.renameFeature'],
 						[localize('ade.deleteFeature', "Delete Feature"), 'ade.deleteFeature']
 					]) {
-						this.controls.button(actions, label, () => { void this.commandService.executeCommand(command, group.featureId); }, `${command}:${group.featureId}`);
+						this.controls.button(actions, label, () => this.commandService.executeCommand(command, group.featureId), `${command}:${group.featureId}`);
 					}
 				}
 				if (!group.views.length && !related.length) {

@@ -10,6 +10,8 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { type IInputOptions, type IPickOptions, type IQuickInputService, type IQuickPickItem, type QuickPickInput } from '../../../../platform/quickinput/common/quickInput.js';
 import { AdeControls } from './adeControls.js';
+import { describeAdeError, type AdeErrorContext } from './adeErrors.js';
+import { renderAdeErrorNotice } from './adeErrorNotice.js';
 
 type Answer = { kind: 'input'; value: string } | { kind: 'pick'; indices: number[] };
 interface WizardStep { title: string; answer: Answer; summary: string }
@@ -74,7 +76,7 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 						this.reviewEdit = error.review;
 						continue;
 					}
-					try { await this.showMessage(localize('ade.editing.wizard.unavailable', "This Step Needs More Information"), error instanceof Error ? error.message : String(error)); }
+					try { await this.showMessage(localize('ade.editing.wizard.unavailable', "This Step Needs More Information"), error instanceof Error ? error.message : String(error), error); }
 					catch (navigation) {
 						if (navigation instanceof WizardCanceled) { return; }
 						if (!(navigation instanceof WizardBack)) { throw navigation; }
@@ -123,9 +125,15 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 		this.page(1, title, hint, index - 1);
 		const form = dom.append(this.content, dom.$<HTMLFormElement>('form'));
 		const field = render(form, previous?.answer ?? initial);
-		const message = dom.append(form, dom.$('p.ade-blueprint-validation', { role: 'alert', id: generateUuid() }));
+		const message = dom.append(form, dom.$('div.ade-blueprint-validation', { id: generateUuid() }));
+		const errorControls = this.pageListeners.add(new AdeControls());
+		const showError = (error?: unknown, context: AdeErrorContext = 'validation') => errorControls.render(message, () => {
+			dom.clearNode(message);
+			if (error) { renderAdeErrorNotice(message, describeAdeError(error, context), errorControls); }
+		});
+		for (const event of ['input', 'change']) { this.pageListeners.add(dom.addDisposableListener(form, event, () => { showError(); field.control?.removeAttribute('aria-invalid'); })); }
 		form.setAttribute('aria-describedby', message.id);
-		message.textContent = replayError ?? '';
+		showError(replayError);
 		if (replayError) { field.control?.setAttribute('aria-invalid', 'true'); }
 		const next = this.button(this.footer, localize('ade.blueprint.wizard.next', "Next"), () => form.requestSubmit(), true);
 		next.disabled = !!field.empty;
@@ -145,12 +153,15 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 					const answer = field.read();
 					const error = await field.validate?.(answer);
 					if (version !== this.pageVersion) { return; }
-					if (error) { message.textContent = error; next.disabled = false; return; }
+					if (error) { showError(error); next.disabled = false; return; }
 					if (answer.kind === 'pick' && JSON.stringify(previous?.answer) !== JSON.stringify(answer)) { this.steps.length = index; this.reviewEdit = false; }
 					this.steps[index] = { title, answer, summary: field.summary(answer) };
 					if (this.reviewEdit) { this.replayUntil = this.steps.length; this.reviewEdit = false; }
 					resolve(answer);
-				} catch (error) { reject(error); }
+				} catch (error) {
+					if (version !== this.pageVersion) { return; }
+					showError(error, 'edit'); next.disabled = false;
+				}
 			}));
 		});
 	}
@@ -237,8 +248,9 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 		});
 	}
 
-	protected showMessage(title: string, message: string): Promise<never> {
-		this.page(1, title, message, this.cursor - 1);
+	protected showMessage(title: string, message: string, error?: unknown): Promise<never> {
+		this.page(1, title, error ? '' : message, this.cursor - 1);
+		if (error) { renderAdeErrorNotice(this.content, describeAdeError(error, 'edit'), this.pageListeners.add(new AdeControls())); }
 		return new Promise((_, reject) => { this.interrupt = reject; });
 	}
 
