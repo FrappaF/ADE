@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isThenable } from '../../../../base/common/async.js';
 import * as dom from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -16,6 +17,8 @@ interface AdeTabGroup {
 
 /** Native actions with stable focus identities across presentation updates. */
 export class AdeControls extends Disposable {
+	constructor(private readonly onError?: (error: unknown) => void) { super(); }
+
 	private static readonly owners = new WeakMap<Element, AdeControls>();
 
 	/** Resolve the original control after the assistant refreshes its underlying page. */
@@ -62,12 +65,18 @@ export class AdeControls extends Disposable {
 		};
 	}
 
-	button(parent: HTMLElement, label: string, action: () => void, id = label): HTMLButtonElement {
+	button<T>(parent: HTMLElement, label: string, action: () => T, id = label): HTMLButtonElement {
 		const button = dom.append(parent, dom.$<HTMLButtonElement>('button'));
 		button.type = 'button';
 		button.textContent = label;
 		this.trackFocus(id, button);
-		this.listeners.add(dom.addDisposableListener(button, 'click', action));
+		this.listeners.add(dom.addDisposableListener(button, 'click', () => {
+			const report = (error: unknown) => { if (this.onError) { this.onError(error); } else { throw error; } };
+			try {
+				const result = action();
+				if (isThenable(result)) { void Promise.resolve(result).catch(report); }
+			} catch (error) { report(error); }
+		}));
 		return button;
 	}
 

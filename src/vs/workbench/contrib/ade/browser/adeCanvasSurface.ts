@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { adeErrorNotification } from './adeErrors.js';
 import * as dom from '../../../../base/browser/dom.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { acceptsNotationRelation, notationRelationLabel, notationRules } from '../common/modelNotation.js';
@@ -35,7 +36,7 @@ import { editAdeConnectionDetails } from './adeRelationForm.js';
 
 
 interface AdeCanvasSurfaceHost {
-	button(parent: HTMLElement, label: string, action: () => void, id?: string): HTMLButtonElement;
+	button<T>(parent: HTMLElement, label: string, action: () => T, id?: string): HTMLButtonElement;
 	chooseDiagram(): Promise<void>;
 	focusSelection(): void;
 	renderBreadcrumbs(parent: HTMLElement): void;
@@ -43,7 +44,7 @@ interface AdeCanvasSurfaceHost {
 	renderPrimaryActions(parent: HTMLElement): void;
 	documentStatus(): string;
 	render(): void;
-	iconButton(parent: HTMLElement, label: string, icon: ThemeIcon, action: () => void, id?: string): HTMLButtonElement;
+	iconButton<T>(parent: HTMLElement, label: string, icon: ThemeIcon, action: () => T, id?: string): HTMLButtonElement;
 	paragraph(parent: HTMLElement, content: string): void;
 	readonly root: HTMLElement;
 	revealElement(id: string, viewId?: string): void;
@@ -65,9 +66,9 @@ export class AdeCanvasSurface {
 		const interaction = getProjectedInteraction(this.project.model, view);
 		if (this.project.editable) {
 			if (!interaction) {
-				this.host.button(menu, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => { void this.commandService.executeCommand('ade.addElement'); }).classList.add('ade-primary-action');
+				this.host.button(menu, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => this.commandService.executeCommand('ade.addElement')).classList.add('ade-primary-action');
 				if (view.nodes.some(node => node.elementId === this.project.selectedId)) {
-					this.host.button(menu, localize('ade.canvas.connect', "Connect"), () => { void this.beginConnection(this.project.selectedId); });
+					this.host.button(menu, localize('ade.canvas.connect', "Connect"), () => this.beginConnection(this.project.selectedId));
 				}
 			}
 		}
@@ -81,8 +82,8 @@ export class AdeCanvasSurface {
 		this.host.button(zoom, localize('ade.fitDiagram', "Fit Diagram"), () => this.canvas.fitDiagram(), 'canvas-fit');
 		const history = dom.append(zoom, dom.$('div.ade-canvas-history'));
 		history.setAttribute('role', 'group'); history.setAttribute('aria-label', localize('ade.editing.history', "Save and History"));
-		this.host.iconButton(history, localize('ade.undo', "Undo"), Codicon.discard, () => { void this.project.undo(); }).disabled = !this.project.canUndo;
-		this.host.iconButton(history, localize('ade.redo', "Redo"), Codicon.redo, () => { void this.project.redo(); }).disabled = !this.project.canRedo;
+		this.host.iconButton(history, localize('ade.undo', "Undo"), Codicon.discard, () => this.project.undo()).disabled = !this.project.canUndo;
+		this.host.iconButton(history, localize('ade.redo', "Redo"), Codicon.redo, () => this.project.redo()).disabled = !this.project.canRedo;
 	}
 
 	/** Every notation uses the same tab structure, including the alternate editing toolbar. */
@@ -102,7 +103,7 @@ export class AdeCanvasSurface {
 		const interaction = getProjectedInteraction(this.project.model, view);
 		if (options.editable) {
 			if (interaction?.execution) {
-				palette.action(contents, localize('ade.interaction.edit', "Edit Executable Interaction"), () => { void this.commandService.executeCommand('ade.interaction', interaction.id); }, { icon: Codicon.arrowSwap });
+				palette.action(contents, localize('ade.interaction.edit', "Edit Executable Interaction"), () => this.commandService.executeCommand('ade.interaction', interaction.id), { icon: Codicon.arrowSwap });
 			}
 			this.renderBlueprintActions(contents, view);
 			for (const [label, command, icon] of [
@@ -111,7 +112,7 @@ export class AdeCanvasSurface {
 				...(view.kind === 'state' ? [[localize('ade.state.addExisting', "Add Existing State"), 'ade.addExistingState', Codicon.circleLarge] as const, [localize('ade.state.addTransition', "Add Existing Transition"), 'ade.addTransition', Codicon.arrowRight] as const, [localize('ade.state.includeLifecycle', "Include Resource Lifecycle"), 'ade.includeLifecycle', Codicon.symbolEvent] as const] : []),
 				...(view.kind === 'sequence' && !interaction ? [[localize('ade.sequence.addMessage', "Add Existing Message"), 'ade.addSequenceMessage', Codicon.arrowSwap] as const] : []),
 				...(options.includeFeature ? [[localize('ade.addFeature', "Add Feature"), 'ade.addFeature', Codicon.symbolEvent] as const] : [])
-			]) { palette.action(contents, label, () => { void this.commandService.executeCommand(command); }, { icon }); }
+			]) { palette.action(contents, label, () => this.commandService.executeCommand(command), { icon }); }
 		}
 		if (interaction) {
 			this.host.paragraph(contents, localize('ade.canvas.derivedContents', "This diagram is populated by its linked behavior. Edit that behavior to change its participants and steps."));
@@ -119,7 +120,7 @@ export class AdeCanvasSurface {
 			this.host.paragraph(contents, localize('ade.canvas.readonlyContents', "This diagram is read-only. Its visible elements are listed in Information."));
 		}
 		if (view.kind !== 'sequence' && !(view.kind === 'activity' && view.interactionId)) {
-			palette.action(display, localize('ade.layout', "Arrange Diagram"), () => { void this.commandService.executeCommand('ade.layout'); }, { icon: Codicon.layout }).disabled = !options.editable;
+			palette.action(display, localize('ade.layout', "Arrange Diagram"), () => this.commandService.executeCommand('ade.layout'), { icon: Codicon.layout }).disabled = !options.editable;
 			const visible = this.showRelationshipLabels ?? !!notationRules[view.kind];
 			const labels = palette.action(display, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !(this.showRelationshipLabels ?? !!notationRules[view.kind]); this.host.render(); }, { icon: Codicon.eye, detail: visible ? localize('ade.canvas.labelsVisible', "Visible") : localize('ade.canvas.labelsHidden', "Hidden") });
 			labels.setAttribute('aria-pressed', String(visible));
@@ -134,7 +135,7 @@ export class AdeCanvasSurface {
 		const navigation = palette.section(information, localize('ade.canvas.inspect', "Read and Inspect"), { compact: true });
 		const properties = palette.action(navigation, localize('ade.properties', "Properties"), () => { this.controls.setExpanded(options.popupId, false); this.inspectorOpen = !this.inspectorOpen; this.host.render(); }, { icon: Codicon.settingsGear, kind: 'navigation' });
 		properties.setAttribute('aria-pressed', String(this.inspectorOpen));
-		palette.action(navigation, localize('ade.readDiagram', "Read Diagram"), () => { void this.commandService.executeCommand('ade.readContext'); }, { icon: Codicon.book, kind: 'navigation', description: localize('ade.canvas.readDescription', "Open an accessible description of this diagram.") });
+		palette.action(navigation, localize('ade.readDiagram', "Read Diagram"), () => this.commandService.executeCommand('ade.readContext'), { icon: Codicon.book, kind: 'navigation', description: localize('ade.canvas.readDescription', "Open an accessible description of this diagram.") });
 		const overview = palette.section(information, localize('ade.canvas.overview', "Overview"), { compact: true });
 		const visibleIds = new Set(getViewSelectionIds(this.project.model, view));
 		palette.info(overview, localize('ade.canvas.visibleElements', "Visible Elements"), String(this.project.model.semantics.elements.filter(element => visibleIds.has(element.id)).length), Codicon.symbolClass);
@@ -151,9 +152,9 @@ export class AdeCanvasSurface {
 		palette.info(help, localize('ade.canvas.navigationHelp', "Navigation"), localize('ade.infiniteCanvasHelp', "Drag the background to pan. Scroll to move; Ctrl or Command + scroll to zoom at the pointer. Arrow keys pan when the canvas is focused. Home fits the diagram. Select an element or connection for floating details."));
 		if (options.editable) {
 			const management = palette.disclosure(parent, localize('ade.canvas.manageDiagram', "Manage Diagram"), 'diagram-manage', { icon: Codicon.settingsGear });
-			palette.action(management, localize('ade.renameDiagram', "Rename Diagram"), () => { void this.commandService.executeCommand('ade.renameDiagram'); }, { icon: Codicon.edit });
+			palette.action(management, localize('ade.renameDiagram', "Rename Diagram"), () => this.commandService.executeCommand('ade.renameDiagram'), { icon: Codicon.edit });
 			const danger = palette.section(management, localize('ade.canvas.removeDiagram', "Remove Diagram"), { tone: 'danger', description: localize('ade.canvas.deleteHelp', "Elements and relationships remain available in the system.") });
-			palette.action(danger, localize('ade.deleteDiagram', "Delete Diagram"), () => { void this.commandService.executeCommand('ade.deleteDiagram'); }, { icon: Codicon.trash, kind: 'destructive' });
+			palette.action(danger, localize('ade.deleteDiagram', "Delete Diagram"), () => this.commandService.executeCommand('ade.deleteDiagram'), { icon: Codicon.trash, kind: 'destructive' });
 		}
 	}
 
@@ -186,7 +187,7 @@ export class AdeCanvasSurface {
 			const canvas = dom.append(frame, dom.$('.ade-canvas-content'));
 			this.canvas.canvasContent = canvas;
 			const selectRelation = (id: string) => { this.inspectorOpen = true; this.relationSelection = id; this.host.render(); };
-			const size = renderAdeSequence(canvas, model, view, this.controls, this.project.selectedId, id => { if (this.pendingConnection) { void this.finishConnection(id); } else { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(id); this.host.render(); } }, {
+			const size = renderAdeSequence(canvas, model, view, this.controls, this.project.selectedId, id => { if (this.pendingConnection) { return this.finishConnection(id); } else { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(id); this.host.render(); } return undefined; }, {
 				selectRelation, selectedRelation: this.relationSelection,
 				element: (target, id) => this.installContextMenu(target, (x, y) => this.elementMenu(id, x, y)),
 				relation: (target, id) => {
@@ -289,11 +290,11 @@ export class AdeCanvasSurface {
 			};
 			const context = (x: number, y: number) => {
 				const candidates = candidatesAt(x, y);
-				if (candidates.length > 1) { this.showMenu(x, y, candidates.map(relation => toAction({ id: `ade.overlap.${relation.id}`, label: `${relationLabels[relation.kind]} · ${relation.name}`, run: () => this.relationMenu(relation.id, x, y) }))); }
+				if (candidates.length > 1) { this.showMenu(x, y, candidates.map(relation => toAction({ id: `ade.overlap.${relation.id}`, label: `${relationLabels[relation.kind]} · ${relation.name}`, run: () => this.runAction(() => this.relationMenu(relation.id, x, y)) }))); }
 				else { this.relationMenu(relation.id, x, y); }
 			};
-			this.canvas.interactions.add(dom.addDisposableListener(group, 'click', (event: MouseEvent) => { void select(event); }));
-			this.canvas.interactions.add(dom.addDisposableListener(group, 'keydown', (event: KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void select(); } }));
+			this.canvas.interactions.add(dom.addDisposableListener(group, 'click', (event: MouseEvent) => this.runAction(() => select(event))));
+			this.canvas.interactions.add(dom.addDisposableListener(group, 'keydown', (event: KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.runAction(() => select()); } }));
 			this.installContextMenu(group, context);
 			const caption = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
 			caption.setAttribute('class', `ade-edge-caption${visibleCaption ? ' is-visible' : ''}`); labels.appendChild(caption);
@@ -309,7 +310,7 @@ export class AdeCanvasSurface {
 			label.setAttribute('class', 'ade-connection-label');
 			label.textContent = view.kind === 'state' && relation.kind === 'transition' ? stateTransitionLabel(relation) : [relationLabels[relation.kind], notationRelationLabel(relation), relation.condition ? `[${relation.condition}]` : '', relation.errorCode].filter(Boolean).join(' · ');
 			label.setAttribute('data-relation-id', relation.id);
-			this.canvas.interactions.add(dom.addDisposableListener(label, 'click', (event: MouseEvent) => { void select(event); }));
+			this.canvas.interactions.add(dom.addDisposableListener(label, 'click', (event: MouseEvent) => this.runAction(() => select(event))));
 			this.installContextMenu(label, context);
 			caption.appendChild(label);
 			const placement = placeConnectionLabel(route, label.getComputedTextLength() + 12, occupied);
@@ -349,7 +350,7 @@ export class AdeCanvasSurface {
 		for (const node of view.nodes) {
 			const element = model.semantics.elements.find(element => element.id === node.elementId)!;
 			const position = positions.get(element.id)!;
-			const button = this.host.button(canvas, element.name, () => { if (this.pendingConnection) { void this.finishConnection(element.id); } else { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(element.id); this.host.render(); } }, `node:${element.id}`);
+			const button = this.host.button(canvas, element.name, () => { if (this.pendingConnection) { return this.finishConnection(element.id); } else { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(element.id); this.host.render(); } return undefined; }, `node:${element.id}`);
 			button.classList.add('ade-node');
 			button.classList.toggle('is-boundary', boundaryBoxes.some(box => box.elementId === element.id));
 			button.dataset.kind = elementLabels[element.kind];
@@ -383,7 +384,7 @@ export class AdeCanvasSurface {
 		];
 		const palette = new AdeActionMenu(this.controls);
 		for (const { label, mode } of actions) {
-			palette.action(parent, label, () => { void this.commandService.executeCommand('ade.blueprint', undefined, mode); }, { icon: mode === 'c4Visibility' ? Codicon.eye : Codicon.references });
+			palette.action(parent, label, () => this.commandService.executeCommand('ade.blueprint', undefined, mode), { icon: mode === 'c4Visibility' ? Codicon.eye : Codicon.references });
 		}
 	}
 
@@ -393,38 +394,50 @@ export class AdeCanvasSurface {
 		if (this.project.modelUri) {
 			const history = dom.append(toolbar, dom.$('div.ade-editing-history'));
 			history.setAttribute('role', 'group'); history.setAttribute('aria-label', localize('ade.editing.history', "Save and History"));
-			this.host.iconButton(history, localize('ade.save', "Save"), Codicon.save, () => { void this.project.save(true); }).disabled = !this.project.dirty;
-			this.host.iconButton(history, localize('ade.undo', "Undo"), Codicon.discard, () => { void this.project.undo(); }).disabled = !this.project.canUndo;
-			this.host.iconButton(history, localize('ade.redo', "Redo"), Codicon.redo, () => { void this.project.redo(); }).disabled = !this.project.canRedo;
+			this.host.iconButton(history, localize('ade.save', "Save"), Codicon.save, () => this.project.save(true)).disabled = !this.project.dirty;
+			this.host.iconButton(history, localize('ade.undo', "Undo"), Codicon.discard, () => this.project.undo()).disabled = !this.project.canUndo;
+			this.host.iconButton(history, localize('ade.redo', "Redo"), Codicon.redo, () => this.project.redo()).disabled = !this.project.canRedo;
 		}
 		const view = this.project.activeView;
 		const interaction = view && getProjectedInteraction(this.project.model, view);
 		const editable = this.project.editable && !['element', 'impact', 'map'].includes(this.project.section);
 		if (this.project.editable && this.project.section !== 'element' && this.project.section !== 'impact') {
 			if (this.project.section === 'map' || !view) {
-				this.host.button(toolbar, localize('ade.addFeature', "Add Feature"), () => { void this.commandService.executeCommand('ade.addFeature'); });
+				this.host.button(toolbar, localize('ade.addFeature', "Add Feature"), () => this.commandService.executeCommand('ade.addFeature'));
 			} else if (!interaction) {
-				this.host.button(toolbar, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => { void this.commandService.executeCommand('ade.addElement'); });
+				this.host.button(toolbar, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => this.commandService.executeCommand('ade.addElement'));
 			}
 		}
 		if (view) {
 			const options = this.controls.details(toolbar, localize('ade.diagramOptions', "Diagram Options"), 'diagram-options', { popup: true });
 			this.renderDiagramOptions(options, view, { popupId: 'diagram-options', canvas: false, editable, includeFeature: true });
-			if (!interaction) { this.host.button(toolbar, localize('ade.createRelationship', "Create Relationship…"), () => { void this.beginConnection(this.project.selectedId); }).disabled = !this.project.editable; }
+			if (!interaction) { this.host.button(toolbar, localize('ade.createRelationship', "Create Relationship…"), () => this.beginConnection(this.project.selectedId)).disabled = !this.project.editable; }
 			if (!this.host.root.classList.contains('ade-canvas-mode')) { this.host.button(toolbar, localize('ade.fitDiagram', "Fit Diagram"), () => this.canvas.fitDiagram()); }
 		} else if (this.project.section === 'element') {
-			this.host.button(toolbar, localize('ade.readElement', "Read Element Details"), () => { void this.commandService.executeCommand('ade.readContext'); });
+			this.host.button(toolbar, localize('ade.readElement', "Read Element Details"), () => this.commandService.executeCommand('ade.readContext'));
 		} else if (this.project.section === 'impact') {
-			this.host.button(toolbar, localize('ade.readImpact', "Read Change Impact"), () => { void this.commandService.executeCommand('ade.readContext'); });
+			this.host.button(toolbar, localize('ade.readImpact', "Read Change Impact"), () => this.commandService.executeCommand('ade.readContext'));
 		} else if (this.project.section === 'map') {
-			this.host.button(toolbar, localize('ade.readMap', "Read System Map"), () => { void this.commandService.executeCommand('ade.readContext'); });
+			this.host.button(toolbar, localize('ade.readMap', "Read System Map"), () => this.commandService.executeCommand('ade.readContext'));
 		}
 	}
 
+	private reportError(error: unknown): void {
+		this.notifications.error(adeErrorNotification(error, 'edit', this.project.model));
+		this.host.render();
+	}
+
+	private runAction(action: () => void | Promise<void>): void {
+		try {
+			const result = action();
+			if (result) { void result.catch(error => this.reportError(error)); }
+		} catch (error) { this.reportError(error); }
+	}
+
 	installContextMenu(target: HTMLElement | SVGElement, show: (x: number, y: number) => void): void {
-		this.canvas.interactions.add(dom.addDisposableListener(target, 'contextmenu', (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); show(event.clientX, event.clientY); }));
+		this.canvas.interactions.add(dom.addDisposableListener(target, 'contextmenu', (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); this.runAction(() => show(event.clientX, event.clientY)); }));
 		this.canvas.interactions.add(dom.addDisposableListener(target, 'keydown', (event: KeyboardEvent) => {
-			if (event.key === 'ContextMenu' || event.shiftKey && event.key === 'F10') { event.preventDefault(); event.stopPropagation(); const box = target.getBoundingClientRect(); show(box.left, box.bottom); }
+			if (event.key === 'ContextMenu' || event.shiftKey && event.key === 'F10') { event.preventDefault(); event.stopPropagation(); const box = target.getBoundingClientRect(); this.runAction(() => show(box.left, box.bottom)); }
 		}));
 	}
 
@@ -434,57 +447,69 @@ export class AdeCanvasSurface {
 	}
 
 	elementMenu(id: string, _x: number, _y: number): void {
-		const view = this.project.activeView;
-		if (!this.project.model.semantics.elements.some(element => element.id === id) && (!view || !getViewSelectionIds(this.project.model, view).includes(id))) { return; }
-		this.controls.setExpanded('ai-collaboration', false);
-		this.controls.setExpanded('canvas-actions', false);
-		this.controls.setExpanded('diagram-options', false);
-		this.inspectorOpen = true; this.relationSelection = undefined;
-		this.project.selectElement(id); this.host.render();
-		if (!this.controls.focusTabGroup('element-inspector')) { this.controls.focusTabGroup('interaction-inspector'); }
+		this.runAction(() => {
+			const view = this.project.activeView;
+			if (!this.project.model.semantics.elements.some(element => element.id === id) && (!view || !getViewSelectionIds(this.project.model, view).includes(id))) { return; }
+			this.controls.setExpanded('ai-collaboration', false);
+			this.controls.setExpanded('canvas-actions', false);
+			this.controls.setExpanded('diagram-options', false);
+			this.inspectorOpen = true; this.relationSelection = undefined;
+			this.project.selectElement(id); this.host.render();
+			if (!this.controls.focusTabGroup('element-inspector')) { this.controls.focusTabGroup('interaction-inspector'); }
+		});
 	}
 
 	relationMenu(id: string, _x: number, _y: number): void {
-		if (!this.project.model.semantics.relations.some(relation => relation.id === id)) { return; }
-		this.controls.setExpanded('ai-collaboration', false);
-		this.controls.setExpanded('canvas-actions', false);
-		this.controls.setExpanded('diagram-options', false);
-		this.inspectorOpen = true; this.relationSelection = id; this.host.render();
-		this.controls.focusTabGroup('relation-inspector');
+		this.runAction(() => {
+			if (!this.project.model.semantics.relations.some(relation => relation.id === id)) { return; }
+			this.controls.setExpanded('ai-collaboration', false);
+			this.controls.setExpanded('canvas-actions', false);
+			this.controls.setExpanded('diagram-options', false);
+			this.inspectorOpen = true; this.relationSelection = id; this.host.render();
+			this.controls.focusTabGroup('relation-inspector');
+		});
 	}
 
 	async beginConnection(id: string): Promise<void> {
-		const view = this.project.activeView;
-		const source = this.project.model.semantics.elements.find(element => element.id === id);
-		if (!view || !source) { this.notifications.info(localize('ade.context.selectSource', "Select a Source Element Before Creating a Relationship.")); return; }
-		const version = this.project.documentVersion;
-		const kind = await this.quick.pick((Object.keys(relationLabels) as RelationKind[]).filter(kind => acceptsNotationRelation(view.kind, { kind }) && (view.kind !== 'state' || kind === 'transition') && (view.kind !== 'sequence' || ['invocation', 'read', 'write'].includes(kind))
-			&& view.nodes.some(node => { const target = this.project.model.semantics.elements.find(element => element.id === node.elementId)!; return isCompatibleRelation(kind, source.kind, target.kind) && (kind !== 'transition' || source.parentId === target.parentId); })).map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") });
-		if (!kind || version !== this.project.documentVersion) { return; }
-		this.controls.setExpanded('canvas-actions', false);
-		this.controls.setExpanded('canvas-code-unavailable', false);
-		this.inspectorOpen = false;
-		this.pendingConnection = { from: id, kind: kind.kind, viewId: view.id, version }; this.host.render();
-		this.controls.focusTarget('canvas');
+		try {
+			const view = this.project.activeView;
+			const source = this.project.model.semantics.elements.find(element => element.id === id);
+			if (!view || !source) { this.notifications.error(adeErrorNotification(new Error('No source element selected'), 'edit', this.project.model)); return; }
+			const version = this.project.documentVersion;
+			const kind = await this.quick.pick((Object.keys(relationLabels) as RelationKind[]).filter(kind => acceptsNotationRelation(view.kind, { kind }) && (view.kind !== 'state' || kind === 'transition') && (view.kind !== 'sequence' || ['invocation', 'read', 'write'].includes(kind))
+				&& view.nodes.some(node => { const target = this.project.model.semantics.elements.find(element => element.id === node.elementId)!; return isCompatibleRelation(kind, source.kind, target.kind) && (kind !== 'transition' || source.parentId === target.parentId); })).map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") });
+			if (!kind || version !== this.project.documentVersion) { return; }
+			this.controls.setExpanded('canvas-actions', false);
+			this.controls.setExpanded('canvas-code-unavailable', false);
+			this.inspectorOpen = false;
+			this.pendingConnection = { from: id, kind: kind.kind, viewId: view.id, version }; this.host.render();
+			this.controls.focusTarget('canvas');
+		} catch (error) {
+			this.reportError(error);
+		}
 	}
 
 	async finishConnection(id: string): Promise<void> {
-		const pending = this.pendingConnection;
-		if (!pending) { return; }
-		const from = this.project.model.semantics.elements.find(element => element.id === pending.from);
-		const to = this.project.model.semantics.elements.find(element => element.id === id);
-		if (pending.version !== this.project.documentVersion || !from || !to) {
+		try {
+			const pending = this.pendingConnection;
+			if (!pending) { return; }
+			const from = this.project.model.semantics.elements.find(element => element.id === pending.from);
+			const to = this.project.model.semantics.elements.find(element => element.id === id);
+			if (pending.version !== this.project.documentVersion || !from || !to) {
+				this.pendingConnection = undefined;
+				this.notifications.error(adeErrorNotification(new Error('The project changed while creating the relationship.'), 'edit', this.project.model));
+				this.host.render(); return;
+			}
+			if (!isCompatibleRelation(pending.kind, from.kind, to.kind) || pending.kind === 'transition' && from.parentId !== to.parentId) { this.notifications.error(adeErrorNotification(new Error(pending.kind === 'transition' ? 'Unsupported resource transition' : 'Relationship cannot be included in this diagram'), 'edit', this.project.model)); return; }
 			this.pendingConnection = undefined;
-			this.notifications.info(localize('ade.context.staleConnection', "The Project Changed. Create the Relationship Again from the Current Diagram."));
-			this.host.render(); return;
+			const parent = this.host.root.closest<HTMLElement>('.monaco-workbench') ?? this.host.root.ownerDocument.body;
+			const value = await editAdeConnectionDetails(parent, localize('ade.relation.endpoints', "{0} → {1}", from.name, to.name));
+			if (!value) { this.host.render(); return; }
+			if (pending.version !== this.project.documentVersion) { this.notifications.error(adeErrorNotification(new Error('The project changed while creating the relationship.'), 'edit', this.project.model)); return; }
+			this.project.edit({ kind: 'relation', id: generateUuid(), viewId: pending.viewId, from: pending.from, to: id, relationKind: pending.kind, ...value });
+		} catch (error) {
+			this.reportError(error);
 		}
-		if (!isCompatibleRelation(pending.kind, from.kind, to.kind) || pending.kind === 'transition' && from.parentId !== to.parentId) { this.notifications.info(localize('ade.context.incompatible', "This Target Is Incompatible with the Selected Relationship Type. Choose Another Target or Press Escape.")); return; }
-		this.pendingConnection = undefined;
-		const parent = this.host.root.closest<HTMLElement>('.monaco-workbench') ?? this.host.root.ownerDocument.body;
-		const value = await editAdeConnectionDetails(parent, localize('ade.relation.endpoints', "{0} → {1}", from.name, to.name));
-		if (!value) { this.host.render(); return; }
-		if (pending.version !== this.project.documentVersion) { this.notifications.info(localize('ade.context.staleConnection', "The Project Changed. Create the Relationship Again from the Current Diagram.")); return; }
-		this.project.edit({ kind: 'relation', id: generateUuid(), viewId: pending.viewId, from: pending.from, to: id, relationKind: pending.kind, ...value });
 	}
 
 	constructor(

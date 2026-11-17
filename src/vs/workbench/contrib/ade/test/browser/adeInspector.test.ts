@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { timeout } from '../../../../../base/common/async.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -27,7 +28,7 @@ suite('A.D.E inspector information hierarchy', () => {
 	});
 	teardown(() => root.remove());
 
-	function fixture(editable = true, version: 3 | 4 = 3, canvasConnection = false) {
+	function fixture(editable = true, version: 3 | 4 = 3, canvasConnection = false, onError?: (error: unknown) => void) {
 		const model: SemanticModel = {
 			version, id: 'project', name: 'CRM', codeMappings: [], verifications: [],
 			...(version === 4 ? { foundation: emptyFoundation() } : {}),
@@ -51,7 +52,8 @@ suite('A.D.E inspector information hierarchy', () => {
 		const source: string[] = [];
 		const edits: VisualEdit[] = [];
 		const canvasConnections: string[] = [];
-		const controls = store.add(new AdeControls());
+		const controls = store.add(new AdeControls(onError));
+		let commandError: Error | undefined;
 		const project = Object.assign(new (mock<AdeProjectService>())(), {
 			model, editable, selectedId: 'client', section: 'diagram' as const, activeView: model.views[0],
 			inspectElement: (id: string) => inspected.push(id), showImpact: (id: string) => impacts.push(id),
@@ -59,7 +61,7 @@ suite('A.D.E inspector information hierarchy', () => {
 			readiness: () => ({ diagnostics: [] })
 		});
 		const code = Object.assign(new (mock<IAdeCodeService>())(), { context: { sourceRoot: '/project' }, busy: false, inspect: async (id: string) => { source.push(id); } });
-		const commandService = Object.assign(new (mock<ICommandService>())(), { executeCommand: async (id: string, ...args: string[]) => { commands.push({ id, args }); } });
+		const commandService = Object.assign(new (mock<ICommandService>())(), { executeCommand: async (id: string, ...args: string[]) => { commands.push({ id, args }); if (commandError) { throw commandError; } } });
 		const inspector = new AdeInspector({
 			root,
 			paragraph: (parent, text) => { parent.appendChild(document.createElement('p')).textContent = text; },
@@ -68,7 +70,7 @@ suite('A.D.E inspector information hierarchy', () => {
 			...(canvasConnection ? { beginConnection: async (id: string) => { canvasConnections.push(id); } } : {})
 		}, controls, project, code, commandService);
 		const render = () => controls.render(root, () => { root.replaceChildren(); detail = root.appendChild(document.createElement('aside')); inspector.renderProperties(detail, project.model, project.activeView); });
-		return { model, project, code, inspector, controls, commands, revealed, inspected, impacts, source, edits, render, canvasConnections };
+		return { model, project, code, inspector, controls, commands, revealed, inspected, impacts, source, edits, render, canvasConnections, failCommand: (error: Error) => { commandError = error; } };
 	}
 
 	const button = (label: string, parent: ParentNode = detail): HTMLButtonElement => {
@@ -175,6 +177,16 @@ suite('A.D.E inspector information hierarchy', () => {
 		assert.ok(f.controls.focusTarget('source:client'));
 		f.render(); assert.strictEqual(document.activeElement, button('Open Source'));
 		assert.strictEqual(tab('Architecture').getAttribute('aria-selected'), 'true');
+	});
+
+	test('an asynchronous editing command reaches contextual error reporting without losing the selected panel or focus', async () => {
+		const errors: Error[] = [], failure = new Error('The project changed while editing');
+		const f = fixture(true, 3, false, error => { assert.ok(error instanceof Error); errors.push(error); });
+		f.failCommand(failure); f.render();
+		const edit = button('Edit Attributes and Technology'); edit.focus(); edit.click();
+		await timeout(0);
+		assert.deepStrictEqual({ commands: f.commands, errors, selected: tab('Properties').getAttribute('aria-selected'), panelHidden: panel('Properties').hidden, focused: document.activeElement === edit }, { commands: [{ id: 'ade.notation', args: ['client'] }], errors: [failure], selected: 'true', panelHidden: false, focused: true });
+		assert.strictEqual(errors[0], failure);
 	});
 
 	test('tab selection persists when selecting another element and a focused panel action survives refresh', () => {

@@ -39,7 +39,7 @@ suite('A.D.E native code bridge compatibility', () => {
 		let protocol = initial, created = 0, disposed = 0, failInspect = false;
 		const projectChanged = store.add(new Emitter<void>());
 		const calls: string[] = [];
-		const commands: string[] = [];
+		const commands: string[] = [], errors: string[] = [];
 		const requests: CodeRequest[] = [], pickers: string[] = [], opened: string[] = [];
 		const editorInputs: object[] = [];
 		const reportWrites = new Map<string, string>(), readonlyReports: string[] = [];
@@ -68,7 +68,7 @@ suite('A.D.E native code bridge compatibility', () => {
 		stub(IShellEnvironmentService, { getShellEnv: async () => ({ PATH: '/cli' }) });
 		const fileDialogs = stub(IFileDialogService, { showOpenDialog: async () => { pickers.push('folder'); return undefined; } });
 		const quick = stub(IQuickInputService, { pick: async (items: readonly IQuickPickItem[]) => { pickers.push('mode'); return choose?.(items); } });
-		stub(INotificationService, { info: () => {}, error: () => {} });
+		stub(INotificationService, { info: () => {}, error: (message: string) => errors.push(message) });
 		const progress = stub(IProgressService, { withProgress: async (_options: object, task: () => Promise<void>) => task() });
 		stub(IFileService, { watch: () => toDisposable(() => {}), onDidFilesChange: Event.None, createFolder: async () => {}, writeFile: async (resource: URI, contents: { toString(): string }) => { reportWrites.set(resource.path, contents.toString()); } });
 		stub(IFilesConfigurationService, { updateReadonly: async (resource: URI) => { readonlyReports.push(resource.path); } });
@@ -77,7 +77,7 @@ suite('A.D.E native code bridge compatibility', () => {
 		stub(IAdeProjectWorkspaceService, { align: async () => { aligned.push(project.modelUri?.toString()); } }); stub(IConfigurationService);
 		stub(ICommandService, { executeCommand: async (command: string) => { commands.push(command); } });
 		const service = store.add(instantiation.createInstance(AdeCodeService));
-		return { service, projectChanged, failInspect: (value: boolean) => { failInspect = value; }, calls, commands, model, context, project, requests, pickers, opened, editorInputs, reportWrites, readonlyReports, setPreview: (value: CodePreview) => { previewResult = value; }, setImportResponse: (value: typeof importResponse) => { importResponse = value; }, quick, fileDialogs, progress, operations, editors, aligned, setChoice: (value: typeof choose) => { choose = value; }, stats: () => ({ created, disposed }), setProtocol: (value: CodeBridgeProtocol) => { protocol = value; } };
+		return { service, errors, projectChanged, failInspect: (value: boolean) => { failInspect = value; }, calls, commands, model, context, project, requests, pickers, opened, editorInputs, reportWrites, readonlyReports, setPreview: (value: CodePreview) => { previewResult = value; }, setImportResponse: (value: typeof importResponse) => { importResponse = value; }, quick, fileDialogs, progress, operations, editors, aligned, setChoice: (value: typeof choose) => { choose = value; }, stats: () => ({ created, disposed }), setProtocol: (value: CodeBridgeProtocol) => { protocol = value; } };
 	}
 	function importFixture(root = '/project') {
 		const f = fixture(compatible);
@@ -93,9 +93,10 @@ suite('A.D.E native code bridge compatibility', () => {
 	});
 	test('a failed import never aligns an older context at the same source root', async () => {
 		const f = importFixture(); f.service.context = f.context;
-		f.setImportResponse(async () => { throw new Error('Import failed'); });
+		f.setImportResponse(async () => { throw Object.assign(new Error('EACCES: cannot read source folder'), { code: 'EACCES' }); });
 		await f.service.importCodebase();
 		assert.deepStrictEqual([f.opened, f.aligned, f.service.context], [[], [], f.context]);
+		assert.deepStrictEqual({ alerts: f.errors.length, cause: /Cause:.*permissions/.test(f.errors[0]), resolution: /How to resolve:.*permissions/.test(f.errors[0]), originalProblem: /EACCES: cannot read source folder/.test(f.errors[0]) }, { alerts: 1, cause: true, resolution: true, originalProblem: true });
 	});
 	test('declining the imported model leaves the previous context and workspace untouched', async () => {
 		const f = importFixture(); f.service.context = f.context;
@@ -154,6 +155,7 @@ suite('A.D.E native code bridge compatibility', () => {
 		const f = fixture(compatible); Object.assign(f.project, { modelUri: URI.file(f.context.model) }); f.failInspect(true);
 		let ready = Event.toPromise(Event.filter(f.service.onDidChange, () => !f.service.busy));
 		f.projectChanged.fire(); await ready; assert.strictEqual(f.service.context, undefined);
+		assert.deepStrictEqual({ cause: /Cause:/.test(f.service.status), resolution: /How to resolve:/.test(f.service.status), originalProblem: /Unavailable snapshot/.test(f.service.status), alerts: f.errors }, { cause: true, resolution: true, originalProblem: true, alerts: [] });
 		f.failInspect(false); ready = Event.toPromise(Event.filter(f.service.onDidChange, () => !f.service.busy));
 		f.projectChanged.fire(); await ready;
 		assert.deepStrictEqual(f.service.context, f.context);

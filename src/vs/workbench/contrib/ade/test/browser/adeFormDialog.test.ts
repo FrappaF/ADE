@@ -46,4 +46,33 @@ suite('A.D.E form dialog', () => {
 		dialog.body.requestSubmit(); row.remove(); dialog.body.requestSubmit();
 		assert.deepStrictEqual(await result, []);
 	});
+
+	test('cross-field failures explain the cause and recovery while keeping the draft editable', async () => {
+		const dialog = store.add(new AdeFormDialog(parent, { title: 'Delivery Times' }));
+		const publish = dialog.text(dialog.body, 'Publish Time', '30');
+		const delivery = dialog.text(dialog.body, 'Delivery Time', '20');
+		const result = dialog.open(() => ({ publish: Number(publish.value), delivery: Number(delivery.value) }), value => value.delivery < value.publish ? 'Delivery cannot precede publication.' : undefined);
+		dialog.body.requestSubmit();
+		assert.deepStrictEqual({
+			cause: parent.querySelector('.ade-error-notice dd')?.textContent,
+			labels: [...parent.querySelectorAll('.ade-error-notice dt')].map(label => label.textContent),
+			draft: [publish.value, delivery.value],
+			open: parent.querySelector('dialog')?.open
+		}, { cause: 'Delivery cannot precede publication.', labels: ['Cause', 'How to Resolve'], draft: ['30', '20'], open: true });
+		delivery.value = '40'; delivery.dispatchEvent(new Event('input'));
+		assert.strictEqual(parent.querySelector('.ade-error-notice'), null);
+		dialog.body.requestSubmit();
+		assert.deepStrictEqual(await result, { publish: 30, delivery: 40 });
+	});
+
+	test('a failed form reader stays in the dialog and can be retried', async () => {
+		const dialog = store.add(new AdeFormDialog(parent, { title: 'Edit Value' }));
+		const input = dialog.text(dialog.body, 'Value', 'Original');
+		let reads = 0;
+		const result = dialog.open(() => { if (++reads === 1) { throw new Error('Unexpected read failure'); } return input.value; });
+		dialog.body.requestSubmit();
+		assert.deepStrictEqual({ draft: input.value, open: parent.querySelector('dialog')?.open, details: parent.querySelector('.ade-error-notice pre')?.textContent }, { draft: 'Original', open: true, details: 'Unexpected read failure' });
+		dialog.body.requestSubmit();
+		assert.strictEqual(await result, 'Original');
+	});
 });

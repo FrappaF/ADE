@@ -6,9 +6,12 @@
 import './media/ade.css';
 import * as dom from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { hasKey } from '../../../../base/common/types.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { AdeControls } from './adeControls.js';
+import { describeAdeError, type AdeErrorContext } from './adeErrors.js';
+import { renderAdeErrorNotice } from './adeErrorNotice.js';
 
 interface TextOptions {
 	multiline?: boolean;
@@ -23,7 +26,8 @@ export class AdeFormDialog extends Disposable {
 	private readonly element: HTMLDialogElement;
 	private readonly footer: HTMLElement;
 	private readonly message: HTMLElement;
-	private readonly validators: { control: HTMLInputElement | HTMLTextAreaElement; message: HTMLElement; validate: (value: string) => string | undefined }[] = [];
+	private readonly messageControls = this._register(new AdeControls());
+	private readonly validators: { label: string; control: HTMLInputElement | HTMLTextAreaElement; message: HTMLElement; validate: (value: string) => string | undefined }[] = [];
 	private readonly controls: (HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement)[] = [];
 	private readonly restoreFocus = AdeControls.captureActiveFocus();
 	private cancel: (() => void) | undefined;
@@ -42,8 +46,9 @@ export class AdeFormDialog extends Disposable {
 			this.element.setAttribute('aria-describedby', description.id);
 		}
 		this.body = dom.append(this.element, dom.$<HTMLFormElement>('form.ade-form-body', { id: generateUuid(), novalidate: 'novalidate' }));
-		this.message = dom.append(this.element, dom.$('p.ade-form-validation', { role: 'alert', id: generateUuid() }));
+		this.message = dom.append(this.element, dom.$('div.ade-form-validation', { id: generateUuid() }));
 		this.body.setAttribute('aria-describedby', this.message.id);
+		for (const event of ['input', 'change']) { this._register(dom.addDisposableListener(this.body, event, () => this.showError())); }
 		this.footer = dom.append(this.element, dom.$('footer'));
 		this.button(this.footer, localize('ade.form.cancel', "Cancel"), () => this.cancel?.());
 		const save = dom.append(this.footer, dom.$<HTMLButtonElement>('button.primary', { type: 'submit', form: this.body.id }));
@@ -70,10 +75,10 @@ export class AdeFormDialog extends Disposable {
 		const message = dom.append(field, dom.$('span.ade-form-field-error', { id: generateUuid(), 'aria-live': 'polite' }));
 		input.setAttribute('aria-describedby', message.id);
 		const validate = (value: string) => options.required && !value.trim() ? localize('ade.form.required', "Enter a value.") : options.validate?.(value);
-		this.validators.push({ control: input, message, validate });
+		this.validators.push({ label, control: input, message, validate });
 		this.controls.push(input);
 		this._register(dom.addDisposableListener(input, 'input', () => {
-			input.setCustomValidity(''); input.removeAttribute('aria-invalid'); message.textContent = ''; this.message.textContent = '';
+			input.setCustomValidity(''); input.removeAttribute('aria-invalid'); message.textContent = ''; this.showError();
 		}));
 		return input;
 	}
@@ -115,26 +120,40 @@ export class AdeFormDialog extends Disposable {
 				this.cancel = () => resolve(undefined);
 				this._register(dom.addDisposableListener(this.body, 'submit', event => {
 					event.preventDefault();
-					let firstInvalid: HTMLElement | undefined;
-					for (const { control, message, validate } of this.validators) {
-						if (!this.body.contains(control) || control.matches(':disabled') || control.closest('[hidden]')) { continue; }
-						const error = validate(control.value);
-						control.setCustomValidity(error ?? '');
-						control.setAttribute('aria-invalid', String(!!error));
-						message.textContent = error ?? '';
-						if (error) { firstInvalid ??= control; }
-					}
-					if (firstInvalid) { firstInvalid.focus(); return; }
-					if (!this.body.reportValidity()) { return; }
-					const value = read();
-					const error = validate?.(value);
-					this.message.textContent = error ?? '';
-					if (!error) { resolve(value); }
+					try {
+						let firstInvalid: HTMLElement | undefined;
+						const errors: string[] = [];
+						for (const { label, control, message, validate } of this.validators) {
+							if (!this.body.contains(control) || control.matches(':disabled') || control.closest('[hidden]')) { continue; }
+							const error = validate(control.value);
+							control.setCustomValidity(error ?? '');
+							control.setAttribute('aria-invalid', String(!!error));
+							message.textContent = error ?? '';
+							if (error) { firstInvalid ??= control; errors.push(localize('ade.form.fieldError', "{0}: {1}", label, error)); }
+						}
+						if (firstInvalid) { this.showError(errors.join('\n')); firstInvalid.focus(); return; }
+						if (!this.body.reportValidity()) {
+							const invalid = this.controls.find(control => this.body.contains(control) && control.matches(':invalid'));
+							if (invalid && hasKey(invalid, { validationMessage: true })) { this.showError(invalid.validationMessage); }
+							return;
+						}
+						const value = read();
+						const error = validate?.(value);
+						this.showError(error);
+						if (!error) { resolve(value); }
+					} catch (error) { this.showError(error, 'edit'); }
 				}));
 				this.element.showModal();
 				this.controls.find(control => this.body.contains(control) && !control.matches(':disabled') && !control.closest('[hidden]'))?.focus();
 			});
 		} finally { this.dispose(); }
+	}
+
+	private showError(error?: unknown, context: AdeErrorContext = 'validation'): void {
+		this.messageControls.render(this.message, () => {
+			dom.clearNode(this.message);
+			if (error) { renderAdeErrorNotice(this.message, describeAdeError(error, context), this.messageControls); }
+		});
 	}
 
 	override dispose(): void {

@@ -47,7 +47,7 @@ export class AdeActionMenu {
 		return dom.append(section, dom.$('div.ade-menu-section-body'));
 	}
 
-	action(parent: HTMLElement, label: string, run: () => void, options: ActionPresentation = {}): HTMLButtonElement {
+	action<T>(parent: HTMLElement, label: string, run: () => T, options: ActionPresentation = {}): HTMLButtonElement {
 		return this.decorate(this.controls.button(parent, label, run, options.id), options);
 	}
 

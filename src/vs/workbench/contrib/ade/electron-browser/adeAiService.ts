@@ -3,12 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { adeErrorNotification } from '../browser/adeErrors.js';
 import './adeAiDialogService.js';
 import { type StructuralProjectSession as StructuralSession } from '../common/modelProject.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -119,7 +121,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		}
 		catch (error) {
 			const message = cancellation.token.isCancellationRequested ? cancelled() : local ? localize('ade.local.error', "A.D.E Local Operation: {0}", error instanceof Error ? error.message : String(error)) : localize('ade.ai.error', "A.D.E AI: {0}", error instanceof Error ? error.message : String(error));
-			this.report(message); if (cancellation.token.isCancellationRequested) { if (!diagramJob) { this.notifications.info(message); } } else if (review && this.diagrams.diagramReview === review && review.problem) { /* The active review owns this recoverable error. */ } else if (diagramJob) { this.diagrams.failGeneration(message); } else { this.notifications.error(message); }
+			this.report(message); if (cancellation.token.isCancellationRequested) { if (!diagramJob) { this.notifications.info(message); } } else if (review && this.diagrams.diagramReview === review && review.problem) { /* The active review owns this recoverable error. */ } else if (diagramJob) { this.diagrams.failGeneration(error); } else { this.notifications.error(adeErrorNotification(error, local ? 'validation' : 'ai', this.project.model)); }
 		}
 		finally { cancellation.dispose(); operation.dispose(); this.busy = false; this.diagrams.finishOperation(); this.changes.fire(); }
 	}
@@ -289,6 +291,9 @@ for (const [id, title, method] of [
 ] as const) {
 	registerAction2(class extends Action2 {
 		constructor() { super({ id, title, f1: true }); }
-		override run(accessor: ServicesAccessor): Promise<void> { return accessor.get(IAdeAiService)[method](); }
+		override async run(accessor: ServicesAccessor): Promise<void> {
+			try { await accessor.get(IAdeAiService)[method](); }
+			catch (error) { if (!isCancellationError(error)) { accessor.get(INotificationService).error(adeErrorNotification(error, 'ai', accessor.get(IAdeProjectService).model)); } }
+		}
 	});
 }

@@ -34,9 +34,9 @@ import { getModelReadiness, type GenerationProfile } from '../common/modelReadin
 import { createPureProject, type ProjectCriteria } from '../common/modelProject.js';
 import { compileModelTaskContext, type ModelTaskPacket } from '../common/modelTaskContext.js';
 import { compileModelContext, type ModelContextRequest } from '../common/modelContext.js';
-import { diagnosticMessage } from './adeDiagnostics.js';
+import { diagnosticMessage, isAdeDiagramBlockingDiagnostic } from './adeDiagnostics.js';
 import { savedModelChanges, type SavedModelChange } from '../common/modelCodeUpdate.js';
-import { type SemanticModel } from '../common/modelTypes.js';
+import { type ModelDiagnostic, type SemanticModel } from '../common/modelTypes.js';
 import { SaveReason } from '../../../common/editor.js';
 
 export const IAdeProjectService = createDecorator<AdeProjectService>('adeProjectService');
@@ -46,6 +46,30 @@ interface PureStarterRecord {
 	projectId: string;
 	identities: string[];
 	criteria: string;
+}
+
+/** Match existing errors by object identity when deletions shift diagnostic array positions. */
+function diagnosticIdentity(model: SemanticModel, diagnostic: ModelDiagnostic): string {
+	let value: unknown = model;
+	const path: (string | { key: string; value: string })[] = [];
+	for (const segment of diagnostic.path.split('/').slice(1)) {
+		if (Array.isArray(value) && /^(0|[1-9]\d*)$/.test(segment)) {
+			const entry: unknown = value[Number(segment)];
+			let identity: string | { key: string; value: string } = segment;
+			if (entry !== null && typeof entry === 'object') {
+				for (const key of ['id', 'elementId', 'actorId', 'name']) {
+					const field: unknown = Object.getOwnPropertyDescriptor(entry, key)?.value;
+					if (typeof field === 'string') { identity = { key, value: field }; break; }
+				}
+			} else if (typeof entry === 'string') { identity = { key: 'value', value: entry }; }
+			path.push(identity);
+			value = entry;
+		} else {
+			path.push(segment);
+			value = value !== null && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, segment)?.value : undefined;
+		}
+	}
+	return JSON.stringify([diagnostic.code, path, diagnostic.args]);
 }
 
 /** Workspace-owned editable model and visual context shared by native workbench surfaces. */
@@ -66,6 +90,7 @@ export class AdeProjectService extends Disposable {
 	private readonly watchDisposables = this._register(new DisposableStore());
 	private document: IResolvedTextFileEditorModel | undefined;
 	private _saveError: string | undefined;
+	private _saveErrorCause: unknown;
 	private readonly semantics = new SemanticModelService(checkoutModel);
 	private context: DiagramContext;
 	private generation = 0;
@@ -80,8 +105,10 @@ export class AdeProjectService extends Disposable {
 	private workspaceFilesPending = false;
 	private _loading = false;
 	private _error: string | undefined;
+	private _errorCause: unknown;
 	private _diagnostics: string[] = [];
 	private _hasStructuralErrors = false;
+	private _hasDiagramErrors = false;
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -175,17 +202,21 @@ export class AdeProjectService extends Disposable {
 		this._modelUri = undefined;
 		this.workspaceChangePending = false;
 		this._error = undefined;
+		this._errorCause = undefined;
 		this._saveError = undefined;
+		this._saveErrorCause = undefined;
 		this._diagnostics = [];
 		this._hasStructuralErrors = false;
+		this._hasDiagramErrors = false;
 		this.inspectionId = '';
 		this.clearWorkspaceModel();
 		try { await this.restoreWorkspaceProject(); }
-		catch (error) { this._section = 'diagram'; this._error = localize('ade.workspace.openFailed', "Could not open the project in this folder: {0}", String(error.message ?? error)); this.changeEmitter.fire(); }
+		catch (error) { this._section = 'diagram'; this._errorCause = error; this._error = localize('ade.workspace.openFailed', "Could not open the project in this folder: {0}", String(error.message ?? error)); this.changeEmitter.fire(); }
 	}
 
 	private clearWorkspaceModel(): void {
 		this._hasStructuralErrors = false;
+		this._hasDiagramErrors = false;
 		this._diagnostics = [];
 		this.semantics.replace({ version: 4, foundation: emptyFoundation(), id: generateUuid(), name: this.workspaceFolder ? basename(this.workspaceFolder) : localize('ade.emptyWorkspace', "Workspace"), semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] });
 		this.context = { viewId: '', selections: {} };
@@ -199,6 +230,7 @@ export class AdeProjectService extends Disposable {
 	get modelRevision(): number { return this.semantics.revision; }
 	get editable(): boolean { return !!this.document && !this.document.isReadonly() && !this.loading && !this.error; }
 	get saveError(): string | undefined { return this._saveError; }
+	get saveErrorCause(): unknown { return this._saveErrorCause; }
 	get canUndo(): boolean { return this.document?.textEditorModel.canUndo() ?? false; }
 	get canRedo(): boolean { return this.document?.textEditorModel.canRedo() ?? false; }
 	get section(): SemanticLocation['section'] { return this._section; }
@@ -216,13 +248,15 @@ export class AdeProjectService extends Disposable {
 	get restoringContext(): boolean { return !this.initialized || this._loading; }
 	get loading(): boolean { return this._loading; }
 	get error(): string | undefined { return this.workspaceChangePending ? localize('ade.workspace.pending', "The workspace folder changed. Save or discard changes to the previous project before continuing. Choose Retry to continue opening the current folder.") : this._error; }
+	get errorCause(): unknown { return this.workspaceChangePending ? this.error : this._errorCause; }
 	get hasStructuralErrors(): boolean { return this._hasStructuralErrors; }
+	get hasDiagramErrors(): boolean { return this._hasDiagramErrors; }
 	get diagnostics(): readonly string[] { return this._diagnostics; }
 	get model() { return this.semantics.getSnapshot(); }
-	get activeView() { if (this.hasStructuralErrors) { return undefined; } return this.section === 'element' || this.section === 'impact' || this.section === 'map' ? undefined : this.model.views.find(view => view.id === this.context.viewId); }
+	get activeView() { if (this.hasDiagramErrors) { return undefined; } return this.section === 'element' || this.section === 'impact' || this.section === 'map' ? undefined : this.model.views.find(view => view.id === this.context.viewId); }
 	get selectedId(): string { return this.section === 'element' || this.section === 'impact' ? this.inspectionId : this.context.selections[this.context.viewId] ?? ''; }
-	get canGoBack(): boolean { return !this.loading && !this.error && !this.hasStructuralErrors && this.navigation.canGo(this.model, -1); }
-	get canGoForward(): boolean { return !this.loading && !this.error && !this.hasStructuralErrors && this.navigation.canGo(this.model, 1); }
+	get canGoBack(): boolean { return !this.loading && !this.error && !this.hasDiagramErrors && this.navigation.canGo(this.model, -1); }
+	get canGoForward(): boolean { return !this.loading && !this.error && !this.hasDiagramErrors && this.navigation.canGo(this.model, 1); }
 	private get location(): SemanticLocation {
 		if (this.section === 'home' || this.section === 'map') { return { section: this.section }; }
 		if (this.section === 'element') { return { section: 'element', elementId: this.inspectionId }; }
@@ -362,12 +396,15 @@ export class AdeProjectService extends Disposable {
 		this.watchDisposables.clear();
 		this.document = undefined;
 		this._saveError = undefined;
+		this._saveErrorCause = undefined;
 		this._modelUri = undefined;
 		this.workspaceChangePending = false;
 		this._error = undefined;
+		this._errorCause = undefined;
 		this._loading = false;
 		this._diagnostics = [];
 		this._hasStructuralErrors = false;
+		this._hasDiagramErrors = false;
 		this.semantics.replace(checkoutModel);
 		this.context = normalizeDiagramContext(checkoutModel, { viewId: '', selections: {} });
 		this._section = 'diagram';
@@ -500,10 +537,27 @@ export class AdeProjectService extends Disposable {
 		this.editBatch([edit]);
 	}
 
+	/** Check the final transaction before touching the document; existing drafts can still be repaired. */
 	editBatch(edits: readonly VisualEdit[]): void {
 		if (!this.editable || !this.document) { return; }
-		const next = edits.reduce((model, edit) => applyVisualEdit(model, edit), this.model);
-		if (equals(next, this.model)) { return; }
+		const current = this.model;
+		const next = edits.reduce((model, edit) => applyVisualEdit(model, edit), current);
+		if (equals(next, current)) { return; }
+		const errors = validateSemanticModel(next).filter(isAdeDiagramBlockingDiagnostic);
+		if (errors.length) {
+			const existing = new Map<string, number>();
+			for (const diagnostic of validateSemanticModel(current).filter(isAdeDiagramBlockingDiagnostic)) {
+				const key = diagnosticIdentity(current, diagnostic);
+				existing.set(key, (existing.get(key) ?? 0) + 1);
+			}
+			const introduced = errors.filter(diagnostic => {
+				const key = diagnosticIdentity(next, diagnostic), count = existing.get(key) ?? 0;
+				if (!count) { return true; }
+				existing.set(key, count - 1);
+				return false;
+			});
+			if (introduced.length) { throw new InvalidSemanticModelError(introduced); }
+		}
 		this.replaceDocument(next);
 	}
 
@@ -519,11 +573,13 @@ export class AdeProjectService extends Disposable {
 			await this.recordingSave;
 			if (document === this.document) {
 				this._saveError = success ? undefined : localize('ade.saveFailed', "The project could not be saved. Check disk changes and permissions, or save a copy.");
+				this._saveErrorCause = success ? undefined : this._saveError;
 				this.changeEmitter.fire();
 			}
 			return success;
 		} catch (error) {
 			if (document === this.document) {
+				this._saveErrorCause = error;
 				this._saveError = localize('ade.saveError', "Could not save the project: {0}", String(error.message ?? error));
 				this.changeEmitter.fire();
 			}
@@ -559,6 +615,7 @@ export class AdeProjectService extends Disposable {
 	async revert(): Promise<void> {
 		await this.document?.revert();
 		this._saveError = undefined;
+		this._saveErrorCause = undefined;
 		if (this._modelUri) { await this.loadModel(this._modelUri); }
 	}
 
@@ -614,6 +671,7 @@ export class AdeProjectService extends Disposable {
 			const result = draft ? { model: draft, diagnostics: validateSemanticModel(draft) } : migrateSemanticModel(value);
 			this.semantics.replace(result.model);
 			this._hasStructuralErrors = result.diagnostics.some(item => item.severity === 'error');
+			this._hasDiagramErrors = result.diagnostics.some(isAdeDiagramBlockingDiagnostic);
 			this.context = normalizeDiagramContext(result.model, this.context);
 			if ((this.section === 'element' || this.section === 'impact') && !result.model.semantics.elements.some(element => element.id === this.inspectionId)) {
 				this._section = 'diagram';
@@ -622,7 +680,9 @@ export class AdeProjectService extends Disposable {
 			this.navigation.replace(this.location);
 			this._diagnostics = result.diagnostics.map(diagnostic => diagnosticMessage(diagnostic, result.model));
 			this._error = undefined;
+			this._errorCause = undefined;
 		} catch (error) {
+			this._errorCause = error;
 			this._error = error instanceof InvalidSemanticModelError ? error.diagnostics.map(diagnostic => diagnosticMessage(diagnostic)).join('\n')
 				: localize('ade.loadFailed', "Could not read the selected model: {0}", String(error.message ?? error));
 		}
@@ -647,7 +707,9 @@ export class AdeProjectService extends Disposable {
 		this.workspaceChangePending = false;
 		this._loading = true;
 		this._error = undefined;
+		this._errorCause = undefined;
 		this._saveError = undefined;
+		this._saveErrorCause = undefined;
 		this.changeEmitter.fire();
 		try {
 			const watcher = this.watchDisposables.add(this.fileService.createWatcher(resource, { recursive: false, excludes: [] }));
@@ -668,7 +730,7 @@ export class AdeProjectService extends Disposable {
 			this.modelDisposables.add(document.onDidChangeDirty(() => this.changeEmitter.fire()));
 			this.modelDisposables.add(document.onDidChangeReadonly(() => this.changeEmitter.fire()));
 			this.modelDisposables.add(document.onDidSave(event => {
-				this._saveError = undefined; this.changeEmitter.fire();
+				this._saveError = undefined; this._saveErrorCause = undefined; this.changeEmitter.fire();
 				const suggest = !this.silentSave && event.reason === SaveReason.EXPLICIT;
 				this.recordingSave = this.recordingSave.then(() => this.recordSavedModel(resource, generation, suggest)).catch(() => { /* Invalid saved drafts cannot request code generation. */ });
 			}));
@@ -676,6 +738,7 @@ export class AdeProjectService extends Disposable {
 			this.savedModel = structuredClone(this.model); this.savedChange = undefined;
 		} catch (error) {
 			if (generation !== this.generation) { return; }
+			this._errorCause = error;
 			this._error = localize('ade.loadFailed', "Could not read the selected model: {0}", String(error.message ?? error));
 		} finally {
 			if (generation === this.generation) {
@@ -695,6 +758,7 @@ export class AdeProjectService extends Disposable {
 			if (generation === this.generation && document === this.document && document.isResolved() && !document.isDirty()) { this.readDocument(document); }
 		} catch (error) {
 			if (generation !== this.generation || this.document?.isDirty()) { return; }
+			this._errorCause = error;
 			this._error = localize('ade.refreshFailed', "Could not refresh the model from disk: {0}", String(error.message ?? error));
 			this.changeEmitter.fire();
 		}

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { adeErrorNotification } from '../browser/adeErrors.js';
 import { diagramToolDefinitions, diagramSessionInstruction } from '../common/diagramTools.js';
 import { ILanguageModelsService } from '../../chat/common/languageModels.js';
 import { ILanguageModelToolsService, ToolDataSource } from '../../chat/common/tools/languageModelToolsService.js';
@@ -132,7 +133,7 @@ export class AdeAiDiagrams extends Disposable {
 			}
 			this.watchConversation();
 			this.host.report(codeUpdate ? localize('ade.codeUpdate.ready', "Assistant Is Open · Saved Model Ready for Code Implementation") : localize('ade.ai.chatModalReady', "Assistant Is Open · Diagrams Update Automatically"));
-		} catch (error) { await this.aiDialog.close(); this.conversation = undefined; this.conversationWatch.clear(); const message = localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error)); this.host.report(message); this.notifications.error(message); }
+		} catch (error) { await this.aiDialog.close(); this.conversation = undefined; this.conversationWatch.clear(); const message = localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error)); this.host.report(message); this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); }
 		finally { this.chatOpening = false; this.host.busy = false; opening.dispose(); this.host.changed(); }
 	}
 
@@ -148,7 +149,7 @@ export class AdeAiDiagrams extends Disposable {
 		this.conversation = undefined; this.conversationWatch.clear();
 		this.explorationTools.clear(); this.explorationBinding = undefined;
 		if (this.exploration?.root === root) { this.exploration.resource = undefined; this.persistExploration(); }
-		try { await this.refreshExploration(true); } catch (error) { this.notifications.error(String(error)); }
+		try { await this.refreshExploration(true); } catch (error) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); }
 		this.host.changed();
 	}
 
@@ -164,7 +165,7 @@ export class AdeAiDiagrams extends Disposable {
 			if (!event.contains(resource)) { return; }
 			void refresh.trigger(async () => {
 				if (this.exploration?.id === session.id) { await this.refreshExploration(true); }
-			}).catch(error => { if (this.conversation && !isCancellationError(error)) { this.notifications.error(String(error)); } });
+			}).catch(error => { if (this.conversation && !isCancellationError(error)) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); } });
 		}));
 	}
 
@@ -183,7 +184,7 @@ export class AdeAiDiagrams extends Disposable {
 			return result.text;
 		} finally {
 			progress.dispose(); operation.dispose(); this.host.busy = false;
-			if (!update && this.code.context?.sourceRoot === root) { try { await this.refreshExploration(true); } catch (error) { this.notifications.error(String(error)); } }
+			if (!update && this.code.context?.sourceRoot === root) { try { await this.refreshExploration(true); } catch (error) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); } }
 			if (!update && !token.isCancellationRequested && this._diagramReview?.root === root) { await this.reviewDiagramProposal(this._diagramReview.id); }
 			this.host.changed();
 		}
@@ -471,17 +472,17 @@ export class AdeAiDiagrams extends Disposable {
 	get diagramProgress(): CodeDiagramProgress | undefined { return this._diagramProgress; }
 	get diagramExploration(): CodeDiagramExploration | undefined { return this._diagramExploration; }
 	beginGeneration(): void { this.diagramError?.close(); this.diagramError = undefined; }
-	failGeneration(message: string): void { this.diagramError = this.notifications.notify({ severity: Severity.Error, message }); }
+	failGeneration(error: unknown): void { this.diagramError = this.notifications.notify({ severity: Severity.Error, message: adeErrorNotification(error, 'ai', this.project.model) }); }
 	finishOperation(): void { this.diagramRunning = false; }
 	resetProject(): void {
-		void this.aiDialog.close();
+		void this.aiDialog.close().catch(error => { if (!isCancellationError(error)) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); } });
 		this.conversation = undefined; this.conversationWatch.clear();
 		this.explorationTools.clear(); this.explorationBinding = undefined;
 		this._diagramExploration = undefined; this._diagramReview = undefined;
 	}
 	followCodeContext(): void {
 		const context = this.code.context;
-		if (this.conversation && context && this.conversation.root !== context.sourceRoot) { void this.aiDialog.close(); this.conversation = undefined; this.conversationWatch.clear(); this.host.activityStatus = undefined; this.host.changed(); }
+		if (this.conversation && context && this.conversation.root !== context.sourceRoot) { void this.aiDialog.close().catch(error => { if (!isCancellationError(error)) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); } }); this.conversation = undefined; this.conversationWatch.clear(); this.host.activityStatus = undefined; this.host.changed(); }
 		if (this.exploration && context && this.exploration.root !== context.sourceRoot) { this.explorationTools.clear(); this.explorationBinding = undefined; this._diagramExploration = undefined; }
 		if (this._diagramProgress && context && this._diagramProgress.sourceRoot !== context.sourceRoot) { this._diagramProgress = undefined; this.host.changed(); }
 		const session = this.exploration;
@@ -490,7 +491,7 @@ export class AdeAiDiagrams extends Disposable {
 			if (this.restoringExploration === key) { return; }
 			this.restoringExploration = key;
 			void this.refreshExploration(true).catch(error => {
-				if (this.exploration === session && this.code.context?.sourceRoot === session.root && !isCancellationError(error)) { this.notifications.error(localize('ade.explore.restoreFailed', "Could Not Restore Saved Diagram Work: {0}", error instanceof Error ? error.message : String(error))); }
+				if (this.exploration === session && this.code.context?.sourceRoot === session.root && !isCancellationError(error)) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); }
 			}).finally(() => { if (this.restoringExploration === key) { this.restoringExploration = undefined; } });
 		}
 

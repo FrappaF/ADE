@@ -3,10 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { adeErrorNotification } from '../browser/adeErrors.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Disposable, DisposableStore, MutableDisposable, type IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -128,7 +130,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			else if (this.status === title) { this.status = localize('ade.code.operationDone', "{0} · Completed", title); }
 			return !cancellation.token.isCancellationRequested;
 		}
-		catch (error) { this.status = localize('ade.code.failed', "Code analysis failed: {0}", String(error.message ?? error)); if (!/abort|cancel/i.test(String(error))) { this.notifications.error(this.status); } return false; }
+		catch (error) { this.status = localize('ade.code.failed', "Code analysis failed: {0}", String(error.message ?? error)); if (!/abort|cancel/i.test(String(error))) { this.notifications.error(adeErrorNotification(error, 'code', this.project.model)); } return false; }
 		finally { cancellation.dispose(); operation.dispose(); this.changes.fire(); }
 	}
 	private setContext(context: CodeContext | undefined): void {
@@ -160,7 +162,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			try {
 				const context = await this.request<CodeContext>({ operation: 'inspect', snapshot: dirname(resource).fsPath });
 				if (current()) { this.status = localize('ade.code.contextReady', "Linked Codebase Ready · Sync Project Reviews the Entire Configured Scope"); this.setContext(context); }
-			} catch { if (current()) { this.observed = ''; this.setContext(undefined); } }
+			} catch (error) { if (current()) { this.observed = ''; this.status = adeErrorNotification(error, 'code', this.project.model); this.setContext(undefined); } }
 			finally { if (this.contextGeneration === generation) { this.contextLoading = false; this.changes.fire(); } }
 		})();
 		await this.refreshing;
@@ -479,6 +481,9 @@ for (const [id, title, method] of [
 ] as const) {
 	registerAction2(class extends Action2 {
 		constructor() { super({ id, title, category: localize2('ade.code.category', "A.D.E"), f1: true }); }
-		override async run(accessor: ServicesAccessor): Promise<void> { await accessor.get(IAdeCodeService)[method](); }
+		override async run(accessor: ServicesAccessor): Promise<void> {
+			try { await accessor.get(IAdeCodeService)[method](); }
+			catch (error) { if (!isCancellationError(error)) { accessor.get(INotificationService).error(adeErrorNotification(error, 'code', accessor.get(IAdeProjectService).model)); } }
+		}
 	});
 }

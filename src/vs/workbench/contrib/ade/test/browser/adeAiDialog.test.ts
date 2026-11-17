@@ -116,7 +116,7 @@ suite('A.D.E transient assistant dialog', () => {
 		const dialog = store.add(new AdeAiDialog(root, { onClose: async () => {}, send: async () => { if (++sent === 1) { throw new Error('Provider stopped responding'); } return 'Recovered'; } })); dialog.showConversation();
 		const input = dialog.element.querySelector('textarea')!, button = dialog.element.querySelector<HTMLButtonElement>('form button')!;
 		enterText(input, 'First attempt'); input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await timeout(0);
-		assert.deepStrictEqual([button.disabled, button.querySelector('.codicon-modifier-spin'), dialog.element.querySelector('[role="alert"]')?.textContent], [true, null, 'Provider stopped responding']);
+		assert.deepStrictEqual([button.disabled, button.querySelector('.codicon-modifier-spin'), dialog.element.querySelector('.ade-error-notice pre')?.textContent], [true, null, 'Provider stopped responding']);
 		enterText(input, 'Continue'); input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await timeout(0);
 		assert.deepStrictEqual([sent, button.disabled, dialog.element.querySelector('[role="alert"]'), dialog.element.textContent?.includes('Recovered')], [2, true, null, true]); await dialog.close();
 	});

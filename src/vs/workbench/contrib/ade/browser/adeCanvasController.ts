@@ -14,6 +14,7 @@ import { notationGroupMembers } from '../common/diagramLayout.js';
 
 interface AdeCanvasControllerHost {
 	readonly root: HTMLElement;
+	reportError?(error: unknown): void;
 }
 
 /** Owns camera state and per-render pointer/keyboard listeners for the ADE editor. */
@@ -130,7 +131,10 @@ export class AdeCanvasController extends Disposable {
 
 	installNodeEditing(button: HTMLButtonElement, view: ModelView, id: string, model: SemanticModel, isBoundary: boolean): void {
 		const members = isBoundary ? notationGroupMembers(model, view, id) : new Set([id]);
-		const move = (dx: number, dy: number) => this.project.editBatch(view.nodes.filter(node => members.has(node.elementId)).map(node => ({ kind: 'position', viewId: view.id, id: node.elementId, x: Math.round(node.x + dx), y: Math.round(node.y + dy) })));
+		const move = (dx: number, dy: number) => {
+			try { this.project.editBatch(view.nodes.filter(node => members.has(node.elementId)).map(node => ({ kind: 'position', viewId: view.id, id: node.elementId, x: Math.round(node.x + dx), y: Math.round(node.y + dy) }))); }
+			catch (error) { if (this.host.reportError) { this.host.reportError(error); } else { throw error; } }
+		};
 		let drag: { x: number; y: number; left: number; top: number } | undefined;
 		this.interactions.add(dom.addDisposableListener(button, 'pointerdown', (event: PointerEvent) => {
 			if (event.button !== 0 || event.altKey) { return; }

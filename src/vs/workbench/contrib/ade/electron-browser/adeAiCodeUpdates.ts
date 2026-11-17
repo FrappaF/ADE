@@ -13,6 +13,7 @@ import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IAdeProjectService } from '../browser/adeProjectService.js';
+import { adeErrorNotification } from '../browser/adeErrors.js';
 import { canonicalJson } from '../common/modelSerialization.js';
 import { codeUpdateContent, type SavedModelChange } from '../common/modelCodeUpdate.js';
 import { type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
@@ -31,7 +32,7 @@ export class AdeAiCodeUpdates extends Disposable {
 		@IWorkspaceTrustRequestService private readonly trust: IWorkspaceTrustRequestService
 	) {
 		super();
-		this._register(project.onDidSaveModel(change => { void this.suggest(change).catch(error => this.host.info(String(error))); }));
+		this._register(project.onDidSaveModel(change => { void this.suggest(change).catch(error => this.host.info(adeErrorNotification(error, 'ai', this.project.model))); }));
 	}
 	private enabled(): boolean { return !this.host.busy && !this.opening && this.configuration.getValue<boolean>('chat.disableAIFeatures') !== true && this.project.projectRoot?.scheme === 'file' && this.project.modelUri?.scheme === 'file' && this.project.editable && !this.project.error && !this.project.hasStructuralErrors; }
 	private current(change: SavedModelChange): boolean { return change.modelUri === this.project.modelUri?.toString() && canonicalJson(codeUpdateContent(change.model)) === canonicalJson(codeUpdateContent(this.project.model)); }

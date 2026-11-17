@@ -51,8 +51,8 @@ suite('A.D.E blueprint wizard', () => {
 		button('Shared Types');
 		await page('Shared Types');
 		await next('Type Name');
-		button('Next'); await waitForDOM(() => parent.querySelector('[role="alert"]')?.textContent === 'Enter a value.');
-		assert.strictEqual(parent.querySelector('[role="alert"]')?.textContent, 'Enter a value.');
+		button('Next'); await waitForDOM(() => parent.querySelector('.ade-error-notice dd')?.textContent === 'Enter a value.');
+		assert.strictEqual(parent.querySelector('.ade-error-notice dd')?.textContent, 'Enter a value.');
 		fill('Delivery State'); await next('Type Kind');
 		select('Enumeration'); await next('Values (Separated by Semicolons)');
 		fill('pending; shipped'); await next('Review Your Blueprint Changes');

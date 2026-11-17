@@ -40,7 +40,7 @@ export class AdeBlueprintWizard extends AdeEditingWizard {
 						if (error.index < 0) { mode = undefined; contextual = false; this.steps = []; }
 						continue;
 					}
-					try { await this.showMessage(localize('ade.blueprint.wizard.unavailable', "This Step Needs More Information"), error instanceof Error ? error.message : String(error)); }
+					try { await this.showMessage(localize('ade.blueprint.wizard.unavailable', "This Step Needs More Information"), error instanceof Error ? error.message : String(error), error); }
 					catch (navigation) {
 						if (navigation instanceof WizardCanceled) { return; }
 						if (!(navigation instanceof WizardBack)) { throw navigation; }

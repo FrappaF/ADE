@@ -158,10 +158,11 @@ suite('A.D.E imported diagram review', () => {
 		f.review.proposal.diagnostics = [{ code: 'contract', path: '/review', args: ['staleEvidence:evidence:opaque-hash'] }];
 		f.render();
 		const alert = root.querySelector('[role="alert"]')!;
-		assert.strictEqual(alert.querySelectorAll('li').length, 1);
-		assert.ok(alert.textContent?.includes('Source Files Changed After Analysis'));
-		assert.ok(!alert.textContent?.includes('opaque-hash'));
-		assert.ok(!alert.textContent?.includes('projectNotReady'));
+		const explanation = alert.querySelector('dd')?.textContent ?? '';
+		assert.ok(explanation.includes('Source Files Changed After Analysis'));
+		assert.ok(!explanation.includes('opaque-hash'));
+		assert.ok(!explanation.includes('projectNotReady'));
+		assert.deepStrictEqual([alert.querySelectorAll('dd').length, alert.querySelector('details')?.open, alert.querySelector('pre')?.textContent], [2, false, f.review.problem]);
 	});
 
 	test('hostile review labels remain text; busy operations disable mutation and refresh', () => {

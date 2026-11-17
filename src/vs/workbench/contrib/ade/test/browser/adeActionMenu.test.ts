@@ -63,4 +63,22 @@ suite('A.D.E action menu hierarchy', () => {
 		document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 		assert.strictEqual(details.open, false);
 	});
+
+	test('reports synchronous and asynchronous action failures through the shared controls', async () => {
+		const received: Error[] = [];
+		const synchronous = new Error('Synchronous failure');
+		const asynchronous = new Error('Asynchronous failure');
+		const reported = new Promise<void>(resolve => {
+			const reporting = store.add(new AdeControls(error => {
+				assert.ok(error instanceof Error);
+				received.push(error);
+				if (received.length === 2) { resolve(); }
+			}));
+			const actions = new AdeActionMenu(reporting);
+			actions.action(root, 'Synchronous Action', () => { throw synchronous; }).click();
+			actions.action(root, 'Asynchronous Action', async () => { throw asynchronous; }).click();
+		});
+		await reported;
+		assert.deepStrictEqual(received, [synchronous, asynchronous]);
+	});
 });

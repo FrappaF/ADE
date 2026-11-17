@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { adeErrorNotification } from './adeErrors.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -65,7 +66,7 @@ for (const [id, title, method] of [
 		async run(accessor: import('../../../../platform/instantiation/common/instantiation.js').ServicesAccessor): Promise<void> {
 			const service = accessor.get(IAdeProjectWorkspaceService), notifications = accessor.get(INotificationService);
 			try { await service[method](); }
-			catch (error) { notifications.error(localize('ade.workspace.failed', "Could not open the project tool: {0}", String(error.message ?? error))); }
+			catch (error) { notifications.error(adeErrorNotification(error, 'load')); }
 		}
 	});
 }

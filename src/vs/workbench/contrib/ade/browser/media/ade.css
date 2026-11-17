@@ -638,6 +638,58 @@
 	display: none;
 }
 
+/* Error explanations stay in context, with one leading title and a quieter disclosure. */
+.ade-error-notice {
+	min-width: 0;
+	margin-block: var(--vscode-spacing-size120);
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+	border: var(--vscode-strokeThickness) solid var(--vscode-inputValidation-errorBorder);
+	border-radius: var(--vscode-cornerRadius-medium);
+	background: var(--vscode-inputValidation-errorBackground);
+	color: var(--vscode-editor-foreground);
+	font-size: var(--vscode-fontSize-body1);
+}
+
+.ade-error-notice > h3 {
+	margin: 0 0 var(--vscode-spacing-size120);
+	color: var(--vscode-errorForeground);
+	font-size: var(--vscode-fontSize-heading3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-error-notice dl {
+	margin: 0;
+}
+
+.ade-error-notice dt {
+	margin-block-start: var(--vscode-spacing-size80);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-error-notice dd {
+	margin: var(--vscode-spacing-size40) 0 var(--vscode-spacing-size120);
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+}
+
+.ade-error-notice pre {
+	max-height: 12em;
+	margin-block: var(--vscode-spacing-size80);
+	overflow: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.ade-error-summary {
+	max-height: 35vh;
+	padding-inline: var(--vscode-spacing-size160);
+	overflow: auto;
+}
+
+.ade-shell.ade-canvas-mode:has(> .ade-error-summary) {
+	grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .ade-form-field [aria-invalid="true"] {
 	border-color: var(--vscode-inputValidation-errorBorder);
 }
