@@ -318,6 +318,10 @@ export class AdeCanvasSurface {
 			button.style.width = `${position.width}px`;
 			button.style.height = `${position.height}px`;
 			button.dataset.notationKind = element.kind;
+			if (element.kind === 'useCase') {
+				button.textContent = '';
+				dom.append(button, dom.$('span.ade-node-name')).textContent = element.name;
+			}
 			for (const line of boundaryBoxes.some(box => box.elementId === element.id) ? [] : notationLines(element)) { dom.append(button, dom.$('span.ade-node-member')).textContent = line; }
 			button.setAttribute('aria-pressed', String(!this.relationSelection && element.id === this.project.selectedId));
 			button.setAttribute('aria-description', [elementLabels[element.kind], ...notationLines(element)].join(' · '));

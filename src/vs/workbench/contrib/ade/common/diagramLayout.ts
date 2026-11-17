@@ -119,6 +119,14 @@ export function notationLines(element: SemanticElement): string[] {
 export function notationNodeSize(element: SemanticElement): { width: number; height: number } {
 	if (element.kind === 'start' || element.kind === 'end') { return { width: 80, height: 80 }; }
 	const lines = notationLines(element);
+	if (element.kind === 'useCase') {
+		const contentRatio = 0.7;
+		const width = Math.max(256, Math.min(440, Math.ceil(Math.max(element.name.length, ...lines.map(line => line.length)) * 8 / contentRatio + 32)));
+		// Keep the centered content inside the oval, matching the 70% text width in CSS.
+		const columns = Math.max(1, Math.floor((width * contentRatio - 2) / 8));
+		const contentHeight = 16 + 8 + wrapDiagramText(element.name, columns).length * 20 + lines.reduce((height, line) => height + 17 + wrapDiagramText(line, columns).length * 22, 0);
+		return { width, height: Math.max(136, Math.ceil(width / 2), Math.ceil(contentHeight / contentRatio)) };
+	}
 	const width = Math.max(208, Math.min(440, Math.max(element.name.length, ...lines.map(line => line.length)) * 8 + 40));
 	const columns = Math.max(1, Math.floor((width - 32) / 8));
 	return { width, height: Math.max(96, 60 + Math.ceil(element.name.length / columns) * 20 + lines.reduce((rows, line) => rows + Math.ceil(line.length / columns), 0) * 22) };

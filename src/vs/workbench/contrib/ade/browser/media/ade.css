@@ -1306,7 +1306,33 @@
 	border-top: 1px solid var(--vscode-panel-border);
 }
 .ade-shell .ade-node[data-notation-kind="useCase"] {
-	border-radius: 50%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--vscode-spacing-size80);
+	border-radius: 40% / 50%;
+	padding: 0;
+	text-align: center;
+	line-height: 20px;
+}
+.ade-shell .ade-node[data-notation-kind="useCase"]::before,
+.ade-shell .ade-node[data-notation-kind="useCase"] > span {
+	/* Match notationNodeSize: the content rectangle stays clear of the curved border. */
+	width: 70%;
+	box-sizing: border-box;
+	flex-shrink: 0;
+}
+.ade-shell .ade-node[data-notation-kind="useCase"]::before {
+	margin-bottom: 0;
+	line-height: 16px;
+}
+.ade-shell .ade-node[data-notation-kind="useCase"] > .ade-node-name {
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+.ade-shell .ade-node[data-notation-kind="useCase"] > .ade-node-member {
+	padding-top: var(--vscode-spacing-size80);
+	text-align: center;
 }
 .ade-shell .ade-node[data-notation-kind="dataStore"],
 .ade-shell .ade-node[data-notation-kind="resource"] {
