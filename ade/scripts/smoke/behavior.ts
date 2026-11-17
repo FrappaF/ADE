@@ -8,7 +8,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { revealAdeButton, clickAdeButton, closeCanvasActions, revealAdeText, chooseAdeDiagram, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, connect, runCommand, searchSystem, contractEntry } from './helpers.ts';
+import { revealAdeButton, clickAdeButton, closeCanvasActions, revealAdeText, chooseAdeDiagram, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, connect, runCommand, searchSystem, contractEntry, completeDiagramForm, applyWizardChanges } from './helpers.ts';
 
 /** behavior scenarios share only the harness values listed here. */
 export function createBehaviorScenarios(harness: SmokeHarness) {
@@ -122,10 +122,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		let shell = window.locator('.ade-shell');
 		await openModelFile(window, modelFile);
 		await runCommand(window, 'A.D.E: Add Diagram');
-		await pickValue(window, 'Choose Feature', 'Conferma acquisto');
-		await pickValue(window, 'Diagram Type', 'State Diagram');
-		await pickValue(window, 'Resource Lifecycle', 'Ordine');
-		await enterValue(window, 'Name', 'Order Lifecycle');
+		await completeDiagramForm(window, { feature: 'Conferma acquisto', kind: 'State Diagram', resource: 'Ordine', name: 'Order Lifecycle' });
 		await shell.getByRole('region', { name: 'Diagram: Order Lifecycle', exact: true }).waitFor();
 		await revealAdeText(window, '0 of 3 declared states visible · 0 visible transitions');
 		assert.equal(await shell.locator('.ade-node').count(), 1);
@@ -151,6 +148,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await contractEntry(window, 'In attesa', 'Errors');
 		await enterValue(window, 'Error Code', 'payment-declined');
 		await enterValue(window, 'Error Description', 'Nessun ordine confermato');
+		await applyWizardChanges(window);
 		await closeCanvasActions(window);
 		await shell.locator('.ade-node').getByText('Pagamento rifiutato', { exact: true }).click();
 		await clickAdeButton(window, 'Edit Relationship Error');
@@ -221,11 +219,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await window.keyboard.press('Enter');
 		await shell.locator('.ade-node').getByText('Annullato', { exact: true }).waitFor();
 		await runCommand(window, 'A.D.E: Add Diagram');
-		await pickValue(window, 'Choose Feature', 'Conferma acquisto');
-		await pickValue(window, 'Diagram Type', 'State Diagram');
-		await pickValue(window, 'Resource Lifecycle', 'Create New Resource');
-		await enterValue(window, 'Resource Name', 'Spedizione');
-		await enterValue(window, 'Name', 'Shipment Lifecycle');
+		await completeDiagramForm(window, { feature: 'Conferma acquisto', kind: 'State Diagram', newResource: 'Spedizione', name: 'Shipment Lifecycle' });
 		await shell.getByRole('region', { name: 'Diagram: Shipment Lifecycle', exact: true }).waitFor();
 		await shell.locator('.ade-node').getByText('Spedizione', { exact: true }).waitFor();
 		await clickAdeButton(window, 'Undo'); await closeCanvasActions(window);
@@ -244,9 +238,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		let shell = window.locator('.ade-shell');
 		await openModelFile(window, modelFile);
 		await runCommand(window, 'A.D.E: Add Diagram');
-		await pickValue(window, 'Choose Feature', 'Conferma acquisto');
-		await pickValue(window, 'Diagram Type', 'Sequence Diagram');
-		await enterValue(window, 'Name', 'Purchase Sequence');
+		await completeDiagramForm(window, { feature: 'Conferma acquisto', kind: 'Sequence Diagram', name: 'Purchase Sequence' });
 		await shell.getByRole('region', { name: 'Diagram: Purchase Sequence', exact: true }).waitFor();
 		await revealAdeText(window, 'This diagram has no elements.');
 		const ids = ['customer-checkout', 'checkout-confirm', 'confirm-payment', 'payment-gateway', 'confirm-order', 'show-declined', 'confirm-cart'];
@@ -284,6 +276,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await enterValue(window, 'Field Name', 'orderId');
 		await enterValue(window, 'Field Type', 'OrderReference');
 		await pickValue(window, 'Field Presence', 'Required');
+		await applyWizardChanges(window);
 		await revealAdeText(window, 'Output: orderId (OrderReference), Required');
 		await clickAdeButton(window, 'Read Diagram');
 		await readAccessibleText(window, ['Message 1', 'Message 8', 'Output: orderId (OrderReference), Required']);

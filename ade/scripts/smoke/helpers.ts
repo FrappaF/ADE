@@ -122,25 +122,93 @@ export async function openModelFile(window: Page, file: string) {
 	await openProperties(window);
 }
 
+/** Support native quick inputs, grouped forms and shared wizard steps by their visible labels. */
 export async function enterValue(window: Page, title: string, value: string) {
-	const widget = window.locator('.quick-input-widget');
-	await widget.getByText(title, { exact: true }).waitFor();
-	await widget.locator('input:visible').fill(value);
-	await window.keyboard.press('Enter');
-	await widget.getByText(title, { exact: true }).waitFor({ state: 'hidden' });
+	const surface = window.locator('.quick-input-widget:visible, dialog.ade-form-dialog:visible, dialog.ade-editing-wizard:visible').filter({ has: window.getByText(title, { exact: true }) }).first();
+	await surface.waitFor();
+	if (await surface.evaluate(element => element.matches('dialog.ade-form-dialog'))) {
+		await surface.getByLabel(title, { exact: true }).fill(value);
+		await submitAdeForm(window);
+	} else if (await surface.evaluate(element => element.matches('dialog.ade-editing-wizard'))) {
+		const input = await surface.locator('input[type="text"], input[type="password"]').elementHandle();
+		await surface.locator('input[type="text"], input[type="password"]').fill(value);
+		await surface.getByRole('button', { name: 'Next', exact: true }).click();
+		await input!.waitForElementState('hidden');
+	} else {
+		await surface.locator('input:visible').fill(value);
+		await window.keyboard.press('Enter');
+		await surface.getByText(title, { exact: true }).waitFor({ state: 'hidden' });
+	}
 }
 
 export async function pickValue(window: Page, title: string, label: string, timeout = 30000) {
-	const widget = window.locator('.quick-input-widget');
-	await widget.getByText(title, { exact: true }).waitFor({ timeout });
-	const initialChoices = await widget.locator('.quick-input-list-row .label-name').allTextContents();
-	await widget.locator('input:visible').fill(label);
+	const surface = window.locator('.quick-input-widget:visible, dialog.ade-editing-wizard:visible').filter({ has: window.getByText(title, { exact: true }) }).first();
+	await surface.waitFor({ timeout });
+	if (await surface.evaluate(element => element.matches('dialog.ade-editing-wizard'))) {
+		const choice = surface.locator('label.ade-blueprint-choice').filter({ has: window.locator('strong').filter({ hasText: new RegExp(`^${RegExp.escape(label)}$`) }) });
+		const previous = await choice.elementHandle();
+		await choice.click();
+		await surface.getByRole('button', { name: 'Next', exact: true }).click();
+		await previous!.waitForElementState('hidden');
+		return;
+	}
+	const initialChoices = await surface.locator('.quick-input-list-row .label-name').allTextContents();
+	await surface.locator('input:visible').fill(label);
 	// Match the complete item label, not a highlighted substring in another result.
-	const choice = widget.locator('.quick-input-list .quick-input-list-row:first-child .label-name').filter({ hasText: new RegExp(`^${RegExp.escape(label)}$`) });
+	const choice = surface.locator('.quick-input-list .quick-input-list-row:first-child .label-name').filter({ hasText: new RegExp(`^${RegExp.escape(label)}$`) });
 	try { await choice.click(); }
 	catch (error) { console.error(`Quick pick ${title}: expected ${label}; initial choices: ${JSON.stringify(initialChoices)}`); throw error; }
-	// A following input may reuse the title, as when adding a precondition.
 	await choice.waitFor({ state: 'hidden' });
+}
+
+/** Review remains an explicit smoke action, matching the product's atomic save boundary. */
+export async function applyWizardChanges(window: Page) {
+	const wizard = window.locator('dialog.ade-editing-wizard:visible');
+	await wizard.getByRole('heading', { name: 'Review Your Changes', exact: true }).waitFor();
+	await wizard.getByRole('button', { name: 'Apply Changes', exact: true }).click();
+	await wizard.waitFor({ state: 'hidden' });
+}
+
+export async function submitAdeForm(window: Page) {
+	const dialog = window.locator('dialog.ade-form-dialog:visible');
+	await dialog.locator(':scope > footer button[type="submit"]').click();
+	await dialog.waitFor({ state: 'hidden' });
+}
+
+/** Match context-qualified options while rejecting ambiguous homonyms. */
+async function selectAdeFormOption(window: Page, field: string, label: string, context?: string) {
+	const select = window.locator('dialog.ade-form-dialog:visible').getByLabel(field, { exact: true });
+	await select.waitFor();
+	const options = await select.locator('option').evaluateAll(options => options.map(option => ({ label: option.textContent ?? '', value: option.getAttribute('value') ?? '' })));
+	const matches = options.filter(option => (option.label === label || option.label.startsWith(label + ' · ')) && (!context || option.label.includes(context)));
+	if (matches.length !== 1) { throw new Error(`Expected one ${field} option for ${label}${context ? ` (${context})` : ''}; found ${JSON.stringify(matches)}`); }
+	await select.selectOption(matches[0].value);
+}
+
+/** Complete all fields together, then submit once, including an optional new lifecycle resource. */
+export async function completeDiagramForm(window: Page, options: { name: string; kind: string; feature: string; resource?: string; resourceContext?: string; newResource?: string }) {
+	const dialog = window.locator('dialog.ade-form-dialog:visible');
+	await dialog.getByRole('heading', { name: 'Create Diagram', exact: true }).waitFor();
+	await dialog.getByLabel('Name', { exact: true }).fill(options.name);
+	await selectAdeFormOption(window, 'Diagram Type', options.kind);
+	await selectAdeFormOption(window, 'Choose Feature', options.feature);
+	if (options.resource || options.newResource) {
+		await selectAdeFormOption(window, 'Resource Whose State Is Represented', options.resource ?? 'Create New Resource', options.resourceContext);
+		if (options.newResource) { await dialog.getByLabel('Resource Name', { exact: true }).fill(options.newResource); }
+	}
+	await submitAdeForm(window);
+}
+
+export async function completeRelationForm(window: Page, options: { source?: string; target?: string; kind?: string; name: string; condition: string; error?: string }) {
+	const dialog = window.locator('dialog.ade-form-dialog:visible');
+	await dialog.waitFor();
+	if (options.source) { await selectAdeFormOption(window, 'Relationship Source', options.source); }
+	if (options.kind) { await selectAdeFormOption(window, 'Relationship Type', options.kind); }
+	if (options.target) { await selectAdeFormOption(window, 'Target Element', options.target); }
+	await dialog.getByLabel('Relationship Name', { exact: true }).fill(options.name);
+	await dialog.getByLabel('Condition (Optional)', { exact: true }).fill(options.condition);
+	if (options.error) { await selectAdeFormOption(window, 'Relationship Error', options.error); }
+	await submitAdeForm(window);
 }
 
 export async function readAccessibleText(window: Page, expected: readonly string[]) {
@@ -168,27 +236,11 @@ export async function chooseFolder(window: Page, folder: string) {
 
 export async function addElement(window: Page, kind: string, name: string) {
 	await window.locator('.ade-shell').getByRole('button', { name: 'Add Element', exact: true }).click();
-	const widget = window.locator('.quick-input-widget');
-	await widget.getByText('Element Type', { exact: true }).waitFor();
-	await widget.locator('.quick-input-list-row .label-name').first().waitFor();
-	const direct = widget.locator('.quick-input-list-row .label-name').filter({ hasText: new RegExp(`^${RegExp.escape(kind)}$`) });
-	if (await direct.count()) { await pickValue(window, 'Element Type', kind); }
-	else {
-		const groups: Record<string, readonly string[]> = {
-			Architecture: ['Software System', 'Container', 'Package'],
-			Data: ['Entity', 'Table', 'Class', 'Contract', 'Data Store'],
-			Interfaces: ['Interface'],
-			Behavior: ['Controller', 'Action', 'State', 'Use Case', 'Process'],
-			Flow: ['Decision', 'Start', 'End'],
-			Infrastructure: ['Deployment Node', 'Artifact', 'Network Node']
-		};
-		const group = Object.entries(groups).find(([, kinds]) => kinds.includes(kind))?.[0];
-		if (!group) { throw new Error(`No element type group for ${kind}`); }
-		await pickValue(window, 'Element Type', 'More Element Types');
-		await pickValue(window, 'Element Type', group);
-		await pickValue(window, group, kind);
-	}
-	await enterValue(window, 'Name', name);
+	const dialog = window.locator('dialog.ade-form-dialog:visible');
+	await dialog.getByRole('heading', { name: 'Add Element', exact: true }).waitFor();
+	await selectAdeFormOption(window, 'Element Type', kind);
+	await dialog.getByLabel('Name', { exact: true }).fill(name);
+	await submitAdeForm(window);
 	await window.locator('.ade-canvas').getByRole('button', { name, exact: true }).waitFor();
 }
 
@@ -197,11 +249,7 @@ export async function connect(window: Page, source: string, target: string, kind
 	await window.locator('.ade-canvas').getByRole('button', { name: source, exact: true }).click();
 	await openProperties(window);
 	await clickAdeButton(window, 'Connect Selection');
-	await pickValue(window, 'Relationship Type', kind);
-	await pickValue(window, 'Target Element', target);
-	await enterValue(window, 'Relationship Name', name);
-	await enterValue(window, 'Condition (Optional)', condition);
-	await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
+	await completeRelationForm(window, { target, kind, name, condition });
 }
 
 export async function runCommand(window: Page, name: string) {

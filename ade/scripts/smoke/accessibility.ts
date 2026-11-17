@@ -7,7 +7,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { revealAdeButton, clickAdeButton, chooseAdeDiagram, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, chooseFolder, runCommand } from './helpers.ts';
+import { revealAdeButton, clickAdeButton, chooseAdeDiagram, openModelFile, openProperties, enterValue, pickValue, readAccessibleText, chooseFolder, runCommand, completeRelationForm } from './helpers.ts';
 
 /** accessibility scenarios share only the harness values listed here. */
 export function createAccessibilityScenarios(harness: SmokeHarness) {
@@ -265,8 +265,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await window.getByRole('menuitem', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
 		await pickValue(window, 'Relationship Type', 'Dependency');
 		await shell.locator('.ade-node').filter({ hasText: /^Carrello$/ }).click();
-		await enterValue(window, 'Relationship Name', 'Dipendenza dal carrello');
-		await enterValue(window, 'Condition (Optional)', 'carrello valido');
+		await completeRelationForm(window, { name: 'Dipendenza dal carrello', condition: 'carrello valido' });
 		assert.equal(await shell.locator('g.ade-connection').count(), initial + 1);
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
 		assert.equal(await shell.locator('g.ade-connection').count(), initial);
@@ -282,12 +281,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await window.getByRole('menuitem', { name: 'Edit Relationship…', exact: true }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'followup-relation-menu.png') });
 		await window.getByRole('menuitem', { name: 'Edit Relationship…', exact: true }).press('Enter');
-		await pickValue(window, 'Relationship Source', 'Conferma ordine');
-		await pickValue(window, 'Relationship Type', 'Read');
-		await pickValue(window, 'Target Element', 'Ordine');
-		await enterValue(window, 'Relationship Name', 'Legge ordine');
-		await enterValue(window, 'Condition (Optional)', 'ordine esistente');
-		await pickValue(window, 'Relationship Error', 'No Error');
+		await completeRelationForm(window, { source: 'Conferma ordine', kind: 'Read', target: 'Ordine', name: 'Legge ordine', condition: 'ordine esistente', error: 'No Error' });
 		await shell.locator('.ade-connection-label').filter({ hasText: /^Read · Legge ordine · \[ordine esistente\]/ }).waitFor();
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
 		await relation.waitFor();

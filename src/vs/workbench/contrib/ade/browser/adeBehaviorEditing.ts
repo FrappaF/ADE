@@ -9,7 +9,7 @@ import { IQuickInputService } from '../../../../platform/quickinput/common/quick
 import { ModelBehavior, SemanticElement, SemanticModel } from '../common/modelTypes.js';
 
 /** Collect one complete change on a detached contract. Escape never commits a partial entry. */
-export async function editAdeBehavior(quickInput: IQuickInputService, model: SemanticModel, element: SemanticElement): Promise<ModelBehavior | undefined> {
+export async function editAdeBehavior(quickInput: Pick<IQuickInputService, 'pick' | 'input'>, model: SemanticModel, element: SemanticElement): Promise<ModelBehavior | undefined> {
 	const behavior: ModelBehavior = structuredClone(element.behavior ?? {
 		inputs: [], outputs: [], preconditions: [], postconditions: [], errors: [], permissions: [], acceptanceCriteria: []
 	});

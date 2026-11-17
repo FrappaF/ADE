@@ -8,7 +8,7 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { mkdir, copyFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { clickAdeButton, closeCanvasActions, revealAdeText, chooseAdeDiagram, openModelFile, enterValue, pickValue, chooseFolder, addElement, connect, runCommand, searchSystem, contractEntry } from './helpers.ts';
+import { clickAdeButton, closeCanvasActions, revealAdeText, chooseAdeDiagram, openModelFile, enterValue, pickValue, chooseFolder, addElement, connect, runCommand, searchSystem, contractEntry, completeDiagramForm, applyWizardChanges } from './helpers.ts';
 
 /** projects scenarios share only the harness values listed here. */
 export function createProjectsScenarios(harness: SmokeHarness) {
@@ -41,6 +41,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await enterValue(window, 'Field Name', 'sensorId');
 		await enterValue(window, 'Field Type', 'SensorId');
 		await pickValue(window, 'Field Presence', 'Required');
+		await applyWizardChanges(window);
 		await revealAdeText(window, 'Input: sensorId (SensorId), Required');
 		await chooseAdeDiagram(window, 'Acquisizione dati · Flow');
 		await runCommand(window, 'A.D.E: Add Existing Element');
@@ -49,9 +50,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await connect(window, 'Raccoglitore', 'Valida misura', 'Invocation', 'Valida', 'Valore non negativo');
 		await revealAdeText(window, 'Input: sensorId (SensorId), Required');
 		await runCommand(window, 'A.D.E: Add Diagram');
-		await pickValue(window, 'Choose Feature', 'Acquisizione dati');
-		await pickValue(window, 'Diagram Type', 'Sequence Diagram');
-		await enterValue(window, 'Name', 'Sequenza dati');
+		await completeDiagramForm(window, { feature: 'Acquisizione dati', kind: 'Sequence Diagram', name: 'Sequenza dati' });
 		for (const label of ['Tecnico → Console: Invia', 'Console → Raccoglitore: Acquisisci', 'Raccoglitore → Campione: Registra']) {
 			await clickAdeButton(window, 'Add Existing Message');
 			await pickValue(window, 'Add Existing Message', label);
@@ -67,10 +66,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		assert.deepEqual(await messages(), before);
 		await shell.getByRole('button', { name: 'Redo', exact: true }).click();
 		await runCommand(window, 'A.D.E: Add Diagram');
-		await pickValue(window, 'Choose Feature', 'Acquisizione dati');
-		await pickValue(window, 'Diagram Type', 'State Diagram');
-		await pickValue(window, 'Resource Lifecycle', 'Campione');
-		await enterValue(window, 'Name', 'Ciclo campioni');
+		await completeDiagramForm(window, { feature: 'Acquisizione dati', kind: 'State Diagram', resource: 'Campione', name: 'Ciclo campioni' });
 		for (const name of ['Nuovo', 'Archiviato']) {
 			await shell.getByRole('button', { name: 'Add State', exact: true }).click();
 			await enterValue(window, 'Name', name);
@@ -124,12 +120,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await shell.getByText('This project has no diagrams. Add a diagram to an existing feature to continue.', { exact: true }).waitFor();
 		assert.equal(await shell.locator('.ade-impact, .ade-canvas').count(), 0);
 		await shell.getByRole('button', { name: 'Add Diagram', exact: true }).click();
-		await pickValue(window, 'Choose Feature', 'Acquisizioni notturne');
-		await pickValue(window, 'Diagram Type', 'State Diagram');
-		await window.locator('.quick-input-widget').getByText('Resource Lifecycle', { exact: true }).waitFor();
-		const resource = window.locator('.quick-input-widget .monaco-list-row').filter({ hasText: 'Coordinatore' });
-		await resource.getByText('Esposizione', { exact: true }).click();
-		await enterValue(window, 'Name', 'Stati esposizione');
+		await completeDiagramForm(window, { feature: 'Acquisizioni notturne', kind: 'State Diagram', resource: 'Esposizione', resourceContext: 'Coordinatore', name: 'Stati esposizione' });
 		await runCommand(window, 'A.D.E: Include Resource Lifecycle');
 		await revealAdeText(window, '2 of 2 declared states visible · 1 visible transitions');
 		await searchSystem(window, 'Contract', 'Vincoli ottici');
