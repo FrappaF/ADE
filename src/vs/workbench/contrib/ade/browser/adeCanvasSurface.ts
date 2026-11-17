@@ -28,6 +28,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { AdeCanvasController } from './adeCanvasController.js';
 import { getProjectedInteraction } from '../common/visualNavigation.js';
+import { type BlueprintEditMode } from './adeBlueprintEditing.js';
 
 
 interface AdeCanvasSurfaceHost {
@@ -72,6 +73,7 @@ export class AdeCanvasSurface {
 		const actions = this.controls.details(menu, localize('ade.canvas.diagramMenu', "Diagram"), 'canvas-actions', { popup: true });
 		const content = this.controls.details(actions, localize('ade.canvas.contents', "Contents"), 'canvas-contents');
 		if (this.project.editable) {
+			this.renderBlueprintActions(content, view);
 			for (const [label, command] of [
 				...(!interaction ? [[localize('ade.addExisting', "Add Existing Element"), 'ade.addExisting']] : []),
 				...(!interaction && view.kind !== 'state' && view.kind !== 'sequence' ? [[localize('ade.addExistingRelation', "Add Existing Relationship"), 'ade.addExistingRelation']] : []),
@@ -332,6 +334,17 @@ export class AdeCanvasSurface {
 		canvas.appendChild(svg);
 	}
 
+	private renderBlueprintActions(parent: HTMLElement, view: ModelView): void {
+		if ((this.project.model.version !== 4 && this.project.model.version !== 5) || !view.subjectId || !['c4Context', 'c4Container', 'c4Component', 'class'].includes(view.kind)) { return; }
+		const actions: { label: string; mode: BlueprintEditMode }[] = [
+			{ label: localize('ade.blueprint.editVisibility', "Edit Visible Elements"), mode: 'c4Visibility' },
+			{ label: localize('ade.blueprint.editDependencies', "Edit Context Dependencies"), mode: 'c4Dependencies' }
+		];
+		for (const { label, mode } of actions) {
+			this.host.button(parent, label, () => { void this.commandService.executeCommand('ade.blueprint', undefined, mode); });
+		}
+	}
+
 	renderEditingToolbar(parent: HTMLElement): void {
 		const toolbar = dom.append(parent, dom.$('nav.ade-editing'));
 		toolbar.setAttribute('aria-label', localize('ade.editing', "Diagram Editing"));
@@ -351,6 +364,7 @@ export class AdeCanvasSurface {
 				if (interaction?.execution) { this.host.button(toolbar, localize('ade.interaction.edit', "Edit Executable Interaction"), () => { void this.commandService.executeCommand('ade.interaction', interaction.id); }); }
 				if (!interaction) { this.host.button(toolbar, this.project.activeView?.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => { void this.commandService.executeCommand('ade.addElement'); }).disabled = !this.project.activeView; }
 				const actions = diagramActions = this.controls.details(toolbar, localize('ade.diagramOptions', "Diagram Options"), 'diagram-options');
+				if (this.project.activeView) { this.renderBlueprintActions(actions, this.project.activeView); }
 				for (const [label, command] of [
 					[localize('ade.addExisting', "Add Existing Element"), 'ade.addExisting'],
 					[localize('ade.renameDiagram', "Rename Diagram"), 'ade.renameDiagram'],

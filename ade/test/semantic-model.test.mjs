@@ -68,6 +68,16 @@ test('invalid edits are atomic, detached snapshots cannot mutate service state',
 	assert.deepEqual(service.getSnapshot(), checkoutModel);
 });
 
+test('model revisions advance only after a snapshot is successfully replaced', () => {
+	const service = new SemanticModelService(checkoutModel);
+	const revisions = [service.revision];
+	service.getSnapshot(); revisions.push(service.revision);
+	service.renameElement('checkout-controller', 'Confirm Order'); revisions.push(service.revision);
+	assert.throws(() => service.renameElement('customer', '  '), InvalidSemanticModelError); revisions.push(service.revision);
+	service.replace(checkoutModel); revisions.push(service.revision);
+	assert.deepEqual(revisions, [0, 0, 1, 1, 2]);
+});
+
 test('layout updates do not alter domain, code mappings or verification evidence', () => {
 	const service = new SemanticModelService(checkoutModel);
 	service.setPosition('purchase-structure', 'checkout', 999, 250);

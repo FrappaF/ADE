@@ -6,13 +6,13 @@
 import assert from 'assert';
 import { blueprintFixture } from '../common/blueprintFixture.js';
 import { type IInputOptions, type IPickOptions, type IQuickInputService, type IQuickPickItem, type QuickPickInput } from '../../../../../platform/quickinput/common/quickInput.js';
-import { editAdeBlueprint } from '../../browser/adeBlueprintEditing.js';
+import { editAdeBlueprint, type BlueprintEditMode } from '../../browser/adeBlueprintEditing.js';
 import { applyVisualEdit } from '../../common/visualEditing.js';
 import { type SemanticModelV4 } from '../../common/modelTypes.js';
 
 /** Scripted native dialog boundary: all semantic editing still uses the production implementation. */
 export class ScriptedDialogs implements Pick<IQuickInputService, 'pick' | 'input'> {
-	readonly pickHistory: { title: string | undefined; items: IQuickPickItem[] }[] = [];
+	readonly pickHistory: { title: string | undefined; items: IQuickPickItem[]; matchOnDescription?: boolean; matchOnDetail?: boolean }[] = [];
 	constructor(private readonly answers: (string | string[] | undefined)[]) { }
 	pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: IPickOptions<T> & { canPickMany: true }): Promise<T[] | undefined>;
 	pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: IPickOptions<T> & { canPickMany: false }): Promise<T | undefined>;
@@ -20,7 +20,7 @@ export class ScriptedDialogs implements Pick<IQuickInputService, 'pick' | 'input
 	async pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: IPickOptions<T>): Promise<T | T[] | undefined> {
 		assert.ok(this.answers.length, 'Unexpected dialog'); const answer = this.answers.shift(); if (answer === undefined) { return; }
 		const items = (await picks).filter((item): item is T => item.type !== 'separator');
-		this.pickHistory.push({ title: options?.title, items });
+		this.pickHistory.push({ title: options?.title, items, matchOnDescription: options?.matchOnDescription, matchOnDetail: options?.matchOnDetail });
 		if (answer === '<focused>' && !options?.canPickMany) { return await options?.activeItem ?? items[0]; }
 		const find = (label: string) => { const item = items.find(item => item.label === label || item.detail === label); assert.ok(item, `Missing dialog choice: ${label}`); return item; };
 		return options?.canPickMany ? (Array.isArray(answer) ? answer : [answer]).map(find) : find(String(answer));
@@ -35,7 +35,7 @@ export class ScriptedDialogs implements Pick<IQuickInputService, 'pick' | 'input
 suite('A.D.E guided blueprint editing', () => {
 	let model: SemanticModelV4;
 	setup(() => { model = structuredClone(blueprintFixture); });
-	const run = async (model: SemanticModelV4, answers: (string | string[] | undefined)[], mode?: 'decision' | 'operations', selectedId = 'component.checkout') => {
+	const run = async (model: SemanticModelV4, answers: (string | string[] | undefined)[], mode?: BlueprintEditMode, selectedId = 'component.checkout') => {
 		const dialogs = new ScriptedDialogs(answers); const before = structuredClone(model);
 		const edits = await editAdeBlueprint(dialogs, model, selectedId, model.views[2], mode);
 		dialogs.assertComplete(); assert.deepStrictEqual(model, before);
@@ -191,6 +191,50 @@ suite('A.D.E guided blueprint editing', () => {
 		await editAdeBlueprint(dialogs, model, 'component.checkout', model.views[2]); dialogs.assertComplete();
 		assert.deepStrictEqual(dialogs.pickHistory.find(step => step.title === 'Visible Elements')!.items.filter(item => item.picked).map(item => item.label), ['API']);
 	});
+
+	test('C4 element selections identify searchable types, ownership, descriptions and same-named identities', async () => {
+		model.semantics.elements.push({ id: 'usecase.checkout', kind: 'useCase', name: 'Checkout' });
+		model.foundation.ownership.push({ id: 'usecase.owner', elementId: 'usecase.checkout', ownerId: 'system.shop', role: 'architecture' });
+		const dialogs = new ScriptedDialogs(['Create New', 'L3 · Components', 'API', 'QA New View', [], ['API']]);
+		await editAdeBlueprint(dialogs, model, '', model.views[2], 'c4'); dialogs.assertComplete();
+		const selections = dialogs.pickHistory.filter(step => ['View Subject', 'Context Dependencies (Outside the Subject)', 'Visible Elements'].includes(step.title!));
+		assert.ok(selections.every(step => step.matchOnDescription && step.matchOnDetail));
+		const metadata = (items: IQuickPickItem[]) => items.filter(item => ['Buyer', 'API', 'Checkout'].includes(item.label)).map(item => [item.label, item.description, item.detail]);
+		const expected = [
+			['Buyer', 'Actor', 'Checkout Blueprint'],
+			['API', 'Application / Container', 'Checkout Blueprint / Shop · Owns checkout and audit responsibilities'],
+			['Checkout', 'Component', 'Checkout Blueprint / Shop / API · Confirms an order and requests stock · ID: component.checkout'],
+			['Checkout', 'Feature', 'Checkout Blueprint · ID: feature.checkout'],
+			['Checkout', 'Use Case', 'Checkout Blueprint / Shop · ID: usecase.checkout']
+		];
+		assert.deepStrictEqual(selections.map(step => metadata(step.items)), [[expected[1]], expected, expected]);
+	});
+
+	test('direct visibility editing keeps existing selections, coordinates, scope and view metadata', async () => {
+		const view = model.views[2]; view.featureId = 'feature.checkout';
+		model.semantics.elements.push({ id: 'component.receipts', kind: 'component', name: 'Receipts' });
+		model.foundation.ownership.push({ id: 'receipts.owner', elementId: 'component.receipts', ownerId: 'container.api', role: 'architecture' });
+		const dialogs = new ScriptedDialogs([['API', 'Stock', 'Checkout Blueprint / Shop / API · Confirms an order and requests stock · ID: component.checkout', 'Receipts']]);
+		const before = structuredClone(model);
+		const edits = await editAdeBlueprint(dialogs, model, '', view, 'c4Visibility'); dialogs.assertComplete();
+		assert.deepStrictEqual(dialogs.pickHistory[0].items.filter(item => item.picked).map(item => item.label).sort(), view.nodes.map(node => model.semantics.elements.find(element => element.id === node.elementId)!.name).sort());
+		assert.deepStrictEqual(edits, [{ kind: 'c4View', view: { ...view, nodes: [...['container.api', 'component.stock', 'component.checkout'].map(id => view.nodes.find(node => node.elementId === id)!), { elementId: 'component.receipts', x: 0, y: 180 }], relationIds: ['relation.stock'] } }]);
+		assert.deepStrictEqual(model, before);
+	});
+
+	test('direct dependency editing keeps visible nodes and changes only context identities', async () => {
+		const view = model.views[2];
+		const dialogs = new ScriptedDialogs([['Money', 'Stock', 'Payments']]);
+		const edits = await editAdeBlueprint(dialogs, model, '', view, 'c4Dependencies'); dialogs.assertComplete();
+		assert.deepStrictEqual(dialogs.pickHistory[0].items.filter(item => item.picked).map(item => item.label).sort(), view.contextIds!.map(id => model.semantics.elements.find(element => element.id === id)!.name).sort());
+		assert.deepStrictEqual(edits, [{ kind: 'c4View', view: { ...view, contextIds: ['package.money', 'component.stock', 'system.payments'] } }]);
+	});
+
+	for (const mode of ['c4Visibility', 'c4Dependencies'] as const) {
+		test(`canceling ${mode} leaves the model unchanged`, async () => {
+			assert.strictEqual(await run(model, [undefined], mode), undefined);
+		});
+	}
 
 	test('C4 scope editing preserves subject identity, existing coordinates and foreign context', async () => {
 		const updated = await run(model, ['Structure', 'C4 View Subject and Context', 'API Components', '<focused>', '<focused>', 'API Components', ['Money', 'Stock', 'Checkout API'], ['API', 'Checkout', 'Audit', 'Money', 'Stock', 'Checkout API']]);

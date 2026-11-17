@@ -57,7 +57,11 @@ export async function runAdeSpecificationCommand(ui: AdeEditingContext, command:
 		try {
 			const wizard = disposables.add(new AdeBlueprintWizard(ui.container));
 			const edits = await wizard.open(model, id ?? ui.project.selectedId, view, command === 'projectDecisions' ? 'decision' : mode);
-			if (edits?.length) { ui.edit(edits); }
+			if (edits?.length) {
+				ui.edit(edits);
+				const created = edits.find(edit => edit.kind === 'c4View' && !model.views.some(view => view.id === edit.view.id));
+				if (created?.kind === 'c4View') { ui.project.showDiagram(created.view.id); }
+			}
 		} finally { disposables.dispose(); }
 		return;
 	}

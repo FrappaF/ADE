@@ -9,6 +9,7 @@ import { InvalidSemanticModelError, readSemanticDraft, readSemanticModel } from 
 /** In-memory service consumed by the workbench; persistence belongs to file/editor services. */
 export class SemanticModelService {
 	private model: SemanticModel;
+	private _revision = 0;
 
 	constructor(value: unknown) { this.model = this.read(value); }
 
@@ -18,6 +19,7 @@ export class SemanticModelService {
 	}
 
 	getSnapshot(): SemanticModel { return structuredClone(this.model); }
+	get revision(): number { return this._revision; }
 
 	getElement(id: string): SemanticElement | undefined {
 		const element = this.model.semantics.elements.find(element => element.id === id);
@@ -29,7 +31,7 @@ export class SemanticModelService {
 	}
 
 	/** Validate the whole candidate before atomically replacing the previous snapshot. */
-	replace(value: unknown): void { this.model = this.read(value); }
+	replace(value: unknown): void { this.model = this.read(value); this._revision++; }
 
 	renameElement(id: string, name: string): void {
 		this.editElement(id, element => { element.name = name; });

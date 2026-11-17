@@ -33,7 +33,7 @@ suite('A.D.E sidebar project shortcuts', () => {
 		const instantiation = workbenchInstantiationService({ configurationService: () => configuration }, store);
 		const changed = store.add(new Emitter<void>()), aiChanged = store.add(new Emitter<void>()), codeChanged = store.add(new Emitter<void>());
 		const model: SemanticModel = { version: 4, id: 'project', name: 'ecommerce-ade', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [], foundation: emptyFoundation() };
-		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.file('/project/model.ade.json'), projectRoot: URI.file('/project'), editable: true, section: 'home', onDidChange: changed.event, restore: async () => {} });
+		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelRevision: 0, documentVersion: 'model:1', modelUri: URI.file('/project/model.ade.json'), projectRoot: URI.file('/project'), editable: true, section: 'home', onDidChange: changed.event, restore: async () => {} });
 		const ai = Object.assign(new (mock<IAdeAiService>())(), { available: true, busy: false, onDidChange: aiChanged.event });
 		const code = Object.assign(new (mock<IAdeCodeService>())(), { available: true, busy: false, context: linked ? { sourceRoot: '/project' } : undefined, onDidChange: codeChanged.event });
 		const commands: string[] = [];
@@ -95,5 +95,20 @@ suite('A.D.E sidebar project shortcuts', () => {
 		f.configuration.onDidChangeConfigurationEmitter.fire(Object.assign(new (mock<IConfigurationChangeEvent>())(), { affectsConfiguration: (key: string) => key === 'chat.disableAIFeatures' }));
 		f.buttons()[1].click(); await Promise.resolve();
 		assert.deepStrictEqual([f.buttons().map(button => button.disabled), f.commands], [[false, false, false], ['ade.addDiagram']]);
+	});
+
+	test('parsed blueprint changes refresh navigation after an earlier dirty notification at the same text version', () => {
+		const f = fixture();
+		Object.assign(f.project, { documentVersion: 'model:2' }); f.changed.fire();
+		f.project.model.views.push({ id: 'blueprint', name: 'New Blueprint', kind: 'c4Container', subjectId: 'shop', contextIds: [], nodes: [], relationIds: [] });
+		Object.assign(f.project, { modelRevision: 1 }); f.changed.fire();
+		assert.deepStrictEqual([...root.querySelectorAll('.ade-diagram-entry')].map(button => button.textContent), ['New Blueprint']);
+		root.querySelector<HTMLDetailsElement>('.ade-navigation-group[data-kind="c4Container"]')!.open = false;
+		f.project.model.views[0].name = 'Renamed Blueprint';
+		Object.assign(f.project, { modelRevision: 2 }); f.changed.fire();
+		assert.deepStrictEqual({ names: [...root.querySelectorAll('.ade-diagram-entry')].map(button => button.textContent), open: root.querySelector<HTMLDetailsElement>('.ade-navigation-group[data-kind="c4Container"]')!.open }, { names: ['Renamed Blueprint'], open: false });
+		f.project.model.views = [];
+		Object.assign(f.project, { modelRevision: 3 }); f.changed.fire();
+		assert.strictEqual(root.querySelectorAll('.ade-diagram-entry').length, 0);
 	});
 });

@@ -15,13 +15,17 @@ import { emptyBlueprint, modelObjects } from '../common/modelFoundation.js';
 import { type DecisionConstraint, type Knowledge, type ModelBlueprint, type ModelDecision, type ModelField, type ModelOperation, type ModelReference, type ModelType, type ModelView, type SemanticElement, type SemanticModelV4 } from '../common/modelTypes.js';
 import { type VisualEdit } from '../common/visualEditing.js';
 import { isValidModelOwnership } from '../common/modelValidation.js';
+import { getElementPath } from '../common/visualNavigation.js';
+import { elementLabels } from './adeLabels.js';
 
-export type BlueprintEditMode = 'c4' | 'scope' | 'owner' | 'membership' | 'integration' | 'binding' | 'types' | 'operations' | 'interfaces' | 'ports' | 'connections' | 'transports' | 'modules' | 'mapping' | 'assertion' | 'decision';
+export type BlueprintEditMode = 'c4' | 'c4Visibility' | 'c4Dependencies' | 'scope' | 'owner' | 'membership' | 'integration' | 'binding' | 'types' | 'operations' | 'interfaces' | 'ports' | 'connections' | 'transports' | 'modules' | 'mapping' | 'assertion' | 'decision';
 
 /** Shared navigation and guidance for the command and the blueprint wizard. */
 export const adeBlueprintAreas: { label: string; modes: { label: string; value: BlueprintEditMode; description: string }[] }[] = [
 	{ label: localize('ade.blueprint.area.structure', "Structure"), modes: [
 		{ label: localize('ade.blueprint.c4', "C4 View Subject and Context"), value: 'c4', description: localize('ade.blueprint.c4.help', "Create or update a C4 view. Choose its level, subject and visible elements.") },
+		{ label: localize('ade.blueprint.editVisibility', "Edit Visible Elements"), value: 'c4Visibility', description: localize('ade.blueprint.visibility.help', "Choose which elements appear in the current C4 diagram, keeping its subject and existing positions.") },
+		{ label: localize('ade.blueprint.editDependencies', "Edit Context Dependencies"), value: 'c4Dependencies', description: localize('ade.blueprint.dependencies.help', "Update dependencies outside the subject of the current C4 diagram.") },
 		{ label: localize('ade.blueprint.scope', "System Scope or Container Responsibility"), value: 'scope', description: localize('ade.blueprint.scope.help', "Define a system boundary or describe what a container is responsible for.") },
 		{ label: localize('ade.blueprint.owner', "Architectural or Lifecycle Owner"), value: 'owner', description: localize('ade.blueprint.owner.help', "Place an element inside its architectural owner or assign a lifecycle owner.") },
 		{ label: localize('ade.blueprint.membership', "Feature Memberships"), value: 'membership', description: localize('ade.blueprint.membership.help', "Choose the features an element contributes to.") }
@@ -53,11 +57,28 @@ export async function editAdeBlueprint(quick: Pick<IQuickInputService, 'pick' | 
 	const b = structuredClone(model.foundation.blueprint ?? emptyBlueprint());
 	const input = async (title: string, value = '', required = false, validate?: (value: string) => string | undefined) => quick.input({ title, value, validateInput: async value => required && !value.trim() ? localize('ade.blueprint.required', "Enter a value.") : validate?.(value) });
 	const choose = async <T extends string>(title: string, options: { label: string; value: T }[], current?: T) => (await quick.pick(options, { title, activeItem: options.find(option => option.value === current) }))?.value;
+	const elementItem = (element: SemanticElement) => ({
+		label: element.name,
+		description: elementLabels[element.kind],
+		detail: [
+			[model.name, ...getElementPath(model, element.id).slice(0, -1).map(parent => parent.name)].join(' / '),
+			element.description,
+			model.semantics.elements.some(other => other.id !== element.id && other.name === element.name) ? localize('ade.blueprint.identity', "ID: {0}", element.id) : undefined
+		].filter(Boolean).join(' · '),
+		value: element.id
+	});
+	const elementOptions = { matchOnDescription: true, matchOnDetail: true, placeHolder: localize('ade.blueprint.searchElements', "Search by name, type, or owner.") };
 	const element = async (title: string, filter: (element: SemanticElement) => boolean = () => true, current?: string) => {
-		const elements = model.semantics.elements.filter(filter).map(element => ({ label: element.name, description: element.description, value: element.id }));
-		return (await quick.pick(elements, { title, activeItem: elements.find(element => element.value === current) }))?.value;
+		const elements = model.semantics.elements.filter(filter).map(elementItem);
+		return (await quick.pick(elements, { ...elementOptions, title, activeItem: elements.find(element => element.value === current) }))?.value;
 	};
-	const manyElements = async (title: string, initial: readonly string[] = []) => (await quick.pick(model.semantics.elements.map(element => ({ label: element.name, value: element.id, picked: initial.includes(element.id) })), { title, canPickMany: true }))?.map(item => item.value);
+	const manyElements = async (title: string, initial: readonly string[] = [], placeHolder = elementOptions.placeHolder) => (await quick.pick(model.semantics.elements.map(element => ({ ...elementItem(element), picked: initial.includes(element.id) })), { ...elementOptions, title, placeHolder, canPickMany: true }))?.map(item => item.value);
+	const contextElements = (initial: readonly string[] = []) => manyElements(localize('ade.blueprint.context', "Context Dependencies (Outside the Subject)"), initial, localize('ade.blueprint.contextHelp', "Select dependencies outside the subject. Search by name, type, or owner."));
+	const visibleElements = (initial: readonly string[]) => manyElements(localize('ade.blueprint.viewElements', "Visible Elements"), initial, localize('ade.blueprint.visibleHelp', "Select the elements to show in the diagram. Search by name, type, or owner."));
+	const withVisibleElements = (view: ModelView, nodeIds: string[]): ModelView => {
+		const visible = new Set(nodeIds);
+		return { ...view, nodes: nodeIds.map((elementId, index) => view.nodes.find(node => node.elementId === elementId) ?? { elementId, x: index % 3 * 260, y: Math.floor(index / 3) * 180 }), relationIds: model.semantics.relations.filter(relation => visible.has(relation.from) && visible.has(relation.to)).map(relation => relation.id) };
+	};
 	const select = async <T>(title: string, records: T[], label: (record: T) => string, details?: (record: T) => { description?: string; detail?: string }): Promise<{ entry?: T } | undefined> => {
 		const result = await quick.pick([...records.map(entry => ({ label: label(entry), ...details?.(entry), entry: entry as T | undefined })), { label: localize('ade.blueprint.new', "Create New"), entry: undefined as T | undefined }], { title });
 		return result ? { entry: result.entry } : undefined;
@@ -108,6 +129,15 @@ export async function editAdeBlueprint(quick: Pick<IQuickInputService, 'pick' | 
 		if (!choice) { return; }
 		if (choice !== 'back') { category = choice; }
 	}
+	if (category === 'c4Visibility' || category === 'c4Dependencies') {
+		if (!activeView?.subjectId || !['c4Context', 'c4Container', 'c4Component', 'class'].includes(activeView.kind)) { throw new Error(localize('ade.blueprint.openScopedView', "Open a C4 diagram with a subject before editing its visible elements or context dependencies.")); }
+		if (category === 'c4Dependencies') {
+			const contextIds = await contextElements(activeView.contextIds);
+			return contextIds ? [{ kind: 'c4View', view: { ...activeView, contextIds } }] : undefined;
+		}
+		const nodeIds = await visibleElements(activeView.nodes.map(node => node.elementId));
+		return nodeIds ? [{ kind: 'c4View', view: withVisibleElements(activeView, nodeIds) }] : undefined;
+	}
 	const id = selectedId || (['scope', 'owner', 'membership', 'integration', 'binding', 'ports'].includes(category) ? await element(localize('ade.blueprint.element', "Element"), element => category !== 'owner' || !['feature', 'actor'].includes(element.kind)) : undefined);
 	const emit = <K extends keyof ModelBlueprint>(section: K, entry: ModelBlueprint[K][number]): VisualEdit[] => [{ kind: 'blueprint', section, entry }];
 	if (category === 'c4') {
@@ -116,11 +146,10 @@ export async function editAdeBlueprint(quick: Pick<IQuickInputService, 'pick' | 
 		const kind = await choose(localize('ade.blueprint.level', "C4 Level"), [{ label: localize('ade.blueprint.l1', "L1 · System Context"), value: 'c4Context' }, { label: localize('ade.blueprint.l2', "L2 · Containers"), value: 'c4Container' }, { label: localize('ade.blueprint.l3', "L3 · Components"), value: 'c4Component' }, { label: localize('ade.blueprint.l4', "L4 · Contract"), value: 'class' }], picked.entry?.kind); if (!kind) { return; }
 		const subjectId = await element(localize('ade.blueprint.viewSubject', "View Subject"), element => kind === 'c4Context' || kind === 'c4Container' ? element.kind === 'system' && element.scope === 'governed' : kind === 'c4Component' ? element.kind === 'container' : ['interface', 'contract', 'class'].includes(element.kind), picked.entry?.subjectId); if (!subjectId) { return; }
 		const name = await input(localize('ade.blueprint.viewName', "View Name"), picked.entry?.name, true); if (name === undefined) { return; }
-		const contextIds = await manyElements(localize('ade.blueprint.context', "Context Dependencies (Outside the Subject)"), existing?.contextIds); if (!contextIds) { return; }
-		const nodeIds = await manyElements(localize('ade.blueprint.viewElements', "Visible Elements"), existing?.nodes.map(node => node.elementId) ?? [subjectId]); if (!nodeIds) { return; }
-		const visible = new Set(nodeIds); const previous = picked.entry;
-		const view: ModelView = { id: previous?.id ?? generateUuid(), name, kind, subjectId, contextIds, nodes: nodeIds.map((elementId, index) => previous?.nodes.find(node => node.elementId === elementId) ?? { elementId, x: index % 3 * 260, y: Math.floor(index / 3) * 180 }), relationIds: model.semantics.relations.filter(relation => visible.has(relation.from) && visible.has(relation.to)).map(relation => relation.id) };
-		if (!previous) { view.nodes = arrangeDiagram(model, view, 'balanced'); }
+		const contextIds = await contextElements(existing?.contextIds); if (!contextIds) { return; }
+		const nodeIds = await visibleElements(existing?.nodes.map(node => node.elementId) ?? [subjectId]); if (!nodeIds) { return; }
+		const view = withVisibleElements({ ...existing, id: existing?.id ?? generateUuid(), name, kind, subjectId, contextIds, nodes: existing?.nodes ?? [], relationIds: existing?.relationIds ?? [] }, nodeIds);
+		if (!existing) { view.nodes = arrangeDiagram(model, view, 'balanced'); }
 		return [{ kind: 'c4View', view }];
 	}
 	if (category === 'scope' && id) {

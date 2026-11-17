@@ -97,6 +97,22 @@ suite('A.D.E project context', () => {
 		documents = projectDocuments(files, disposables);
 	});
 
+	test('model revisions distinguish parsed blueprint updates from earlier dirty notifications and follow undo and redo', async () => {
+		await files.writeFile(resource, VSBuffer.fromString(JSON.stringify(blueprintFixture)));
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.openModelResource(resource);
+		const initialRevision = project.modelRevision;
+		const observations: { document: string; revision: number; present: boolean }[] = [];
+		disposables.add(project.onDidChange(() => observations.push({ document: project.documentVersion, revision: project.modelRevision, present: project.model.views.some(view => view.id === 'new.blueprint') })));
+		project.edit({ kind: 'c4View', view: { ...blueprintFixture.views[2], id: 'new.blueprint', name: 'New Blueprint' } });
+		assert.deepStrictEqual(observations.map(entry => [entry.revision - initialRevision, entry.present]), [[0, false], [1, true]]);
+		assert.strictEqual(observations[0].document, observations[1].document);
+		await project.undo();
+		assert.deepStrictEqual([project.modelRevision - initialRevision, project.model.views.some(view => view.id === 'new.blueprint')], [2, false]);
+		await project.redo();
+		assert.deepStrictEqual([project.modelRevision - initialRevision, project.model.views.some(view => view.id === 'new.blueprint')], [3, true]);
+	});
+
 	test('a new workspace restores its project and resolves imported snapshots to the source root', async () => {
 		const folder = URI.parse('test:/project with spaces');
 		await files.writeFile(URI.joinPath(folder, '.ade', 'model.json'), VSBuffer.fromString(JSON.stringify(checkoutModel)));

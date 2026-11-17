@@ -196,6 +196,7 @@ export class AdeProjectService extends Disposable {
 
 	get dirty(): boolean { return this.document?.isDirty() ?? false; }
 	get documentVersion(): string { return `${this.modelUri?.toString() ?? ''}:${this.document?.textEditorModel.getVersionId() ?? 0}`; }
+	get modelRevision(): number { return this.semantics.revision; }
 	get editable(): boolean { return !!this.document && !this.document.isReadonly() && !this.loading && !this.error; }
 	get saveError(): string | undefined { return this._saveError; }
 	get canUndo(): boolean { return this.document?.textEditorModel.canUndo() ?? false; }

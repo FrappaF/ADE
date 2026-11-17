@@ -152,7 +152,8 @@ export class AdeView extends ViewPane {
 		const body = this.navigationBody;
 		if (!body) { return; }
 		// Selection changes update the editor, not the sidebar's semantic groups.
-		const state = JSON.stringify([this.project.modelUri?.toString(), this.project.model.id, this.project.documentVersion, this.project.section, this.project.activeView?.id, this.project.loading, this.project.error, this.project.editable, this.project.hasStructuralErrors, this.ai.busy, this.ai.available, this.code.busy, this.code.available, this.code.context?.sourceRoot]);
+		// Dirty notifications can precede parsing at the same document version.
+		const state = JSON.stringify([this.project.modelUri?.toString(), this.project.model.id, this.project.documentVersion, this.project.modelRevision, this.project.section, this.project.activeView?.id, this.project.loading, this.project.error, this.project.editable, this.project.hasStructuralErrors, this.ai.busy, this.ai.available, this.code.busy, this.code.available, this.code.context?.sourceRoot]);
 		if (!force && this.renderedState === state) { return; }
 		this.renderedState = state;
 		this.captureGroups();
