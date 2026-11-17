@@ -11,6 +11,7 @@ import { AdeProjectService } from './adeProjectService.js';
 
 /** Dialog handlers share one document revision and one atomic edit boundary. */
 export interface AdeEditingContext {
+	readonly container: HTMLElement;
 	readonly project: AdeProjectService;
 	readonly quickInput: IQuickInputService;
 	readonly dialogs: IDialogService;

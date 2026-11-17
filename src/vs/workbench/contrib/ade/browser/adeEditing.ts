@@ -10,6 +10,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { SemanticElement } from '../common/modelTypes.js';
 import { getProjectedInteraction } from '../common/visualNavigation.js';
 import { VisualEdit } from '../common/visualEditing.js';
@@ -33,6 +34,7 @@ class EditingUI implements AdeEditingContext {
 	private readonly version: string;
 
 	constructor(
+		readonly container: HTMLElement,
 		readonly project: AdeProjectService,
 		readonly quickInput: IQuickInputService,
 		readonly dialogs: IDialogService,
@@ -128,7 +130,7 @@ for (const [command, title] of adeEditingCommands) {
 			const editor = accessor.get(IEditorService);
 			const notifications = accessor.get(INotificationService);
 			const workspace = command === 'createProject' || command === 'openProject' ? accessor.get(IAdeProjectWorkspaceService) : undefined;
-			const ui = new EditingUI(project, accessor.get(IQuickInputService), accessor.get(IDialogService), accessor.get(IFileDialogService));
+			const ui = new EditingUI(accessor.get(IWorkbenchLayoutService).activeContainer, project, accessor.get(IQuickInputService), accessor.get(IDialogService), accessor.get(IFileDialogService));
 			try {
 				await ui.run(command, id, mode);
 				if (ui.projectChanged) { await workspace?.align(); }

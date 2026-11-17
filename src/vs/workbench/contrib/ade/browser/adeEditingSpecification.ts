@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { editAdeMessaging } from './adeMessagingEditing.js';
 import { readAdeMessagingScenario } from './adeMessagingCriteria.js';
 import { compileModelMessaging, simulateMessaging } from '../common/modelMessaging.js';
@@ -12,7 +13,8 @@ import { editAdeInteraction } from './adeInteractionEditing.js';
 import { editAdePredicate } from './adePredicateEditing.js';
 import { editAdeStack } from './adeStackEditing.js';
 import { editAdeTask } from './adeTaskEditing.js';
-import { editAdeBlueprint, type BlueprintEditMode } from './adeBlueprintEditing.js';
+import { type BlueprintEditMode } from './adeBlueprintEditing.js';
+import { AdeBlueprintWizard } from './adeBlueprintWizard.js';
 import { type AdeEditingContext } from './adeEditingContext.js';
 import { type AdeEditingCommand } from './adeEditingCommands.js';
 
@@ -51,8 +53,12 @@ export async function runAdeSpecificationCommand(ui: AdeEditingContext, command:
 	}
 	if (command === 'blueprint' || command === 'projectDecisions') {
 		if ((model.version !== 4 && model.version !== 5)) { throw new Error(localize('ade.blueprint.upgrade', "Upgrade the model to version 4 to edit its blueprint.")); }
-		const edits = await editAdeBlueprint(ui.quickInput, model, id ?? ui.project.selectedId, view, command === 'projectDecisions' ? 'decision' : mode);
-		if (edits?.length) { ui.edit(edits); }
+		const disposables = new DisposableStore();
+		try {
+			const wizard = disposables.add(new AdeBlueprintWizard(ui.container));
+			const edits = await wizard.open(model, id ?? ui.project.selectedId, view, command === 'projectDecisions' ? 'decision' : mode);
+			if (edits?.length) { ui.edit(edits); }
+		} finally { disposables.dispose(); }
 		return;
 	}
 }

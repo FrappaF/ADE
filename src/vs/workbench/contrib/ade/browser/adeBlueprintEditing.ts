@@ -9,6 +9,7 @@ import { localize } from '../../../../nls.js';
 import { arrangeDiagram } from '../common/diagramLayout.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { equals } from '../../../../base/common/objects.js';
+import { hasKey } from '../../../../base/common/types.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { emptyBlueprint, modelObjects } from '../common/modelFoundation.js';
 import { type DecisionConstraint, type Knowledge, type ModelBlueprint, type ModelDecision, type ModelField, type ModelOperation, type ModelReference, type ModelType, type ModelView, type SemanticElement, type SemanticModelV4 } from '../common/modelTypes.js';
@@ -16,6 +17,36 @@ import { type VisualEdit } from '../common/visualEditing.js';
 import { isValidModelOwnership } from '../common/modelValidation.js';
 
 export type BlueprintEditMode = 'c4' | 'scope' | 'owner' | 'membership' | 'integration' | 'binding' | 'types' | 'operations' | 'interfaces' | 'ports' | 'connections' | 'transports' | 'modules' | 'mapping' | 'assertion' | 'decision';
+
+/** Shared navigation and guidance for the command and the blueprint wizard. */
+export const adeBlueprintAreas: { label: string; modes: { label: string; value: BlueprintEditMode; description: string }[] }[] = [
+	{ label: localize('ade.blueprint.area.structure', "Structure"), modes: [
+		{ label: localize('ade.blueprint.c4', "C4 View Subject and Context"), value: 'c4', description: localize('ade.blueprint.c4.help', "Create or update a C4 view. Choose its level, subject and visible elements.") },
+		{ label: localize('ade.blueprint.scope', "System Scope or Container Responsibility"), value: 'scope', description: localize('ade.blueprint.scope.help', "Define a system boundary or describe what a container is responsible for.") },
+		{ label: localize('ade.blueprint.owner', "Architectural or Lifecycle Owner"), value: 'owner', description: localize('ade.blueprint.owner.help', "Place an element inside its architectural owner or assign a lifecycle owner.") },
+		{ label: localize('ade.blueprint.membership', "Feature Memberships"), value: 'membership', description: localize('ade.blueprint.membership.help', "Choose the features an element contributes to.") }
+	] },
+	{ label: localize('ade.blueprint.area.data', "Data and Operations"), modes: [
+		{ label: localize('ade.blueprint.types', "Shared Types"), value: 'types', description: localize('ade.blueprint.types.help', "Define reusable data: primitives, records, enumerations, collections and references.") },
+		{ label: localize('ade.blueprint.operations', "Shared Operations"), value: 'operations', description: localize('ade.blueprint.operations.help', "Create an operation or edit its inputs, results, errors and acceptance criteria.") },
+		{ label: localize('ade.blueprint.interfaces', "Interfaces and Invariants"), value: 'interfaces', description: localize('ade.blueprint.interfaces.help', "Version an existing interface or contract and choose its declared operations.") }
+	] },
+	{ label: localize('ade.blueprint.area.connections', "Connections"), modes: [
+		{ label: localize('ade.blueprint.integration', "External Integration"), value: 'integration', description: localize('ade.blueprint.integration.help', "Declare which external system an element depends on.") },
+		{ label: localize('ade.blueprint.ports', "Provided or Required Interface"), value: 'ports', description: localize('ade.blueprint.ports.help', "Attach an existing interface to a provider or consumer.") },
+		{ label: localize('ade.blueprint.connections', "Interface Connection"), value: 'connections', description: localize('ade.blueprint.connections.help', "Connect required and provided interfaces and map their operations.") },
+		{ label: localize('ade.blueprint.transports', "Transport Contract"), value: 'transports', description: localize('ade.blueprint.transports.help', "Describe the protocol and payload of an existing relationship. Declare its schema type first.") }
+	] },
+	{ label: localize('ade.blueprint.area.technology', "Technology"), modes: [
+		{ label: localize('ade.blueprint.binding', "Platform Binding"), value: 'binding', description: localize('ade.blueprint.binding.help', "Choose an element's platform profile and technology, or record an open decision.") },
+		{ label: localize('ade.blueprint.modules', "Shared Library Binding"), value: 'modules', description: localize('ade.blueprint.modules.help', "Declare an existing package's library, version and consumers.") },
+		{ label: localize('ade.blueprint.mapping', "Domain Field Mapping"), value: 'mapping', description: localize('ade.blueprint.mapping.help', "Map a declared domain field to an existing table column or class attribute.") }
+	] },
+	{ label: localize('ade.blueprint.area.decisions', "Decisions"), modes: [
+		{ label: localize('ade.blueprint.assertion', "Knowledge and Acceptance"), value: 'assertion', description: localize('ade.blueprint.assertion.help', "Record what is known about a property and whether it has been accepted.") },
+		{ label: localize('ade.blueprint.decisions', "Project Architecture Decisions"), value: 'decision', description: localize('ade.blueprint.decision.help', "Document an architecture decision, its scope, consequences and constraints.") }
+	] }
+];
 
 /** Native guided dialogs return detached edits. Cancellation never changes the document. */
 export async function editAdeBlueprint(quick: Pick<IQuickInputService, 'pick' | 'input'>, model: SemanticModelV4, selectedId: string, activeView?: ModelView, mode?: BlueprintEditMode): Promise<VisualEdit[] | undefined> {
@@ -56,44 +87,24 @@ export async function editAdeBlueprint(quick: Pick<IQuickInputService, 'pick' | 
 	};
 	const lines = async (title: string, current: string[], required = false) => { const result = await input(title, current.join('; '), false, value => required && !value.split(';').some(item => item.trim()) ? localize('ade.blueprint.valuesRequired', "Enter at least one value, separated by semicolons.") : undefined); return result === undefined ? undefined : result.split(';').map(value => value.trim()).filter(Boolean); };
 	const subject = async (current?: ModelReference, currentField?: string): Promise<{ reference: ModelReference; field: string; value: string | number | boolean | null } | undefined> => {
-		const all = modelObjects(model); const choices = [...all.entries()].filter(([, value]) => !('history' in value));
-		const items = choices.map(([key, value]) => ({ label: 'name' in value && typeof value.name === 'string' ? value.name : 'title' in value && typeof value.title === 'string' ? value.title : model.semantics.elements.find(element => 'elementId' in value && element.id === value.elementId)?.name ?? key, description: key.slice(0, key.indexOf(':')), detail: localize('ade.blueprint.identity', "ID: {0}", key.slice(key.indexOf(':') + 1)), key, value }));
+		const all = modelObjects(model); const choices = [...all.entries()].filter(([, value]) => !hasKey(value, { history: true }));
+		const items = choices.map(([key, value]) => {
+			const metadata = value as { name?: string; title?: string; elementId?: string };
+			return { label: typeof metadata.name === 'string' ? metadata.name : typeof metadata.title === 'string' ? metadata.title : model.semantics.elements.find(element => element.id === metadata.elementId)?.name ?? key, description: key.slice(0, key.indexOf(':')), detail: localize('ade.blueprint.identity', "ID: {0}", key.slice(key.indexOf(':') + 1)), key, value };
+		});
 		const chosen = await quick.pick(items, { title: localize('ade.blueprint.subject', "Constraint or Assertion Subject"), activeItem: items.find(item => item.key === `${current?.kind}:${current?.id}`) }); if (!chosen) { return; }
 		const scalars: { label: string; path: string; value: string | number | boolean | null }[] = [];
 		const collect = (value: object, path = '') => { for (const [key, child] of Object.entries(value)) { const next = `${path}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`; if (child === null || ['string', 'number', 'boolean'].includes(typeof child)) { scalars.push({ label: next, path: next, value: child }); } else if (child && typeof child === 'object') { collect(child, next); } } };
 		collect(chosen.value); const picked = await quick.pick(scalars, { title: localize('ade.blueprint.property', "Declared Property"), activeItem: current && chosen.key === `${current.kind}:${current.id}` ? scalars.find(item => item.path === currentField) : undefined }); if (!picked) { return; }
 		const split = chosen.key.indexOf(':'); return { reference: { kind: chosen.key.slice(0, split) as ModelReference['kind'], id: chosen.key.slice(split + 1) }, field: picked.path, value: picked.value };
 	};
-	const categories = [
-		{ label: localize('ade.blueprint.c4', "C4 View Subject and Context"), value: 'c4' },
-		{ label: localize('ade.blueprint.scope', "System Scope or Container Responsibility"), value: 'scope' },
-		{ label: localize('ade.blueprint.owner', "Architectural or Lifecycle Owner"), value: 'owner' },
-		{ label: localize('ade.blueprint.membership', "Feature Memberships"), value: 'membership' },
-		{ label: localize('ade.blueprint.integration', "External Integration"), value: 'integration' },
-		{ label: localize('ade.blueprint.binding', "Platform Binding"), value: 'binding' },
-		{ label: localize('ade.blueprint.types', "Shared Types"), value: 'types' },
-		{ label: localize('ade.blueprint.operations', "Shared Operations"), value: 'operations' },
-		{ label: localize('ade.blueprint.interfaces', "Interfaces and Invariants"), value: 'interfaces' },
-		{ label: localize('ade.blueprint.ports', "Provided or Required Interface"), value: 'ports' },
-		{ label: localize('ade.blueprint.connections', "Interface Connection"), value: 'connections' },
-		{ label: localize('ade.blueprint.transports', "Transport Contract"), value: 'transports' },
-		{ label: localize('ade.blueprint.modules', "Shared Library Binding"), value: 'modules' },
-		{ label: localize('ade.blueprint.mapping', "Domain Field Mapping"), value: 'mapping' },
-		{ label: localize('ade.blueprint.assertion', "Knowledge and Acceptance"), value: 'assertion' },
-		{ label: localize('ade.blueprint.decisions', "Project Architecture Decisions"), value: 'decision' }
-	];
-	const areas = [
-		{ label: localize('ade.blueprint.area.structure', "Structure"), value: 'structure', modes: ['c4', 'scope', 'owner', 'membership'] },
-		{ label: localize('ade.blueprint.area.data', "Data and Operations"), value: 'data', modes: ['types', 'operations', 'interfaces'] },
-		{ label: localize('ade.blueprint.area.connections', "Connections"), value: 'connections', modes: ['integration', 'ports', 'connections', 'transports'] },
-		{ label: localize('ade.blueprint.area.technology', "Technology"), value: 'technology', modes: ['binding', 'modules', 'mapping'] },
-		{ label: localize('ade.blueprint.area.decisions', "Decisions"), value: 'decisions', modes: ['assertion', 'decision'] }
-	];
+	const categories = adeBlueprintAreas.flatMap(area => area.modes);
+	const areas = adeBlueprintAreas;
 	let category: string | undefined = mode;
 	while (!category) {
 		const area = await quick.pick(areas, { title: localize('ade.blueprint.edit', "Edit Blueprint") });
 		if (!area) { return; }
-		const choice = await choose(area.label, [...categories.filter(item => area.modes.includes(item.value)), { label: localize('ade.blueprint.back', "Back"), value: 'back' }]);
+		const choice = await choose(area.label, [...categories.filter(item => area.modes.some(mode => mode.value === item.value)), { label: localize('ade.blueprint.back', "Back"), value: 'back' }]);
 		if (!choice) { return; }
 		if (choice !== 'back') { category = choice; }
 	}

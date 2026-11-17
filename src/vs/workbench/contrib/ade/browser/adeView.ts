@@ -172,8 +172,10 @@ export class AdeView extends ViewPane {
 			search.disabled = this.project.loading || !!this.project.error; prependAdeIcon(search, Codicon.search);
 			if (this.project.editable && !isSourceEvidenceModel(model)) {
 				const create = this.controls.details(toolbar, localize('ade.outline.new', "New"), 'outline-new');
-				for (const [label, command] of [[localize('ade.addFeature', "Add Feature"), 'ade.addFeature'], [localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram']]) {
-					this.controls.button(create, label, () => { this.controls.setExpanded('outline-new', false); void this.commandService.executeCommand(command); }).disabled = this.ai.busy || this.code.busy || this.project.hasStructuralErrors;
+				for (const [label, command] of [[localize('ade.addFeature', "Add Feature"), 'ade.addFeature'], [localize('ade.addDiagram', "Add Diagram"), 'ade.addDiagram'], [localize('ade.blueprint.sidebar', "Structural Blueprint"), 'ade.blueprint']]) {
+					const button = this.controls.button(create, label, () => { this.controls.setExpanded('outline-new', false); void this.commandService.executeCommand(command).catch(error => this.notifications.error(error)); });
+					button.disabled = this.ai.busy || this.code.busy || this.project.hasStructuralErrors || (command === 'ade.blueprint' && model.version !== 4 && model.version !== 5);
+					if (command === 'ade.blueprint') { button.classList.add('ade-sidebar-blueprint'); prependAdeIcon(button, Codicon.symbolStructure); }
 				}
 			}
 			if (this.project.loading || this.project.error) {

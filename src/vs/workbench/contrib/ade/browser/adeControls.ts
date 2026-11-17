@@ -14,7 +14,7 @@ export class AdeControls extends Disposable {
 	static captureActiveFocus(): () => void {
 		const active = dom.getActiveElement();
 		const owner = active ? AdeControls.owners.get(active) : undefined;
-		const root = active?.closest<HTMLElement>('.ade-shell');
+		const root = active?.closest<HTMLElement>('.ade-shell, .ade-sidebar');
 		if (owner && root) { return owner.captureFocus(root); }
 		return () => { if (dom.isHTMLElement(active) && active.isConnected) { active.focus(); } };
 	}

@@ -19,6 +19,8 @@ import { type SemanticModel } from '../../common/modelTypes.js';
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { ViewContainerLocation, IViewDescriptorService, type IViewContainerModel, type ViewContainer } from '../../../../common/views.js';
 import { type IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
+import { blueprintFixture } from '../common/blueprintFixture.js';
+import { emptyFoundation } from '../../common/modelFoundation.js';
 
 suite('A.D.E sidebar project shortcuts', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -30,7 +32,7 @@ suite('A.D.E sidebar project shortcuts', () => {
 		const configuration = new TestConfigurationService();
 		const instantiation = workbenchInstantiationService({ configurationService: () => configuration }, store);
 		const changed = store.add(new Emitter<void>()), aiChanged = store.add(new Emitter<void>()), codeChanged = store.add(new Emitter<void>());
-		const model: SemanticModel = { version: 3, id: 'project', name: 'ecommerce-ade', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
+		const model: SemanticModel = { version: 4, id: 'project', name: 'ecommerce-ade', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [], foundation: emptyFoundation() };
 		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.file('/project/model.ade.json'), projectRoot: URI.file('/project'), editable: true, section: 'home', onDidChange: changed.event, restore: async () => {} });
 		const ai = Object.assign(new (mock<IAdeAiService>())(), { available: true, busy: false, onDidChange: aiChanged.event });
 		const code = Object.assign(new (mock<IAdeCodeService>())(), { available: true, busy: false, context: linked ? { sourceRoot: '/project' } : undefined, onDidChange: codeChanged.event });
@@ -49,7 +51,7 @@ suite('A.D.E sidebar project shortcuts', () => {
 		const f = fixture();
 		for (const button of f.buttons()) { button.click(); }
 		await Promise.resolve();
-		assert.deepStrictEqual({ actions: f.buttons().map(button => button.textContent), commands: f.commands, hasCodeActions: root.textContent?.includes('Update Codebase'), title: root.querySelector('.ade-navigation-group > summary .ade-nav-label')?.textContent }, { actions: ['Add Feature', 'Add Diagram'], commands: ['ade.addFeature', 'ade.addDiagram'], hasCodeActions: false, title: 'ecommerce-ade' });
+		assert.deepStrictEqual({ actions: f.buttons().map(button => button.textContent), commands: f.commands, hasCodeActions: root.textContent?.includes('Update Codebase'), title: root.querySelector('.ade-navigation-group > summary .ade-nav-label')?.textContent }, { actions: ['Add Feature', 'Add Diagram', 'Structural Blueprint'], commands: ['ade.addFeature', 'ade.addDiagram', 'ade.blueprint'], hasCodeActions: false, title: 'ecommerce-ade' });
 	});
 
 	test('System Map stays directly reachable while the project is collapsed', async () => {
@@ -58,6 +60,16 @@ suite('A.D.E sidebar project shortcuts', () => {
 		const map = root.querySelector<HTMLButtonElement>('.ade-sidebar-navigation button[aria-current]')!;
 		map.click(); await Promise.resolve();
 		assert.deepStrictEqual({ label: map.textContent, hiddenInOptions: !!map.closest('details'), commands: f.commands }, { label: 'System Map', hiddenInOptions: false, commands: ['ade.showSystemMap'] });
+	});
+
+	test('the blueprint wizard is inside New after Add Diagram and is blocked while edits are busy', async () => {
+		const f = fixture();
+		Object.assign(f.project, { model: structuredClone(blueprintFixture) }); f.changed.fire();
+		const blueprint = () => root.querySelector<HTMLButtonElement>('.ade-sidebar-blueprint')!;
+		blueprint().click(); await Promise.resolve();
+		assert.deepStrictEqual({ label: blueprint().textContent, previousAction: blueprint().previousElementSibling?.textContent, menu: blueprint().closest('details')?.querySelector('summary')?.textContent, menuOpen: blueprint().closest('details')?.open, commands: f.commands }, { label: 'Structural Blueprint', previousAction: 'Add Diagram', menu: 'New', menuOpen: false, commands: ['ade.blueprint'] });
+		f.ai.busy = true; f.aiChanged.fire(); blueprint().click();
+		assert.deepStrictEqual([blueprint().disabled, f.commands], [true, ['ade.blueprint']]);
 	});
 
 	test('busy state blocks creation and preserves the collapsed project', () => {
@@ -82,6 +94,6 @@ suite('A.D.E sidebar project shortcuts', () => {
 		await f.configuration.setUserConfiguration('chat.disableAIFeatures', true);
 		f.configuration.onDidChangeConfigurationEmitter.fire(Object.assign(new (mock<IConfigurationChangeEvent>())(), { affectsConfiguration: (key: string) => key === 'chat.disableAIFeatures' }));
 		f.buttons()[1].click(); await Promise.resolve();
-		assert.deepStrictEqual([f.buttons().map(button => button.disabled), f.commands], [[false, false], ['ade.addDiagram']]);
+		assert.deepStrictEqual([f.buttons().map(button => button.disabled), f.commands], [[false, false, false], ['ade.addDiagram']]);
 	});
 });
