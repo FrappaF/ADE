@@ -4021,6 +4021,23 @@
 	padding-inline-end: var(--vscode-spacing-size400);
 }
 
+.ade-shell .ade-menu-header > button.ade-menu-header-action {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+	width: auto;
+	margin: 0;
+	padding: 0 var(--vscode-spacing-size40);
+	background: transparent;
+	color: var(--vscode-foreground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-shell .ade-menu-header > button.ade-menu-header-action:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
 .ade-canvas-mode aside.ade-properties.ade-inspector-tabbed > button:first-child {
 	position: absolute;
 	top: var(--vscode-spacing-size100);

@@ -107,4 +107,15 @@ suite('A.D.E error explanations', () => {
 		const message = adeErrorNotification(new Error('Cannot find or execute Codex. Install: npm install -g @openai/codex. https://example.test/setup'), 'ai');
 		assert.deepStrictEqual([message.includes('Cause:'), message.includes('How to resolve:'), message.includes('Technical Details: Cannot find or execute Codex.'), message.includes('npm install -g @openai/codex'), message.includes('https://example.test/setup')], [true, true, true, true, true]);
 	});
+
+	test('gives a recovery path when the native Codex catalog lacks the selected diagram model', () => {
+		const details = 'The Selected Diagram Model Is Not Available in Codex Chat: gpt-6.2-sol. Choose an Available Model and Retry.';
+		const info = describeAdeError(new Error(details), 'ai');
+		assert.deepStrictEqual(info, {
+			title: 'Could Not Complete the AI Request',
+			cause: 'The selected diagram model is missing from the Codex Chat catalog.',
+			resolution: 'Open AI Settings and choose Refresh Account and Models. If your signed-in Codex CLI supports the same model, use Choose Model and CLI to enter its absolute executable path, then retry.',
+			details
+		});
+	});
 });

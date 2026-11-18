@@ -198,6 +198,9 @@ export function describeAdeError(error: unknown, context: AdeErrorContext = 'edi
 	if (/Executable not found|Cannot find or execute|Invalid local CLI provider configuration|CLI program name|original CLI by name/i.test(message)) {
 		return info(localize('ade.error.cli.cause', "The configured AI CLI executable could not be found or its configuration is invalid."), localize('ade.error.cli.fix', "Install the official Codex or Claude Code CLI. In AI Settings → Choose Model and CLI, select its program name or absolute path, then sign in and refresh the account."));
 	}
+	if (/The selected diagram model is not available in Codex Chat/i.test(message)) {
+		return info(localize('ade.error.codexChatModel.cause', "The selected diagram model is missing from the Codex Chat catalog."), localize('ade.error.codexChatModel.fix', "Open AI Settings and choose Refresh Account and Models. If your signed-in Codex CLI supports the same model, use Choose Model and CLI to enter its absolute executable path, then retry."));
+	}
 	if (/unauthorized|not authenticated|not signed in|sign.in failed|authentication (?:failed|required)|\b401\b/i.test(message)) {
 		return info(localize('ade.error.auth.cause', "The AI account is not authenticated or its sign-in has expired."), localize('ade.error.auth.fix', "Sign in again in AI Settings, then choose Refresh Account and Models before retrying."));
 	}

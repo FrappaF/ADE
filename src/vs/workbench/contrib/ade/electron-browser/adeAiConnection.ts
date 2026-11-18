@@ -125,7 +125,7 @@ export class AdeAiConnection extends Disposable {
 			try { if (input.trim() && await this.code.resolveCli(input.trim())) { return undefined; } } catch { /* Show a field error without persisting an unusable command. */ }
 			return localize('ade.ai.invalidExecutable', "Executable not found. Enter {0} or the full path to the installed CLI. A model ID belongs in the Model field.", provider);
 		};
-		const executable = await this.quick.input({ title: localize('ade.ai.executable', "Original CLI Executable"), value, prompt: hint, validateInput: validate, ignoreFocusLost: true });
+		const executable = await this.quick.input({ title: localize('ade.ai.executable', "Original CLI Executable"), value, prompt: hint, validateInput: validate, ignoreFocusLost: true, showConfirmButton: true });
 		if (!executable) { return undefined; }
 		const error = await validate(executable);
 		if (error) { this.setConnectionStatus(error); this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); return undefined; }
@@ -250,8 +250,11 @@ export class AdeAiConnection extends Disposable {
 			}
 		} catch { /* no measured account default */ }
 		choices.sort((left, right) => Number(right.id === preferred) - Number(left.id === preferred));
-		const model = choices.length ? (await this.quick.pick(choices, { title: localize('ade.ai.model', "Choose a Model Available to Your Account") }))?.id
-			: await this.quick.input({ title: localize('ade.ai.modelManual', "Model ID from Your CLI"), value: this._config?.provider === provider ? this._config.model : undefined, prompt: localize('ade.ai.noCatalog', "No account catalog is available yet. Sign in and refresh, or enter an exact model ID. Access is checked by the provider."), ignoreFocusLost: true });
+		const manual = { label: localize('ade.ai.enterExactModelId', "Enter Exact Model ID"), id: undefined };
+		const selection = choices.length ? await this.quick.pick([...choices, manual], { title: localize('ade.ai.model', "Choose a Model Available to Your Account") }) : manual;
+		const model = selection === manual
+			? (await this.quick.input({ title: localize('ade.ai.modelManual', "Model ID from Your CLI"), value: this._config?.provider === provider ? this._config.model : undefined, prompt: localize('ade.ai.exactModelIdHelp', "Enter the exact model ID accepted by your signed-in CLI. The provider checks access when you send a request."), ignoreFocusLost: true, showConfirmButton: true }))?.trim()
+			: selection?.id;
 		if (!model) { this.host.info(localize('ade.ai.noModel', "No Model Selected. Choose Model and CLI Before Implementing a Feature.")); return; }
 		const executable = await this.chooseCliExecutable(provider, this._config?.provider === provider ? this._config.executable : provider, model);
 		if (!executable) { return; }

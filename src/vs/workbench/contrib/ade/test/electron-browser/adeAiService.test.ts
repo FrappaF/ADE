@@ -524,12 +524,25 @@ suite('A.D.E native AI orchestration', () => {
 	test('model selection decodes the native Codex account ID and saves an explicit request budget', async () => {
 		const f = fixture(false);
 		f.picks.push(items => items.find(item => item.provider === 'codex'), items => items.find(item => item.id === 'configure'), items => {
-			assert.deepStrictEqual(items.map(item => item.id), ['native-model']); return items[0];
+			assert.deepStrictEqual(items.map(item => item.id), ['native-model', undefined]); return items[0];
 		}, items => items.find(item => item.maxCalls === 1));
 		f.inputs.push('codex');
 		await f.service.connect();
 		const saved = JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!);
 		assert.deepStrictEqual({ model: saved.model, connection: saved.connection, maxCalls: saved.maxCalls }, { model: 'native-model', connection: 'cli', maxCalls: 1 });
+	});
+
+	test('a nonempty native catalog also accepts an exact CLI model ID without sending a request', async () => {
+		const f = fixture(false);
+		f.picks.push(items => items.find(item => item.provider === 'codex'), items => items.find(item => item.id === 'configure'),
+			items => items.find(item => item.label === 'Enter Exact Model ID'), items => items.find(item => item.maxCalls === 2));
+		f.inputs.push('  exact-cli-model  ', '/installed/codex');
+		await f.service.connect();
+		const saved = JSON.parse(f.storage.get('ade.ai.cliConfig', StorageScope.PROFILE)!);
+		assert.deepStrictEqual({ model: saved.model, executable: saved.executable, maxCalls: saved.maxCalls, requests: f.requests }, {
+			model: 'exact-cli-model', executable: '/installed/codex', maxCalls: 2, requests: []
+		});
+		assert.deepStrictEqual(f.inputOptions.map(option => [option.title, option.showConfirmButton]), [['Model ID from Your CLI', true], ['Original CLI Executable', true]]);
 	});
 	test('editing a connection prefocuses the saved request budget and cancellation preserves it', async () => {
 		for (const maxCalls of [0, 1, 2]) {

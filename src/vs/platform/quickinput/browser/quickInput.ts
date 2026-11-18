@@ -1213,6 +1213,10 @@ export class InputBox extends QuickInput implements IInputBox {
 
 	readonly type = QuickInputType.InputBox;
 
+	constructor(ui: QuickInputUI, private readonly showConfirmButton: boolean) {
+		super(ui);
+	}
+
 	get value() {
 		return this._value;
 	}
@@ -1269,9 +1273,11 @@ export class InputBox extends QuickInput implements IInputBox {
 
 	set prompt(prompt: string | undefined) {
 		this._prompt = prompt;
-		this.noValidationMessage = prompt
-			? localize('inputModeEntryDescription', "{0} (Press 'Enter' to confirm or 'Escape' to cancel)", prompt)
-			: QuickInput.noPromptMessage;
+		this.noValidationMessage = this.showConfirmButton
+			? prompt ?? ''
+			: prompt
+				? localize('inputModeEntryDescription', "{0} (Press 'Enter' to confirm or 'Escape' to cancel)", prompt)
+				: QuickInput.noPromptMessage;
 		this.update();
 	}
 
@@ -1309,11 +1315,15 @@ export class InputBox extends QuickInput implements IInputBox {
 			title: !!this.title || !!this.step || !!this.titleButtons.length,
 			description: !!this.description || !!this.step,
 			inputBox: true,
+			ok: this.showConfirmButton,
 			message: true,
 			progressBar: true
 		};
 
 		this.ui.setVisibilities(visibilities);
+		if (this.showConfirmButton) {
+			this.ui.ok.label = localize('ok', "OK");
+		}
 		super.update();
 		if (this.ui.inputBox.value !== this.value) {
 			this.ui.inputBox.value = this.value;

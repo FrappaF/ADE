@@ -51,4 +51,30 @@ suite('A.D.E readable workflow and map', () => {
 		const update = [...root.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Update Codebase from Diagrams')!;
 		assert.deepStrictEqual({ calls, aiDisabled: update.disabled, reason: document.getElementById(update.getAttribute('aria-describedby')!)?.textContent }, { calls: ['local-preparation', 'source-evidence'], aiDisabled: true, reason: 'AI Features Are Disabled in Settings.' });
 	});
+
+	test('the Code page keeps the next worktree action visible while architecture exploration exists', () => {
+		const controls = store.add(new AdeControls());
+		const calls: string[] = [];
+		const project = Object.assign(new (mock<AdeProjectService>())(), { editable: true, projectRoot: URI.file('/project'), model: { version: 2, id: 'checkout', semantics: { elements: [] } } });
+		const ai = Object.assign(new (mock<IAdeAiService>())(), {
+			available: true, busy: false, canVerify: true, canApply: false, status: 'Changes Ready for Review', continuityStatus: 'Off',
+			diagramExploration: { workflow: 'project', proposals: [], tasks: [], usage: { toolCalls: 0, readBytes: 0 }, budget: { maxToolCalls: 8, maxReadBytes: 16384 } },
+			verify: async () => { calls.push('verify'); }, apply: async () => { calls.push('apply'); }
+		});
+		const code = Object.assign(new (mock<IAdeCodeService>())(), { available: true, busy: false, context: { sourceRoot: '/source' } });
+		const workflow = new AdeWorkflowContent({ root, paragraph: (parent, text) => { dom.append(parent, dom.$('p')).textContent = text; }, button: (parent, label, action, id) => controls.button(parent, label, action, id), documentStatus: () => '', showReview: () => {} }, controls, project, ai, new TestConfigurationService(), new (mock<INotificationService>())(), code, new (mock<ICommandService>())());
+		const clickWorktreeAction = (label: string) => {
+			assert.strictEqual(root.querySelector('.ade-code-panel h2')?.textContent, 'Implementation Worktree');
+			const buttons = [...root.querySelectorAll('button')].filter(button => button.textContent === label);
+			assert.strictEqual(buttons.length, 1);
+			buttons[0].click();
+		};
+		workflow.renderCodeActions(root, () => {});
+		clickWorktreeAction('Run Tests');
+		dom.clearNode(root);
+		Object.assign(ai, { canApply: true, status: 'Tests Passed · Ready to Apply' });
+		workflow.renderCodeActions(root, () => {});
+		clickWorktreeAction('Apply Verified Changes');
+		assert.deepStrictEqual(calls, ['verify', 'apply']);
+	});
 });

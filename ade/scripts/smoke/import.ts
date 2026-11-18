@@ -180,6 +180,11 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		assert.equal(await shell.getByRole('button', { name: 'Update Code', exact: true }).count(), 0, 'The unreviewed source index does not expose legacy model-to-code synchronization');
 		await shell.getByRole('region', { name: 'Architecture Exploration', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Explore Architecture', exact: true, disabled: false }).waitFor();
+		await shell.getByRole('button', { name: 'Inspect Code Evidence', exact: true }).click();
+		await widget.getByRole('option', { name: /checkout.*Extracted declaration/i }).waitFor();
+		await widget.getByRole('option', { name: /checkout.*Extracted declaration/i }).click();
+		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'checkout' }).first().waitFor();
+		await window.getByRole('tab', { name: /Create Diagrams: codebase/ }).click();
 		assert.equal(await readFile(execCounter, 'utf8'), '0', 'Inspecting the default import and code actions sends no inference request');
 		const settingsFile = path.join(userData, 'User/settings.json');
 		const settings = JSON.parse(await readFile(settingsFile, 'utf8'));

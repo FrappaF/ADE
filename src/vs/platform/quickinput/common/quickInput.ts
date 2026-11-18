@@ -232,6 +232,11 @@ export interface IInputOptions {
 	title?: string;
 
 	/**
+	 * Show an OK button to submit the input with a pointer.
+	 */
+	showConfirmButton?: boolean;
+
+	/**
 	 * the value to prefill in the input box
 	 */
 	value?: string;

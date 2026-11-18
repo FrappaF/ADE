@@ -9,6 +9,7 @@ import { type IAction, toAction } from '../../../../../base/common/actions.js';
 import { type ThemeIcon } from '../../../../../base/common/themables.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
@@ -31,11 +32,11 @@ suite('A.D.E canvas action menus', () => {
 	setup(() => { root = dom.append(document.body, dom.$('section.ade-shell')); });
 	teardown(() => root.remove());
 
-	function fixture(options: { model?: SemanticModel; viewKind?: ModelView['kind']; view?: ModelView; editable?: boolean; toolbar?: boolean; inspector?: boolean } = {}) {
+	function fixture(options: { model?: SemanticModel; viewKind?: ModelView['kind']; view?: ModelView; editable?: boolean; toolbar?: boolean; inspector?: boolean; projectRoot?: URI } = {}) {
 		const model = structuredClone(options.model ?? blueprintFixture);
 		const view = options.view ?? (options.viewKind ? model.views.find(view => view.kind === options.viewKind)! : model.views[2]);
 		const project = Object.assign(new (mock<AdeProjectService>())(), {
-			model, activeView: view, selectedId: view.nodes[0]?.elementId ?? '', section: 'diagram', editable: options.editable ?? true,
+			model, activeView: view, selectedId: view.nodes[0]?.elementId ?? '', section: 'diagram', editable: options.editable ?? true, projectRoot: options.projectRoot,
 			selectElement: (id: string) => { project.selectedId = id; }, readiness: () => ({ diagnostics: [] })
 		});
 		const controls = store.add(new AdeControls());
@@ -65,8 +66,8 @@ suite('A.D.E canvas action menus', () => {
 	}
 
 	const palette = () => root.querySelector<HTMLElement>('.ade-diagram-menu')!;
-	const button = (label: string) => {
-		const button = [...root.querySelectorAll('button')].find(button => (button.getAttribute('aria-label') ?? button.textContent) === label);
+	const button = (label: string, parent: ParentNode = root) => {
+		const button = [...parent.querySelectorAll('button')].find(button => (button.getAttribute('aria-label') ?? button.textContent) === label);
 		assert.ok(button, `Missing button: ${label}`); return button;
 	};
 	const disclosure = (label: string) => {
@@ -78,8 +79,8 @@ suite('A.D.E canvas action menus', () => {
 		assert.ok(tab, `Missing tab: ${label}`); return tab;
 	};
 	const panel = (label: string) => document.getElementById(tab(label).getAttribute('aria-controls')!)!;
-	const run = (label: string) => {
-		const action = button(label);
+	const run = (label: string, parent?: ParentNode) => {
+		const action = button(label, parent);
 		const panel = action.closest<HTMLElement>('[role="tabpanel"]');
 		if (panel) { document.getElementById(panel.getAttribute('aria-labelledby')!)?.click(); }
 		let details = action.closest('details');
@@ -104,10 +105,15 @@ suite('A.D.E canvas action menus', () => {
 		assert.ok(button('Read Diagram').classList.contains('ade-menu-action-navigation'));
 		assert.ok(button('Delete Diagram').classList.contains('ade-menu-action-destructive'));
 		assert.strictEqual(panel('Information').querySelector('.ade-menu-fact dt')?.textContent, 'Visible Elements');
-		for (const label of ['Edit Visible Elements', 'Edit Context Dependencies', 'Add Existing Element', 'Add Existing Relationship', 'Rename Diagram', 'Read Diagram', 'Delete Diagram']) { run(label); }
+		run('Add Existing Element', root.querySelector('.ade-floating-menu')!);
+		run('Add Existing Element', panel('Contents'));
+		run('Rename', palette().querySelector('header')!);
+		run('Arrange', palette().querySelector('header')!);
+		for (const label of ['Edit Visible Elements', 'Edit Context Dependencies', 'Add Existing Relationship', 'Rename Diagram', 'Read Diagram', 'Delete Diagram']) { run(label); }
 		assert.deepStrictEqual(commands, [
+			{ command: 'ade.addExisting', args: [] }, { command: 'ade.addExisting', args: [] }, { command: 'ade.renameDiagram', args: [] }, { command: 'ade.layout', args: [] },
 			{ command: 'ade.blueprint', args: [undefined, 'c4Visibility'] }, { command: 'ade.blueprint', args: [undefined, 'c4Dependencies'] },
-			{ command: 'ade.addExisting', args: [] }, { command: 'ade.addExistingRelation', args: [] }, { command: 'ade.renameDiagram', args: [] }, { command: 'ade.readContext', args: [] }, { command: 'ade.deleteDiagram', args: [] }
+			{ command: 'ade.addExistingRelation', args: [] }, { command: 'ade.renameDiagram', args: [] }, { command: 'ade.readContext', args: [] }, { command: 'ade.deleteDiagram', args: [] }
 		]);
 	});
 
@@ -130,7 +136,7 @@ suite('A.D.E canvas action menus', () => {
 
 	test('readonly tabs retain navigation and display controls while omitting editing and destructive actions', () => {
 		fixture({ editable: false });
-		assert.deepStrictEqual({ danger: root.querySelector('.ade-menu-danger'), rename: [...root.querySelectorAll('button')].some(button => button.getAttribute('aria-label') === 'Rename Diagram'), arrangeDisabled: button('Arrange Diagram').disabled, readDisabled: button('Read Diagram').disabled, propertiesDisabled: button('Properties').disabled }, { danger: null, rename: false, arrangeDisabled: true, readDisabled: false, propertiesDisabled: false });
+		assert.deepStrictEqual({ danger: root.querySelector('.ade-menu-danger'), editing: [...root.querySelectorAll('button')].some(button => ['Rename', 'Rename Diagram', 'Add Existing Element'].includes(button.getAttribute('aria-label') ?? button.textContent ?? '')), arrangeDisabled: button('Arrange Diagram').disabled, readDisabled: button('Read Diagram').disabled, propertiesDisabled: button('Properties').disabled }, { danger: null, editing: false, arrangeDisabled: true, readDisabled: false, propertiesDisabled: false });
 		assert.ok(panel('Contents').textContent?.includes('read-only'));
 	});
 
@@ -154,6 +160,19 @@ suite('A.D.E canvas action menus', () => {
 			assert.ok(![...root.querySelectorAll('button')].some(button => ['Add Existing Message', 'Add Existing Element', 'Add Element', 'Arrange Diagram'].includes(button.getAttribute('aria-label') ?? button.textContent ?? '')));
 		});
 	}
+
+	test('a recorded activity in a linked local project offers regeneration from source', () => {
+		const model = { ...structuredClone(interactionFixture), version: 5 as const };
+		const interaction = model.foundation.interactions[0];
+		interaction.execution = undefined;
+		interaction.profile = 'descriptive';
+		interaction.description = { trigger: 'Checkout requested', scope: 'Checkout', participantIds: [], evidenceIds: [], order: [] };
+		const view: ModelView = { id: 'activity.checkout', name: 'Checkout', kind: 'activity', interactionId: interaction.id, nodes: [], relationIds: [] };
+		const { commands } = fixture({ model, view, projectRoot: URI.file('/checkout') });
+		run('Update Diagrams from Codebase', panel('Contents'));
+		assert.match(panel('Contents').textContent!, /shown for inspection/);
+		assert.deepStrictEqual(commands, [{ command: 'ade.ai.updateDiagrams', args: [] }]);
+	});
 
 	test('the alternate toolbar retains feature, blueprint, display and delete commands in matching tabs', () => {
 		const { commands } = fixture({ toolbar: true });

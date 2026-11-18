@@ -16,7 +16,7 @@ export async function readAdeScalar(quick: Dialogs, primitive: 'string' | 'integ
 		const choices = [{ label: localize('ade.criteria.true', "True"), value: true }, { label: localize('ade.criteria.false', "False"), value: false }];
 		return (await quick.pick(choices, { title, activeItem: choices.find(choice => choice.value === current) }))?.value;
 	}
-	const value = await quick.input({ title, value: current === undefined || current === null ? '' : String(current), validateInput: async value => {
+	const value = await quick.input({ title, showConfirmButton: true, value: current === undefined || current === null ? '' : String(current), validateInput: async value => {
 		if (primitive === 'integer' && (!/^-?\d+$/.test(value) || !Number.isSafeInteger(Number(value)))) { return localize('ade.criteria.integer', "Enter a safe integer."); }
 		if (primitive === 'number' && (!value.trim() || !Number.isFinite(Number(value)))) { return localize('ade.criteria.number', "Enter a finite number."); }
 		return undefined;

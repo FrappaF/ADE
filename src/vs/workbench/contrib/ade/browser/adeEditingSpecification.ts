@@ -14,7 +14,7 @@ import { editAdeInteraction } from './adeInteractionEditing.js';
 import { editAdePredicate } from './adePredicateEditing.js';
 import { editAdeStack } from './adeStackEditing.js';
 import { editAdeTask } from './adeTaskEditing.js';
-import { AdeEditingWizard } from './adeEditingWizard.js';
+import { AdeEditingWizard, type AdeWizardReviewLabels } from './adeEditingWizard.js';
 import { type AdeEditingContext } from './adeEditingContext.js';
 import { type AdeEditingCommand } from './adeEditingCommands.js';
 
@@ -22,9 +22,9 @@ import { type AdeEditingCommand } from './adeEditingCommands.js';
 export async function runAdeSpecificationCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'taskIntent' | 'createPureFeature' | 'selectStructuralProfile' | 'messaging' | 'simulateMessaging' | 'stateMachine' | 'interaction' | 'predicate' | 'prepareStructuralContext'>, id?: string): Promise<void> {
 	const view = ui.project.activeView;
 	const model = ui.project.model;
-	const collect = async <T>(title: string, callback: (quick: Pick<IQuickInputService, 'pick' | 'input'>) => Promise<T | undefined>): Promise<T | undefined> => {
+	const collect = async <T>(title: string, callback: (quick: Pick<IQuickInputService, 'pick' | 'input'>) => Promise<T | undefined>, reviewLabels?: AdeWizardReviewLabels): Promise<T | undefined> => {
 		const disposables = new DisposableStore();
-		try { return await disposables.add(new AdeEditingWizard(ui.container)).run(title, model.name, callback); }
+		try { return await disposables.add(new AdeEditingWizard(ui.container)).run(title, model.name, callback, reviewLabels); }
 		finally { disposables.dispose(); }
 	};
 	if (command === 'taskIntent') { if ((model.version === 4 || model.version === 5)) { const edits = await collect(localize('ade.task.edit', "Tasks and Clarifications"), quick => editAdeTask(quick, model)); if (edits) { ui.edit(edits); } } return; }
@@ -34,10 +34,15 @@ export async function runAdeSpecificationCommand(ui: AdeEditingContext, command:
 	if (command === 'simulateMessaging') {
 		if ((model.version !== 4 && model.version !== 5)) { return; }
 		const configured = await collect(localize('ade.messaging.simulate', "Simulate Messaging · No Broker"), async quick => {
-			const selected = await quick.pick((model.foundation.messaging ?? []).map(topology => ({ label: topology.id, topology })), { title: localize('ade.messaging.simulate', "Simulate Messaging · No Broker") });
-			if (!selected) { return; }
-			const scenario = await readAdeMessagingScenario(quick, model, selected.topology);
-			return scenario ? { topologyId: selected.topology.id, scenario } : undefined;
+			const topologies = model.foundation.messaging ?? [];
+			const topology = topologies.length === 1 ? topologies[0] : (await quick.pick(topologies.map(topology => ({ label: topology.id, topology })), { title: localize('ade.messaging.simulate', "Simulate Messaging · No Broker") }))?.topology;
+			if (!topology) { return; }
+			const scenario = await readAdeMessagingScenario(quick, model, topology);
+			return scenario ? { topologyId: topology.id, scenario } : undefined;
+		}, {
+			heading: localize('ade.messaging.reviewScenario', "Review Simulation Scenario"),
+			help: localize('ade.messaging.reviewScenarioHelp', "Check the publication and delivery steps before running the scenario locally."),
+			confirm: localize('ade.messaging.runSimulation', "Run Simulation")
 		});
 		if (!configured) { return; }
 		const result = simulateMessaging(compileModelMessaging(model, configured.topologyId), configured.scenario);

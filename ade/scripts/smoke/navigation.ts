@@ -69,7 +69,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await revealAdeText(window, 'Precondition: Amount is positive');
 		for (const diagram of ['Esito pagamento', 'Percorso acquisto']) {
 			await window.locator('.ade-sidebar').getByRole('button', { name: diagram, exact: true }).click();
-			await clickAdeButton(window, 'Add Existing Element');
+			await shell.getByRole('button', { name: 'Add Existing Element', exact: true }).and(shell.locator('.ade-floating-menu > button')).click();
 			await pickValue(window, 'Add Existing Element', 'Contratto pagamento');
 			await shell.locator('.ade-node[aria-pressed="true"]').filter({ hasText: 'Contratto pagamento' }).waitFor();
 			await openProperties(window);

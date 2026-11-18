@@ -69,7 +69,7 @@ suite('A.D.E inspector information hierarchy', () => {
 			revealElement: (id, viewId) => revealed.push({ id, viewId }), relationMenu: () => {},
 			...(canvasConnection ? { beginConnection: async (id: string) => { canvasConnections.push(id); } } : {})
 		}, controls, project, code, commandService);
-		const render = () => controls.render(root, () => { root.replaceChildren(); detail = root.appendChild(document.createElement('aside')); inspector.renderProperties(detail, project.model, project.activeView); });
+		const render = (close?: () => void) => controls.render(root, () => { root.replaceChildren(); detail = root.appendChild(document.createElement('aside')); inspector.renderProperties(detail, project.model, project.activeView, close); });
 		return { model, project, code, inspector, controls, commands, revealed, inspected, impacts, source, edits, render, canvasConnections, failCommand: (error: Error) => { commandError = error; } };
 	}
 
@@ -168,12 +168,21 @@ suite('A.D.E inspector information hierarchy', () => {
 		assert.ok(!architecture.contains(button('Edit Attributes and Technology')));
 	});
 
-	test('footer actions retain routes and focus identities independently of the selected panel', async () => {
-		const f = fixture(); f.render();
+	test('header and footer actions retain routes and focus identities independently of the selected panel', async () => {
+		const f = fixture(), closedAfterEdits: number[] = [];
+		f.render(() => { closedAfterEdits.push(f.edits.length); });
+		button('Remove from This Diagram', panel('Properties')).click();
 		button('Edit Attributes and Technology').click(); tab('Architecture').click(); button('Open Source').click(); button('Show Change Impact').click(); button('Element Details').click();
+		button('Rename', detail.querySelector('header')!).click();
 		manage().querySelector('summary')!.click(); button('Rename Element').click();
+		button('Remove from This Diagram', section('In This Diagram', manage())).click();
 		await Promise.resolve();
-		assert.deepStrictEqual({ commands: f.commands, source: f.source, impacts: f.impacts, inspected: f.inspected }, { commands: [{ id: 'ade.notation', args: ['client'] }, { id: 'ade.renameElement', args: [] }], source: ['client'], impacts: ['client'], inspected: ['client'] });
+		assert.deepStrictEqual({ commands: f.commands, source: f.source, impacts: f.impacts, inspected: f.inspected, edits: f.edits, closedAfterEdits }, {
+			commands: [{ id: 'ade.notation', args: ['client'] }, { id: 'ade.renameElement', args: [] }, { id: 'ade.renameElement', args: [] }],
+			source: ['client'], impacts: ['client'], inspected: ['client'], edits: [
+				{ kind: 'exclude', viewId: 'current', id: 'client', target: 'element' }, { kind: 'exclude', viewId: 'current', id: 'client', target: 'element' }
+			], closedAfterEdits: [1, 2]
+		});
 		assert.ok(f.controls.focusTarget('source:client'));
 		f.render(); assert.strictEqual(document.activeElement, button('Open Source'));
 		assert.strictEqual(tab('Architecture').getAttribute('aria-selected'), 'true');
@@ -215,7 +224,7 @@ suite('A.D.E inspector information hierarchy', () => {
 		for (const label of ['Properties', 'Behavior', 'Architecture']) { tab(label).click(); assert.strictEqual(panel(label).hidden, false); }
 		assert.ok(section('Explore').contains(button('Open Source')));
 		const labels = [...detail.querySelectorAll('button')].map(button => button.getAttribute('aria-label') ?? button.textContent);
-		assert.ok(!labels.some(label => ['Rename Element', 'Edit Description', 'Edit Attributes and Technology', 'Edit Pure Predicate', 'Edit Blueprint', 'Delete Element', 'Delete Relationship'].includes(label ?? '')));
+		assert.ok(!labels.some(label => ['Rename', 'Rename Element', 'Remove from This Diagram', 'Edit Description', 'Edit Attributes and Technology', 'Edit Pure Predicate', 'Edit Blueprint', 'Delete Element', 'Delete Relationship'].includes(label ?? '')));
 		assert.ok(panel('Properties').textContent?.includes('PostgreSQL'));
 		assert.ok(button('Customer Diagram').textContent?.includes('Current'));
 	});

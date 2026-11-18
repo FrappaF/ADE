@@ -937,6 +937,29 @@ suite('A.D.E project context', () => {
 		assert.deepStrictEqual([restored.error, restored.model, (await files.readFile(modelUri)).value.toString()], [undefined, model, bytes]);
 	});
 
+	test('startup opens the published import rather than the inventory snapshot saved in the shell', async () => {
+		const folder = URI.parse('test:/published-import');
+		const inventorySnapshot = '11111111-1111-4111-8111-111111111111';
+		const publishedSnapshot = '22222222-2222-4222-8222-222222222222';
+		const inventory = URI.joinPath(folder, '.ade', 'imports', inventorySnapshot, 'model.ade.json');
+		const published = URI.joinPath(folder, '.ade', 'imports', publishedSnapshot, 'model.ade.json');
+		const pointer = URI.joinPath(folder, '.ade', 'code-project.json');
+		const model = migrateSemanticModelToV5(checkoutModel);
+		const inventoryBytes = JSON.stringify({ ...model, views: [] });
+		await files.writeFile(inventory, VSBuffer.fromString(inventoryBytes));
+		await files.writeFile(published, VSBuffer.fromString(JSON.stringify(model)));
+		await files.writeFile(pointer, VSBuffer.fromString(JSON.stringify({ version: 1, active: publishedSnapshot })));
+		contextFolders = [folder];
+		storage.store('ade.shell.model', inventory.toString(), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		storage.store('ade.shell.section', 'home', StorageScope.WORKSPACE, StorageTarget.MACHINE);
+
+		const project = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await project.restore();
+
+		assert.deepStrictEqual([project.modelUri?.toString(), project.section, project.activeView?.id, project.dirty], [published.toString(), 'diagram', model.views[0].id, false]);
+		assert.strictEqual((await files.readFile(inventory)).value.toString(), inventoryBytes);
+	});
+
 	test('v5 reference errors remain recoverable drafts, while malformed v5 shapes are rejected', async () => {
 		const model = migrateSemanticModelToV5(checkoutModel);
 		model.semantics.relations.push({ id: 'draft.v5', kind: 'dependency', from: 'checkout-controller', to: 'missing', name: 'Incomplete' });

@@ -15,6 +15,7 @@ import { renderAdeErrorNotice } from './adeErrorNotice.js';
 
 type Answer = { kind: 'input'; value: string } | { kind: 'pick'; indices: number[] };
 interface WizardStep { title: string; answer: Answer; summary: string }
+export interface AdeWizardReviewLabels { heading: string; help: string; confirm: string }
 export class WizardBack extends Error { constructor(readonly index: number, readonly review = false) { super('back'); } }
 export class WizardCanceled extends Error { }
 
@@ -36,6 +37,7 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 	protected interrupt: ((error: Error) => void) | undefined;
 	private saveDraft: (() => void) | undefined;
 	private closed = false;
+	private reviewLabels?: AdeWizardReviewLabels;
 
 	constructor(parent: HTMLElement, title = localize('ade.editing.wizard.title', "Edit Project Details"), private readonly hasChooser = false) {
 		super();
@@ -55,10 +57,11 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 	}
 
 	/** The collector must only construct detached values: callers apply them after this method resolves. */
-	async run<T>(title: string, context: string, collect: (quick: Pick<IQuickInputService, 'pick' | 'input'>) => Promise<T | undefined>): Promise<T | undefined> {
+	async run<T>(title: string, context: string, collect: (quick: Pick<IQuickInputService, 'pick' | 'input'>) => Promise<T | undefined>, reviewLabels?: AdeWizardReviewLabels): Promise<T | undefined> {
 		this.element.setAttribute('aria-label', title);
 		this.heading.textContent = title;
 		this.context.textContent = context;
+		this.reviewLabels = reviewLabels;
 		try {
 			this.element.showModal();
 			while (true) {
@@ -233,7 +236,9 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 	}
 
 	protected review(): Promise<void> {
-		this.page(2, this.hasChooser ? localize('ade.blueprint.wizard.reviewTitle', "Review Your Blueprint Changes") : localize('ade.editing.wizard.reviewTitle', "Review Your Changes"), localize('ade.blueprint.wizard.reviewHelp', "Check your choices before applying them. You can edit any step or cancel without changing the project."), this.steps.length - 1);
+		const title = this.reviewLabels?.heading ?? (this.hasChooser ? localize('ade.blueprint.wizard.reviewTitle', "Review Your Blueprint Changes") : localize('ade.editing.wizard.reviewTitle', "Review Your Changes"));
+		const help = this.reviewLabels?.help ?? localize('ade.blueprint.wizard.reviewHelp', "Check your choices before applying them. You can edit any step or cancel without changing the project.");
+		this.page(2, title, help, this.steps.length - 1);
 		return new Promise((resolve, reject) => {
 			this.interrupt = reject;
 			const list = dom.append(this.content, dom.$('dl.ade-blueprint-summary'));
@@ -244,7 +249,7 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 				const edit = this.button(row, localize('ade.blueprint.wizard.edit', "Edit"), () => reject(new WizardBack(index, true)));
 				edit.setAttribute('aria-label', localize('ade.blueprint.wizard.editStep', "Edit {0}", step.title));
 			});
-			this.button(this.footer, localize('ade.blueprint.wizard.apply', "Apply Changes"), () => resolve(), true);
+			this.button(this.footer, this.reviewLabels?.confirm ?? localize('ade.blueprint.wizard.apply', "Apply Changes"), () => resolve(), true);
 		});
 	}
 

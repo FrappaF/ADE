@@ -7,7 +7,7 @@ import * as dom from '../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
-import { acceptsNotationElement } from '../common/modelNotation.js';
+import { acceptsNotationElement, notationRules } from '../common/modelNotation.js';
 import { ElementKind, ModelView, SemanticModel } from '../common/modelTypes.js';
 import { getStateDiagram } from '../common/stateDiagram.js';
 import { getElementPath } from '../common/visualNavigation.js';
@@ -63,11 +63,12 @@ export async function createAdeElementForm(parent: HTMLElement, model: SemanticM
 	const scopedC4 = (model.version === 4 || model.version === 5) && !!view.subjectId && ['c4Context', 'c4Container', 'c4Component'].includes(view.kind);
 	const candidates = (Object.keys(elementLabels) as ElementKind[]).filter(kind => kind !== 'feature' && acceptsNotationElement(view.kind, { kind }) && (view.kind !== 'state' || kind === 'state'));
 	if (!candidates.length) { return; }
+	const defaultKind = view.kind === 'activity' ? 'action' : notationRules[view.kind]?.core.find(kind => candidates.includes(kind)) ?? candidates[0];
 	const dialog = new AdeFormDialog(parent, { title: view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), description: view.name, confirmLabel: localize('ade.form.create', "Create") });
 	const listeners = new DisposableStore();
 	try {
 		const name = dialog.text(dialog.body, localize('ade.name', "Name"), '', { required: true });
-		const kind = dialog.select(dialog.body, localize('ade.elementType', "Element Type"), candidates[0], candidates.map(value => ({
+		const kind = dialog.select(dialog.body, localize('ade.elementType', "Element Type"), defaultKind, candidates.map(value => ({
 			value,
 			label: value === 'system' && scopedC4 ? localize('ade.externalSystemElement', "External Software System") : value === 'container' && scopedC4 && view.kind === 'c4Component' ? localize('ade.contextContainerElement', "Context Container") : elementLabels[value]
 		})));

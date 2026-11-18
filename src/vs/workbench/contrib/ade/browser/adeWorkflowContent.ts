@@ -180,7 +180,7 @@ export class AdeWorkflowContent {
 			const banner = dom.append(parent, dom.$('section.ade-workflow'));
 			this.host.paragraph(banner, localize('ade.sourceChanged', "Code Has Changed. Choose Update Diagrams to Reflect the Changes Here."));
 		}
-		if (this.ai.canApply || this.ai.canVerify) {
+		if ((!history || this.project.model.version === 4 || this.project.model.version === 5) && (this.ai.canApply || this.ai.canVerify)) {
 			this.host.button(parent, this.ai.canApply ? localize('ade.ai.applyButton', "Apply Verified Changes") : localize('ade.ai.verifyButton', "Run Tests"), () => (this.ai.canApply ? this.ai.apply() : this.ai.verify())).disabled = this.ai.busy || this.code.busy || !this.project.editable || this.project.hasStructuralErrors || !this.ai.available || !this.code.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true;
 		}
 	}
@@ -194,7 +194,8 @@ export class AdeWorkflowContent {
 	renderCodeActions(parent: HTMLElement, settings: () => void, reviewActions?: (container: HTMLElement) => void): void {
 		const busy = this.ai.busy || this.code.busy;
 		const reason = this.project.loading || this.project.error ? localize('ade.code.waitForProject', "Open a valid project before using code actions.") : busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : !this.project.editable ? localize('ade.generation.readonly', "Open a writable project to prepare code changes.") : this.project.hasStructuralErrors ? localize('ade.code.correctModel', "Correct the draft specification in Project Settings first.") : undefined;
-		const aiReason = reason ?? (this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true ? localize('ade.ai.disabled', "AI Features Are Disabled in Settings.") : !this.ai.available ? localize('ade.code.aiUnavailable', "Connect an AI provider in AI Settings to prepare code changes.") : undefined);
+		const aiDisabled = this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true;
+		const aiReason = reason ?? (aiDisabled ? localize('ade.ai.disabled', "AI Features Are Disabled in Settings.") : !this.ai.available ? localize('ade.code.aiUnavailable', "Connect an AI provider in AI Settings to prepare code changes.") : undefined);
 		const structuralReason = reason ?? (!this.ai.available || !this.code.available ? localize('ade.generation.unavailable', "Local code generation and verification are unavailable in this environment.") : !this.project.projectRoot ? localize('ade.codeUpdate.saveFirst', "Open or Save a Project Before Updating Its Codebase.") : this.project.model.version !== 4 && this.project.model.version !== 5 ? localize('ade.code.executableModel', "This action requires a project with executable behavior. Configure the model in Project Settings.") : undefined);
 		let executable = false;
 		try { const model = this.project.model; if (model.version === 4 || model.version === 5) { assertPureProject(model); executable = true; } } catch { /* The settings action remains available for incomplete designs. */ }
@@ -208,11 +209,16 @@ export class AdeWorkflowContent {
 			action(localize('ade.recoverSync', "Recover Sync"), () => this.commandService.executeCommand('ade.restoreCodeSnapshot'), reason ?? (!this.code.context ? localize('ade.code.noSync', "Open a project linked to a codebase to manage synchronization.") : undefined))
 		];
 		if (this.project.model.version !== 4 && this.project.model.version !== 5 && !isSourceEvidenceModel(this.project.model)) { recovery.push(action(localize('ade.syncProject', "Sync Project"), () => this.code.sync(), reason ?? (!this.code.context ? localize('ade.code.noSync', "Open a project linked to a codebase to manage synchronization.") : undefined))); }
+		const worktree = this.project.model.version !== 4 && this.project.model.version !== 5 && this.code.context && this.ai.available && !aiDisabled && (this.ai.canApply || this.ai.canVerify) ? {
+			...action(this.ai.canApply ? localize('ade.ai.applyButton', "Apply Verified Changes") : localize('ade.ai.verifyButton', "Run Tests"), () => this.ai.canApply ? this.ai.apply() : this.ai.verify(), aiReason ?? (!this.code.available ? structuralReason : undefined)),
+			status: this.ai.status
+		} : undefined;
 		renderAdeCodeActions(parent, this.controls, {
 			update: action(localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), () => this.ai.updateCodebase(), aiReason ?? (!this.project.projectRoot ? localize('ade.codeUpdate.saveFirst', "Open or Save a Project Before Updating Its Codebase.") : undefined)),
 			prepare: action(localize('ade.review.prepare', "Prepare Model to Code Review"), () => this.ai.implement(), structuralReason ?? (!executable ? localize('ade.code.behaviorRequired', "Complete the executable behavior and runtime in Project Settings to prepare a local code review.") : undefined)),
 			continuity: action(localize('ade.continuity.toggle', "Start or Stop Continuous Preparation"), () => this.ai.configureContinuity(), structuralReason),
 			continuityStatus: this.ai.continuityStatus,
+			worktree,
 			review: this.ai.structuralReview ? { label: localize('ade.ai.reviewButton', "Review Changes"), run: () => this.host.showReview() } : undefined,
 			sources: this.code.context ? [
 				action(localize('ade.code.inspectButton', "Code Evidence"), () => this.code.inspect(), this.code.busy ? localize('ade.operationWait', "Wait for the Active A.D.E Operation to Finish.") : undefined),

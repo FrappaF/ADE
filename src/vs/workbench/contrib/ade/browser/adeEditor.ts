@@ -232,7 +232,10 @@ export class AdeEditor extends EditorPane {
 			} else if (sourceEvidence && !this.project.loading && !this.project.error) {
 				dom.append(content, dom.$('h1')).textContent = localize('ade.import.interpretTitle', "Explore Your Codebase");
 				this.paragraph(content, localize('ade.import.interpretDescription', "Your local source inventory is ready. Plan and generate the project diagrams with AI, then review and apply them together."));
-				if (this.code.context) { this.workflow.renderWorkflow(content); }
+				if (this.code.context) {
+					this.button(content, localize('ade.code.inspect', "Inspect Code Evidence"), () => this.code.inspect(), 'inventory-evidence');
+					this.workflow.renderWorkflow(content);
+				}
 				else { this.paragraph(content, localize('ade.import.readingEvidence', "Preparing source evidence…")); }
 				if (!this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true) { this.paragraph(content, localize('ade.import.aiRequired', "Enable AI features to interpret the source into diagrams. The technical index stays available as code evidence.")); }
 			} else if (this.project.section === 'home' && !this.project.error && !this.project.loading) {
@@ -455,8 +458,11 @@ export class AdeEditor extends EditorPane {
 		const help = dom.append(visual, dom.$('p.ade-canvas-help'));
 		help.classList.toggle('is-pending', !!this.surface.pendingConnection);
 		help.id = 'ade-canvas-help';
-		help.textContent = getProjectedInteraction(model, view)
-			? localize('ade.sequence.projectedHelp', "Select a participant, message, frame or branch to inspect its properties. Edit the linked behavior to change the diagram. Focus the background and use arrow keys to pan.")
+		const interaction = getProjectedInteraction(model, view);
+		help.textContent = interaction
+			? interaction.execution
+				? localize('ade.sequence.projectedHelp', "Select a participant, message, frame or branch to inspect its properties. Edit the linked behavior to change the diagram. Focus the background and use arrow keys to pan.")
+				: localize('ade.interaction.descriptiveHelp', "Select an item to inspect its properties. Focus the background and use arrow keys to pan.")
 			: view.kind === 'sequence' && this.project.editable
 			? localize('ade.sequence.help', "Select a participant or message to inspect its shared contract. Use Properties to order participants and messages or remove them from this diagram. Focus the background and use arrow keys to pan.")
 			: view.kind === 'sequence' ? localize('ade.sequence.readonlyHelp', "Select a participant or message to inspect its shared contract. Read Diagram presents the sequence as text. Focus the background and use arrow keys to pan.")
@@ -469,8 +475,9 @@ export class AdeEditor extends EditorPane {
 		this.surface.renderCanvasMenus(content, view);
 		if (this.surface.inspectorOpen) {
 			const inspector = this.canvas.floatingInspector = dom.append(workspace, dom.$('aside.ade-properties'));
-			this.iconButton(inspector, localize('ade.closeProperties', "Close Properties"), Codicon.close, () => { this.surface.inspectorOpen = false; this.render(); });
-			if (this.surface.relationSelection) { this.inspector.renderRelationProperties(inspector, this.surface.relationSelection); } else { this.inspector.renderProperties(inspector, model, view); }
+			const closeInspector = () => { this.surface.inspectorOpen = false; this.render(); };
+			this.iconButton(inspector, localize('ade.closeProperties', "Close Properties"), Codicon.close, closeInspector);
+			if (this.surface.relationSelection) { this.inspector.renderRelationProperties(inspector, this.surface.relationSelection); } else { this.inspector.renderProperties(inspector, model, view, closeInspector); }
 		}
 	}
 

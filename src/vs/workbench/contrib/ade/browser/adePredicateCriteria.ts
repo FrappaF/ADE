@@ -44,10 +44,19 @@ export async function editAdePredicateCriteria(quick: Dialogs, model: SemanticMo
 			return operation?.acceptanceCriteria.length ? [{ label: operation.name, description: predicate.phase === 'pre' ? localize('ade.predicate.pre', "Precondition · Inputs Only") : localize('ade.predicate.post', "Postcondition · Inputs and Outputs"), predicate, operation }] : [];
 		});
 		if (!candidates.length) { throw new Error(localize('ade.criteria.prerequisite', "Add a Predicate and an Acceptance Criterion to the Operation Before Creating a Test Case.")); }
-		const target = await quick.pick(candidates, { title: localize('ade.criteria.predicateTarget', "Predicate to Test") }); if (!target) { return; }
-		const criterion = await quick.pick(target.operation.acceptanceCriteria.map(criterion => ({ label: criterion.then, criterion })), { title: localize('ade.criteria.criterion', "Business Criterion") }); if (!criterion) { return; }
-		const name = await quick.input({ title: localize('ade.criteria.name', "Independent Case Name"), validateInput: async value => !value.trim() ? localize('ade.criteria.nameRequired', "Enter a case name.") : previous.cases.some(entry => entry.id === value.trim()) ? localize('ade.criteria.duplicateName', "A case with this name already exists.") : undefined }); if (name === undefined) { return; }
-		entry = { id: name.trim(), predicateId: target.predicate.id, criterionId: criterion.criterion.id, input: {}, expected: null };
+		const target = candidates.length === 1 ? candidates[0] : await quick.pick(candidates, { title: localize('ade.criteria.predicateTarget', "Predicate to Test") });
+		if (!target) { return; }
+		const criteria = target.operation.acceptanceCriteria;
+		const criterion = criteria.length === 1 ? criteria[0] : (await quick.pick(criteria.map(criterion => ({ label: criterion.then, criterion })), { title: localize('ade.criteria.criterion', "Business Criterion") }))?.criterion;
+		if (!criterion) { return; }
+		const name = await quick.input({
+			title: localize('ade.criteria.name', "Independent Case Name"),
+			prompt: localize('ade.criteria.nameScope', "Case for {0} · {1}", target.operation.name, criterion.then),
+			showConfirmButton: true,
+			validateInput: async value => !value.trim() ? localize('ade.criteria.nameRequired', "Enter a case name.") : previous.cases.some(entry => entry.id === value.trim()) ? localize('ade.criteria.duplicateName', "A case with this name already exists.") : undefined
+		});
+		if (name === undefined) { return; }
+		entry = { id: name.trim(), predicateId: target.predicate.id, criterionId: criterion.id, input: {}, expected: null };
 	}
 	if (change === 'new' || change === 'input') {
 		const predicate = model.foundation.predicates?.find(predicate => predicate.id === entry.predicateId);

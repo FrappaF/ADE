@@ -73,6 +73,7 @@ export class AdeCanvasSurface {
 		if (this.project.editable) {
 			if (!interaction) {
 				this.host.button(menu, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => this.commandService.executeCommand('ade.addElement')).classList.add('ade-primary-action');
+				this.host.button(menu, localize('ade.addExisting', "Add Existing Element"), () => this.commandService.executeCommand('ade.addExisting'), 'canvas-add-existing');
 				if (view.nodes.some(node => node.elementId === this.project.selectedId)) {
 					this.host.button(menu, localize('ade.canvas.connect', "Connect"), () => this.beginConnection(this.project.selectedId));
 				}
@@ -96,7 +97,14 @@ export class AdeCanvasSurface {
 	private renderDiagramOptions(parent: HTMLElement, view: ModelView, options: { popupId: string; canvas: boolean; editable: boolean; includeFeature?: boolean }): void {
 		parent.classList.add('ade-diagram-menu');
 		const palette = new AdeActionMenu(this.controls);
-		palette.header(parent, view.name, viewLabels[view.kind], diagramIcon(view.kind));
+		const header = palette.header(parent, view.name, viewLabels[view.kind], diagramIcon(view.kind));
+		const canArrange = view.kind !== 'sequence' && !(view.kind === 'activity' && view.interactionId);
+		if (options.editable) {
+			palette.headerAction(header, localize('ade.menu.rename', "Rename"), () => this.commandService.executeCommand('ade.renameDiagram'), Codicon.edit, `rename-diagram-header:${options.popupId}:${view.id}`);
+			if (canArrange) {
+				palette.headerAction(header, localize('ade.menu.arrange', "Arrange"), () => this.commandService.executeCommand('ade.layout'), Codicon.layout, `arrange-diagram-header:${options.popupId}:${view.id}`);
+			}
+		}
 		const area = dom.append(parent, dom.$('div.ade-diagram-tabs'));
 		const tabs = this.controls.tabs(area, `diagram-menu:${view.id}`, [
 			{ id: 'contents', label: localize('ade.canvas.contents', "Contents") },
@@ -107,9 +115,12 @@ export class AdeCanvasSurface {
 		const display = tabs.panels.get('display')!;
 		const information = tabs.panels.get('information')!;
 		const interaction = getProjectedInteraction(this.project.model, view);
+		const canRefreshFromCode = !!interaction?.description && !interaction.execution && this.project.model.version === 5 && this.project.projectRoot?.scheme === 'file';
 		if (options.editable) {
 			if (interaction?.execution) {
 				palette.action(contents, localize('ade.interaction.edit', "Edit Executable Interaction"), () => this.commandService.executeCommand('ade.interaction', interaction.id), { icon: Codicon.arrowSwap });
+			} else if (canRefreshFromCode) {
+				palette.action(contents, localize('ade.shortcuts.update', "Update Diagrams from Codebase"), () => this.commandService.executeCommand('ade.ai.updateDiagrams'), { icon: Codicon.refresh });
 			}
 			this.renderBlueprintActions(contents, view);
 			for (const [label, command, icon] of [
@@ -121,11 +132,13 @@ export class AdeCanvasSurface {
 			]) { palette.action(contents, label, () => this.commandService.executeCommand(command), { icon }); }
 		}
 		if (interaction) {
-			this.host.paragraph(contents, localize('ade.canvas.derivedContents', "This diagram is populated by its linked behavior. Edit that behavior to change its participants and steps."));
+			this.host.paragraph(contents, interaction.execution
+				? localize('ade.canvas.derivedContents', "This diagram is populated by its linked behavior. Edit that behavior to change its participants and steps.")
+				: localize('ade.canvas.descriptiveContents', "This diagram describes a recorded interaction. Its participants, branches and steps are shown for inspection."));
 		} else if (!options.editable) {
 			this.host.paragraph(contents, localize('ade.canvas.readonlyContents', "This diagram is read-only. Its visible elements are listed in Information."));
 		}
-		if (view.kind !== 'sequence' && !(view.kind === 'activity' && view.interactionId)) {
+		if (canArrange) {
 			palette.action(display, localize('ade.layout', "Arrange Diagram"), () => this.commandService.executeCommand('ade.layout'), { icon: Codicon.layout }).disabled = !options.editable;
 			const visible = this.showRelationshipLabels ?? !!notationRules[view.kind];
 			const labels = palette.action(display, localize('ade.showRelationshipLabels', "Show Relationship Labels"), () => { this.showRelationshipLabels = !(this.showRelationshipLabels ?? !!notationRules[view.kind]); this.host.render(); }, { icon: Codicon.eye, detail: visible ? localize('ade.canvas.labelsVisible', "Visible") : localize('ade.canvas.labelsHidden', "Hidden") });
@@ -519,13 +532,14 @@ export class AdeCanvasSurface {
 			const source = elements.get(id);
 			if (!view || !source) { this.notifications.error(adeErrorNotification(new Error('No source element selected'), 'edit', this.project.model)); return; }
 			const version = this.project.documentVersion;
-			const kind = await this.quick.pick((Object.keys(relationLabels) as RelationKind[]).filter(kind => acceptsNotationRelation(view.kind, { kind }) && (view.kind !== 'state' || kind === 'transition') && (view.kind !== 'sequence' || ['invocation', 'read', 'write'].includes(kind))
-				&& view.nodes.some(node => canConnectNodes(view, elements, kind, source, elements.get(node.elementId)!))).map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") });
+			const kinds = (Object.keys(relationLabels) as RelationKind[]).filter(kind => acceptsNotationRelation(view.kind, { kind }) && (view.kind !== 'state' || kind === 'transition') && (view.kind !== 'sequence' || ['invocation', 'read', 'write'].includes(kind))
+				&& view.nodes.some(node => canConnectNodes(view, elements, kind, source, elements.get(node.elementId)!)));
+			const kind = kinds.length === 1 ? kinds[0] : (await this.quick.pick(kinds.map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") }))?.kind;
 			if (!kind || version !== this.project.documentVersion || view.id !== this.project.activeView?.id) { return; }
 			this.controls.setExpanded('canvas-actions', false);
 			this.controls.setExpanded('canvas-code-unavailable', false);
 			this.inspectorOpen = false;
-			this.pendingConnection = { from: id, kind: kind.kind, viewId: view.id, version }; this.host.render();
+			this.pendingConnection = { from: id, kind, viewId: view.id, version }; this.host.render();
 			this.controls.focusTarget('canvas');
 		} catch (error) {
 			this.reportError(error);

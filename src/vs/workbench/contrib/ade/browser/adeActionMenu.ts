@@ -35,6 +35,12 @@ export class AdeActionMenu {
 		return header;
 	}
 
+	headerAction<T>(header: HTMLElement, label: string, run: () => T, icon: ThemeIcon, id: string): void {
+		const button = this.controls.button(header, label, run, id);
+		button.classList.add('ade-menu-header-action');
+		prependAdeIcon(button, icon);
+	}
+
 	section(parent: HTMLElement, title: string, options: { description?: string; tone?: 'danger'; compact?: boolean } = {}): HTMLElement {
 		parent.classList.add('ade-action-menu');
 		const section = dom.append(parent, dom.$('section.ade-menu-section'));

@@ -14,16 +14,25 @@ suite('A.D.E visual predicate cases', () => {
 	function fixture() { let id = 0; const data = createPureProject('QA', () => `qa.${++id}`); return { ...data, operation: data.model.foundation.blueprint!.operations[0] }; }
 	test('authors boundary inputs and expected outcomes independently, retaining their criterion binding', async () => {
 		const f = fixture(), previous = { ...f.criteria, cases: [] };
-		const dialogs = new ScriptedDialogs(['Add Predicate Test Case', f.operation.name, f.operation.acceptanceCriteria[0].then, 'Zero quantity', `Value for ${f.operation.inputs[0].name}`, '0', 'Not Satisfied']);
+		const dialogs = new ScriptedDialogs(['Add Predicate Test Case', 'Zero quantity', `Value for ${f.operation.inputs[0].name}`, '0', 'Not Satisfied']);
 		const next = await editAdePredicateCriteria(dialogs, f.model, previous); dialogs.assertComplete();
 		assert.deepStrictEqual(next?.cases, [{ id: 'Zero quantity', predicateId: f.model.foundation.predicates![0].id, criterionId: f.operation.acceptanceCriteria[0].id, input: { [f.operation.inputs[0].id!]: 0 }, expected: false }]);
 		assert.deepStrictEqual(previous.cases, []);
 	});
 	test('authors an invalid input through a typed control without using a JSON editor', async () => {
 		const f = fixture();
-		const dialogs = new ScriptedDialogs(['Add Predicate Test Case', f.operation.name, f.operation.acceptanceCriteria[0].then, 'Invalid quantity', 'Different Value Type', 'Text', 'bad input', 'Input Type Error']);
+		const dialogs = new ScriptedDialogs(['Add Predicate Test Case', 'Invalid quantity', 'Different Value Type', 'Text', 'bad input', 'Input Type Error']);
 		const next = await editAdePredicateCriteria(dialogs, f.model, { ...f.criteria, cases: [] }); dialogs.assertComplete();
 		assert.deepStrictEqual([next?.cases[0].input, next?.cases[0].expected], [{ [f.operation.inputs[0].id!]: 'bad input' }, 'typeError']);
+	});
+	test('asks which criterion to use when an operation has more than one', async () => {
+		const f = fixture();
+		const other = { ...f.operation.acceptanceCriteria[0], id: 'qa.alternative', then: 'Reject zero quantity' };
+		f.operation.acceptanceCriteria.push(other);
+		const dialogs = new ScriptedDialogs(['Add Predicate Test Case', other.then, 'Zero quantity', `Value for ${f.operation.inputs[0].name}`, '0', 'Not Satisfied']);
+		const next = await editAdePredicateCriteria(dialogs, f.model, { ...f.criteria, cases: [] });
+		dialogs.assertComplete();
+		assert.strictEqual(next?.cases[0].criterionId, other.id);
 	});
 	test('changing inputs retains the independent expected result and leaves the previous criteria intact', async () => {
 		const f = fixture(), before = structuredClone(f.criteria), target = before.cases[0];

@@ -615,7 +615,7 @@ export class QuickInputController extends Disposable {
 				resolve(undefined);
 				return;
 			}
-			const input = this.createInputBox();
+			const input = this.createInputBox(options.showConfirmButton);
 			const validateInput = options.validateInput || (() => Promise.resolve(undefined));
 			const onDidValueChange = Event.debounce(input.onDidChangeValue, (last, cur) => cur, 100);
 			let validationValue = options.value || '';
@@ -693,9 +693,9 @@ export class QuickInputController extends Disposable {
 		});
 	}
 
-	createInputBox(): IInputBox {
+	createInputBox(showConfirmButton = false): IInputBox {
 		const ui = this.getUI(true);
-		return new InputBox(ui);
+		return new InputBox(ui, showConfirmButton);
 	}
 
 	setAlignment(alignment: 'top' | 'center' | { top: number; left: number }): void {

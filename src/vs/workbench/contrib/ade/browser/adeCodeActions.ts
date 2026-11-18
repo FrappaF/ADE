@@ -23,6 +23,7 @@ interface CodeActions {
 	continuityStatus: string;
 	recovery: CodeAction[];
 	review?: CodeAction;
+	worktree?: CodeAction & { status: string };
 	sources?: CodeAction[];
 	reviewActions?(parent: HTMLElement): void;
 	settings(): void;
@@ -52,8 +53,12 @@ export function renderAdeCodeActions(parent: HTMLElement, controls: AdeControls,
 			button.setAttribute('aria-describedby', reason.id);
 		}
 	};
-	const update = panel(page, localize('ade.codeUpdate.group', "Codebase from Diagrams"), localize('ade.code.updateHint', "Prepare code changes from the saved model and your latest diagram edits. Review the result before keeping it."), Codicon.code, true);
-	button(update, actions.update, 'code-update', true);
+	if (actions.worktree) {
+		const worktree = panel(page, localize('ade.code.worktree', "Implementation Worktree"), actions.worktree.status, Codicon.checklist, true);
+		button(worktree, actions.worktree, 'code-worktree-action', true);
+	}
+	const update = panel(page, localize('ade.codeUpdate.group', "Codebase from Diagrams"), localize('ade.code.updateHint', "Prepare code changes from the saved model and your latest diagram edits. Review the result before keeping it."), Codicon.code, !actions.worktree);
+	button(update, actions.update, 'code-update', !actions.worktree);
 	if (actions.sources?.length) {
 		const sources = panel(page, localize('ade.code.sources', "Source Code"), localize('ade.code.sourcesHint', "Inspect source evidence or update the project diagrams from your linked codebase."), Codicon.search);
 		for (const [index, action] of actions.sources.entries()) { button(sources, action, `code-source:${index}`); }

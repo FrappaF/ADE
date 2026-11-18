@@ -2,7 +2,7 @@
 
 # Guida completa ad ADE
 
-**Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione del 17 novembre 2026 con scopi e motivazioni operative. Riferimento: ADE desktop, `main` al commit `30fd950ea7351bf28e23a3acf3465f01660a35cd`.
+**Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione del 18 novembre 2026. Il riferimento è ADE desktop con base `main` al commit `c8c4f6d81dc567e457e259c98a68e841221138bf` e le correzioni del collaudo applicate nel workspace.
 
 ADE è un ambiente di sviluppo integrato (IDE) desktop per progettare software con diagrammi, definire contratti e comportamenti, esplorare codice e lavorare con l’intelligenza artificiale (IA). I diagrammi chiariscono chi fa cosa, quali dati usa e cosa accade se qualcosa fallisce. Con questa guida costruirai un modello di negozio, lo salverai e proverai alcune regole locali. Il modello descrittivo, il codice prodotto e le verifiche hanno risultati distinti, indicati in ogni fase.
 
@@ -52,7 +52,7 @@ Prima di costruire Mercato, osservi un negozio già modellato per riconoscere ch
 
 Inizia da un negozio già modellato per imparare a leggere le viste prima di costruirne una. In questa tappa riconosci progetto e diagramma attivi e impari a raggiungere gli elementi senza cambiarli: userai questi comandi per confrontare acquisto e reso nelle tappe successive.
 
-Dalla Home premi **Open Project**, seleziona `01-bottega-visuale` e conferma. Apri la cartella del progetto, non il file del modello. Devi leggere **Bottega Ordini** nella testata e **Struttura acquisto** come diagramma attivo.
+Dalla schermata **Start a Project** premi **Open Project**, seleziona la cartella `01-bottega-visuale` nel selettore del sistema e conferma. Devi leggere **Bottega Ordini** nella testata e **Struttura acquisto** come diagramma attivo.
 
 ![La Home: aprire, creare o importare un progetto](immagini/01-home.png)
 
@@ -62,14 +62,14 @@ Il negozio di esempio permette a un cliente di confermare un acquisto. Un pagame
 
 Per confrontare le viste ti bastano quattro comandi: il selettore cambia prospettiva, le proprietà spiegano il contenuto e Fit Diagram ti permette di ritrovare gli oggetti prima di considerarli mancanti. Individua questi punti dell’interfaccia:
 
-1. **Nome del diagramma:** apre il selettore delle viste. Digita parte del nome se l’elenco è lungo.
+1. Clicca il **nome del diagramma** per aprire **Choose Diagram**. Digita parte del nome se l’elenco è lungo. Se la vista è già visibile nella barra laterale, clicca direttamente il suo nome.
 2. **Un elemento del canvas:** apre le sue proprietà; **Close Properties** le richiude.
 3. **Fit Diagram:** inquadra l’intero contenuto. Zoom e trascinamento dello sfondo aiutano a leggere.
 4. **Nome del progetto:** consente di tornare alla Home o aprire un altro progetto. Le impostazioni servono più avanti.
 
 **Diagrams** apre e chiude la navigazione laterale; **Code** raccoglie il lavoro sul codice. Nella sidebar, **New** raccoglie Add Feature, Add Diagram e Structural Blueprint. Il cambio di vista non modifica il modello. **Save** appare con modifiche pendenti; **Model Saved Locally** indica il salvataggio locale, non un commit o una pubblicazione online.
 
-**Controllo T1:** apri il selettore e trova le due feature e le otto viste. Richiudilo con Escape. Se il canvas sembra vuoto, premi Fit Diagram prima di creare qualcosa.
+**Controllo T1.** Apri **Choose Diagram** e trova le otto viste raggruppate nelle due feature. Il selettore include anche **Add Diagram** e **Add Feature**. Nella barra laterale **Related Diagrams** ripropone sotto Acquisto due viste della feature Resi e rimborsi. Clicca fuori dal selettore per richiuderlo. Se il canvas sembra vuoto, premi **Fit Diagram** prima di creare qualcosa.
 
 ### T2. Segui un acquisto attraverso quattro prospettive
 
@@ -79,7 +79,7 @@ Apri **Struttura acquisto**. Leggi da Cliente a Pagina acquisto, poi a Conferma 
 
 Seleziona la relazione verso Ordine. **Write**, “crea ordine”, indica chi registra il dato; la condizione “pagamento autorizzato” dichiara quando la registrazione è prevista. Questa vista descrive la regola: non esegue il pagamento e non impedisce scritture nel codice. Le proprietà spiegano i ruoli senza affollare il canvas di etichette.
 
-Passa a **Flusso acquisto**. Parti da Richiedi pagamento e segui le alternative verso Ordine confermato o Pagamento rifiutato. Qui la domanda è “che cosa succede a seconda dell’esito?”, non “quale oggetto possiede il dato?”.
+Nella barra laterale clicca **Flusso acquisto**. Parti da Richiedi pagamento e segui le alternative verso Ordine confermato o Pagamento rifiutato. Qui la domanda è “che cosa succede a seconda dell’esito?”, non “quale oggetto possiede il dato?”.
 
 ![Il flusso distingue conferma e rifiuto del pagamento](immagini/05-flusso.png)
 
@@ -91,7 +91,7 @@ Apri **Sequenza pagamento**. Le colonne sono i partecipanti; le due frecce mostr
 
 Dopo aver letto l’acquisto, esplora il reso: la richiesta dipende da un Ordine già esistente. Confrontando le due feature vedrai perché si riusano Cliente e Ordine e si introduce invece una nuova Richiesta di reso. Le viste del comportamento distinguono poi l’ammissione della richiesta dal completamento del rimborso.
 
-Dal selettore apri **Struttura resi**. La richiesta parte dallo stesso Cliente già usato nell’acquisto, passa da Pagina resi a Gestione resi, legge l’Ordine esistente e registra una nuova Richiesta di reso. Ordine e Richiesta di reso sono due oggetti diversi: il reso fa riferimento a un acquisto, non lo sostituisce.
+Clicca **Struttura resi** nella barra laterale, sotto **Related Diagrams** o nella feature **Resi e rimborsi**. Se la voce è fuori dall’area visibile, usa **Choose Diagram** dalla testata. La richiesta parte dallo stesso Cliente già usato nell’acquisto, passa da Pagina resi a Gestione resi, legge l’Ordine esistente e registra una nuova Richiesta di reso. Ordine e Richiesta di reso sono due oggetti diversi: il reso fa riferimento a un acquisto, non lo sostituisce.
 
 ![Le due feature e le loro quattro prospettive nel selettore](immagini/15-tour-due-feature.png)
 
@@ -113,13 +113,13 @@ Seleziona ogni freccia del flusso e leggi la condizione. Poi guarda la transizio
 
 Ora che hai visto Ordine in due feature, prova a ritrovarlo e a rinominarlo in una copia. La prova rende visibile l’identità condivisa: una modifica alla risorsa si riflette nelle sue viste, mentre i titoli dei diagrammi restano autonomi. Imparare a leggere l’impatto prima di intervenire ti prepara alla modifica della prossima tappa.
 
-Apri **Diagrams**, poi **Search System**. Cerca “Ordine” e consulta il tipo e i diagrammi associati. La ricerca considera anche le modifiche non ancora salvate; un risultato può aprire una vista che contiene l’oggetto oppure i dettagli di un’identità ancora non disegnata. La navigazione indietro/avanti torna alle destinazioni visitate.
+Clicca **Search System** nella barra laterale. Se la barra è chiusa, riaprila con **Diagrams**. Cerca “Ordine”, leggi il tipo **Resource** e le viste associate, quindi clicca il risultato. ADE centra e seleziona la risorsa in una vista. Cliccala sul canvas per aprire **Properties**. La ricerca include le modifiche ancora da salvare e può aprire i dettagli delle identità senza una vista. **Back** e **Forward** raggiungono le destinazioni visitate.
 
-Usa **Search System** quando conosci il nome; per esplorare ciò che appartiene a un attore o a una feature apri invece **System Map** nella sidebar: Home, System Map e Search System sono disposti in verticale. Il clic aggiunge filtri cumulativi, la freccia apre un livello e **×** rimuove il proprio filtro. Gli elementi interni e condivisi delle feature collegate all’attore restano disponibili. La sezione **A9** illustra accessi, filtri e relazioni.
+Usa **Search System** quando conosci il nome. Per esplorare ciò che appartiene a un attore o a una feature clicca **System Map** nella testata o nella barra laterale. Il clic aggiunge filtri cumulativi, la freccia apre un livello e **×** rimuove il proprio filtro. Gli elementi interni e condivisi delle feature collegate all’attore restano disponibili. La sezione **A9** illustra accessi, filtri e relazioni.
 
 Un elemento conserva la propria identità cambiando nome o posizione. Un diagramma seleziona elementi e relazioni e conserva un layout proprio. **Add Existing Element** riusa un’identità; **Add Element** ne crea una nuova. Due nomi identici non rendono identici due oggetti.
 
-In una copia del tour rinomina la risorsa Ordine in “Ordine cliente” dalle proprietà. Raggiungila da Struttura resi: il nome della stessa risorsa deve essere aggiornato. Cerca **Show Change Impact** sull’elemento per vedere i diagrammi e i riferimenti interessati; poi annulla la rinomina e salva.
+Nella copia del tour, seleziona **Ordine** e clicca **Rename** accanto al titolo delle proprietà. Scrivi “Ordine cliente” nel campo **Name** e premi **Save Changes**. Apri **Struttura resi** e ritrova la risorsa con il nome aggiornato. Cliccala, poi scegli **Show Change Impact** sotto **Explore** per vedere le viste e i riferimenti interessati. Premi **Undo** per ripristinare il nome originale. Se vedi **Save**, premilo per salvare le modifiche ancora pendenti.
 
 **Controllo T4:** distingui il nome della risorsa dai nomi dei diagrammi “Stati ordine” e “Struttura acquisto”, che non devono essere rinominati automaticamente. La rinomina aggiorna il nome dell’elemento selezionato; la sua identità resta stabile e gli altri testi che contengono la parola ordine non cambiano.
 
@@ -129,16 +129,16 @@ Aggiungi una notifica per provare una modifica piccola dopo aver imparato a legg
 
 Lavora in una copia di Bottega Ordini per provare anche salvataggio e annullamento. Apri Struttura acquisto:
 
-1. Premi **Add Element > Component** e scrivi “Notifiche ordine”.
-2. Posizionala in uno spazio libero. Seleziona Conferma ordine e premi **Connect**, oppure **Connect Selection** nelle proprietà.
-3. Scegli **Invocation**, la destinazione Notifiche ordine e il nome “invia conferma”. In **Condition (Optional)** scrivi `ordine confermato` e premi Invio per completare la relazione. Escape annulla l’intero collegamento.
+1. Premi **Add Element**. Nel form scrivi “Notifiche ordine” in **Name**, scegli **Component** in **Element Type** e clicca **Create**.
+2. Trascina il componente in uno spazio libero. Clicca **Conferma ordine** sul canvas, premi **Connect** e scegli **Invocation**.
+3. Clicca **Notifiche ordine** sul canvas. Nel form **Create Relationship** scrivi “invia conferma” in **Relationship Name** e `ordine confermato` in **Condition (Optional)**. Clicca **Save Changes** per creare la relazione oppure **Cancel** per annullare.
 4. Seleziona la freccia e controlla origine, destinazione e testo. Richiudi le proprietà.
-5. Salva con `Cmd+S` o `Ctrl+S`. Se compare Update Codebase from Diagrams, scegli **Cancel**: qui stai definendo la responsabilità; la sua implementazione verrà dopo. Il modello rimane salvato.
-6. Prova Undo e Redo. Salva la versione che vuoi conservare, chiudi il progetto e riaprilo.
+5. Clicca **Save** nella testata. Se compare **Update Codebase from Diagrams**, scegli **Cancel**. Qui stai salvando la responsabilità nel modello. La sua implementazione verrà dopo.
+6. Clicca **Undo** e poi **Redo** accanto a **Fit Diagram**. Salva la versione che vuoi conservare. Dal menu **Bottega Ordini** scegli **Open Project**, seleziona di nuovo la cartella del tour e controlla che la modifica salvata sia presente.
 
-![Le proprietà espongono le azioni del contesto selezionato](immagini/04-proprieta.png)
+![In Mercato le proprietà di Ordine mostrano Rename e Remove from This Diagram](immagini/04-proprieta.png)
 
-Per togliere solo una rappresentazione apri il menu contestuale dell’elemento con clic destro o **Shift+F10** e scegli **Remove from This Diagram**. In alternativa, selezionalo e cerca **A.D.E: Remove Element from Diagram** nella palette. L’eliminazione dal sistema rimuove la definizione condivisa e può coinvolgere altri riferimenti; controlla l’impatto prima di confermarla. Eliminare una vista conserva gli elementi semantici. Se cambi progetto con modifiche pendenti, scegli salvataggio, scarto o annullamento.
+Per togliere una rappresentazione dal canvas, seleziona l’elemento e premi **Remove from This Diagram** nella scheda **Properties**. Il riquadro si chiude e puoi usare **Undo** accanto a **Fit Diagram** per ripristinare l’elemento. **Delete Element**, sotto **Manage**, rimuove la definizione condivisa dal sistema e può coinvolgere altri riferimenti. Controlla l’impatto prima di confermarla. Eliminare una vista conserva gli elementi semantici. Se cambi progetto con modifiche pendenti, scegli salvataggio, scarto o annullamento.
 
 **Controllo T5:** dopo la riapertura ritrova la notifica e la relazione; oppure, se hai scelto di annullarle, controlla che siano assenti. Hai completato il tour quando sai raggiungere una vista, leggere una relazione, riusare un’identità e recuperare una modifica.
 
@@ -157,7 +157,7 @@ Separa ora lavoro, checkpoint e moduli: ADE apre una root alla volta e salva il 
 1. Estrai `progetti-esempio.zip` e conserva l’archivio originale.
 2. Trova `07-mercato-laboratorio`. **Non aprire questa cartella contenitore come progetto ADE.** Aprirai ogni volta la sottocartella indicata dalla lezione.
 3. Per costruire il progetto usa `inizio`, che contiene solo istruzioni, oppure crea con il gestore file una cartella vuota chiamata `Mercato-mio`. Non copiarvi il modello della soluzione.
-4. Avvia ADE e raggiungi la Home. Se stai già guardando un diagramma, apri il menu con il nome del progetto e scegli Home; in alternativa cerca **A.D.E: Open Home** con F1.
+4. Avvia ADE. Se stai guardando un diagramma, premi **Home** nella barra laterale **Diagrams** o apri il menu con il nome del progetto e scegli **Home**.
 
 La regola didattica è: quantità intera da 1 a 10 per riga, prezzi in centesimi per evitare arrotondamenti impliciti, almeno una riga per ordine, conferma solo dopo autorizzazione del pagamento, reso riferito a un ordine esistente e ammesso entro 30 giorni. Il coupon sarà un esempio opzionale nei casi d’uso. Tasse, pagamenti reali, sicurezza e regole commerciali effettive richiedono una specifica ulteriore.
 
@@ -184,12 +184,12 @@ Costruisci prima una panoramica dell’acquisto per assegnare un nome alle respo
 Crea prima il progetto nella cartella preparata, poi le tre feature: avrai destinazioni riconoscibili per le viste di acquisto, catalogo e resi. Il raggruppamento serve alla navigazione del modello; non definisce ruoli di accesso o servizi in esecuzione. Torna infine alla Structure di Acquisto per costruire una sola panoramica di partenza.
 
 1. Nella Home premi **Create Project**.
-2. Nel campo **Name** scrivi `Mercato` e premi Invio.
-3. Seleziona la cartella preparata in L1 e conferma l’apertura. Nel selettore di cartelle puoi anche inserire il percorso completo. Attendi la schermata con Mercato e **Add Feature**.
-4. Premi **Add Feature**, scrivi `Acquisto` e conferma. Il diagramma attivo diventa **Acquisto · Structure**; ADE crea anche **Acquisto · Flow**.
-5. Per la seconda feature clicca il **nome del diagramma nella testata**, cerca **Add Feature**, scegli la voce, scrivi `Catalogo prodotti` e conferma.
-6. Ripeti per `Resi e rimborsi`. Il pulsante iniziale Add Feature è stato sostituito dal selettore e dalla navigazione: puoi sempre ritrovare l’azione lì.
-7. Clicca nuovamente il nome della vista nella testata, cerca **Acquisto · Structure** e aprila. Tutti gli oggetti della prossima tabella vanno creati qui.
+2. Scrivi `Mercato` in **Name** e premi **Save Changes**.
+3. Seleziona la cartella preparata in L1 e premi **Apri**. Su macOS puoi anche creare `Mercato-mio` con **Nuova cartella** nel selettore. ADE apre la Home di Mercato.
+4. Premi **Create First Feature**, scrivi `Acquisto` e premi **Save Changes**. ADE apre **Acquisto · Structure** e crea anche **Acquisto · Flow**.
+5. Clicca il nome della vista nella testata, scegli **Add Feature**, scrivi `Catalogo prodotti` e premi **Save Changes**.
+6. Ripeti il passaggio per `Resi e rimborsi`.
+7. Dal nome della vista apri **Acquisto · Structure**. Se la vista è già visibile in **Diagrams**, puoi aprirla direttamente con un clic.
 
 Nel laboratorio le viste ordinarie saranno associate alla feature scelta dal form, prevalentemente Acquisto; le due viste Resi avranno la propria feature. Le viste C4 si creano dal blueprint e compaiono anche nella navigazione del sistema. La classificazione della vista non duplica gli elementi che essa mostra.
 
@@ -197,15 +197,15 @@ Nel laboratorio le viste ordinarie saranno associate alla feature scelta dal for
 
 Dai alla panoramica sei identità da riusare: Actor indica chi agisce, Application / Container il negozio web, Component le responsabilità interne, Resource il risultato di dominio e Software System il servizio di pagamento. Scegliere i tipi adesso permette ai picker delle viste successive di proporre le rappresentazioni compatibili; nomi uguali non sostituiscono questa distinzione.
 
-Per ogni riga premi **Add Element**, scegli il tipo nel percorso indicato, inserisci il nome e premi Invio. Ripeti l’azione per il prossimo oggetto. Nei gruppi usa Back per tornare alla lista precedente; Escape annulla il form.
+Per ogni riga premi **Add Element**, compila **Name** e premi **Create**. Cambia **Element Type** quando il tipo proposto è diverso da quello della riga. L’elenco mostra i tipi disponibili per la vista corrente. **Cancel** chiude il modulo.
 
-| Nome | Percorso dal pulsante Add Element | Responsabilità |
+| Nome | Element Type | Responsabilità |
 | --- | --- | --- |
 | Cliente | Actor | Richiede l’acquisto |
-| Web shop | More Element Types > Architecture > Application / Container | Applicazione web del negozio |
+| Web shop | Application / Container | Applicazione web del negozio |
 | Checkout | Component | Coordina la conferma |
 | Ordine | Resource | Risultato di dominio registrato |
-| Pagamenti esterni | More Element Types > Architecture > Software System | Servizio esterno di autorizzazione |
+| Pagamenti esterni | Software System | Servizio esterno di autorizzazione |
 | Gestione resi | Component | Consulta l’acquisto per gestire il reso |
 
 La forma Software System verrà qualificata come esterna in L3. Per ora basta crearla. Se una scheda finisce fuori dall’inquadratura premi **Fit Diagram**. Non aggiungere un duplicato per sostituire una scheda che non riesci a vedere.
@@ -214,11 +214,12 @@ La forma Software System verrà qualificata come esterna in L3. Per ora basta cr
 
 Collega gli elementi per trasformare l’elenco delle responsabilità in un percorso leggibile: ingresso del Cliente, coordinamento del checkout, autorizzazione e registrazione. Inizia da Cliente verso Web shop per imparare il form completo, poi ripetilo per gli altri significati:
 
-1. Clicca la scheda **Cliente**. Nelle proprietà premi **Connect Selection**; puoi usare anche Connect sul canvas dopo la selezione.
-2. In **Relationship Type** scegli **Communication**.
-3. In **Target Element** cerca e scegli **Web shop**.
-4. In **Relationship Name** scrivi `naviga` e premi Invio.
-5. In **Condition (Optional)** lascia il campo vuoto e premi Invio. Il collegamento viene completato. Escape in questo passaggio annullerebbe il form.
+1. Clicca **Cliente** sul canvas e premi **Connect**.
+2. Se compare **Relationship Type**, scegli **Communication**. Se il tipo compatibile è unico, ADE evidenzia subito le destinazioni.
+3. Clicca **Web shop** tra le destinazioni evidenziate sul canvas.
+4. Scrivi `naviga` in **Relationship Name**, lascia vuoto **Condition (Optional)** e premi **Save Changes**.
+
+Se l’origine è già selezionata, puoi iniziare da **Connect**. **Connect Selection** nelle proprietà apre il modulo completo, con tipo, destinazione, nome e condizione nella stessa schermata.
 
 Ripeti lo stesso procedimento per le quattro righe seguenti. Compila la condizione soltanto dove indicata.
 
@@ -231,17 +232,17 @@ Ripeti lo stesso procedimento per le quattro righe seguenti. Compila la condizio
 
 Communication descrive l’accesso al negozio, Invocation una richiesta, Write la registrazione del dato. La condizione sul Write dichiara che la registrazione è prevista solo dopo l’autorizzazione; il diagramma non esegue né verifica la regola. Dependency dichiara ciò che Gestione resi usa, senza imporre un ordine di chiamate.
 
-**Riusare un elemento e riusare una relazione sono due operazioni distinte.** Add Existing Element aggiunge soltanto la scheda. In una vista ordinaria includi prima entrambi gli estremi, poi usa **Diagram > Contents > Add Existing Relationship** e scegli il collegamento. Il wizard C4 può includere le relazioni compatibili fra i visibili; controlla prima il canvas. Sequence usa invece Add Existing Message. Non usare Connect per copiare un collegamento: creerebbe una seconda relazione nel sistema.
+**Riusare un elemento e riusare una relazione sono due operazioni distinte.** Add Existing Element aggiunge soltanto la scheda. In una vista ordinaria includi prima entrambi gli estremi, poi usa **Diagram > Contents > Add Existing Relationship** e scegli il collegamento. Una vista C4 può includere le relazioni compatibili fra gli elementi visibili. Controlla il canvas prima di aggiungerne una. In Sequence usa Add Existing Message. Non usare Connect per copiare un collegamento: creerebbe una seconda relazione nel sistema.
 
 #### Rinomina, disponi e salva
 
 Assegna alla vista un nome che ne esprima lo scopo: la ritroverai fra i diagrammi creati nelle prossime lezioni. Disponi elementi ed etichette per leggere le responsabilità senza aprire ogni proprietà; poi salva e riapri per controllare che la prima tappa sia conservata nella root corretta.
 
-Chiudi le proprietà con **Close Properties**. Apri **Diagram > Contents > Rename Diagram**, scrivi `01 Panoramica delle responsabilità` e conferma. Il nome nella testata deve cambiare.
+Se le proprietà sono aperte, premi **Close Properties**. Apri **Diagram** e premi **Rename** accanto al titolo. Scrivi `01 Panoramica delle responsabilità` e premi **Save Changes**. Controlla il nuovo nome nella testata.
 
-Apri **Diagram > Layout and Display > Arrange Diagram**, scegli **Balanced**, poi premi **Fit Diagram**. Puoi trascinare le schede per rendere più chiaro il percorso. **Show Relationship Labels**, nello stesso gruppo Layout and Display, mostra tutte le etichette; le proprietà permettono sempre di leggere la relazione selezionata.
+Apri **Diagram** e premi **Arrange** accanto al titolo. Scegli **Balanced**, poi premi **Fit Diagram**. Puoi trascinare le schede per rendere più chiaro il percorso. In **Diagram > Layout and Display**, **Show Relationship Labels** mostra tutte le etichette.
 
-Salva con `Cmd+S` su macOS o `Ctrl+S` su Windows/Linux. Se compare Update Codebase from Diagrams, scegli Cancel: il salvataggio del modello resta valido. Il risultato atteso è **Model Saved Locally**.
+Premi **Save** nella testata. Se compare **Update Codebase from Diagrams**, scegli **Cancel**. Il salvataggio del modello è indicato da **Model Saved Locally**.
 
 **Controllo L2:** torna alla Home, scegli Open Project e riapri la stessa cartella. Devi trovare tre feature, sei elementi nella panoramica e cinque relazioni. Le altre viste automatiche possono essere ancora vuote. Continua sulla tua panoramica: non occorre crearne una seconda a livello di sistema.
 
@@ -249,51 +250,46 @@ Salva con `Cmd+S` su macOS o `Ctrl+S` su Windows/Linux. Se compare Update Codeba
 
 La panoramica di L2 nomina le prime responsabilità. Ora fissa il confine di Mercato e gli obiettivi di Cliente e Assistenza: il Context distinguerà ciò che progetti dai servizi esterni, i casi d’uso ciò che il negozio deve consentire. In L4 suddividerai l’interno sulla base di questi obiettivi, senza confondere un servizio esterno con una parte da realizzare.
 
-#### Usa il wizard Structural Blueprint
+#### Apri Structural Blueprint
 
-Il blueprint conserva dichiarazioni condivise, come confini e appartenenze, che una semplice posizione sul canvas non esprime. Impara ora il ciclo Choose → Configure → Review: lo userai nelle prossime sezioni per assegnare significati al modello e controllare le risposte prima di applicarle.
+Structural Blueprint conserva dichiarazioni condivise come confini, appartenenze e contratti. Lo userai per assegnare queste proprietà agli oggetti già creati e controllare la bozza prima di aggiornare il modello.
 
-Apri **New > Structural Blueprint** nella sidebar, oppure cerca **A.D.E: Edit Structural Blueprint** nella palette. In **Choose** clicca l’attività, raggruppata per area e ricercabile. Un percorso come **Structure > C4 View Subject and Context** indica l’area e l’attività nella stessa schermata. In **Configure** seleziona o compila ogni campo e premi **Next**, anche per confermare una lista o un campo facoltativo vuoto. In **Review** controlla il riepilogo, correggi un passaggio con **Edit** e conferma con **Apply Changes**. Solo allora il modello viene modificato; salva poi il progetto.
+Premi **Structural Blueprint** nella testata. A sinistra scegli un’area e un’attività, per esempio **Structure > C4 View Subject and Context**. Al centro seleziona una voce in **Configuration** per modificarla oppure usa il pulsante di creazione dell’attività. Compila i campi direttamente nella scheda. Puoi cambiare configurazione o attività e ritrovare le modifiche in bozza.
 
-![Structural Blueprint: cerca l’attività in Choose prima di configurare i campi](immagini/33-blueprint-choose.png)
-
-**Back** conserva le risposte; cambiare una scelta scarta quelle che ne dipendono. **Cancel** o Escape chiudono senza applicare. Dalla sidebar o dalla palette il wizard chiede **Element** quando serve un target: la sola selezione sul canvas non lo imposta. Un’azione specifica delle proprietà, come Scope and Responsibility, apre invece l’attività per quell’elemento. Anche Project Architecture Decisions usa questo wizard; Apply Changes riguarda il modello, mentre Apply to Project di L12 scrive i sorgenti.
+In basso **Review** mostra le modifiche in bozza e il nome di ciascuna configurazione ti riporta alla sua scheda. **Apply to Model** applica tutte le configurazioni valide al modello. Premi **Save** nella testata per conservarle nel progetto. **Cancel Creation** scarta la nuova configurazione corrente e **Discard Draft** scarta tutte le modifiche in bozza. Per tornare al lavoro sul canvas premi **Back to Diagram** o **Back to Workspace**. Le azioni contestuali delle proprietà aprono l’attività sull’oggetto da cui provieni. In L12, **Apply to Project** scrive i sorgenti della review del codice.
 
 #### Crea e qualifica il sistema
 
 Aggiungi Mercato come Software System per rappresentare il confine del prodotto: il solo nome del progetto non lo crea. Dichiara quali sistemi governi prima del Context, perché il suo soggetto deve essere un sistema governato. Riusa Cliente e Pagamenti esterni di L2 per mantenere gli stessi riferimenti; crea solo il Corriere e il ruolo Assistenza che mancavano.
 
-Nella panoramica usa Add Element > More Element Types > Architecture > Software System per creare **Mercato** e **Corriere esterno**. Aggiungi **Assistenza** con Add Element > Actor. Cliente e Pagamenti esterni esistono già.
+Nella panoramica premi **Add Element**, compila **Name**, scegli **Software System** in **Element Type** e premi **Create**. Crea così **Mercato** e **Corriere esterno**. Per **Assistenza** usa lo stesso form con **Actor**. Cliente e Pagamenti esterni esistono già.
 
-Seleziona la scheda Software System **Mercato**. Apri **Properties > Architecture > Scope and Responsibility**, scegli **Governed System**, premi Next e poi **Apply Changes** nel riepilogo: è il sistema che stai progettando. Ripeti per Pagamenti esterni e Corriere esterno scegliendo **External System**: Mercato ne usa i servizi, ma non ne governa l’interno. Ogni sistema richiede la propria applicazione del wizard; non occorre un account.
+Apri **Structural Blueprint > Structure > System Scope or Container Responsibility**. In **Configuration** scegli **Mercato** e in **Scope** seleziona **Governed System**. Passa a **Pagamenti esterni** e **Corriere esterno** dallo stesso selettore e imposta **External System** per entrambi. Premi **Apply to Model**. Mercato è il sistema che progetti, gli altri due forniscono servizi dall’esterno.
 
 #### Crea il C4 Context
 
 Il modello C4 descrive l’architettura per livelli: dal contesto del prodotto alle applicazioni e ai loro componenti. Parti dal Context per vedere chi usa Mercato e quali servizi gli stanno fuori, senza anticipare la divisione interna di L4. Il soggetto fissa ciò che analizzi; il contesto dichiara le dipendenze esterne; i visibili scelgono quali di queste identità disegnare. Tieni il soggetto visibile per rendere riconoscibile il confine e distingui dichiarare una dipendenza dal mostrarla nella vista.
 
-1. Chiudi le proprietà e apri **New > Structural Blueprint**, oppure il comando omonimo della palette.
-2. In Choose clicca **C4 View Subject and Context** nell’area Structure. In Configure seleziona **Create New** e premi **Next**.
-3. In **C4 Level** scegli **L1 · System Context**, poi Next.
-4. In **View Subject** scegli **Mercato**, poi Next. Se l’elenco è vuoto, controlla che sia un Software System con scope Governed System già applicato.
-5. In **View Name** scrivi `02 C4 Contesto Mercato`, poi Next.
-6. In **Context Dependencies (Outside the Subject)** spunta solo Cliente, Assistenza, Pagamenti esterni e Corriere esterno, poi Next. Se filtri l’elenco, le selezioni restano.
-7. In **Visible Elements** mantieni Mercato selezionato e spunta gli stessi quattro oggetti di contesto, poi Next.
-8. In **Review Your Blueprint Changes** controlla livello, soggetto, contesto e visibili, poi premi **Apply Changes**.
-9. La creazione non apre necessariamente la vista: scegli **02 C4 Contesto Mercato** dal selettore prima di continuare.
+1. In **Structure > C4 View Subject and Context** premi **New C4 View**.
+2. In **View Identity** scrivi `02 C4 Contesto Mercato` come **View Name**, scegli **L1 · System Context** in **C4 Level** e **Mercato** in **View Subject**. Se non trovi Mercato, controlla che sia un Software System con scope Governed System.
+3. Nella tabella **View Contents** spunta **Context** e **Visible** per Cliente, Assistenza, Pagamenti esterni e Corriere esterno. Mercato è già visibile come soggetto. Per trovare una voce puoi usare **Filter Elements**. Le selezioni restano quando cambi il filtro.
+4. Controlla **View Preview**, premi **Apply to Model**, poi **Open Diagram** nella scheda della vista.
 
-Completa il Context con gli scambi che attraversano il confine: ogni relazione deve spiegare perché l’attore o il sistema esterno compare nella vista. Crea quattro relazioni Communication, con condizione vuota: Cliente verso Mercato “acquista e richiede resi”; Assistenza verso Mercato “gestisce richieste”; Mercato verso Pagamenti esterni “autorizza e rimborsa”; Mercato verso Corriere esterno “richiede consegna”. Se una relazione è già visibile, riusala.
+![Structural Blueprint mostra il soggetto Mercato e le quattro dipendenze del contesto](immagini/33-blueprint-choose.png)
 
-Se manca il soggetto nei visibili, ADE segnala Draft Needs Correction. Riapri Structural Blueprint > Structure > C4 View Subject and Context, scegli la vista esistente e completa i campi con Next; applica la correzione dal riepilogo. Non serve modificare il modello testuale.
+Completa il Context con gli scambi che attraversano il confine. Nel form **Create Relationship** usa come **Relationship Type** **Communication**, scegli origine e destinazione, scrivi il nome, lascia vuoto **Condition (Optional)** e premi **Save Changes**. Collega Cliente a Mercato con “acquista e richiede resi”, Assistenza a Mercato con “gestisce richieste”, Mercato a Pagamenti esterni con “autorizza e rimborsa” e Mercato a Corriere esterno con “richiede consegna”. Se una relazione è già visibile, riusala.
+
+Se un progetto esistente mostra **Draft Needs Correction** per il perimetro C4, riapri **C4 View Subject and Context**, scegli la vista in **Configuration** e controlla **C4 Level** e **View Subject**. La scheda include automaticamente il soggetto fra i visibili. Premi **Apply to Model** e salva.
 
 #### Crea Use Case e aggiungi gli elementi esistenti
 
 Il Context ha chiarito chi sta dentro e fuori; i casi d’uso chiariscono quale risultato gli attori chiedono al negozio. Il Cliente vuole confermare un acquisto e richiedere un reso; l’Assistenza interviene nella gestione della richiesta. Rappresenta questi obiettivi prima dei container di L4 per assegnare poi responsabilità che li servano. È l’ordine scelto dal laboratorio, non un vincolo tecnico di ADE. Al termine distinguerai gli obiettivi degli attori, l’autorizzazione necessaria e il coupon facoltativo: saranno riferimenti per flussi, contratti e casi successivi.
 
-Dal selettore scegli **Add Diagram > Acquisto > More Diagram Types > Behavior > Use Case**. Assegna il nome `12 Casi d’uso`. Questa creazione apre direttamente la nuova vista.
+Apri **Add Diagram**. Nel form **Create Diagram** scrivi `12 Casi d’uso` in **Name**, scegli **Use Case** in **Diagram Type** e **Acquisto** in **Choose Feature**. Premi **Create** per aprire la nuova vista.
 
-Per riusare Cliente apri **Diagram > Contents > Add Existing Element**, cerca Cliente e scegli la riga di tipo **Actor**. Ripeti per Assistenza e per il **Software System Mercato**. Aggiungere un esistente alla vista non ne crea una copia.
+Dal canvas premi **Add Existing Element**, cerca Cliente e scegli la riga di tipo **Actor**. Ripeti per Assistenza e per il **Software System Mercato**. L’azione riusa la stessa identità nella vista.
 
-Riusa gli attori e Mercato del Context per collegare gli obiettivi alle stesse identità e allo stesso confine. Crea invece i comportamenti come nuove identità: con Add Element > Use Case aggiungi Confermare acquisto, Autorizzare pagamento, Richiedere reso e Applicare coupon. Le associazioni indicano chi partecipa all’obiettivo; Include dichiara un comportamento necessario ed Extend l’aggiunta condizionata. Collega:
+Riusa gli attori e Mercato del Context per collegare gli obiettivi alle stesse identità e allo stesso confine. Con **Add Element** scegli **Use Case** in **Element Type** e crea **Confermare acquisto**, **Autorizzare pagamento**, **Richiedere reso** e **Applicare coupon**. Le associazioni indicano chi partecipa all’obiettivo. **Include** dichiara un comportamento necessario ed **Extend** l’aggiunta condizionata. Collega gli elementi come indicato qui sotto.
 
 | Origine | Tipo | Destinazione | Nome | Condizione |
 | --- | --- | --- | --- | --- |
@@ -303,7 +299,7 @@ Riusa gli attori e Mercato del Context per collegare gli obiettivi alle stesse i
 | Confermare acquisto | Include | Autorizzare pagamento | include | Vuota |
 | Applicare coupon | Extend | Confermare acquisto | extend | coupon presente |
 
-Assegna ogni caso d’uso a Mercato per dichiarare a quale sistema appartiene l’obiettivo: la posizione dell’ovale da sola non lo stabilisce. Per ciascun caso d’uso apri **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. Nel primo campo **Element** scegli il caso da modificare; nel successivo elenco dei proprietari scegli **Mercato**, poi **Ownership Role > Architecture**. Avanza con Next e conferma il riepilogo con Apply Changes. Nelle proprietà Architecture deve comparire **Owner: Mercato**. Con Mercato visibile il diagramma rappresenta il confine dei suoi casi. Usa **Arrange Diagram > Balanced**, poi Fit Diagram per disporre gli ovali e mantenerne leggibili i nomi.
+Assegna i quattro casi d’uso a Mercato per dichiarare a quale sistema appartengono. Apri **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. In **Configuration** scegli **Confermare acquisto** e in **Architectural Owner** seleziona **Mercato**. Espandi **Assign the Same Owner to More Elements** e spunta **Autorizzare pagamento**, **Richiedere reso** e **Applicare coupon**. Premi **Apply to Model** e **Back to Diagram**. Con Mercato visibile il diagramma rappresenta il confine dei suoi casi. Usa **Diagram > Arrange > Balanced**, poi **Fit Diagram** per disporre gli ovali e mantenerne leggibili i nomi.
 
 L’autorizzazione del pagamento è necessaria alla conferma: usa Include. Il coupon è opzionale: usa Extend, dal comportamento aggiuntivo al caso base. La distinzione guida le alternative attese: l’assenza del coupon non deve escludere l’acquisto, mentre senza autorizzazione non è prevista la conferma. Il pagamento necessario sarà ripreso nei flussi; il coupon resta un esempio di estensione facoltativa. Qui dichiari gli obiettivi e le loro dipendenze, mentre Activity e Sequence descriveranno l’ordine dei passi.
 
@@ -317,9 +313,9 @@ Dopo aver definito confine e obiettivi, suddividi Mercato in applicazioni, persi
 
 Separa Web shop, API, archivio e broker per distinguere presentazione, regole applicative, dati conservati ed eventi. Il ruolo descrive che cosa svolge ciascuna parte; l’owner Mercato ne dichiara l’appartenenza al prodotto. Queste scelte preparano la vista Container: non installano né avviano i servizi.
 
-Torna alla panoramica. Crea API Mercato, Archivio Mercato e Broker eventi con Add Element > More Element Types > Architecture > Application / Container. Web shop è già presente. API significa interfaccia di programmazione: qui API Mercato è il servizio che riceve le richieste del negozio.
+Torna alla panoramica. Con **Add Element** crea **API Mercato**, **Archivio Mercato** e **Broker eventi** scegliendo **Application / Container** in **Element Type**. Web shop è già presente. API Mercato è il servizio che riceve le richieste del negozio.
 
-Seleziona ogni container e apri **Properties > Architecture > Scope and Responsibility**. Il wizard chiede **Responsibility**, poi **Container Role**: avanza con Next dopo ogni campo e applica il riepilogo. Usa queste scelte:
+Apri **Structural Blueprint > Structure > System Scope or Container Responsibility**. Scegli un container in **Configuration** e compila **Description** e **Container Role**. Passa al prossimo container dal selettore. Dopo aver compilato le quattro schede premi **Apply to Model**.
 
 | Container | Responsibility | Container Role |
 | --- | --- | --- |
@@ -328,17 +324,17 @@ Seleziona ogni container e apri **Properties > Architecture > Scope and Responsi
 | Archivio Mercato | Conserva ordini e prodotti | Data Store |
 | Broker eventi | Distribuisce eventi | Messaging |
 
-Assegna **Mercato** come owner architetturale a tutti e quattro i container, incluso **Web shop**, già creato in L2. Apri **Structural Blueprint > Structure > Architectural or Lifecycle Owner** e scegli **Web shop** in **Element**. Seleziona **Mercato** come owner e **Architecture** in **Ownership Role**. Premi **Next** dopo ogni scelta e **Apply Changes** nel riepilogo. Ripeti per **API Mercato**, **Archivio Mercato** e **Broker eventi**. Prima di creare la vista, verifica nelle proprietà **Architecture** di ciascuno che compaia **Owner: Mercato**.
+Assegna **Mercato** come owner architetturale ai quattro container. Apri **Architectural or Lifecycle Owner**, scegli **Web shop** in **Configuration** e seleziona **Mercato** in **Architectural Owner**. Espandi **Assign the Same Owner to More Elements** e spunta **API Mercato**, **Archivio Mercato** e **Broker eventi**. Premi **Apply to Model**. Prima di creare la vista, controlla l’appartenenza dei quattro container.
 
 #### Crea e apri la vista Container
 
 Ora che i container hanno un owner, mostra le comunicazioni fra loro: il Context non le dettagliava. Conserva Mercato come confine e Cliente come punto d’ingresso, mentre le parti interne spiegano come la richiesta raggiunge servizio, dati ed eventi. È una vista dedicata del modello già creato, non una nuova copia delle applicazioni.
 
-Dal wizard C4 di L3 scegli Create New, **L2 · Containers**, soggetto Mercato e nome `03 C4 Applicazioni e dati`. Seleziona Cliente nel contesto. Nei visibili mantieni Mercato e includi Cliente e i quattro container. Conferma ogni passo con Next, poi Apply Changes nel riepilogo e **apri la nuova vista dal selettore**.
+Torna a **C4 View Subject and Context** e premi **New C4 View**. Scegli **L2 · Containers**, soggetto Mercato e nome `03 C4 Applicazioni e dati`. Spunta **Context** per Cliente e **Visible** per Cliente e i quattro container. Mercato è già visibile. Premi **Apply to Model** e **Open Diagram**.
 
 Cliente verso Web shop “naviga” è già una relazione condivisa: conservala. Crea Communication da Web shop ad API Mercato “invia ordini”, dall’API ad Archivio Mercato “legge e scrive” e dall’API a Broker eventi “pubblica eventi”, tutte con condizione vuota. Può apparire anche la comunicazione già dichiarata Cliente–Mercato del Context: è lo stesso modello, non un errore di importazione.
 
-Dichiara il protocollo dopo aver definito gli estremi: rende esplicita l’ipotesi di integrazione da discutere prima del codice. Per impostarlo seleziona la freccia e premi **Edit Cardinalities and Protocol** nelle Relationship Properties. Il form presenta **cinque campi in sequenza**: Source Multiplicity, Target Multiplicity, Source Attribute / Column, Target Attribute / Column, Protocol / Transport. Per queste comunicazioni lascia vuoti i primi quattro, confermando ogni volta con Invio. Nell’ultimo inserisci il protocollo:
+Dichiara il protocollo dopo aver definito gli estremi per esplicitare l’ipotesi di integrazione. Seleziona la freccia e premi **Edit Cardinalities and Protocol** nelle proprietà della relazione. Compila **Protocol / Transport**, lascia vuoti i campi delle molteplicità e dei membri e premi **Save Changes**. Usa i valori della tabella.
 
 | Relazione | Protocol / Transport |
 | --- | --- |
@@ -349,17 +345,17 @@ Dichiara il protocollo dopo aver definito gli estremi: rende esplicita l’ipote
 
 Il nome spiega a cosa serve il collegamento; il protocollo come si prevede di comunicare. I primi quattro campi restano vuoti perché qui non stai descrivendo cardinalità o colonne di dati. HTTPS/JSON e SQL sono scelte progettate; “Messaggistica dichiarata” mantiene aperto il trasporto del broker. Queste etichette non dimostrano una connessione e non selezionano un prodotto da installare.
 
-Per selezionare una freccia puoi cliccare il tratto o la sua etichetta. Da tastiera raggiungila con Tab e premi Invio. La dicitura nelle proprietà consente di controllare sempre origine e destinazione prima di modificare.
+Per selezionare una freccia clicca il tratto o la sua etichetta. Controlla origine e destinazione nelle proprietà prima di modificare.
 
 #### Costruisci prima i componenti, poi il contratto
 
 Dettaglia ora API Mercato per separare chi coordina l’acquisto, registra gli esiti, tratta i resi e gestisce le scorte. Prima crea e assegna i componenti all’API, poi includili nella sua vista C4: l’owner definisce il confine che la vista deve rappresentare. Il contratto renderà riconoscibile l’accordo offerto da Checkout; firma e dati saranno precisati in L11.
 
-Torna alla panoramica e aggiungi i Component **Registro esiti** e **Scorte**. Checkout e Gestione resi esistono. Nel wizard di ownership scegli ciascun componente in **Element** e assegna l’owner **API Mercato**, ruolo Architecture; applica ogni riepilogo. Scorte rappresenta la responsabilità applicativa per la disponibilità; Archivio Mercato rappresenta la persistenza.
+Torna alla panoramica. Con **Add Element** crea **Registro esiti** e **Scorte** come **Component**. Checkout e Gestione resi esistono. In **Architectural or Lifecycle Owner** scegli **Checkout** in **Configuration**, poi **API Mercato** in **Architectural Owner**. Con **Assign the Same Owner to More Elements** spunta **Registro esiti**, **Gestione resi** e **Scorte**, poi premi **Apply to Model**. Scorte rappresenta la responsabilità applicativa per la disponibilità. Archivio Mercato rappresenta la persistenza.
 
-In questo esercizio la vista mette a fuoco soltanto i quattro componenti interni dell’API; attori e sistemi esterni restano nelle viste più generali. Crea dal wizard C4 una vista **L3 · Components**, soggetto API Mercato, nome `04 C4 Componenti API`. Nel contesto lascia tutto deselezionato e premi Next. Nei visibili mantieni API Mercato e seleziona Checkout, Registro esiti, Gestione resi e Scorte. Avanza al riepilogo, premi Apply Changes e apri la nuova vista.
+In questo esercizio la vista mette a fuoco i quattro componenti interni dell’API. Da **C4 View Subject and Context** premi **New C4 View** e scegli **L3 · Components**, soggetto API Mercato, nome `04 C4 Componenti API`. Lascia vuota la colonna **Context**. Spunta **Visible** per Checkout, Registro esiti, Gestione resi e Scorte. API Mercato è già visibile. Premi **Apply to Model** e **Open Diagram**.
 
-Usa un contratto separato dal componente per poter precisare in L11 l’accordo offerto da Checkout senza confonderlo con la responsabilità che lo realizza. Qui premi **Add Element > Contract** e crea **Contratto acquisto**. Il percorso nativo della vista lo colloca sotto API Mercato. Non cercare Contract nel gruppo Interfaces della panoramica: quel gruppo offre Interface Contract, che è un tipo diverso.
+Usa un contratto per precisare in L11 l’accordo offerto da Checkout. Nella vista C4 premi **Add Element**, scrivi **Contratto acquisto**, scegli **Contract** in **Element Type** e premi **Create**. ADE lo colloca sotto API Mercato, soggetto della vista.
 
 Aggiungi Checkout verso Registro esiti con **Communication**, nome “registra esito”; Checkout verso Contratto acquisto con **Implementation**, “espone contratto”; Checkout verso Scorte con **Dependency**, “richiede disponibilità”. Gestione resi verso Checkout “consulta acquisto” è già presente: riusala. La vista C4 propone i collegamenti architetturali compatibili; le invocazioni operative saranno mostrate nella sequenza di L7.
 
@@ -368,32 +364,28 @@ Aggiungi Checkout verso Registro esiti con **Communication**, nome “registra e
 
 Le viste C4 hanno assegnato responsabilità e persistenza; ora definisci i dati necessari all’acquisto e al reso. Parti dal significato dei dati e dai loro legami nell’ERD, poi progetta tabelle e chiavi nello schema fisico. Tenere distinti questi due livelli permette di discutere la regola “un reso riguarda un ordine esistente” prima di scegliere come conservarne il riferimento.
 
-#### Crea l’ERD nel gruppo Data
+#### Crea l’ERD e le entità
 
 Fissa prima le entità del dominio: cliente, ordine, riga, prodotto e reso devono avere attributi e collegamenti comprensibili anche senza decidere le tabelle. Questi dati serviranno a controllare le responsabilità già progettate: per esempio, il checkout deve conoscere quantità e prezzo della riga.
 
-L’ERD (Entity–Relationship Diagram) rappresenta entità e relazioni fra i dati. Dal selettore scegli **Add Diagram > Acquisto > More Diagram Types > Data > Entity–Relationship**. Inserisci `05 Entità e cardinalità`. Con **Add Element > Entity** crea Cliente, Ordine, Riga ordine, Prodotto e Reso.
+L’ERD (Entity–Relationship Diagram) rappresenta entità e relazioni fra i dati. Dal selettore dei diagrammi scegli **Add Diagram**. Nel form **Create Diagram** scrivi `05 Entità e cardinalità` in **Name**, scegli **Entity–Relationship** in **Diagram Type** e **Acquisto** in **Choose Feature**, poi premi **Create**. Con **Add Element** scegli **Entity** in **Element Type** e crea Cliente, Ordine, Riga ordine, Prodotto e Reso.
 
 Usa Add Element: queste entità definiscono i dati del dominio. L’Actor Cliente descrive chi agisce e la Resource Ordine l’oggetto coinvolto; l’ERD ne dettaglia invece attributi e legami. Per mostrare la stessa entità in un altro diagramma dati userai Add Existing Element.
 
 #### Compila un attributo dall’inizio alla fine
 
-Aggiungi gli attributi per precisare quali informazioni il nome dell’entità non dice. `customerId` serve a riferirsi al cliente; il tipo string lo tratta come identificativo testuale. Scegli No Key perché qui descrivi il dominio, mentre i ruoli delle chiavi fisiche saranno dichiarati nello schema. Comincia dall’entità Cliente:
+Aggiungi gli attributi per precisare le informazioni di ogni entità. `customerId` è un identificativo testuale del cliente. In questo diagramma usa **No Key**. Dichiarerai le chiavi fisiche nello schema.
 
-1. Seleziona la scheda **Cliente**, apri **Properties > Details and Actions > Edit Attributes and Technology**.
-2. Nel menu con il nome dell’entità scegli **Add Attribute or Method**.
-3. In **Member Kind** scegli **Attribute / Column**.
-4. In **Member Name** scrivi `customerId` e premi Invio.
-5. In **Type or Method Signature (Empty if Unknown)** scrivi `string` e premi Invio.
-6. In **Key Kind** scegli **No Key**.
-7. In **Field Presence** scegli **Required**.
-8. In **Nullability (Independent of Presence)** scegli **Non-null Value**.
+1. Seleziona la scheda **Cliente** e premi **Edit Attributes and Technology** in **Properties**.
+2. Premi **Add Attribute** nella sezione **Attributes and Methods**.
+3. Compila **Member Name** con `customerId` e **Type or Method Signature** con `string`. Lascia **Attribute / Column**, **No Key** e **Required Field** ai valori iniziali. Scegli **Non-null Value** in **Nullability (Independent of Presence)**.
+4. Premi di nuovo **Add Attribute** per aggiungere `email` e compilalo come indicato nella tabella. Premi **Save Changes** per applicare entrambi gli attributi.
 
-Il form si conclude e sulla scheda compare `customerId: string`. Per il prossimo attributo riapri Edit Attributes and Technology e scegli nuovamente Add Attribute or Method. Per correggere un membro esistente, selezionalo nell’elenco, scegli **Edit Member** e completa di nuovo il form: aggiorni così il membro senza duplicarlo.
+La scheda mostra `customerId: string` e `email: string`. Per correggere un membro riapri **Edit Attributes and Technology**, modifica la riga esistente e premi **Save Changes**.
 
 In questa lezione il campo del tipo è una dichiarazione descrittiva: scrivi letteralmente **string** per il testo e **integer** per gli interi. Il form non richiede di creare prima Shared Types. I tipi condivisi dei contratti saranno costruiti in L11.
 
-Gli identificativi permettono di riferirsi agli oggetti; quantità e importi descrivono il contenuto economico; email, sku e motivazione precisano cliente, prodotto e reso. Usa interi in centesimi per gli importi, come concordato in L1. Per tutte le righe della tabella usa Attribute / Column, No Key, Required e Non-null Value:
+Gli identificativi permettono di riferirsi agli oggetti. Quantità e importi descrivono il contenuto economico. Per ogni entità aggiungi in un unico form i membri della tabella con **Attribute / Column**, **No Key**, **Required Field** e **Non-null Value**.
 
 | Entità | Membri da aggiungere con nome e tipo |
 | --- | --- |
@@ -409,7 +401,7 @@ Required richiede che il campo sia presente; Non-null Value vieta che il suo val
 
 Dopo aver definito gli oggetti e i loro attributi, precisa quante istanze possono essere collegate: il solo nome “contiene” non dice se un ordine può essere vuoto. Le cardinalità rendono esplicite queste regole prima di tradurle in riferimenti fisici. I campi delle colonne restano vuoti perché stai ancora collegando entità, non chiavi di tabelle.
 
-Crea le quattro relazioni Association con la procedura di L2 e Condition vuota. Poi seleziona ogni relazione e apri Edit Cardinalities and Protocol. I primi due campi ricevono le molteplicità; lascia vuoti i due campi Attribute / Column e il Protocol / Transport, premendo Invio per ciascuno.
+Crea le quattro relazioni **Association** con la procedura di L2 e **Condition (Optional)** vuoto. Seleziona ogni relazione e apri **Edit Cardinalities and Protocol**. Compila **Source Multiplicity** e **Target Multiplicity** come in tabella. Lascia vuoti i campi dei membri e del protocollo e premi **Save Changes**.
 
 | Origine | Destinazione | Relationship Name | Source Multiplicity | Target Multiplicity |
 | --- | --- | --- | --- | --- |
@@ -424,7 +416,7 @@ Cliente `1` verso Ordine `0..*` ammette un cliente senza acquisti, ma assegna og
 
 Passa ora dal significato dei dati alla loro conservazione prevista. Crea Table distinte dalle Entity: una tabella ha colonne, chiavi e riferimenti fisici, e non coincide automaticamente con la definizione di dominio. Lo schema è un esercizio di progettazione; non crea il database e non costituisce da solo tutti i vincoli necessari a implementare le regole dell’ERD.
 
-Scegli **Add Diagram > Acquisto > More Diagram Types > Data > Database Schema** e il nome `06 Schema dati progettato`. Crea le cinque **Table** elencate sotto. Per ogni colonna ripeti il form completo degli attributi, usando il ruolo di chiave indicato; Field Presence resta Required e Nullability resta Non-null Value.
+Con **Add Diagram** crea `06 Schema dati progettato`, scegliendo **Database Schema** in **Diagram Type** e **Acquisto** in **Choose Feature**. Crea le cinque **Table** elencate sotto. Per ogni tabella apri **Edit Attributes and Technology** e usa **Add Attribute** per aggiungere tutte le colonne prima di premere **Save Changes**. Imposta **Key Kind** come in tabella, mantieni **Required Field** e scegli **Non-null Value**.
 
 | Tabella | Colonne: nome, tipo e Key Kind |
 | --- | --- |
@@ -434,15 +426,15 @@ Scegli **Add Diagram > Acquisto > More Diagram Types > Data > Database Schema** 
 | products | id, string, Primary Key; sku, string, Unique Key; price_cents, integer, No Key |
 | returns | id, string, Primary Key; order_id, string, Foreign Key; reason, string, No Key |
 
-In questo schema didattico la chiave primaria identifica ogni riga, le chiavi univoche dichiarano la scelta di distinguere email e sku e le chiavi esterne collegano le righe conservate. L’unicità di email è una scelta dell’esempio, da valutare di nuovo in un progetto reale. Per rendere completo un riferimento non basta indicare Foreign Key sulla colonna: occorre anche nominare la colonna di destinazione. Crea una Association **orders verso customers**, nome `customer_id`, condizione vuota. Seleziona la relazione, apri Edit Cardinalities and Protocol e compila tutti i passaggi:
+In questo schema la chiave primaria identifica ogni riga, le chiavi univoche distinguono email e sku e le chiavi esterne collegano le righe conservate. Per ogni chiave esterna specifica anche la colonna di destinazione. Crea una **Association** da **orders** a **customers**, nome `customer_id`, condizione vuota. Seleziona la relazione, apri **Edit Cardinalities and Protocol**, usa i valori della tabella e premi **Save Changes**.
 
 | Campo del form | Valore |
 | --- | --- |
 | Source Multiplicity | `0..*` |
 | Target Multiplicity | `1` |
-| Source Attribute / Column (Empty if Unknown) | `customer_id` |
-| Target Attribute / Column (Empty if Unknown) | `id` |
-| Protocol / Transport (Empty if Unknown) | Vuoto, poi Invio |
+| Source Attribute / Column | `customer_id` |
+| Target Attribute / Column | `id` |
+| Protocol / Transport | Vuoto |
 
 I nomi dei membri si **scrivono** nel campo: non includere `orders.` o `customers.`. Il riferimento è già associato alle due tabelle della relazione. Se il membro non esiste, correggi il nome o crea prima la colonna: non usare un nome inventato per superare la validazione.
 
@@ -462,15 +454,15 @@ Il ruolo Foreign Key (FK, chiave esterna) identifica la colonna di riferimento; 
 
 Dopo aver definito i dati, descrivi i tipi del software e le loro collaborazioni con UML (Unified Modeling Language). La vista Class descrive tipi e operazioni; UML Component mostra chi offre i contratti; Package rende esplicita la direzione delle dipendenze fra gruppi logici. Sono scelte sull’organizzazione del codice da realizzare, da confrontare con architettura e dati già progettati.
 
-#### Class appartiene al gruppo Data
+#### Class descrive tipi e metodi
 
 Definisci Order come tipo con attributi e operazione di conferma, CheckoutService come servizio e OrderRepository come accordo per la persistenza. La Resource Ordine indica il dato coinvolto nelle responsabilità e l’Entity Ordine ne descrive il dominio: creare una Class distinta permette di discutere i metodi senza attribuirli automaticamente a tutte le rappresentazioni omonime.
 
-Scegli **Add Diagram > Acquisto > More Diagram Types > Data > Class**, nome `11 Classi e repository`. Con Add Element crea le Class **Order** e **CheckoutService** e l’**Interface Contract OrderRepository**. Sono tre nuovi tipi del progetto; non devi convertire la Resource Ordine o l’entità Ordine.
+Con **Add Diagram** crea `11 Classi e repository`, scegliendo **Class** in **Diagram Type** e **Acquisto** in **Choose Feature**. Con **Add Element** crea **Order** e **CheckoutService** di tipo **Class** e **OrderRepository** di tipo **Interface Contract**.
 
-Aggiungi a Order gli attributi `orderId: string` e `totalCents: integer`, ripetendo il form di L5 con No Key, Required e Non-null Value.
+Seleziona **Order** e apri **Edit Attributes and Technology**. Con **Add Attribute** aggiungi `orderId: string` e `totalCents: integer` come in L5, con **No Key**, **Required Field** e **Non-null Value**.
 
-Per aggiungere il metodo confirm seleziona Order e apri Details and Actions > Edit Attributes and Technology > Add Attribute or Method. Questa volta scegli **Member Kind > Method**, nome `confirm`, tipo/firma `string`, Field Presence Required e Nullability Non-null Value. Per Method il form salta Key Kind: non aspettare una domanda sulle chiavi. Il canvas visualizza `confirm(): string`; inserisci il nome senza parentesi.
+Nello stesso form premi **Add Method**. Scrivi `confirm` in **Member Name** e `string` in **Type or Method Signature**. Mantieni **Required Field** e scegli **Non-null Value**. Per un metodo **Key Kind** è disabilitato. Premi **Save Changes**. La scheda mostra `confirm(): string`.
 
 Ripeti per il metodo `submit` di CheckoutService e `save` di OrderRepository, sempre con risultato descrittivo string: i nomi distinguono invio al servizio e conservazione tramite contratto. Queste firme sono volutamente minime e non definiscono l’intero checkout. In L11 userai input e risultati tipizzati per un contratto più completo.
 
@@ -480,7 +472,7 @@ Crea due Dependency con condizione vuota: CheckoutService verso Order, nome “v
 
 Collega ora l’accordo OrderRepository al componente che lo fornisce e rileggi il Contratto acquisto già esposto da Checkout. Riusa interfacce, componenti e relazioni per conservare un solo significato nelle viste Class, C4 e UML Component: una modifica al contratto deve restare riconoscibile nei punti che lo usano. Qui specifichi le collaborazioni, non replichi le classi.
 
-Scegli **Add Diagram > Acquisto > More Diagram Types > Implementation > UML Component**, nome `13 Componenti e interfacce`. Con **Diagram > Contents > Add Existing Element** aggiungi Checkout, Contratto acquisto, Registro esiti e OrderRepository. Controlla il tipo della riga, in particolare Component Checkout e Interface Contract OrderRepository.
+Con **Add Diagram** crea `13 Componenti e interfacce`, scegliendo **UML Component** in **Diagram Type** e **Acquisto** in **Choose Feature**. Con **Add Existing Element** sul canvas aggiungi Checkout, Contratto acquisto, Registro esiti e OrderRepository. Controlla il tipo della riga, in particolare Component Checkout e Interface Contract OrderRepository.
 
 Gli elementi da soli non portano con sé tutte le frecce. Apri **Diagram > Contents > Add Existing Relationship** e scegli **Checkout → Contratto acquisto: espone contratto**. Ripeti per **Checkout → Registro esiti: registra esito**. Ora crea la nuova Implementation da Registro esiti verso OrderRepository, nome “fornisce persistenza”, condizione vuota. Devi vedere tre collegamenti. Il riuso conserva identità e dettagli della relazione: Connect ne creerebbe una nuova.
 
@@ -490,7 +482,7 @@ Gli elementi da soli non portano con sé tutte le frecce. Apri **Diagram > Conte
 
 Raggruppa le responsabilità in Dominio, Applicazione e Adapter per discutere dove devono andare le dipendenze prima di organizzare i sorgenti. Il dominio contiene le regole da preservare, l’applicazione coordina gli obiettivi, gli adapter collegano i dettagli esterni. Crea quindi nuove identità Package: i gruppi logici non sono copie dei componenti né cartelle già create.
 
-Scegli **Add Diagram > Acquisto > More Diagram Types > Implementation > Package**, nome `14 Moduli applicativi`. Crea tre elementi Package: Dominio, Applicazione, Adapter. Aggiungi Dependency, con condizione vuota, da Applicazione a Dominio “usa regole”, da Adapter a Dominio “implementa contratti” e da Adapter ad Applicazione “collega esterni”. Questa direzione dichiara l’intenzione di mantenere le regole indipendenti dai dettagli esterni: quando realizzerai il codice, potrai confrontare le sue dipendenze con tale scelta. Il diagramma da solo non impone questa separazione ai sorgenti.
+Con **Add Diagram** crea `14 Moduli applicativi`, scegliendo **Package** in **Diagram Type** e **Acquisto** in **Choose Feature**. Crea tre elementi **Package** chiamati Dominio, Applicazione e Adapter. Aggiungi tre relazioni **Dependency** con condizione vuota. Collega Applicazione a Dominio con “usa regole”, Adapter a Dominio con “implementa contratti” e Adapter ad Applicazione con “collega esterni”. In fase di implementazione potrai confrontare la direzione delle dipendenze del codice con quella dichiarata qui.
 
 **Controllo L6:** salva. OrderRepository è la stessa interfaccia nelle viste Class e UML Component; la sua modifica deve essere visibile in entrambe. Nel Package il dominio non dipende dagli adapter. Classe, componente e package rispondono a domande diverse e rimangono identità distinte.
 ### L7. Costruisci flusso, sequenza e stati dell’acquisto
@@ -501,9 +493,9 @@ Responsabilità e dati sono definiti; ora descrivi ciò che accade durante l’a
 
 Riusa il Flow creato con la feature per descrivere il percorso dall’avvio all’esito, senza aggiungere una seconda vista per lo stesso esercizio. Valida il carrello prima del pagamento e separa l’indisponibilità delle scorte dal pagamento rifiutato: entrambi portano al rifiuto, ma per ragioni diverse che la struttura non mostrava.
 
-Apri dal selettore **Acquisto · Flow**. È la vista creata con la feature: rinominala attraverso Diagram > Contents > Rename Diagram in `08 Flusso acquisto`.
+Apri dal selettore **Acquisto · Flow**, la vista creata con la feature. Apri **Diagram** e premi **Rename** accanto al titolo. Usa il nome `08 Flusso acquisto`.
 
-Usa Add Element per aggiungere questi oggetti. I tipi Start, Decision ed End si trovano in More Element Types > Flow; Action si trova in More Element Types > Behavior.
+Per ogni oggetto premi **Add Element**, inserisci il nome, scegli il tipo in **Element Type** e premi **Create**.
 
 | Tipo | Nomi da creare |
 | --- | --- |
@@ -512,7 +504,7 @@ Usa Add Element per aggiungere questi oggetti. I tipi Start, Decision ed End si 
 | Decision | Scorte disponibili? |
 | End | Fine |
 
-Collega i nodi per dichiarare quando si passa da un’attività alla successiva. Usa **Control Flow**, perché qui ordini passi e alternative, senza descrivere chiamate fra componenti o dati trasferiti. Conferma il nome e poi la Condition: il primo nomina il passaggio, la seconda distingue gli esiti che lo consentono.
+Collega i nodi con **Control Flow** per dichiarare passi e alternative. Nel form **Create Relationship** usa **Relationship Name** per nominare il passaggio e **Condition (Optional)** per indicare quando avviene. Premi **Save Changes** al termine di ogni relazione.
 
 | Origine | Destinazione | Relationship Name | Condition |
 | --- | --- | --- | --- |
@@ -531,25 +523,25 @@ Premi Fit Diagram e segui i due esiti. Le condizioni sono descrittive; questa le
 
 Dopo aver distinto i percorsi, assegna le chiamate alle responsabilità di L2. Riusa Actor Cliente, Component Checkout, Software System Pagamenti esterni e Resource Ordine: sono gli oggetti che richiedono, coordinano, autorizzano e ricevono la registrazione. Entity e Class omonime descrivono altri livelli e non vanno scelte per sostituirli. Includere i messaggi separatamente permette di dichiararne l’ordine in questa vista senza duplicare le relazioni del sistema.
 
-Scegli **Add Diagram > Acquisto > Sequence Diagram** e il nome `07 Sequenza acquisto`. Con Diagram > Contents > Add Existing Element aggiungi, nell’ordine, Cliente di tipo Actor, Checkout di tipo Component, Pagamenti esterni di tipo Software System e Ordine di tipo Resource.
+Con **Add Diagram** crea `07 Sequenza acquisto`, scegliendo **Sequence Diagram** in **Diagram Type** e **Acquisto** in **Choose Feature**. Con **Add Existing Element** sul canvas aggiungi, nell’ordine, Cliente di tipo Actor, Checkout di tipo Component, Pagamenti esterni di tipo Software System e Ordine di tipo Resource.
 
 Nell’elenco possono comparire anche l’Entity Cliente e l’Entity Ordine create in L5. Leggi il tipo della riga prima di confermare. La sequenza può mostrare inizialmente **No messages**: aggiungere partecipanti non include automaticamente le relazioni già dichiarate.
 
-1. Seleziona Cliente e usa Connect Selection > Invocation > Checkout. Scrivi `conferma acquisto`, poi conferma Condition vuota. Questo è il primo messaggio.
+1. Seleziona **Cliente** e premi **Connect**. Se compare **Relationship Type**, scegli **Invocation**. Clicca **Checkout** tra le destinazioni evidenziate. Scrivi `conferma acquisto`, lascia vuoto **Condition (Optional)** e premi **Save Changes**. Questo è il primo messaggio.
 2. Apri **Diagram > Contents > Add Existing Message**. Scegli **Checkout → Pagamenti esterni: autorizza pagamento**, di tipo Invocation. Non creare di nuovo quella relazione con Connect.
 3. Ripeti Add Existing Message e scegli **Checkout → Ordine: registra ordine**, di tipo Write. La condizione pagamento autorizzato viene conservata.
 
 Il risultato atteso è: 1 Cliente–Checkout, 2 Checkout–Pagamenti esterni, 3 Checkout–Ordine. L’autorizzazione deve precedere la registrazione condizionata dell’ordine: invertire i messaggi cambierebbe il comportamento progettato. I partecipanti conservano le identità condivise; spostare le schede non riordina le chiamate.
 
-#### State: scegli prima la risorsa del lifecycle
+#### State: associa la risorsa del ciclo di vita
 
-Descrivi infine quale condizione conserva l’Ordine dopo il tentativo di pagamento: In attesa, Confermato o Rifiutato. Le azioni del flusso raccontano ciò che fai; gli stati raccontano ciò che l’ordine diventa. Scegli prima la Resource Ordine esistente perché il ciclo di vita deve appartenere allo stesso oggetto già usato dalla struttura e dalla sequenza.
+Descrivi infine quale condizione conserva l’Ordine dopo il tentativo di pagamento: In attesa, Confermato o Rifiutato. Gli stati descrivono la Resource **Ordine** già usata dalla struttura e dalla sequenza.
 
-Scegli **Add Diagram > Acquisto > State Diagram**. Il primo form è **Resource Lifecycle**: seleziona la Resource **Ordine**, già esistente. Poi inserisci il nome `09 Stati ordine`. Non scegliere Create New Resource per questo esercizio.
+Apri **Add Diagram** e scrivi `09 Stati ordine` in **Name**. Seleziona **State Diagram** in **Diagram Type**, **Acquisto** in **Choose Feature** e **Ordine** in **Resource Whose State Is Represented**. Premi **Create**.
 
-Il canvas include la risorsa Ordine e il pulsante **Add State**. Premilo tre volte, creando In attesa, Confermato e Rifiutato. Sono condizioni dello stesso ordine, perciò appartengono alla sua risorsa; creare tre risorse separate perderebbe questo ciclo di vita.
+Il canvas include la risorsa Ordine e il pulsante **Add State**. Usalo per creare **In attesa**, **Confermato** e **Rifiutato**. Mantieni Ordine come risorsa per ogni stato e premi **Create**.
 
-Seleziona In attesa e premi Connect Selection. In Relationship Type scegli **Transition**, in Target Element Confermato, in Relationship Name `Pagamento autorizzato`, in Condition `esito positivo`. Ripeti da In attesa verso Rifiutato con nome `Pagamento rifiutato` e condizione `esito negativo`.
+Seleziona **In attesa** e premi **Connect**. La vista usa **Transition** e mette in evidenza gli stati raggiungibili. Clicca **Confermato**. Usa `Pagamento autorizzato` in **Relationship Name** ed `esito positivo` in **Condition (Optional)**, poi premi **Save Changes**. Ripeti da In attesa verso Rifiutato con nome `Pagamento rifiutato` e condizione `esito negativo`.
 
 **Controllo L7:** salva. Activity contiene sette nodi e otto Control Flow; Sequence quattro partecipanti e tre messaggi nell’ordine indicato; State una risorsa e tre stati con due transizioni. Sono descrizioni: le interazioni e i lifecycle eseguibili saranno affrontati nei moduli di L13-L14.
 
@@ -559,17 +551,17 @@ Il reso legge un acquisto già registrato e crea una richiesta distinta. Dopo av
 
 #### Riusa la struttura automatica della feature
 
-La vista automatica della feature offre già lo spazio in cui separare responsabilità nuove e condivise. Riusa Cliente e Ordine per conservare il legame con l’acquisto; crea gli altri elementi perché rappresentano attività e dati propri del reso. Apri **Resi e rimborsi · Structure** e rinominala `Resi - responsabilità condivise`. Aggiungi con **Add Existing Element** Cliente di tipo Actor e Ordine di tipo Resource. Crea invece questi tre nuovi elementi:
+La vista automatica della feature offre già lo spazio in cui separare responsabilità nuove e condivise. Apri **Resi e rimborsi · Structure** e usa **Diagram > Rename** accanto al titolo per chiamarla `Resi - responsabilità condivise`. Aggiungi con **Add Existing Element** Cliente di tipo Actor e Ordine di tipo Resource. Per ciascun elemento della tabella premi **Add Element**, compila **Name**, scegli **Element Type** e premi **Create**.
 
-| Nome | Percorso da Add Element |
+| Name | Element Type |
 | --- | --- |
 | Pagina resi | Interface |
-| Coordinamento reso | More Element Types > Behavior > Controller |
+| Coordinamento reso | Controller |
 | Richiesta di reso | Resource |
 
 Interface qui rappresenta una pagina/interfaccia del negozio; Interface Contract è il tipo di contratto usato in L6. Il Component Gestione resi di C4 è la responsabilità applicativa; il Controller Coordinamento reso ne descrive il coordinamento di dettaglio.
 
-Apri **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. In **Element** scegli Coordinamento reso, poi **API Mercato** come proprietario e Architecture come ruolo; applica il riepilogo. Nel laboratorio controller e Gestione resi appartengono allo stesso container: il primo dettaglia il coordinamento del reso. Il wizard propone proprietari compatibili e senza cicli.
+Apri **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. Scegli **Coordinamento reso** in **Configuration**, seleziona **API Mercato** in **Architectural Owner** e premi **Apply to Model**. Nel laboratorio controller e Gestione resi appartengono allo stesso container. Il primo dettaglia il coordinamento del reso.
 
 Collega richiesta, coordinamento, lettura e registrazione per distinguere il dato consultato da quello nuovo. In questa struttura lascia Condition vuota; esprimerai le alternative temporali nel flusso immediatamente successivo. Crea queste quattro relazioni:
 
@@ -584,11 +576,11 @@ Ordine viene letto, Richiesta di reso viene registrata. L’Ordine originale rim
 
 #### Completa il flusso del rimborso
 
-Ora che sai chi gestisce il reso e quali dati usa, il flusso rende esplicita la scelta fra rimborso e rifiuto. Le condizioni riportano la regola didattica dei 30 giorni; la struttura da sola non esprimeva questa alternativa. Apri **Resi e rimborsi · Flow**, rinominala `Resi - ammissione e rimborso` e crea tre Action dal gruppo Behavior: Valuta reso, Emetti rimborso, Rifiuta richiesta. Collega Valuta reso a Emetti rimborso con **Control Flow**, nome `autorizza`, condizione `entro 30 giorni`; collega Valuta reso a Rifiuta richiesta con Control Flow, nome `rifiuta`, condizione `termine superato`.
+Ora che sai chi gestisce il reso e quali dati usa, il flusso rende esplicita la scelta fra rimborso e rifiuto. Apri **Resi e rimborsi · Flow**, rinominala `Resi - ammissione e rimborso` con **Diagram > Rename** e crea **Valuta reso**, **Emetti rimborso** e **Rifiuta richiesta** con **Action** in **Element Type**. Collega Valuta reso a Emetti rimborso con **Control Flow**, nome `autorizza` e condizione `entro 30 giorni`. Collega Valuta reso a Rifiuta richiesta con **Control Flow**, nome `rifiuta` e condizione `termine superato`.
 
 #### Controlla impatto e identità
 
-Ordine compare ora in due feature: controllare l’impatto e provare una rinomina reversibile permette di verificare il riuso prima di aggiungere altre viste. Undo conserva il nome previsto dagli esercizi successivi. Torna alla struttura Resi, seleziona Ordine e apri **Properties > Details and Actions > Show Change Impact**. Consulta i riferimenti e le viste interessate, poi premi la freccia **Back** nella navigazione del progetto. La pagina Impact non ha il selettore dei diagrammi. Dalle proprietà ordinarie usa Rename Element per rinominare temporaneamente la risorsa `Ordine cliente`. Apri la panoramica di Acquisto: sulla stessa risorsa deve comparire il nome nuovo. Annulla con Undo e salva.
+Ordine compare ora in due feature. Torna alla struttura Resi, seleziona **Ordine** e premi **Show Change Impact** nel gruppo **Explore** delle proprietà. Consulta i riferimenti e le viste interessate, poi premi la freccia **Back** nella navigazione del progetto. Seleziona di nuovo Ordine se le proprietà sono chiuse. Premi **Rename** accanto al titolo delle proprietà, scrivi `Ordine cliente` e premi **Save Changes**. Apri la panoramica di Acquisto e controlla il nuovo nome sulla stessa risorsa. Premi **Undo** sul canvas per ripristinare il nome e **Save** se ci sono modifiche pendenti.
 
 **Controllo L8:** ritrovi il nome Ordine ripristinato in entrambe le viste. Non è stato creato un Ordine resi separato. La richiesta di reso è una nuova risorsa; il controller è un dettaglio della responsabilità Gestione resi. Il flusso contiene due alternative con condizioni esplicite.
 ### L9. Progetta collocazione e connessioni
@@ -597,9 +589,9 @@ Le responsabilità applicative sono definite: puoi riusarle per progettare dove 
 
 #### Deployment: dove sono collocate le parti
 
-Associa le parti già progettate a host e pacchetti distribuibili, così il lettore può distinguere un’applicazione da ciò che la ospiterà. Scegli **Add Diagram > Acquisto > More Diagram Types > Implementation > Deployment**, nome `10 Distribuzione locale progettata`.
+Associa le parti già progettate a host e pacchetti distribuibili. Con **Add Diagram** crea `10 Distribuzione locale progettata`, scegliendo **Deployment** in **Diagram Type** e **Acquisto** in **Choose Feature**.
 
-Dal pulsante Add Element entra in **More Element Types > Infrastructure** e crea tre **Deployment Node**: Host Web, Host API, Host dati. Dallo stesso gruppo crea due **Artifact**: Web bundle, API ESM. ESM indica il formato dei moduli JavaScript previsto per questo esempio. Con Diagram > Contents > Add Existing Element includi i container API Mercato e Archivio Mercato. Host e artifact sono nuove identità infrastrutturali; API e archivio restano quelli dell’architettura, così le due viste descrivono le stesse parti.
+Con **Add Element** crea **Host Web**, **Host API** e **Host dati** di tipo **Deployment Node**, poi **Web bundle** e **API ESM** di tipo **Artifact**. ESM indica il formato dei moduli JavaScript scelto per l’esempio. Dal canvas usa **Add Existing Element** per includere **API Mercato** e **Archivio Mercato**. Così Deployment e C4 fanno riferimento agli stessi container.
 
 Le relazioni **Hosts** dichiarano quale host ospiterà ciascuna parte. Non richiedono qui una condizione di business: rappresentano la collocazione prevista per l’esempio. Crea le quattro relazioni con condizione vuota:
 
@@ -610,13 +602,13 @@ Le relazioni **Hosts** dichiarano quale host ospiterà ciascuna parte. Non richi
 | Host API | API Mercato | ospita |
 | Host dati | Archivio Mercato | ospita |
 
-Indica tecnologia e ambiente per rendere riconoscibile il carattere didattico della collocazione: i nomi degli host, da soli, non spiegano se si tratta di processi locali o infrastruttura installata. Per ciascun Host seleziona la scheda e apri **Properties > Details and Actions > Edit Attributes and Technology**. Scegli **Technology**, inserisci `Processo locale progettato` e conferma. Riapri lo stesso menu, scegli **Environment**, inserisci `Didattico locale` e conferma. Ogni modifica conclude il form: per la successiva riaprilo.
+Per ogni host seleziona la scheda e premi **Edit Attributes and Technology** in **Properties**. Nel form scrivi `Processo locale progettato` in **Technology** e `Didattico locale` in **Environment**, poi premi **Save Changes**. I due campi descrivono la collocazione prevista per l’esempio.
 
 #### Network: quali collegamenti sono dichiarati
 
-La collocazione non specifica le comunicazioni: usa ora la Network per descrivere i collegamenti che client, API e archivio dovranno avere. Scegli **Add Diagram > Acquisto > More Diagram Types > Implementation > Network / Infrastructure**, nome `16 Connessioni progettate`. Da Add Element > More Element Types > Infrastructure crea due **Network Node**: Rete client e Rete backend. Includi Web shop, API Mercato e Archivio Mercato con Add Existing Element.
+Usa Network per descrivere le comunicazioni fra client, API e archivio. Con **Add Diagram** crea `16 Connessioni progettate`, scegliendo **Network / Infrastructure** in **Diagram Type** e **Acquisto** in **Choose Feature**. Con **Add Element** crea **Rete client** e **Rete backend** di tipo **Network Node**. Con **Add Existing Element** includi **Web shop**, **API Mercato** e **Archivio Mercato**.
 
-Dichiara il trasporto di ogni collegamento perché chi realizzerà Mercato possa distinguere accesso web, chiamata API e persistenza. Crea tre Communication, con Condition vuota, poi imposta il protocollo con il form a cinque campi di L4: primi quattro vuoti e ultimo compilato.
+Crea le tre relazioni **Communication** con condizione vuota. Per ognuna apri **Edit Cardinalities and Protocol**, compila **Protocol / Transport** come in tabella e premi **Save Changes**. Lascia vuoti molteplicità e membri. I protocolli distinguono accesso web, chiamata API e persistenza.
 
 | Origine | Destinazione | Nome | Protocol / Transport |
 | --- | --- | --- | --- |
@@ -626,7 +618,7 @@ Dichiara il trasporto di ogni collegamento perché chi realizzerà Mercato possa
 
 Il quarto collegamento esiste già: **Diagram > Contents > Add Existing Relationship > API Mercato → Archivio Mercato: legge e scrive**. Il protocollo SQL viene riusato con la relazione. Non ricrearlo con Connect. Devi vedere quattro relazioni nella Network. Il riuso mantiene un’unica dichiarazione della comunicazione API–archivio anche se la mostri da una prospettiva diversa.
 
-Verifica il raggruppamento prima di chiudere le viste: una sovrapposizione può far attribuire visivamente un artifact all’host sbagliato, anche con relazioni corrette. Nel Deployment controlla anche i gruppi ospitanti: se Arrange Diagram dispone i figli di due host nello stesso rettangolo, trascina API ESM sotto API Mercato e tieni Archivio Mercato e Web bundle separati, poi premi Fit Diagram. Il raggruppamento visuale segue gli oggetti ospitati; la relazione Hosts resta dichiarata.
+Nel Deployment controlla il raggruppamento. Se serve più spazio, prova **Diagram > Arrange > Balanced** e **Fit Diagram**. Se due gruppi si sovrappongono ancora, trascina **API ESM** accanto ad **API Mercato** e separali da **Archivio Mercato** e **Web bundle**. L’appartenenza di ogni oggetto è dichiarata dalla relazione **Hosts**.
 
 Salva e premi Fit Diagram. Il Deployment risponde a “dove sono collocate le parti”; la Network a “quali collegamenti sono previsti”. Le frecce non avviano processi, non aprono porte e non dimostrano una connessione reale.
 
@@ -634,9 +626,9 @@ Salva e premi Fit Diagram. Il Deployment risponde a “dove sono collocate le pa
 
 Dopo responsabilità e comportamenti, segui i dati necessari all’acquisto: il Cliente invia la richiesta, il catalogo fornisce prezzi e disponibilità, il processo conserva l’ordine e restituisce l’esito. Poi controlli insieme le viste create finora, prima di formalizzare il contratto in L11.
 
-La vista Data Flow mette in evidenza cosa entra ed esce dal processo; ERD e schema spiegano invece la struttura dei dati conservati. Scegli **Add Diagram > Acquisto > More Diagram Types > Behavior > Data Flow**, nome `15 Dati dell’acquisto`. Data Flow si trova in Behavior, mentre ERD, Database Schema e Class sono in Data.
+La vista Data Flow mostra quali dati entrano nel processo e quali ne escono. Con **Add Diagram** crea `15 Dati dell’acquisto`, scegliendo **Data Flow** in **Diagram Type** e **Acquisto** in **Choose Feature**.
 
-Includi l’**Actor Cliente** con Add Existing Element. Con Add Element crea **Process Elabora ordine** e due **Data Store**, Dati ordini e Dati catalogo. Qui il picker propone direttamente questi tipi, senza altri gruppi. Cliente resta l’attore comune alle altre viste; processo e depositi rappresentano il trattamento e la conservazione dei dati in questa prospettiva, senza sostituire entità o tabelle.
+Includi l’**Actor Cliente** con **Add Existing Element**. Con **Add Element** crea **Elabora ordine** di tipo **Process**, poi **Dati ordini** e **Dati catalogo** di tipo **Data Store**. Processo e depositi rappresentano il trattamento e la conservazione dei dati in questa vista.
 
 Nomina i collegamenti con il dato trasferito, così puoi controllare che Elabora ordine riceva ciò che gli serve e produca sia un dato conservato sia un esito per il Cliente. Crea quattro relazioni **Data Flow**, con Condition vuota:
 
@@ -647,11 +639,11 @@ Nomina i collegamenti con il dato trasferito, così puoi controllare che Elabora
 | Elabora ordine | Dati ordini | ordine confermato |
 | Elabora ordine | Cliente | esito acquisto |
 
-Salva, disponi e premi Fit Diagram. Un nome di dato risponde a “che cosa passa?”, non a “quale pulsante viene premuto?”.
+Usa **Diagram > Arrange > Balanced**, premi **Fit Diagram** e salva. I nomi delle frecce indicano quali dati passano da un elemento all’altro.
 
-Le due viste automatiche di Catalogo prodotti sono ancora vuote. Se vuoi una navigazione uguale al riferimento, apri ciascuna e usa **Diagram > Contents > Delete Diagram**. Controlla il nome nella conferma e premi Delete solo per quella vista. La feature e gli elementi del sistema rimangono. Undo permette di recuperare una cancellazione appena effettuata.
+Le due viste automatiche di Catalogo prodotti sono ancora vuote. Per ottenere le 18 viste del riferimento apri ciascuna e usa **Diagram > Manage Diagram > Delete Diagram**. Controlla il nome nella conferma e premi **Delete**. L’azione rimuove la vista. Con **Undo** puoi recuperare una cancellazione appena effettuata.
 
-Perché la panoramica torni a rispondere a “chi collabora all’acquisto?”, togli i dettagli ora spiegati nelle viste dedicate. Seleziona, uno alla volta, Mercato, Corriere esterno, Assistenza, API Mercato, Archivio Mercato, Broker eventi, Registro esiti e Scorte, poi cerca **A.D.E: Remove Element from Diagram**. Restano i sei elementi di L2; identità e altre viste si conservano. Non usare Delete Element. Disponi e premi Fit Diagram.
+Per riportare la panoramica alle sei responsabilità di L2, seleziona una alla volta le otto schede di dettaglio: Mercato, Corriere esterno, Assistenza, API Mercato, Archivio Mercato, Broker eventi, Registro esiti e Scorte. Per ciascuna premi **Remove from This Diagram** nella scheda **Properties**. Il riquadro si chiude dopo l’esclusione e l’elemento resta disponibile nelle altre viste che lo usano. Disponi le schede rimaste e premi **Fit Diagram**.
 
 Salva e riapri la tua root per controllare anche la persistenza del lavoro. Usa la tabella per trovare eventuali prospettive mancanti prima di aggiungere i contratti; i numeri indicano la prospettiva, non l’ordine in cui l’hai creata.
 
@@ -674,7 +666,7 @@ Salva e riapri la tua root per controllare anche la persistenza del lavoro. Usa 
 | Data Flow | 15 Dati dell’acquisto | L10 |
 | Network / Infrastructure | 16 Connessioni progettate | L9 |
 
-Con le due viste Resi hai **18 viste e 16 tipi di diagramma**. Apri ogni riga dal selettore, controlla gli elementi e almeno una relazione pertinente. Nella tua copia possono restare viste vuote automatiche: non sono errori, ma non sostituiscono una delle prospettive costruite.
+Le 16 viste in tabella e le due viste Resi formano **18 viste di 16 tipi**. Apri ciascuna dal selettore, controlla gli elementi e almeno una relazione pertinente. Se hai conservato le due viste automatiche vuote del Catalogo, le vedrai in aggiunta.
 
 **Controllo di coerenza:** Cliente e Ordine sono riusati nelle prospettive compatibili; entità, tabelle e classi restano distinte; tutte le relazioni hanno estremi pertinenti; le condizioni descrivono esiti comprensibili; le ownership corrispondono ai confini; la lettura testuale riporta i dettagli. Non occorre raggiungere una disposizione identica agli screenshot per aver progettato correttamente.
 
@@ -685,19 +677,19 @@ Le viste mostrano chi collabora al checkout; ora definisci l’accordo fra chi l
 
 #### Crea prima i tipi, nell’ordine delle dipendenze
 
-I tipi condivisi danno agli input e ai risultati una definizione comune: creali prima della firma, che dovrà selezionarli. Record e collezione distinguono una riga dai dati dell’intero ordine; l’enumerazione limita gli esiti ai due valori previsti. Apri **New > Structural Blueprint**, poi **Shared Types** nell’area Data and Operations. In Configure scegli **Create New**, poi **Type Name** e **Type Kind**, avanzando con Next. Completa i campi del tipo e applica il riepilogo prima di crearne un altro: così le definizioni successive possono riusarlo.
+I tipi condivisi danno agli input e ai risultati una definizione comune. Apri **Structural Blueprint > Data and Operations > Shared Types**. Per ogni riga, nell’ordine della tabella, premi **New Shared Type**, compila **Type Name** e **Type Kind** e completa i campi del tipo. Le configurazioni valide in bozza sono disponibili mentre prepari le successive. Quando hai completato i sette tipi, premi **Apply to Model**.
 
 | Type Name | Type Kind | Dato successivo |
 | --- | --- | --- |
-| Testo | Primitive | Nel campo Primitive Defined by the Selected Profile scrivi `string` |
+| Testo | Primitive | Nel campo **Primitive Defined by the Profile** scrivi `string` |
 | Intero | Primitive | Nello stesso campo scrivi `integer` |
-| Riga ordine | Record | Applica la creazione iniziale dal riepilogo; aggiungi poi i due campi sotto |
-| Righe ordine | Collection | Scegli il tipo Riga ordine, già creato e applicato |
-| Dati ordine | Record | Aggiungi poi orderId e rows |
-| Esito acquisto | Enumeration | Nel campo Values (Separated by Semicolons) scrivi `confirmed;declined` |
-| Errore input | Record | Lascialo senza campi per questo esercizio: il codice dell’errore sarà dichiarato nell’operazione |
+| Riga ordine | Record | Aggiungi `productId` e `quantity` come indicato nella seconda tabella |
+| Righe ordine | Collection | In **Item Type** scegli **Riga ordine** |
+| Dati ordine | Record | Aggiungi `orderId` e `rows` come indicato nella seconda tabella |
+| Esito acquisto | Enumeration | In **Enumeration Values** scrivi `confirmed` nella prima riga. Premi **Add Value** e scrivi `declined` nella seconda |
+| Errore input | Record | Lascia vuota la sezione **Fields**. L’operazione dichiarerà il codice dell’errore |
 
-Completa i record per rendere espliciti identificativo del prodotto, quantità e righe dell’ordine. Required richiede la presenza del campo; Non-null Value esclude un valore null: servono entrambe le scelte per i dati obbligatori dell’esempio. Per aggiungere un campo riapri **Shared Types**, scegli il record, poi **Add or Edit Field > Create New**. Inserisci il nome; scegli il tipo; scegli **Required**, poi **Non-null Value**. Conferma ogni passo con Next e il riepilogo con Apply Changes. Ripeti per ogni riga:
+Nella scheda di ciascun record premi **Add Field** per ogni campo della tabella. Compila **Name** e **Type**, mantieni **Required** selezionato e **Non-null Value** in **Nullability**. La presenza rende obbligatorio il campo, la nullabilità riguarda il suo valore.
 
 | Record | Nome campo | Tipo da scegliere |
 | --- | --- | --- |
@@ -706,51 +698,49 @@ Completa i record per rendere espliciti identificativo del prodotto, quantità e
 | Dati ordine | orderId | Testo |
 | Dati ordine | rows | Righe ordine |
 
-Per seguire l’esempio, completa prima i campi di Riga ordine, poi crea la collezione e infine rows. È un ordine consigliato per controllare i dati progressivamente. Il requisito del form è che il tipo riferito sia già stato creato e applicato; puoi completarne i campi anche dopo. Required e Non-null Value sono scelte distinte; “almeno una riga” va dichiarato nel contratto, perché una collezione può essere vuota.
+Completa prima **Riga ordine**, poi la collezione **Righe ordine** e infine il campo `rows`. La presenza del campo consente anche una collezione vuota. Includi “almeno una riga” fra le precondizioni del contratto.
 
 #### Crea l’operazione sul contratto corretto
 
 Ora i tipi possono essere usati dalla firma. Assegna submitCheckout al Contratto acquisto per esporre un accordo condiviso; Checkout ne sarà il fornitore. Input, risultato ed errore dichiarano rispettivamente che cosa inviare, che cosa attendere e come riconoscere un input non valido.
 
-1. Apri **Data and Operations > Shared Operations > Create New**.
-2. In **Operation Owner** scegli **Contratto acquisto**, poi inserisci `submitCheckout` come nome. Checkout è il componente che fornisce il contratto; qui la firma appartiene al Contract.
-3. Riapri Shared Operations e scegli submitCheckout. Apri **Signature > Input Parameters > Create New**. Nome `ordine`, tipo Dati ordine, Required, Non-null Value.
-4. Riapri l’operazione e scegli **Signature > Results > Create New**. Nome `esito`, tipo Esito acquisto, Required, Non-null Value.
-5. Riapri e scegli **Signature > Typed Errors > Create New**. Codice `INPUT_INVALID`, Error Description `Ordine assente o non valido`, Declared Type Errore input.
+1. Apri **Data and Operations > Shared Operations** e premi **New Shared Operation**.
+2. Nella scheda **Signature** scrivi `submitCheckout` in **Operation Name** e scegli **Contratto acquisto** in **Operation Owner**.
+3. Premi **Add Input**. Usa il nome `ordine` e il tipo **Dati ordine**, lasciando **Required** e **Non-null Value**.
+4. Premi **Add Result**. Usa il nome `esito` e il tipo **Esito acquisto**, lasciando **Required** e **Non-null Value**.
+5. Premi **Add Error**. Scrivi `INPUT_INVALID` in **Error Code**, `Ordine assente o non valido` in **Description** e scegli **Errore input** in **Declared Type**.
 
-Ogni punto richiede una propria applicazione: dopo i campi premi Next fino a Review, controlla il riepilogo e scegli **Apply Changes**. Per cambiare un membro scegli la sua voce al posto di Create New. Back conserva le risposte; Escape chiude senza applicarle.
+![La scheda Signature mostra l’operazione submitCheckout, il contratto proprietario, l’input e il risultato](immagini/06-operazione.png)
 
-![Il wizard raggruppa firma, regole e criteri; esempio su submitCheckout](immagini/06-operazione.png)
-
-Con la firma disponibile puoi precisare le condizioni di utilizzo e il risultato di business atteso. La precondizione distingue un ordine compilato da una collezione vuota; il criterio sulle scorte fissa una richiesta da verificare nelle implementazioni, senza renderla eseguibile da solo. Riapri submitCheckout per le regole:
+Completa le regole nella stessa configurazione. La precondizione distingue un ordine compilato da una collezione vuota. Il criterio sulle scorte fissa una richiesta da verificare quando implementerai l’operazione.
 
 | Percorso dall’operazione | Valore |
 | --- | --- |
-| Behavior Rules > Preconditions (Descriptive) | L’ordine contiene almeno una riga |
-| Behavior Rules > Postconditions (Descriptive) | L’esito viene registrato |
-| Access and Acceptance > Acceptance Criteria > Create New | Given: Scorte disponibili; When: Il cliente conferma; Then: Le scorte sono riservate una sola volta |
+| Behavior Rules > Add Precondition | L’ordine contiene almeno una riga |
+| Behavior Rules > Add Postcondition | L’esito viene registrato |
+| Access and Acceptance > Add Criterion | **Given** Scorte disponibili. **When** Il cliente conferma. **Then** Le scorte sono riservate una sola volta |
 
-I campi descrittivi ammettono dichiarazioni separate da punto e virgola. Il criterio chiede direttamente **Given**, **When**, **Then**, senza un campo iniziale per il titolo. Queste frasi non sono ancora una guardia o un’implementazione eseguibile. Il percorso quantitativo di L12 formalizza una regola delimitata.
+Controlla firma, regole e criterio nel **Review** e premi **Apply to Model**. In L12 userai un predicato per formalizzare una regola eseguibile.
 
 #### Esponi il contratto e dichiara chi lo fornisce
 
-L’operazione esiste, ma deve ancora essere inclusa nell’interfaccia offerta ai chiamanti. Includila nel contratto versione 1 prima di dichiararne il provider; lascia gli invarianti vuoti perché questo esercizio non ne specifica altri. Apri **Data and Operations > Interfaces and Invariants > Create New**. Scegli **Contratto acquisto**, Contract Version `1`, spunta **submitCheckout** in Shared Operations e lascia vuoto **Invariants (Descriptive, Separated by Semicolons)**. Avanza con Next dopo ogni campo, poi applica il riepilogo. Se l’operazione non compare, controlla che sia stata creata e applicata con owner Contratto acquisto.
+Includi l’operazione nell’interfaccia offerta ai chiamanti. Apri **Data and Operations > Interfaces and Invariants** e premi **Add Contract Definition**. Scegli **Contratto acquisto** in **Contract or Interface Element**, scrivi `1` in **Contract Version** e spunta **submitCheckout** in **Declared Operations**. Lascia vuoti i **Descriptive Invariants** e premi **Apply to Model**. Se l’operazione non compare, controlla che abbia **Contratto acquisto** come owner.
 
-Dopo aver definito il contenuto del contratto, indica che Checkout lo fornisce: è il collegamento fra la firma condivisa e il componente incaricato di realizzarla. Apri **Structural Blueprint > Connections > Provided or Required Interface**. In **Element** scegli **Checkout**, poi Create New, Contratto acquisto e **Provided**. Conferma ogni passo con Next e applica il riepilogo: dichiari così il fornitore del contratto. Puoi anche selezionare Checkout e aprire l’azione specifica Provided or Required Interface nelle sue proprietà Architecture: in quel caso il target è già impostato. Il binding permette ai controlli di riconoscere il provider oltre alla freccia Implementation.
+Dichiara che Checkout fornisce il contratto. Apri **Connections > Provided or Required Interface** e premi **Add Interface to Element**. Scegli **Checkout** in **Element**, **Contratto acquisto** in **Declared Contract or Interface** e **Provided** in **Direction**, poi premi **Apply to Model**. L’assegnazione permette ai controlli di riconoscere il provider oltre alla freccia Implementation.
 
 Le interfacce richieste, le connessioni consumer/provider e i trasporti si configurano nello stesso gruppo Connections quando il progetto ne ha bisogno. Non aggiungerli a caso per eliminare una diagnostica: un servizio di pagamento reale richiederebbe contratti e policy che questo esempio non fornisce.
 
 #### Mappa il campo e collega il Catalogo
 
-Ora che orderId ha un tipo condiviso puoi collegarlo alla colonna fisica, senza confondere il dato di dominio con la tabella. Completa poi l’appartenenza di Scorte al Catalogo per rendere visibile il suo uso in entrambe le capacità. Apri **Structural Blueprint > Technology > Domain Field Mapping**. Il primo elenco è già Domain Field: scegli **Dati ordine · orderId**, poi **orders · id** in Physical Column or Class Member, avanzando con Next. Non c’è un Create New intermedio. Controlla e applica il riepilogo: il mapping esplicita dove si conserva il dato, anche se il nome cambia; tipo di dominio e colonna mantengono le proprie identità.
+Collega il campo condiviso `orderId` alla colonna in cui si conserva. Apri **Technology > Domain Field Mapping** e premi **Add Field Mapping**. Scegli **Dati ordine · orderId** in **Domain Field** e **orders · id** in **Physical Column or Class Attribute**. Premi **Apply to Model**.
 
-Apri **Structural Blueprint > Structure > Feature Memberships** e scegli **Scorte** in Element. Spunta Catalogo prodotti, conservando Acquisto se già selezionato; premi Next e applica il riepilogo. L’owner architetturale rimane API Mercato. Una feature organizza la capacità, mentre l’ownership colloca la responsabilità. Conservare l’appartenenza ad Acquisto evita di nascondere il ruolo delle scorte nella conferma dell’ordine.
+Apri **Structure > Feature Memberships** e scegli **Scorte** in **Configuration**. Spunta **Catalogo prodotti**, conserva **Acquisto** e premi **Apply to Model**. Le due appartenenze rendono visibile il ruolo delle scorte in entrambe le capacità. API Mercato è l’owner architetturale.
 
 #### Registra una decisione verificabile
 
 Una decisione architetturale (ADR, Architectural Decision Record) conserva una scelta e le sue ragioni. Registra perché gli importi usano centesimi: chi cambierà tipi o codice potrà valutarne le conseguenze invece di dedurle dai nomi dei campi. Lo fai dopo tipi e contratto per collegare la motivazione alle responsabilità già identificate, prima che una successiva implementazione introduca rappresentazioni monetarie diverse.
 
-Cerca **A.D.E: Project Architecture Decisions**: il wizard apre direttamente l’attività delle decisioni. Scegli **Create New** e compila in ordine, premendo Next dopo ogni campo:
+Apri **Decisions > Project Architecture Decisions** e premi **New Architecture Decision**. Compila i campi nella scheda **Record**.
 
 | Campo | Valore dell’esercizio |
 | --- | --- |
@@ -758,10 +748,11 @@ Cerca **A.D.E: Project Architecture Decisions**: il wizard apre direttamente l�
 | Decision Title | Importi in centesimi |
 | Context | Prezzi e totali devono essere confrontabili senza arrotondamenti impliciti |
 | Decision | Usare interi in centesimi per prezzi e totali |
-| Positive and Negative Consequences (Separated by Semicolons) | Mostrare la valuta soltanto al confine della UI;Validare gli importi nel dominio |
-| Applicable Scope | Seleziona soltanto Checkout e Registro esiti, poi Next: nell’esempio colleghi la decisione alle responsabilità di conferma e registrazione dell’esito |
+| Decision Status | Proposed |
+| Consequences | Premi **Add Consequence** per inserire “Mostrare la valuta soltanto al confine della UI”. Premi di nuovo **Add Consequence** e inserisci “Validare gli importi nel dominio” |
+| Applicable Scope | Spunta soltanto **Checkout** e **Registro esiti** per collegare la decisione alla conferma e alla registrazione dell’esito |
 
-Controlla il riepilogo e premi **Apply Changes**: la decisione nasce Proposed. Per rileggerla riapri il comando e scegli **ADR-001 · Importi in centesimi**. **Revise Record and Scope**, **Change Status** e **Add or Edit Normative Constraint** modificano rispettivamente contenuto, stato e vincoli; ciascun percorso termina con Review e Apply Changes. Per il laboratorio conserva Proposed: la prosa da sola non diventa un controllo automatico sugli importi.
+Premi **Apply to Model**. Per rileggere la decisione scegli **ADR-001 · Importi in centesimi** in **Configuration**. La scheda **Record** contiene motivazione, stato e ambito. **Constraints** raccoglie i vincoli strutturati. Per il laboratorio conserva lo stato **Proposed**.
 
 Prima di passare alla regola eseguibile, controlla che le definizioni condivise siano salvate e utilizzabili: riferimenti mancanti renderebbero ambiguo il contratto che hai appena costruito. Salva e riapri Mercato. Non devono comparire Draft Needs Correction o tipi mancanti. Se una bozza impedisce il canvas, puoi selezionare l’elemento con Search System e correggerne l’ownership dal blueprint; non serve intervenire sul JSON.
 
@@ -779,26 +770,26 @@ La precondizione del template è **quantity maggiore di zero**. I valori apparte
 
 #### Modificare il predicato dal form
 
-Prima di cambiare la regola, apri il costruttore per distinguere i valori usati dal confronto e il risultato booleano che lo decide. La quantità va controllata prima dell’operazione: per questo l’esercizio usa una precondizione sugli input. Cerca **A.D.E: Edit Pure Predicate** nella palette, scegli `validateQuantity`, poi la precondizione esistente. Conferma lo scope pertinente: **Precondition · Inputs Only** usa gli input; **Postcondition · Inputs and Outputs** consente anche i risultati.
+Prima di cambiare la regola, apri il costruttore e distingui i valori usati dal confronto dal risultato booleano. Dal menu del progetto **Quantità ordine** scegli **Project Settings > Executable Behavior > Edit Pure Predicate**. Seleziona **validateQuantity**, la precondizione esistente e **Precondition · Inputs Only**. Avanza con **Next** dopo ogni scelta. Questo ambito usa gli input, mentre **Postcondition · Inputs and Outputs** consente anche i risultati.
 
 Il costruttore offre **Add Value** per riferimenti e letterali, **Combine Values** per operatori compatibili e **Choose Result and Save** per il risultato. Il predicato deve rispondere “la quantità è ammessa?”: serve quindi una condizione booleana. I risultati di altro tipo non sono proposti come esito finale.
 
 Per una prova reversibile aggiungi un letterale del tipo Quantity e inserisci `2`: è un numero normale, senza sintassi JSON. Per un testo digita direttamente le parole; per booleani ed enumerazioni scegli una voce. Gli operatori numerici comprendono somma, sottrazione, moltiplicazione, divisione e resto nel sottoinsieme degli interi sicuri. Puoi distinguere presenza e null, combinare condizioni e usare count/any/every sulle collezioni supportate. Il valore 2 serve qui a riconoscere l’inserimento tipizzato senza cambiare la regola salvata; lo scarterai prima della modifica del limite.
 
-Premi **Escape** per uscire senza pubblicare la prova. Per cambiare davvero il limite, componi una nuova condizione, scegli il risultato, conferma e salva. **Clear Detached Expression** svuota la copia in lavorazione: non è una cancellazione immediata del predicato salvato.
+Clicca **Cancel** per scartare il letterale di prova. Per cambiare il limite, componi una nuova condizione e scegli il risultato da usare. **Clear Detached Expression** svuota la copia in lavorazione. Il predicato salvato resta disponibile fino all’applicazione della modifica.
 
 #### Scrivere due casi indipendenti
 
 Scrivi gli attesi dalla regola di business, separatamente dal generatore: se regola e codice condividessero lo stesso errore, i soli casi derivati potrebbero non rilevarlo. Zero e testo distinguono una quantità vietata da un dato del tipo sbagliato. Definiscili prima della verifica per avere un riferimento indipendente con cui giudicare la proposta.
 
-Apri **Progetto > Project Settings > Executable Behavior > Cases and Simulation > Independent Business Expectations**. Scegli **Add Predicate Test Case**, l’operazione e il criterio di business. Crea i due casi seguenti:
+In **Project Settings > Executable Behavior**, trova la sezione **Cases and Simulation** e apri **Independent Business Expectations > Add Predicate Test Case**. Nel modulo quantità il predicato e il criterio sono univoci e compaiono nel campo **Independent Case Name**. Se sono disponibili più predicati o criteri, scegli quelli pertinenti. Inserisci il nome, conferma con **OK**, scegli come fornire il valore e conferma il campo del valore con **OK**. Seleziona il risultato atteso. Crea i due casi seguenti:
 
 | Nome | Input da scegliere | Valore | Risultato atteso |
 | --- | --- | --- | --- |
 | Zero quantità | Value for quantity | 0 | Not Satisfied |
 | Testo non numerico | Different Value Type, poi Text | due | Input Type Error |
 
-![Il valore zero viene inserito direttamente nel campo tipizzato](immagini/07-input.png)
+![Il campo per il nome del caso indipendente mostra il pulsante OK](immagini/07-input.png)
 
 Il nome non può essere vuoto o duplicato. Un testo inserito nel normale campo intero viene rifiutato: per testare deliberatamente un tipo errato usa **Different Value Type**. **Absent** e **Null** permettono di rappresentare quelle condizioni nei casi negativi. Nei form ordinari restano disponibili soltanto le alternative consentite dal contratto.
 
@@ -812,10 +803,12 @@ La review mostra cosa sarà scritto, la verifica confronta il comportamento con 
 
 1. Salva il modello e apri **Code > Review and Verification > Prepare Model to Code Review**.
 2. Leggi comportamento e file previsti. L’azione prepara una proposta locale, senza inferenza IA per il profilo del template.
-3. Premi **Run Real Verification** e conferma l’esecuzione locale.
+3. Premi **Run Real Verification**. Conferma l’esecuzione locale se ADE lo chiede.
 4. Controlla lo stato corrente. Con gli otto casi iniziali e i due appena aggiunti, l’esercizio verificato mostra **10 Derived Cases e 10 Independent Cases**.
-5. Solo con review corrente e verifiche superate, scegli **Apply to Project**. Leggi l’elenco dei file e conferma.
-6. Controlla i file con Files o il terminale. Per la prova di ritorno scegli **Undo Local Changes** e conferma.
+5. Con la review corrente e le verifiche superate, leggi l’elenco dei file e clicca **Apply to Project**. Attendi **Applied Locally**.
+6. Controlla i file con **Files** o nel terminale. Riapri la review con **Code > Review Changes** se necessario, clicca **Undo Local Changes** e controlla **Local Changes Undone**. Conferma l’applicazione o l’annullamento se ADE presenta un dialogo.
+
+In **Restricted Mode**, ADE può chiedere l’attendibilità della cartella prima della preparazione. Controlla che il percorso indichi la copia del modulo che hai scelto per il laboratorio, poi premi **Trust Folder & Continue**.
 
 ![La review distingue proposta, verifica superata e applicazione locale](immagini/08-verifica.png)
 
@@ -833,9 +826,9 @@ Dopo la prova del ciclo review–verifica–Apply–Undo, modifica il requisito 
 2. Con **Add Value > Add Typed Literal > Quantity**, inserisci `10`: è il massimo incluso scelto per Mercato.
 3. Con **Combine Values > Add Comparison**, scegli `quantity`, poi il letterale `10` e il confronto **≤** (minore o uguale), così 10 resta ammesso.
 4. Con **Combine Values > Add Boolean Logic > All True**, scegli prima la condizione `quantity > 0`, poi `quantity` minore o uguale a `10`. All True richiede entrambi i vincoli: il solo massimo ammetterebbe anche zero e negativi.
-5. Con **Choose Result and Save**, scegli il risultato che inizia con **and(** e comprende entrambe le condizioni: quel nodo deve diventare il risultato effettivo del predicato. Salva il modello.
+5. Con **Choose Result and Save**, scegli il risultato che inizia con **and(** e comprende entrambe le condizioni. Premi **Next**, controlla il riepilogo **Review Your Changes** e clicca **Apply Changes**. Salva il modello con **Save** nella barra di ADE.
 6. Nei casi indipendenti aggiungi “Limite 10” con input 10 e atteso Satisfied e “Oltre limite 11” con input 11 e atteso Not Satisfied.
-7. Riapri **Structural Blueprint > Data and Operations > Shared Operations > validateQuantity > Access and Acceptance > Acceptance Criteria**. Scegli il criterio esistente, conserva il significato di Given e When e cambia Then in “Soltanto i valori da 1 a 10 soddisfano la precondizione”. Avanza con Next e applica il riepilogo. Modificare questa voce conserva l’identità del criterio e i casi associati. Controlla anche gli attesi iniziali: il caso con input **9007199254740991** era soddisfatto dalla vecchia regola; con il nuovo limite deve essere **Not Satisfied**. Modifica esplicitamente quel risultato con Edit Expected Result. Gli altri attesi iniziali restano pertinenti.
+7. Apri **Structural Blueprint > Data and Operations > Shared Operations**. Scegli **validateQuantity** in **Configuration** e apri **Access and Acceptance**. Nel criterio esistente cambia **Then** in “Soltanto i valori da 1 a 10 soddisfano la precondizione”, mantenendo **Given** e **When**. Premi **Apply to Model** e **Save**. La modifica conserva l’identità del criterio e i casi associati. Torna a **Independent Business Expectations** e usa **Edit Expected Result** per portare a **Not Satisfied** l’atteso del caso con input **9007199254740991**. Gli altri attesi iniziali restano pertinenti.
 8. Prepara e verifica una nuova review. Se hai seguito tutti i passaggi di L12, ora gli indipendenti sono **12**; anche i derivati sono **12** nella variante qui verificata. Se Code mostra Review Changes, aprila e scegli Prepare New Review. Leggi la regola combinata e i risultati, poi applica se vuoi conservare il cambiamento. Non cambiare un atteso soltanto per nascondere un errore: qui la modifica del caso massimo deriva dalla nuova regola di business.
 
 Per confrontare il risultato puoi aprire con Open Project la sottocartella **07-mercato-laboratorio/moduli/quantita/soluzione-limite** del pacchetto: contiene il predicato completo e i **dodici casi indipendenti** del percorso completo: otto iniziali, Zero quantità, Testo non numerico, Limite 10 e Oltre limite 11.
@@ -853,7 +846,7 @@ Apri `07-mercato-laboratorio/moduli/interazioni` e il diagramma **Checkout e pag
 
 ![La sequenza eseguibile mostra chiamate, guardie e frame](immagini/12-interazioni.png)
 
-Consulta il contratto eseguibile per capire quali dati determinano il ramo del pagamento e quando può avvenire la persistenza; leggere soltanto le frecce non basta a riprodurre quei casi. Premi **Edit Executable Interaction** nel canvas: si apre direttamente l’interazione della vista. Se usi il comando omonimo nella palette, scegli prima l’interazione checkout. Naviga la gerarchia di messaggi, frame e rami. Per ogni chiamata dichiara mittente, destinatario proprietario dell’operazione, argomenti, modalità sincrona/asincrona, risposta, deadline (tempo massimo per la risposta), correlazione (per associare risposta e richiesta), risultati ed errori pertinenti.
+Consulta il contratto eseguibile per capire quali dati determinano il ramo del pagamento e quando avviene la persistenza. Nel canvas apri **Diagram > Contents > Edit Executable Interaction**. Si apre direttamente **Interaction · checkout**. Naviga la gerarchia di messaggi, frame e rami. Per ogni chiamata dichiara mittente, destinatario proprietario dell’operazione, argomenti, modalità sincrona o asincrona, risposta, deadline (tempo massimo per la risposta), correlazione (per associare risposta e richiesta), risultati ed errori pertinenti.
 
 | Costrutto | Uso pratico |
 | --- | --- |
@@ -868,7 +861,7 @@ Quando un argomento usa il risultato di una chiamata precedente, riferiscilo a q
 
 Per estendere la copertura oltre gli scenari forniti, dichiara in anticipo anche le risposte dei collaboratori e l’ordine atteso: così la verifica può rilevare una chiamata mancante o anticipata. I casi del progetto comprendono pagamento approvato, alternative, notifica e condizioni di errore. Apri **Independent Business Expectations** per aggiungere un caso dell’interazione: scegli il criterio, inserisci input e risposte simulate, ritardi, completamento/fallimento, output e ordine delle chiamate attesi. Le risposte sono dati: questa verifica non contatta il servizio Payments.
 
-**Esercizio verificato:** prepara la review da Code ed esegui Run Real Verification. L’esempio distribuito ha **sette casi derivati e sette indipendenti**. Per l’esplorazione apri Edit Executable Interaction e scegli il frame **opt** per leggere il ramo della notifica. Premi Escape per uscire senza salvare modifiche. L’aggiunta di un nuovo caso completo tramite **Independent Business Expectations > Author Independent Interaction Case** è un approfondimento: richiede input, risposte simulate e ordine atteso coerenti; non è necessaria per il traguardo locale dei sette casi forniti. La lettura di opt chiarisce quando la notifica può essere saltata; Escape conserva i sette scenari di riferimento per il confronto.
+**Esercizio:** prepara la review da **Code > Prepare Model to Code Review**. Se compare la richiesta di attendibilità, controlla che indichi la copia di `interazioni` e scegli **Trust Folder & Continue**. Premi **Run Real Verification** e verifica che passino **sette casi derivati e sette indipendenti**. Scorri il canvas fino a **Optional · Guard: notify** per leggere la guardia e la chiamata Checkout → Notifications. Per consultare i campi, da **Edit Executable Interaction** scegli **opt**, premi **Next** e scegli **Open Child Steps**, poi **Next**. La riga **notify** corrisponde al messaggio del ramo opzionale. Clicca **Cancel** per uscire conservando il modulo di partenza. Per approfondire, **Independent Business Expectations > Author Independent Interaction Case** permette di aggiungere input, risposte simulate e ordine atteso.
 
 **Collegamento a Mercato:** Payments rappresenta Pagamenti esterni; Orders la registrazione dell’Ordine; Notifications la notifica. Studia prima il modulo senza rinominarne le identità o gli attesi. Poi riporta nella tua specifica i contratti effettivamente necessari. Un diagramma descrittivo della soluzione e questa interazione eseguibile sono due livelli distinti del percorso.
 
@@ -883,13 +876,13 @@ Il risultato di una chiamata non descrive da solo il ciclo di vita dell’ordine
 
 Passa al modulo dedicato perché la vista State di Mercato era descrittiva: qui trovi le risposte e le azioni necessarie per simulare davvero il ciclo di vita locale. Apri `07-mercato-laboratorio/moduli/stati`. **Checkout Lifecycle** contiene Draft, Paid e Cancelled. Il contratto eseguibile dichiara inizializzazione, eventi, azioni entry/exit/do, guardie, priorità ed effetti ordinati. Il solo disegno di tre stati non sarebbe sufficiente per eseguirlo.
 
-Parti dal pagamento riuscito per avere una traccia di riferimento: potrai poi confrontarla con il fallimento e la consegna ripetuta dello stesso evento. Dalla palette richiama **A.D.E: Simulate State Machine** e scegli **checkout.paid**. Il risultato si apre come documento **State Simulation.txt** nell’IDE. Leggilo nell’editor; per tornare al canvas riapri la scheda **Checkout Lifecycle** (quella del diagramma, distinta da State Simulation.txt), poi richiama **A.D.E: Back to Diagrams** con F1. Il rapporto deve mostrare stato **Paid**, evento accettato e transizione **Draft verso Paid**. La traccia distingue valutazione della guardia, annullamento dell’attività do, exit, effetto, entry e commit.
+Parti dal pagamento riuscito per avere una traccia di riferimento da confrontare con il fallimento e la consegna ripetuta. Apri il menu del progetto **Bottega - Stati** nella barra superiore e scegli **Project Settings > Executable Behavior > Simulate State Machine**. Seleziona **checkout.paid**. Il documento **State Simulation.txt** si apre nell’editor. Il rapporto mostra stato **Paid**, evento accettato e transizione **Draft verso Paid**. La traccia distingue valutazione della guardia, annullamento dell’attività do, exit, effetto, entry e commit.
 
 ![Il rapporto della simulazione a stati rende visibili le fasi e lo stato finale](immagini/10-stati.png)
 
-Controlla adesso gli esiti negativi, perché il solo passaggio a Paid non dimostra che un addebito negato o un duplicato siano gestiti correttamente. Torna al canvas e ripeti con `checkout.failed-charge`: attesi stato Draft ed errore denied. Ripeti poi con `checkout.dedup-reopen`: attesi stato Paid e tre eventi, accepted, duplicate e rejected con deliveryConflict. I risultati attesi sono già inclusi nella variante del progetto.
+Per controllare gli esiti negativi, torna alla scheda **Checkout Lifecycle** nella barra degli editor. Si riapre la pagina **Project Settings** con **Executable Behavior** già espanso. Seleziona di nuovo **Simulate State Machine** e prova `checkout.failed-charge`. Verifica lo stato Draft e l’errore denied. Ripeti con `checkout.dedup-reopen` e verifica lo stato Paid e i tre eventi accepted, duplicate e rejected con deliveryConflict. Per tornare al canvas dopo l’ultimo rapporto, clicca la scheda **Checkout Lifecycle** e il pulsante **Back to Diagram**.
 
-Modifica la macchina solo dopo aver letto le tracce: ownership, eventi e transizioni specificano a quale ordine si applica ciascuna azione e in quali condizioni può cambiarne lo stato. Per modificare la macchina usa **Edit Executable State Machine**. Dichiara ownership architetturale e di lifecycle, un solo stato iniziale, eventuali stati finali, eventi con payload tipizzato, transizioni interne/esterne, guardia, priorità e azioni. Le azioni richiamano interazioni revisionate. Una self-transition interna e una esterna non hanno lo stesso ciclo di entry/exit.
+Modifica la macchina solo dopo aver letto le tracce. In **Project Settings > Executable Behavior**, usa **Edit Executable State Machine** e seleziona **Checkout 1** per aprire la definizione del modulo. Ownership, eventi e transizioni precisano a quale ordine si applica ciascuna azione e in quali condizioni può cambiarne lo stato. Dichiara ownership architetturale e di lifecycle, un solo stato iniziale, eventuali stati finali, eventi con payload tipizzato, transizioni interne/esterne, guardia, priorità e azioni. Le azioni richiamano interazioni revisionate. Una self-transition interna e una esterna seguono cicli di entry/exit differenti.
 
 Per verificare una variante, scrivi l’evoluzione attesa prima di simularla: stato finale ed esiti degli eventi permettono di rilevare transizioni o effetti inattesi. Nei casi indipendenti dichiara input iniziale, eventi, risposte delle azioni, esiti accettato/rifiutato/duplicato/fallito, transizione ed errore attesi, stato finale, quiescenza e checkpoint quando necessari. Il profilo supporta macchine piatte: niente stati compositi o regioni ortogonali. La simulazione non è un monitor di istanze applicative vive.
 
@@ -902,7 +895,7 @@ Per verificare una variante, scrivi l’evoluzione attesa prima di simularla: st
 
 Dopo aver chiarito le transizioni dell’ordine, esamina come un evento può raggiungere gli altri partecipanti. Queue e topic risolvono esigenze diverse: assegnare un lavoro a un consumer oppure informare più subscription. La simulazione locale rende visibili consegne, nuovi tentativi e duplicati prima di scegliere un’infrastruttura reale.
 
-Usa la topologia pronta per leggere separatamente le scelte di pubblicazione e quelle di consegna; il solo Broker eventi disegnato in Mercato non contiene queste policy. Apri `07-mercato-laboratorio/moduli/messaggi`. La topologia **checkout.messaging** contiene un producer di queue e uno di topic; le subscription comprendono workers, billing e analytics. Usa **Edit Messaging Topology** per consultare contratti, canali, producer/consumer e policy.
+Usa la topologia pronta per leggere le regole di pubblicazione e consegna. Apri `07-mercato-laboratorio/moduli/messaggi`, poi il menu del progetto **Bottega - Messaggistica > Project Settings > Executable Behavior**. Scegli **Edit Messaging Topology**, seleziona **checkout.messaging** e premi **Next** per consultare contratti, canali, producer, consumer e policy. La topologia contiene un producer di queue e uno di topic. Le subscription comprendono workers, billing e analytics. Per passare alla simulazione senza modificare la topologia, clicca **Cancel**.
 
 Scegli una **queue** quando un lavoro deve essere assegnato a uno dei consumer concorrenti, come nell’esercizio workers. Scegli un **topic** quando lo stesso evento deve raggiungere subscription diverse, come billing e analytics: questa diffusione è detta fan-out. I contratti dei messaggi hanno nome/versione, payload record e campi per identità, routing e correlazione. Ack conferma l’elaborazione, backoff stabilisce l’attesa fra tentativi e la dead letter queue raccoglie gli esiti non consegnabili secondo la policy. Dichiara attesa, tentativi, capacità e deduplica/idempotenza per rendere verificabile anche il comportamento in caso di errore.
 
@@ -910,13 +903,13 @@ La prima simulazione isola una pubblicazione e una consegna riuscita: partire se
 
 **Simulazione guidata senza broker:**
 
-1. Richiama **A.D.E: Simulate Messaging** e scegli `checkout.messaging`.
-2. Scegli **Publish Message**, tempo logico `0` e producer **publish.queue**, per assegnare questo lavoro a un worker.
+1. In **Project Settings > Executable Behavior** apri **Simulate Messaging**. Nel modulo si apre la topologia `checkout.messaging`. Se il progetto ne contiene più di una, seleziona quella da simulare. Avanza con **Next** dopo ogni scelta o valore.
+2. Scegli **Publish Message**, lascia il tempo logico `0` e scegli il producer **publish.queue**, per assegnare il lavoro a un worker.
 3. Inserisci identità `ordine-guida-1`, `orderId` uguale a `42` e `correlationId` uguale a `checkout-42`: l’identità distingue il messaggio, orderId il dato di dominio e correlationId il contesto del checkout.
 4. Scegli **Deliver to Worker**, tempo `0`, subscription **workers**, worker `A` e **Handler Succeeds**, così il primo confronto riguarda una consegna riuscita senza retry.
-5. Scegli **Finish Scenario** per eseguire i passi dichiarati e leggere le osservazioni.
+5. Scegli **Finish Scenario**, premi **Next** e controlla il riepilogo **Review Simulation Scenario**. Clicca **Run Simulation** per eseguire lo scenario locale.
 
-Si apre il selettore **Simulation Result · Zero AI Calls · No Network** con due righe: **ordine-guida-1** (Publication Observation) e **workers:A:ordine-guida-1:1:ok** (Worker Delivery Observation). Non devono comparire righe di rifiuto o dead letter. Premi Escape per chiudere il risultato.
+Si apre **Simulation Result · Zero AI Calls · No Network**. Leggi le due righe **ordine-guida-1** (Publication Observation) e **workers:A:ordine-guida-1:1:ok** (Worker Delivery Observation). Il riepilogo mostra zero rifiuti e zero dead letter. Dopo la lettura puoi cliccare una riga per chiudere il risultato.
 
 ![Risultato del messaggio simulato, con una pubblicazione e una consegna](immagini/11-messaggi.png)
 
@@ -933,7 +926,9 @@ Ora confronti il modello con un piccolo modulo JavaScript eseguibile. Test e dem
 
 **Apri una copia di `07-mercato-laboratorio/codice`**, distinta dai moduli simulati: contiene `src/orders.mjs`, una demo e sette test, senza dipendenze da installare. Il modulo usa prezzi in centesimi, quantità intere positive ed esiti confirmed o declined.
 
-Esegui prima test e demo per riconoscere il punto di partenza prima di importare o modificare i sorgenti. Il controllo della cartella evita di lanciare i comandi nel clone dell’IDE o in un modulo diverso. Per provare direttamente l’applicazione serve Node con npm disponibile nel terminale (qui verificato con Node 24.22.1). Apri il Terminale del sistema nella copia della cartella codice: `pwd` su macOS/Linux, oppure `Get-Location` in PowerShell, deve indicare quella cartella. Usa `cd` seguito dal suo percorso, racchiuso fra virgolette se contiene spazi. Poi esegui:
+Esegui test e demo sulla copia iniziale per avere un riferimento prima delle modifiche di L18. Puoi usare il terminale del sistema oppure quello integrato. Per usare quello integrato, apri la copia di `codice` nell’IDE. Se compare **Restricted Mode**, controlla il contenuto della cartella e usa **Trust** per questa copia soltanto. Nel menu del progetto scegli **Project Settings > Developer Tools > Terminal**.
+
+Nel terminale controlla con `pwd` su macOS/Linux o `Get-Location` in PowerShell di essere in `codice`. Se serve usa `cd` con il percorso della copia fra virgolette. Il laboratorio è stato verificato con Node 24.22.1 e npm. Se usi `nvm` e hai già quella versione, selezionala con `nvm use 24.22.1`. Esegui i due comandi.
 
 ```sh
 npm test
@@ -944,14 +939,14 @@ Devi ottenere sette test superati e la demo `{ status: 'confirmed', totalCents: 
 
 #### Importazione locale
 
-Dopo il controllo del comportamento, crea l’inventario per risalire dal nome validateQuantity alla sua dichiarazione. La risoluzione semantica aggiunge collegamenti JS/TS disponibili; Structure Only basta se vuoi il solo inventario strutturale.
+Crea l’inventario per risalire dal nome `validateQuantity` alla sua dichiarazione. Se avevi già importato la copia per aprire il terminale integrato, riprendi dal punto 3. La risoluzione semantica aggiunge i collegamenti JS/TS disponibili. **Structure Only** basta per il solo inventario strutturale.
 
 1. Dalla Home scegli **Import Codebase** e la cartella `07-mercato-laboratorio/codice`.
 2. Scegli **Structure and Available Semantic Analysis** per includere la risoluzione JS/TS disponibile, oppure Structure Only per il solo inventario strutturale.
 3. Attendi **Source Inventory Ready**. L’importazione non ha installato dipendenze o eseguito l’applicazione.
-4. Richiama **A.D.E: Inspect Code Evidence** dalla palette.
-5. Cerca la dichiarazione **validateQuantity**: scegli la prima riga di tipo Extracted Declaration, che punta a `src/orders.mjs:3`, distinta dai riferimenti nei test. Attendi l’apertura di orders.mjs nell’editor e verifica la funzione.
-6. Per continuare con l’esplorazione, riapri la scheda **Create Diagrams: codice** nella barra delle schede dell’editor. Se serve poi richiama Back to Diagrams. Un semplice cambio di modalità non riattiva una scheda diversa.
+4. Nella pagina **Explore Your Codebase**, clicca **Inspect Code Evidence** per consultare l’inventario locale.
+5. Scegli **validateQuantity** con etichetta **Extracted declaration**, collegata a `src/orders.mjs:3`. La dichiarazione è già visibile nella lista di questo esempio. Nelle liste più lunghe puoi digitare il nome nel campo di ricerca. Nell’editor verifica che la funzione accetti gli interi positivi.
+6. Per tornare all’esplorazione, clicca la scheda **Create Diagrams: codice** nella barra degli editor.
 
 ![L’inventario locale è pronto prima dell’interpretazione architetturale](immagini/13-importazione.png)
 
@@ -963,9 +958,13 @@ L’inventario non coincide con un’architettura di dominio già interpretata. 
 
 Prima di interpretare i risultati, controlla quali linguaggi e risoluzioni sono effettivamente coperti: un file presente nell’inventario può avere un’analisi soltanto parziale. L’importer include sedici profili: JavaScript, TypeScript, TSX, Python, Java, C#, C, C++, Go, Rust, PHP, Ruby, Swift, Dart, Kotlin e Scala. La risoluzione semantica integrata riguarda JS/TS/TSX; bundle SCIP coerenti possono integrare altri produttori supportati. Un riferimento statico non prova una chiamata avvenuta a runtime.
 
-Consulta **Open Full Analysis Details** nell’elenco delle evidenze per inventario, revisioni, diagnostiche e produttori. Distingui analizzato, parziale, non supportato e non classificato. La presenza di evidenze semantiche non elimina automaticamente tutti i residui sintattici. Controllalo prima di affidarti a una relazione: una lacuna di analisi non equivale all’assenza della dipendenza nel programma.
+Nell’elenco delle evidenze, clicca **Open Full Analysis Details** per aprire il rapporto di sola lettura **Source Analysis.json**. Consulta inventario, revisioni, diagnostiche e produttori. Distingui analizzato, parziale, non supportato e non classificato. Controlla la copertura prima di affidarti a una relazione: un’analisi parziale può lasciare aperta la questione di una dipendenza.
 
-Usa le azioni di configurazione dello scope del progetto per inclusioni/esclusioni. Leggi l’anteprima e applicala localmente; mantieni fuori cartelle generate e metadati non pertinenti. Le regole Git ignore e le esclusioni ADE partecipano all’inventario. Uno scope cambiato richiede una nuova analisi e può rendere obsolete evidenze e ricerche precedenti. Definisci il perimetro prima di avviare un’esplorazione IA, così la proposta si basa sui sorgenti pertinenti e non su copie generate o metadati.
+Prima dell’esplorazione IA delimita l’inventario ai sorgenti e ai documenti utili. Dalla scheda **Create Diagrams: codice** clicca **Open Quick Access**, cerca `>Configure Import Scope` e scegli **Configure Import Scope**.
+
+1. In **Include Source Paths** inserisci `src/**, test/**, package.json, REQUISITI.md` e conferma con Invio.
+2. In **Exclude Source Paths** inserisci `.vscode/**` e conferma con Invio. Le regole di `.gitignore` e `.adeignore` continuano ad applicarsi.
+3. Leggi **Source Inventory Preview**, controlla inclusioni, esclusioni e file analizzati, poi clicca **Apply Source Inventory**. ADE salva una nuova istantanea dell’analisi. Usa le evidenze della nuova istantanea per le ricerche successive.
 
 Le versioni di modello/indice permettono recupero e confronto. Il ripristino storico dell’indice non riscrive i sorgenti correnti. Se un’evidenza risulta superata, aggiorna l’analisi o apri consapevolmente il file corrente senza applicare un vecchio range.
 
@@ -976,15 +975,17 @@ Le versioni di modello/indice permettono recupero e confronto. Il ripristino sto
 
 L’inventario di L16 elenca fatti dei sorgenti; l’esplorazione IA propone una loro lettura in termini di responsabilità e flussi del checkout. Configura prima account, modello e budget, poi revisiona le bozze contro le evidenze: ottieni viste da discutere, senza trattare le ipotesi dell’assistente come comportamento provato.
 
-**Ramo facoltativo, con prerequisiti esterni.** Questa lezione richiede un account e un modello disponibili. Se non li hai, passa direttamente a L20 tornando al modulo quantità. Non inviare messaggi per il solo fatto che il form è aperto. Puoi completare il tour, tutte le viste e i moduli locali precedenti senza eseguirla. I passaggi che seguono spiegano il flusso condizionato; la guida non include una nuova esecuzione remota dei tuoi progetti.
+**Ramo facoltativo.** Per questa lezione serve un account con un modello disponibile. Se l’account o il modello manca, torna al modulo quantità e prosegui da L20.
 
-Prepara la connessione prima di aprire l’esplorazione, per sapere quale provider e modello riceveranno il contesto del modulo codice. Apri il menu con il nome del progetto, poi il pulsante **AI Settings**. **Account and Model** distingue connessione, modello per diagrammi e aggiornamento dello stato. **Connect Claude Code or Codex** segue il login offerto dal provider o riconosce un’interfaccia a riga di comando (CLI) già autenticata. Se hai fatto login esternamente usa **Refresh Account and Models**.
+Apri il menu con il nome del progetto e scegli **AI Settings**. In **Account and Model** premi **Connect Claude Code or Codex** e segui il percorso di accesso del provider. Se una CLI compatibile è già autenticata, usa **Choose Model and CLI** per configurarla. **Refresh Account and Models** aggiorna lo stato dell’account dopo l’accesso. Scegli **Choose Diagram Model** per impostare il modello dell’esplorazione.
 
 ![Account, budget delle richieste e budget di esplorazione sono separati](immagini/09-ia.png)
 
-Scegli il modello dal catalogo dell’account quando disponibile. Se il catalogo non viene fornito, usa un identificativo esatto ammesso dal provider. Un modello disponibile in Copilot non diventa automaticamente disponibile nella CLI Codex o Claude. Un eseguibile mancante, un account non autenticato e un modello non valido sono problemi distinti.
+Scegli il modello dal catalogo dell’account. Se l’ID che ti serve manca dall’elenco, scegli **Enter Exact Model ID** e inserisci un identificativo ammesso dal provider. Un modello disponibile in Copilot non diventa automaticamente disponibile nella CLI Codex o Claude. Un eseguibile mancante, un account non autenticato e un modello non valido sono problemi distinti.
 
-**AI Requests** governa le operazioni strutturate con un budget di **invocazioni dell’interfaccia a riga di comando (CLI) per operazione**: zero prepara soltanto il contesto, una consente il piano, due il piano e l’implementazione. Non limita il numero di richieste HTTP, turni, tentativi interni o token gestiti dalla CLI. **Diagram Generation** usa un budget di esplorazione distinto. Cambiare il budget non invia una richiesta; l’invio nella conversazione avvia il lavoro del provider.
+Se **The Selected Diagram Model Is Not Available in Codex Chat** compare per un modello ammesso dalla tua CLI autenticata, usa **Refresh Account and Models** e leggi lo stato sotto **Account and Model**. Se il catalogo della chat continua a escludere il modello, riapri **Connect Claude Code or Codex > Codex > Choose Model and CLI**. Mantieni lo stesso ID e in **Original CLI Executable** indica il percorso assoluto della CLI Codex già autenticata. Poi verifica lo stesso ID in **Choose Diagram Model** e torna alla Home. Premi **Continue Generation** se il tentativo precedente ha già aperto una sessione, altrimenti **Explore Architecture**. Controlla il contesto e invia dal compositore.
+
+In **AI Requests > Configure AI Request Budget** imposta il numero di invocazioni della CLI per operazione strutturata. Con zero prepari il contesto, con una prepari il piano e con due puoi richiedere anche l’implementazione. La CLI gestisce le proprie richieste HTTP, i turni e i token. Dopo aver aperto l’esplorazione del progetto, **Diagram Generation > Add Exploration Budget** modifica il suo budget specifico. L’invio nella conversazione avvia il lavoro del provider.
 
 Apri soltanto la codebase e i file che vuoi coinvolgere. Prima di inviare leggi contesto, selezioni e perimetro. Lo stato nella modale distingue preparazione, attività degli strumenti, attesa, risposta ed errori. Durante una richiesta evita invii ripetuti; usa il controllo di interruzione se necessario. Questo controllo delimita le informazioni usate per proporre l’architettura; un file non incluso non può essere considerato automaticamente verificato.
 
@@ -1004,13 +1005,13 @@ L’assistente esplora inventario e sorgenti nel perimetro, propone un piano di 
 
 Quando il piano è pronto, confronta responsabilità e collegamenti con le evidenze prima di applicare il gruppo: questo è il momento in cui una proposta diventa parte del modello locale. Procedi così:
 
-1. Apri **Review All Changes**.
+1. Quando l’assistente ha finito di preparare le bozze, chiudi il compositore e apri **Review All Changes**.
 2. Leggi prima le anteprime: responsabilità, collegamenti, condizioni e ordine dichiarato.
-3. Controlla sorgenti, esclusioni, lacune e diagnostiche pertinenti. Espandi i dettagli quando servono.
+3. Controlla sorgenti, esclusioni, lacune e diagnostiche pertinenti. Apri **Change Details** per vedere le singole modifiche.
 4. Se qualcosa non va, torna alla conversazione e chiedi una correzione mirata.
-5. Usa **Apply All Changes** per applicare il gruppo revisionato al modello locale.
+5. Usa **Apply All Changes** e conferma per applicare il gruppo revisionato al modello locale. Apri le viste dal selettore per controllare il risultato.
 
-Un piano incompleto, una bozza invalida o una review diventata obsoleta impediscono Apply. **Continue Generation** riprende il lavoro incompleto; l’esaurimento del budget richiede un ampliamento esplicito. Se cambiano i sorgenti, usa il percorso di aggiornamento per rivedere ciò che è diventato obsoleto invece di ricreare manualmente tutte le viste.
+Un piano incompleto, una bozza invalida o una review diventata obsoleta impediscono Apply. **Continue Generation** riprende il lavoro incompleto; l’esaurimento del budget richiede un ampliamento esplicito. Per riaprire le viste applicate, dal menu del progetto scegli **Open Project** e seleziona la stessa cartella `codice`. Se cambiano i sorgenti, usa il percorso di aggiornamento per rivedere ciò che è diventato obsoleto invece di ricreare manualmente tutte le viste.
 
 La generazione sceglie le notazioni pertinenti, non una vista di ogni tipo. Gli stati descrittivi non sono attualmente generati da questo percorso incrementale: puoi modellarli manualmente o usare il profilo eseguibile dedicato. I nomi e il numero delle bozze dipendono dall’analisi del provider, quindi non devono coincidere parola per parola con uno screenshot.
 
@@ -1023,36 +1024,37 @@ Dopo aver applicato le viste della codebase, puoi chiedere che il limite 10 sia 
 
 **Continua qui soltanto se hai completato l’esplorazione e applicato le viste di L17 nella copia del modulo codice.** Un inventario pronto non è ancora un modello interpretato. Senza account o senza queste viste, salta il ramo assistito e continua in L20 sul modulo quantità; i diagrammi del Mercato principale non vengono trasferiti automaticamente nella cartella codice.
 
-**Code > Update Codebase from Diagrams** apre il percorso di implementazione assistita dal modello salvato. Può essere proposto anche dopo un salvataggio significativo. Il messaggio iniziale è modificabile e include il modello attivo e, quando disponibile, il cambiamento prima/dopo dell’ultimo salvataggio.
+Con la copia del modulo codice aperta, scrivibile e attendibile, apri la vista delle responsabilità applicata in L17. Seleziona `validateQuantity`, apri **Manage > Edit Description** e descrivi il nuovo comportamento. Per esempio, “Verifica che la quantità sia un intero sicuro. Restituisce true soltanto per le quantità da 1 a 10 inclusi e false per gli altri interi sicuri. Per un valore che non è un intero sicuro, inclusi decimali e stringhe, solleva TypeError.” Conferma con **Save Changes** e salva il modello con **Save**.
+
+Se al salvataggio ADE propone **Update Codebase from Diagrams**, scegli quel pulsante. Altrimenti apri **Code** e premi **Update Codebase from Diagrams** nel riquadro **Codebase from Diagrams**. Il messaggio iniziale è modificabile e include il modello attivo e, quando disponibile, il cambiamento dell’ultimo salvataggio.
 
 Per la codebase didattica, una richiesta concreta è:
 
 > Limita a 10 le unità di un ordine. Mantieni i prezzi e il totale in centesimi. Aggiungi i controlli per 0, 1, 10 e 11, per un valore non intero e per un testo. Conserva gli esiti confirmed/declined e il comportamento non coinvolto. Mostra i test eseguiti e le eventuali scelte ancora da chiarire.
 
-Prima prepara il cambiamento corrispondente nel modello e salvalo. Apri l’azione, controlla la cartella e l’intento e invia il messaggio. Se nel frattempo cambia il modello, prepara un nuovo contesto. Spostare soltanto i nodi non richiede di implementare nuovamente il business. Salvare prima la scelta evita che il messaggio descriva un limite diverso da quello ancora presente nel contesto inviato.
+Nel compositore controlla cartella e intento, poi clicca **Send**. Se nel frattempo cambia il modello, prepara un nuovo contesto. Lo spostamento dei nodi riguarda la presentazione. Salva la scelta di business prima di chiedere all’assistente di implementarla.
 
-Al termine leggi le modifiche effettive, controlla i file e riesegui i test del progetto. La chat può modificare codice esistente, ma questo percorso non eredita automaticamente il journal e l’undo del profilo deterministico. Per scartare il lavoro usa la review delle modifiche e gli strumenti Git appropriati. Non considerare il completamento della risposta una prova che tutti i test siano stati eseguiti.
+Al termine leggi le modifiche effettive, controlla i file e riesegui `npm test` e `npm start` nel terminale integrato come in L16. Controlla anche il messaggio per i valori fuori intervallo. Per scartare una modifica assistita usa la review e gli strumenti Git del progetto. Il journal e l’undo del profilo deterministico appartengono alla procedura di L12.
+
+Apri il flusso del checkout e confronta le condizioni con i nuovi test. Se il flusso descrive ancora la regola precedente, dal canvas scegli **Diagram > Update Diagrams from Codebase**, oppure apri la stessa azione dal pannello **Code**. Nel compositore chiedi di aggiornare la vista Activity già applicata usando il nuovo comportamento. Controlla il contesto prima dell’invio, poi rivedi le bozze prima di applicarle come in L17.
 
 Una copia senza diagrammi interpretati può richiedere prima l’esplorazione o la creazione delle viste. L’aggiornamento usa la codebase del progetto aperto; evita di usare il clone dell’IDE come cartella di destinazione.
 
 #### Una feature in un worktree
 
-Un worktree separa i file proposti da quelli su cui stai lavorando: usalo quando vuoi confrontare e verificare l’implementazione prima di portarla nella cartella principale. Il percorso strutturato in worktree è distinto dalla chat precedente. Richiede una codebase Git importata, almeno un commit, sorgenti senza modifiche pendenti e una feature con criteri di accettazione utilizzabili dal percorso. Il primo runner esegue test Node direttamente avviabili.
+Un worktree permette di confrontare e verificare i file proposti prima di portarli nella cartella principale. Questo ramo richiede un modello legacy compatibile, una codebase Git collegata con almeno un commit e uno stato pulito, una feature con criteri di accettazione riconosciuti e un provider configurato. I progetti v4/v5 usano **Prepare Model to Code Review** per il comportamento eseguibile. Per la copia v5 importata in L16, continua con L20 dopo l’esercizio assistito disponibile.
 
-Prima crea una copia del modulo codice di Mercato e inizializzala con Git dalla vista **Source Control** o dal terminale. Per una copia nuova senza repository:
+Se parti dalla guida e hai accesso ai sorgenti di ADE preparati in A1, crea in Finder una copia indipendente della codebase didattica iniziale e chiamala `codice-legacy`. Copia al suo interno il file di esempio `ade/examples/checkout.ade.json` dai sorgenti di ADE senza cambiarne il contenuto. Dalla Home scegli **Start a Project > Examples and Model Files > Open Model** e apri il file nella copia. Il modello contiene **Conferma acquisto**, una feature con criteri già dichiarati.
 
-```sh
-git init
-git add .
-git commit -m "Base del progetto di esempio"
-git status --short
-```
+Dal menu del progetto scegli **Show IDE**. Per una copia senza Git, apri **Source Control** ed esegui **Initialize Repository**. Seleziona **Stage All Changes**, scrivi il messaggio “Base del progetto di esempio” e clicca **Commit**. Se Git chiede nome o email, configura prima la tua identità. Verifica in **Source Control** che il commit sia registrato e che non ci siano modifiche in attesa. La cartella di lavoro `.ade` è già esclusa dall’ignore della codebase didattica.
 
-Il commit conserva una base con cui confrontare e recuperare il lavoro; uno stato pulito distingue le nuove modifiche da quelle precedenti. Per questo l’ultimo comando deve risultare vuoto. `.ade` è già esclusa dall’ignore. Se Git chiede nome/email, configura la tua identità prima del commit.
+Con il commit iniziale pronto, prepara l’istantanea di modello e codice. Clicca **Open Quick Access**, cerca `>A.D.E: Update Diagrams from Codebase` e seleziona il comando. Se richiesto, controlla il percorso della copia e scegli **Trust Folder & Continue**. Quando si apre il compositore, chiudilo senza inviare la richiesta. ADE ha già preparato l’istantanea iniziale dal modello aperto e dai sorgenti di quella cartella. Se avevi già preparato la baseline prima di inizializzare Git e compare **Source manifest changed**, riallineala con il percorso Sync di L19.
 
-Nel progetto importato seleziona la feature e cerca **Implement Feature** nelle azioni pertinenti o nella palette. Descrivi l’intento e scegli i file da condividere. Leggi il contesto esatto, poi il piano e le domande. Risolvi i chiarimenti prima della generazione. I chiarimenti fissano il significato del limite e degli esiti prima che vengano tradotti in modifiche: rispondere dopo la generazione richiederebbe una nuova proposta.
+Nel progetto compatibile clicca **Open Quick Access**, cerca `>A.D.E: Implement Feature` e seleziona **Conferma acquisto** per l’esempio. Scrivi il cambiamento in **Requested Behavior** e conferma il campo con Invio. Scegli i file da condividere, `src/orders.mjs` e `test/orders.test.mjs` nell’esempio, e clicca **OK**. Leggi **Review Implementation Context**, quindi scegli **Send Context to Codex** o il controllo equivalente del tuo provider. Controlla piano e domande. Con il budget **Plan and Implementation** e dopo gli eventuali chiarimenti, clicca **Generate in Worktree**.
 
-ADE prepara le modifiche in un worktree separato: i sorgenti principali restano intatti durante la preparazione. Leggi **Inspect Code Changes** e **Questions and Validation**, esegui i test previsti e controlla l’esito corrente. Solo dopo verifica e review valide applica i file al progetto.
+ADE prepara le modifiche in un worktree separato. Leggi le schede diff e **Implementation Review.md**, poi torna alla scheda del modello e apri **Code > Implementation Worktree**. Clicca **Run Tests** e conferma **Run Tests**. Dopo la verifica torna alla scheda del modello, clicca **Apply Verified Changes** nello stesso riquadro e conferma **Apply Changes**. Controlla il diff della cartella principale in **Source Control**.
+
+Se il riquadro non è disponibile, da **Open Quick Access** cerca `>A.D.E: Verify Implementation` per la verifica e `>A.D.E: Apply Verified Implementation` dopo che i test sono passati. Entrambi i comandi mostrano la stessa conferma.
 
 Se la feature non ha criteri riconosciuti o il formato non è supportato, l’azione può restare indisponibile. I criteri delle operazioni condivise e quelli delle feature legacy non sono intercambiabili automaticamente. Questa guida usa il percorso eseguibile della sezione L12 per il laboratorio locale interamente guidato; l’importazione del solo modulo codice di partenza non completa i prerequisiti del worktree.
 
@@ -1065,13 +1067,15 @@ Se la feature non ha criteri riconosciuti o il formato non è supportato, l’az
 
 Dopo modifiche indipendenti a modello e sorgenti, Sync confronta entrambi con la loro baseline comune per individuare divergenze e conflitti. Serve a recuperare un’intenzione coerente prima di proseguire il lavoro. È una scheda per progetti compatibili: il laboratorio non crea automaticamente la baseline e gli adapter richiesti.
 
-**Scheda avanzata per progetti compatibili.** Non è un passaggio automaticamente eseguibile dopo L18: l’importazione/esplorazione corrente del modulo codice non crea una baseline Sync legacy. Per procedere occorrono formato e adapter supportati, corrispondenze modello/codice e una baseline comune valida; per una nuova proposta assistita serve anche l’account. Se mancano, consulta questa sezione e prosegui in L20: non creare file di baseline a mano.
+**Scheda avanzata per progetti legacy compatibili.** Per eseguire Sync occorrono un formato e un adapter supportati, una codebase collegata, corrispondenze modello/codice e una baseline comune valida. Una nuova proposta assistita richiede anche l’account. Per vedere l’anteprima locale usa la copia `codice-legacy` e la preparazione della baseline di L18. Se hai aperto la copia di L16 con il percorso incrementale v5, passa a L20.
+
+Per provare Sync dopo il worktree, usa una seconda copia pulita del progetto di esempio e prepara la baseline. Se **Review Sync Context** rifiuta un sorgente, controlla se proviene da **Apply** del worktree. In questa build Sync esclude i file collegati al journal con hard link.
 
 Usa Sync quando modello e codice sono cambiati e devi recuperarne la coerenza. Confronta **baseline comune, modello corrente e codice corrente** per distinguere le modifiche di ciascun lato e riconoscere i conflitti. Servono formato e adapter compatibili: un progetto v5 di esplorazione non abilita implicitamente il Sync legacy.
 
-Apri **Code > Recovery and Synchronization** per le azioni disponibili o cerca **Sync Project** nella palette. Leggi prima il riepilogo locale: file, simboli, dipendenze, viste e conflitti. Se serve una proposta IA, seleziona i file e revisiona il contesto e le finestre di codice prima dell’invio. Il riepilogo locale serve a capire che cosa è cambiato prima di chiedere una correzione o condividere contesto aggiuntivo.
+Nel progetto legacy collegato apri **Code** e clicca **Sync Project** sotto **Recovery and Synchronization**. In **Sync Preview** leggi il riepilogo locale di file, simboli, dipendenze, viste e conflitti. Per una proposta assistita apri **Review Sync Context**, seleziona i file pertinenti e conferma. Controlla il contesto e clicca **Request Sync Proposal**.
 
-Una proposta può includere modifiche puntuali al modello e sostituzioni ancorate nel testo dei file esistenti. Leggi **Sync Proposal** e il confronto del codice. Se ci sono domande aperte, rispondi in modo concreto e prepara la proposta aggiornata. Apply deve restare bloccato finché mancano le condizioni richieste.
+Una proposta può includere modifiche puntuali al modello e sostituzioni ancorate nel testo dei file esistenti. Leggi il rapporto **Sync Proposal.md**, il diff in **Inspect Code Changes** e le eventuali domande in **Questions and Validation**. Rispondi con **Answer Sync Questions** e prepara la proposta aggiornata. **Apply Sync** compare quando la proposta soddisfa i controlli richiesti. Con una proposta vuota, per esempio dopo un commit che lascia intatti i sorgenti, **Apply Sync** registra un’istantanea comune dal modello e dai sorgenti correnti.
 
 Quando modifichi contemporaneamente lo stesso contratto nel modello e nei sorgenti, confronta le tre versioni e decidi quale intento preservare. Conferma le corrispondenze di rinomina soltanto quando sono corrette. Non risolvere un conflitto scegliendo una versione solo per rendere verde la review. La baseline permette di distinguere una scelta nuova da un valore rimasto invariato; la rinomina deve mantenere la corrispondenza con la stessa identità.
 
@@ -1094,12 +1098,12 @@ Una modifica diretta al codice può contraddire la regola concordata. Il reverse
 
 Per una prova reversibile:
 
-1. Con Files apri il file `src/predicate-…mjs` creato dalla review di L12. Conserva una copia del suo testo o assicurati di poter annullare l’edit dell’editor.
-2. Nella funzione generata cerca il letterale del limite, qui `const v3=10;`, e cambia soltanto `10` in `9`. Il nome della variabile può variare: identifica il valore del confronto `<=`, non un numero nel commento dei metadati. Non modificare quel commento. Salva il file.
+1. Se l’Explorer è chiuso, dal menu del progetto apri **Project Settings > Developer Tools > Files**. Espandi `src` e apri il file `predicate-…mjs` creato dalla review di L12.
+2. Nella funzione generata individua il letterale usato come limite nel confronto `<=`. Nell’esempio è `const v3=10;`. Se la riga è lunga, scorri orizzontalmente. Cambia soltanto `10` in `9`, lascia intatto il commento dei metadati e clicca **File > Save**.
 3. Torna alla scheda ADE e apri **Progetto > Project Settings > Executable Behavior > Code and Context > Reverse Model Behavior from Code**.
-4. Nella review **Code to Model** deve comparire `quantity ≤ 9`. Premi Run Real Verification e conferma. L’esito atteso è **Real Verification Failed · Application Blocked**: espandi Verification Output e trova il caso **Limite 10** fallito. Apply deve essere disabilitato.
+4. Nella review **Code to Model** controlla `quantity ≤ 9` e premi **Run Real Verification**. Conferma se ADE lo chiede. Attendi **Real Verification Failed · Application Blocked** ed espandi **Verification Output**. Nella variante con 24 casi, 23 passano e fallisce **Limite 10**. **Apply to Project** resta disabilitato.
 5. Non applicare la prova e non cambiare l’atteso per farla passare. Torna al file e ripristina il letterale `10`, poi salvalo.
-6. Ripeti Reverse Model Behavior from Code. Quando file e modello sono di nuovo equivalenti, ADE mostra **Model Behavior Is Aligned · No Proposal · No AI Calls**. Dal terminale nella cartella quantità esegui `node --test test/*.test.mjs`: nella soluzione completa devono passare i **12 test indipendenti** emessi nel progetto. La review ADE esegue anche i dodici derivati nel proprio ambiente di verifica. Il package generato dal profilo non definisce uno script npm test; è diverso dal modulo codice di L16.
+6. Ripeti **Reverse Model Behavior from Code**. Quando file e modello tornano equivalenti, ADE mostra **Model Behavior Is Aligned · No Proposal · No AI Calls**. Apri **Project Settings > Developer Tools > Terminal** sulla copia `quantita`, verifica la cartella corrente e seleziona Node 24.22.1. Esegui `node --test test/*.test.mjs` per verificare i **12 test indipendenti** emessi nel progetto. La review ADE esegue anche i dodici casi derivati.
 
 Questa prova insegna a riconoscere una divergenza e a fermarsi prima di applicarla. Per accettare davvero un nuovo limite servirebbero una decisione di business, il criterio aggiornato e gli attesi coerenti, seguiti da una nuova verifica.
 
@@ -1115,9 +1119,9 @@ Il piano esplicita implementazione, dipendenze, storage, dati, test, deploy e ri
 
 #### Task, chiarimenti e continuità
 
-Quando il lavoro prosegue in più sessioni, conserva le risposte che hanno determinato la regola; altrimenti chi riprende vedrebbe il risultato senza poter ricostruire la decisione. Usa **Tasks and Clarifications** per conservare intento, target e domande/risposte, così chi riprende il lavoro ritrova le ragioni delle scelte. Una risposta cambia il contesto: prepara nuovamente la review perché valuti anche quella decisione.
+Apri **Project Settings > Model and Architecture > Tasks and Clarifications**. Scegli **Create Task**, seleziona `validateQuantity` e scrivi l’intento “Verificare le quantità intere da 1 a 10 con casi indipendenti.” Premi **Next** dopo ogni scelta o campo. Controlla **Review Your Changes**, premi **Apply Changes** e salva. Riapri il task e scegli **Add Clarification**. Registra la domanda “Qual è il massimo incluso?” e la risposta “10. Il caso 11 deve risultare Not Satisfied.” Applica e salva il chiarimento. La prossima review userà anche questa decisione.
 
-In **Code > Automatic Preparation** puoi attivare la preparazione continua con un budget di tentativi. Le modifiche semantiche stabilizzate preparano review locali; selezione, zoom e layout non consumano tentativi di business. Il lavoro viene accorpato e serializzato. Il cambio progetto o l’interruzione esplicita fermano la continuità. Attivala se stai continuando a cambiare il comportamento e vuoi trovare una proposta locale pronta da esaminare; per una modifica isolata puoi continuare con la preparazione manuale.
+In **Code > Automatic Preparation** premi **Start or Stop Continuous Preparation** e inserisci il budget, per esempio `1`. Se compare il dialogo, premi **Enable Preparation**. L’attività prepara review per le modifiche semantiche stabilizzate. Selezione, zoom e layout non consumano tentativi. Consulta il contatore dei job e lo stato. Per sospendere, usa di nuovo **Start or Stop Continuous Preparation** e verifica **Paused**. Anche il cambio di progetto interrompe l’attività corrente.
 
 Questa modalità prepara proposte, non le applica. Verifica e pubblicazione restano manuali. Un budget esaurito richiede una scelta esplicita; il riavvio non deve avviare da solo nuovi job.
 
@@ -1126,11 +1130,11 @@ Questa modalità prepara proposte, non le applica. Verifica e pubblicazione rest
 
 ### L21. Consegna il progetto a un’altra persona
 
-Dopo aver salvato viste, decisioni e prove locali, prepara una consegna che permetta a un’altra persona di ricostruire acquisto e reso. La navigazione senza assistenza controlla la chiarezza del modello; il riepilogo delle prove distingue ciò che hai verificato dalle scelte ancora aperte.
+Dopo aver salvato viste, decisioni e prove locali, prepara una consegna che permetta di ricostruire acquisto e reso.
 
-Apri la tua copia principale Mercato; chiedi a un collega di trovare Cliente, Ordine, conferma e richiesta di reso usando solo navigazione e ricerca. Nomi delle viste e relazioni devono spiegare quale domanda risolvono. Questa prova va fatta ora che le viste sono collegate: una spiegazione orale dell’autore potrebbe nascondere un nome ambiguo o un riferimento mancante.
+Riapri Mercato e usa navigazione e ricerca per trovare **Cliente**, **Ordine**, conferma e richiesta di reso. Se hai un collega disponibile, fagli ripetere il percorso in autonomia e registra il suo riscontro.
 
-Prepara una consegna con il progetto intero, le decisioni ancora aperte, i moduli di codice pertinenti e un riepilogo delle prove. Se usi Git controlla il diff, crea un commit e pubblicalo soltanto sul remoto che vuoi condividere. Non copiare cache, credenziali o cronologie del provider nei materiali didattici. La cartella completa mantiene i riferimenti necessari per riaprire il modello; decisioni aperte e limiti delle prove permettono al destinatario di proseguire senza scambiare il laboratorio per un negozio completo.
+Raccogli l’intera cartella di Mercato, inclusa `.ade`, i moduli pertinenti e un riepilogo di prove e decisioni aperte. Riapri la copia con **Open Project** per controllarne i riferimenti. Escludi cache, credenziali e cronologie del provider. Commit e pubblicazione sono facoltativi.
 
 | Risultato da consegnare | Come lo dimostri |
 | --- | --- |
@@ -1143,7 +1147,7 @@ Prepara una consegna con il progetto intero, le decisioni ancora aperte, i modul
 | Rapporto con i sorgenti | File aperti dalle evidenze e test tecnici eseguiti |
 | IA usata consapevolmente, se disponibile | Perimetro, review, diff e prove; altrimenti indicazione non eseguita |
 
-Una consegna completa non richiede di affermare che il negozio sia pronto per la produzione. Richiede di rendere verificabile ciò che hai progettato, eseguito e lasciato da decidere. Per editor, terminale, Git, debug, accessibilità e strumenti aggiuntivi usa A2-A7.
+Per editor, terminale, Git, debug e accessibilità consulta A2-A7.
 
 
 ## Parte III - Atlante dei 16 diagrammi
@@ -1174,15 +1178,15 @@ C4 descrive l’architettura per livelli di dettaglio. UML (Unified Modeling Lan
 #### La procedura comune, senza modello testuale
 
 1. Apri la root del progetto in cui vuoi conservare la vista. Clicca il nome del diagramma e scegli **Add Diagram**. Nel Mercato scegli la feature richiesta dal form: Acquisto per le viste generali, Resi e rimborsi per quelle dedicate. L’associazione permette di ritrovare il diagramma sotto la capacità che descrive. Per C4 con un soggetto segui invece il punto 3.
-2. I quattro tipi comuni sono Structure Diagram, Activity Flow, Sequence Diagram e State Diagram. **More Diagram Types** raggruppa gli altri in Architecture, Data, Implementation e Behavior. Entra nel gruppo, scegli la notazione e assegna un nome che dica cosa rappresenta.
-3. Per **C4** apri **New > Structural Blueprint** nella sidebar o il comando della palette. In Choose clicca C4 View Subject and Context nell’area Structure; in Configure scegli Create New, livello, soggetto, nome, contesto e visibili, confermando ogni passo con **Next**. Concludi con **Review > Apply Changes**, come in L3. L1 è Context, L2 Container, L3 Component. Mantieni il soggetto fra i visibili: il lettore deve riconoscere il sistema o l’applicazione di cui sta esaminando il contesto o l’interno. L4 Contract è un perimetro di contratto, non un diciassettesimo tipo di diagramma.
-4. Per **State Diagram** scegli la risorsa proprietaria prima del nome della vista: gli stati devono descrivere il ciclo di vita di quell’oggetto. Per gli altri tipi crea con Add Element gli oggetti nuovi o riusa con Add Existing Element quelli già definiti, così una modifica alla stessa identità resta condivisa fra le viste. Se un elenco è lungo, filtralo digitando il nome.
-5. Per includere una relazione già esistente, aggiungi entrambi gli estremi e usa **Diagram > Contents > Add Existing Relationship**. Sequence usa **Add Existing Message**; State offre Add Existing Transition. Per una relazione nuova seleziona l’origine e usa Connect; scegli tipo, destinazione, nome e conferma anche Condition (Optional), vuoto se non serve. Completa condizioni, cardinalità, membri o protocollo quando pertinenti. In una sequenza includi e ordina i messaggi; non usare le coordinate come sostituto dell’ordine dichiarato.
+2. Nel form **Create Diagram** compila **Name** e scegli la notazione da **Diagram Type**. Imposta **Choose Feature** quando serve, poi premi **Create**.
+3. Per **C4** segui L3. Apri **Structural Blueprint > Structure > C4 View Subject and Context**, premi **New C4 View** e imposta nome, livello, soggetto, contesto e visibilità. **Apply to Model** crea la vista e **Open Diagram** la apre. L1 è Context, L2 Container, L3 Component. Il soggetto resta visibile. L4 Contract definisce il perimetro di un contratto tramite la vista Class.
+4. Per **State Diagram** scegli anche **Resource Whose State Is Represented** nel form di creazione. Gli stati descrivono il ciclo di vita della risorsa scelta. Per gli altri tipi crea gli oggetti nuovi con **Add Element** o riusa quelli già definiti con **Add Existing Element**.
+5. Per includere una relazione già esistente, aggiungi entrambi gli estremi e usa **Diagram > Contents > Add Existing Relationship**. Sequence usa **Add Existing Message**. State offre **Add Existing Transition**. Per una relazione nuova compila **Create Relationship** con gli estremi, il tipo e il nome. Compila **Condition (Optional)** quando serve e premi **Save Changes**. In una sequenza includi i messaggi nell’ordine dichiarato.
 6. Completa proprietà, confini e dettagli. Salva e riapri per controllare che il lavoro sia conservato; usa Read Diagram o la vista accessibile per leggere anche informazioni che il canvas sintetizza, come condizioni, membri e protocolli.
 
-Il blueprint appena creato si apre automaticamente. Per modificarlo in seguito, aprilo dalla sidebar e usa **Diagram > Contents > Edit Visible Elements** oppure **Edit Context Dependencies**; le stesse azioni sono disponibili in **Diagram Options**. Gli elementi già inclusi sono spuntati: seleziona o deseleziona le voci, premi **Next**, controlla il riepilogo e conferma con **Apply Changes**. Ogni voce mostra tipo e appartenenza; puoi cercare per nome, tipo o proprietario. La visibilità stabilisce quali elementi compaiono nel diagramma; le dipendenze dichiarano il contesto esterno al soggetto. Se vuoi mostrare una dipendenza di contesto, includila anche negli elementi visibili.
+Per correggere una vista C4, aprila e usa **Diagram > Contents > Edit Visible Elements** o **Edit Context Dependencies**. Le stesse azioni sono disponibili in **Diagram Options**. Nel Blueprint controlla le spunte e premi **Apply to Model**. **Filter Elements** cerca per nome, tipo o proprietario. **Context** dichiara le dipendenze esterne al soggetto. **Visible** sceglie gli elementi che compaiono nel diagramma. Per mostrare una dipendenza di contesto, spunta anche **Visible**.
 
-Se una vista C4 mostra **Draft Needs Correction**, riapri **Structural Blueprint > Structure > C4 View Subject and Context**, scegli la vista e completa i passaggi, inclusi i visibili, poi applica il riepilogo. subjectAndScopeRequired indica il perimetro mancante; subjectNotVisible richiede di includere il soggetto. Non serve aprire Edit Model Specification.
+Se una vista C4 mostra **Draft Needs Correction**, apri **Structural Blueprint > Structure > C4 View Subject and Context** e scegli la vista in **Configuration**. **subjectAndScopeRequired** indica un perimetro mancante e **subjectNotVisible** un soggetto assente dal diagramma. Imposta livello e soggetto per ripristinare il perimetro e la sua visibilità. Premi **Apply to Model** e salva.
 
 #### Gli elementi: vocabolario condiviso
 
@@ -1284,7 +1288,7 @@ Non inserire API, classi o tabelle per colmare spazio. Il tipo System distingue 
 
 Communication o Dependency devono descrivere un rapporto comprensibile al lettore: “autorizza e rimborsa”, “richiede consegna”. La direzione segue chi usa/richiede l’altro sistema. Se la comunicazione è bidirezionale, chiarisci la responsabilità con nomi e collegamenti pertinenti invece di presumere che ogni freccia significhi entrambe le direzioni.
 
-Crea il Context dal wizard C4 di D0: L1, soggetto Mercato, nome, quattro oggetti di contesto e visibili incluso Mercato. Soggetto e contesto fissano il perimetro dichiarato; i visibili scelgono quali di quegli oggetti mostrare. Premi Next a ogni passaggio e Apply Changes nel riepilogo. Se mancano attori o sistemi, creali prima di includerli: la vista deve riferirsi a identità esistenti. Aggiungi le relazioni e salva.
+Crea il Context da **C4 View Subject and Context > New C4 View** come in L3 e D0. Scegli L1, indica Mercato come soggetto e imposta il nome. In **View Contents** seleziona i quattro oggetti di contesto e rendili visibili. Crea prima gli attori o i sistemi che ti mancano. Premi **Apply to Model** e **Open Diagram**, aggiungi le relazioni e salva.
 
 **Controllo:** esiste un perimetro unico; i due attori sono distinguibili dai sistemi; nessun componente interno compete con il prodotto per la stessa gerarchia. Se vuoi sapere come Mercato è suddiviso, apri D3. Un Context non rappresenta una topologia di rete né osservazioni di traffico reale.
 
@@ -1316,7 +1320,7 @@ L’ownership è un dato del blueprint: dichiara che le parti interne appartengo
 
 Le comunicazioni di Mercato sono HTTPS dal Cliente al Web shop, HTTPS / JSON dal web all’API, SQL dall’API all’archivio e una pubblicazione verso il broker. Il nome della freccia esprime l’intento; il protocollo esprime il mezzo dichiarato. Se due oggetti sono collegati solo per dipendenza architetturale, non inventare protocollo o porta.
 
-Dal wizard C4 scegli L2, soggetto Mercato, contesto Cliente e i visibili: soggetto, quattro container e attore; applica il riepilogo. Per l’ownership scegli prima il target in Element e poi il proprietario. Completa i ruoli per distinguere interfaccia web, servizio, archivio e messaggistica; collega gli oggetti per esplicitare le integrazioni da realizzare. Posiziona il contesto fuori dal confine per rendere visibile la distinzione fra utilizzatore e parti del prodotto. Leggi D4 per il dettaglio dell’API e D10 per la collocazione.
+Nel Blueprint assegna i quattro container a Mercato con **Architectural or Lifecycle Owner** e completa i ruoli come in L4. Crea la vista C4 di livello L2 con soggetto Mercato, contesto Cliente e visibilità per Cliente e i quattro container. Il soggetto compare automaticamente. Premi **Apply to Model** e **Open Diagram**, poi collega gli elementi per dichiarare le integrazioni. Leggi D4 per il dettaglio dell’API e D10 per la collocazione.
 
 **Controllo:** ogni container ha una responsabilità e un proprietario; applicazione e host restano distinguibili; un archivio non appare due volte come se fossero due sistemi reali. La vista non esegue installazioni, provisioning, comunicazioni o migrazioni.
 
@@ -1349,7 +1353,7 @@ La soluzione formalizza Contratto acquisto versione 1 e Checkout come provider n
 
 Dependency “richiede disponibilità” collega Checkout a Scorte; Communication “registra esito” lo collega a Registro esiti; Implementation esprime l’esposizione del Contratto acquisto; Gestione resi dipende da Checkout. Queste relazioni descrivono il rapporto; il controllo di compatibilità fra operazioni richiede porte, tipi e binding espliciti.
 
-Crea il livello L3 dal wizard C4, scegli API Mercato, contesto e visibili incluso il soggetto, poi applica il riepilogo. In Architectural or Lifecycle Owner scegli ogni target in Element, poi il proprietario compatibile e il ruolo; applica ciascuna modifica per dichiarare quali responsabilità sono interne all’API. Riusa le identità esistenti, salva e controlla il confine anche in lettura testuale: l’appartenenza deve risultare dai dati, oltre che dalla disposizione delle schede.
+Nel Blueprint assegna i componenti ad API Mercato con **Architectural or Lifecycle Owner**, come in L4. Crea la vista C4 di livello L3 e scegli API Mercato come soggetto. Imposta **Context** e **Visible** secondo il perimetro che vuoi mostrare, poi premi **Apply to Model** e **Open Diagram**. Salva e controlla il confine anche in lettura testuale.
 
 **Controllo:** nessun componente diventa un container solo per cambiare forma; nessuna dipendenza esterna viene trascinata nel sistema governato. Se il problema è l’interfaccia fra moduli piuttosto che il perimetro di un’applicazione, usa anche UML Component (D13).
 
@@ -1608,7 +1612,7 @@ Il proprietario dei casi è Mercato. Gli attori rimangono esterni al confine del
 
 Aggiungi i due attori esistenti e i quattro casi. Associa Cliente a Confermare acquisto e Richiedere reso, Assistenza a Richiedere reso, per chiarire chi partecipa a ciascun obiettivo. Disegna Include da Confermare acquisto ad Autorizzare pagamento perché l’autorizzazione è necessaria. Disegna Extend da Applicare coupon a Confermare acquisto e assegna “coupon presente” perché l’aggiunta vale solo in quella condizione. Invertire quest’ultima freccia inverte chi estende chi.
 
-I nomi sono centrati negli ovali, le cui dimensioni si adattano al contenuto. Dopo una modifica usa Arrange Diagram e Fit Diagram per riordinare la vista. Include ed Extend descrivono necessità e opzionalità: l’ordine dei passi appartiene ad Activity e Sequence; i requisiti verificabili a contratti e casi Given/When/Then.
+I nomi sono centrati negli ovali, le cui dimensioni si adattano al contenuto. Dopo una modifica usa **Diagram > Arrange** e **Fit Diagram** per riordinare la vista. Include ed Extend descrivono necessità e opzionalità. Activity e Sequence descrivono l’ordine dei passi. I contratti e i casi Given/When/Then dichiarano requisiti verificabili.
 
 **Controllo:** ogni caso rappresenta un obiettivo e ha un attore o un rapporto funzionale motivato; le azioni interne al database non compaiono come obiettivi del Cliente. Chiarisci le eccezioni nelle descrizioni o nei flussi complementari, senza inserire nel diagramma ogni piccolo passo dell’interfaccia.
 
@@ -1752,21 +1756,21 @@ Se ADE è già installato e funzionante, torna a T1. Per l’avvio dai sorgenti 
 
 #### macOS e Linux
 
-Questa sequenza costruisce l’applicazione ADE dai sorgenti, nella cartella del clone, distinta dai progetti Mercato e Bottega che aprirai dopo. Chiudi l’istanza di sviluppo prima di aggiornare dipendenze e build, per riavviare poi il prodotto con i file aggiornati. Il clone recupera i sorgenti; il checkout seleziona la versione della guida; `nvm install` installa il Node richiesto da `.nvmrc` e `nvm use` lo seleziona nella shell. Con nvm, dalla radice del clone:
+Per riprodurre la versione collaudata in questa edizione, costruisci ADE dal workspace che contiene le correzioni, tenendo separate le cartelle dei progetti Mercato e Bottega. Se ti serve la base pubblicata, la sequenza qui sotto seleziona il commit di partenza e prepara l’applicazione. Chiudi l’istanza di sviluppo prima di aggiornare dipendenze e build. `nvm install` installa il Node richiesto da `.nvmrc` e `nvm use` lo seleziona nella shell.
 
 ```sh
 git clone https://github.com/FrappaF/ADE.git
 cd ADE
-git checkout 8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c
+git checkout c8c4f6d81dc567e457e259c98a68e841221138bf
 nvm install
 nvm use
 npm run ade:setup
 ./ade/scripts/dev.sh
 ```
 
-Il checkout seleziona la revisione documentata, in modalità detached HEAD: puoi usarla per compilare e seguire gli esempi; se vuoi sviluppare ADE, crea prima un tuo branch. `ade:setup` prepara dipendenze, client, motori locali, estensioni ed Electron. Il primo avvio richiede una connessione per gli artifact scaricati. Per gli avvii successivi bastano `nvm use` e `./ade/scripts/dev.sh`. Puoi aggiungere al comando il percorso della cartella di un progetto.
+Il checkout seleziona il commit di base in modalità detached HEAD. Per avviare l’edizione collaudata, esegui `nvm install`, `nvm use`, `npm run ade:setup` e `./ade/scripts/dev.sh` nella radice del workspace con le correzioni. `ade:setup` prepara dipendenze, client, motori locali, estensioni ed Electron. Il primo avvio richiede una connessione per gli artifact. Per gli avvii successivi usa `nvm use` e `./ade/scripts/dev.sh`. Puoi aggiungere al comando il percorso della cartella di un progetto.
 
-Gli strumenti di compilazione e le librerie desktop servono alle dipendenze native dell’applicazione; controllali prima della preparazione, così un’assenza non viene confusa con un problema del progetto didattico. Su macOS verifica gli strumenti con `xcode-select -p`, `xcrun --find clang` e `python3 --version`. Se mancano i Command Line Tools, usa `xcode-select --install` e completa l’installazione. Su Debian/Ubuntu servono `build-essential`, `pkg-config`, `libx11-dev`, `libxkbfile-dev`, `libkrb5-dev`, `libsecret-1-dev`, `libgtk-3-dev`, `libgbm-dev`, `libnss3`, `libasound2-dev` e `xvfb`; per i test senza display anche `xauth`. I nomi possono variare con la distribuzione. La [preparazione del fork alla revisione documentata](https://github.com/FrappaF/ADE/blob/8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c/ade/docs/fork-development.md#da-un-clone-pulito) raccoglie anche prerequisiti Windows e avvio con `scripts\code.bat`. Il collegamento richiede una connessione.
+Gli strumenti di compilazione e le librerie desktop servono alle dipendenze native dell’applicazione; controllali prima della preparazione, così un’assenza non viene confusa con un problema del progetto didattico. Su macOS verifica gli strumenti con `xcode-select -p`, `xcrun --find clang` e `python3 --version`. Se mancano i Command Line Tools, usa `xcode-select --install` e completa l’installazione. Su Debian/Ubuntu servono `build-essential`, `pkg-config`, `libx11-dev`, `libxkbfile-dev`, `libkrb5-dev`, `libsecret-1-dev`, `libgtk-3-dev`, `libgbm-dev`, `libnss3`, `libasound2-dev` e `xvfb`; per i test senza display anche `xauth`. I nomi possono variare con la distribuzione. La [preparazione del fork alla revisione di base](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/fork-development.md#da-un-clone-pulito) raccoglie anche prerequisiti Windows e avvio con `scripts\code.bat`. Il collegamento richiede una connessione.
 
 Se aggiorni il clone a una revisione successiva, seleziona nuovamente il suo Node e riesegui `npm run ade:setup`: il semplice riavvio non ricompila sempre i sorgenti cambiati. Prima di seguire la guida confronta la nuova interfaccia con la revisione indicata in apertura. Il controllo dei tipi e le suite del repository sono strumenti per sviluppare ADE; non servono per usare i progetti di questa guida.
 
@@ -1896,8 +1900,8 @@ Usa questa tabella quando il risultato di un passaggio non coincide con quello a
 | Ho tolto un nodo ma esiste ancora | È stato rimosso dalla vista; consulta Details/Impact per sapere quali altri riferimenti coinvolgerebbe l’eliminazione dal sistema |
 | Non vedo file e terminale | Usa menu progetto, Show IDE oppure Project Settings > Developer Tools quando devi leggere sorgenti o eseguire comandi; il canvas resta il contesto della progettazione |
 | Una voce non compare | Seleziona l’oggetto e la notazione pertinenti: i comandi dipendono dal contesto. Controlla anche tipo di documento e prerequisiti |
-| Next è disabilitato nel blueprint | Se l’elenco richiesto è vuoto, usa Back e crea prima gli elementi o le definizioni necessari: il campo deve poter riferire un oggetto già disponibile |
-| Ho compilato il blueprint ma il modello non cambia | Completa il riepilogo con Apply Changes per applicare la proposta, poi salva il progetto per conservarla nel file |
+| Apply to Model è disabilitato in Structural Blueprint | Apri **Review** per individuare eventuali configurazioni incomplete. Se un campo richiede un oggetto mancante, crealo prima di completare la bozza |
+| Ho compilato Structural Blueprint e il modello è ancora invariato | Premi **Apply to Model** per applicare la bozza, poi **Save** per conservarla nel progetto |
 | Il testo viene rifiutato nel caso numerico | Usa un numero intero per un input ordinario; Different Value Type serve a provare deliberatamente un tipo errato in un caso negativo |
 | Una condizione non si può salvare | Il predicato deve dare una risposta booleana alla condizione; completa confronto o logica con tipi compatibili |
 | Il modello è salvabile ma non generabile | Risolvi le diagnostiche di readiness su tipi, ownership, criteri, binding e runtime: indicano le informazioni necessarie al profilo scelto, oltre al salvataggio del disegno |
@@ -1957,7 +1961,7 @@ Usa la matrice seguente per passare dall’attività che vuoi svolgere alla lezi
 | Personalizzazione, estensioni, trust, chat e MCP | A1; A4 | Account/SDK/estensioni dove richiesti |
 | Accessibilità e presentazione | A5 | Tastiera, lettura testuale e impostazioni del workbench |
 
-Il verbale del laboratorio registra prove su ADE desktop macOS del 14 novembre 2026 e successivi controlli di componenti browser per wizard e casi d’uso. Questa edizione confronta testi, codice ed esempi con il commit indicato in apertura; non costituisce una nuova prova completa del desktop. Le immagini comprendono le 16 notazioni della soluzione, che contiene 18 viste, e schermate dei comandi. I profili eseguibili sono quelli dei moduli didattici. Le procedure IA dipendono dai prerequisiti di L17-L19 e non promettono nomi, numero di bozze o risultati identici tra provider.
+Il verbale del laboratorio registra le prove su ADE desktop macOS e i controlli successivi. Le immagini comprendono le 16 notazioni della soluzione, che contiene 18 viste, e schermate dei comandi. I profili eseguibili sono quelli dei moduli didattici. Le procedure IA dipendono dai prerequisiti di L17-L19. Nomi, numero di bozze e risultati possono variare in base al provider.
 
 
 ### A8. Glossario e riferimenti
@@ -1988,9 +1992,9 @@ Consulta il glossario quando due parole sembrano indicare lo stesso risultato: u
 | Recovery | Ripresa controllata di un’operazione interrotta |
 | ADR | Decisione architetturale con motivazioni, stato e storia |
 
-Questa edizione segue il wizard **Structural Blueprint**, la sidebar, Add Existing Relationship e l’Atlante a livelli della System Map presenti nella revisione indicata in apertura. Le schermate esistenti aiutano a orientarsi; per la sequenza minima del tour valgono gli esiti descritti in T2. Etichette e scorciatoie possono dipendere da contesto, piattaforma e tasti configurati.
+Questa edizione segue l’editor **Structural Blueprint**, il riuso delle relazioni con **Add Existing Relationship** e l’Atlante a livelli di **System Map**. Le schermate aiutano a orientarsi. In T2 trovi gli esiti per riconoscere le quattro prospettive dell’acquisto.
 
-Approfondimenti online del repository, fissati alla revisione documentata: [editing visuale](https://github.com/FrappaF/ADE/blob/8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c/ade/docs/visual-editing.md), [esploratore semantico](https://github.com/FrappaF/ADE/blob/8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c/ade/docs/semantic-explorer.md), [accessibilità](https://github.com/FrappaF/ADE/blob/8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c/ade/docs/accessibility.md), [importazione](https://github.com/FrappaF/ADE/blob/8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c/ade/docs/code-import.md), [collaborazione IA](https://github.com/FrappaF/ADE/blob/8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c/ade/docs/ai-collaboration.md), [riconciliazione](https://github.com/FrappaF/ADE/blob/8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c/ade/docs/reconciliation.md) e [profili eseguibili](https://github.com/FrappaF/ADE/blob/8a069e4b7207be8bcbfee2d572fdeb45e2fc3e6c/ade/docs/diagram-driven-ai/dai-12.md). Richiedono una connessione e comprendono anche verbali storici: per le procedure parti dai capitoli di questa guida.
+Approfondimenti online del repository alla revisione di base: [editing visuale](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/visual-editing.md), [esploratore semantico](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/semantic-explorer.md), [accessibilità](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/accessibility.md), [importazione](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/code-import.md), [collaborazione IA](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/ai-collaboration.md), [riconciliazione](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/reconciliation.md) e [profili eseguibili](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/diagram-driven-ai/dai-12.md). Richiedono una connessione e comprendono anche verbali storici: per le procedure parti dai capitoli di questa guida.
 
 Gli esempi sono sintetici e derivano dai modelli dimostrativi del repository ADE e dal laboratorio Bottega. Sono distribuiti con la licenza MIT del progetto. Il pacchetto non contiene account, credenziali, cronologie IA o repository Git personali.
 

@@ -9,7 +9,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { equals } from '../../../../base/common/objects.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
-import { basename, dirname, isEqualOrParent } from '../../../../base/common/resources.js';
+import { basename, dirname, isEqual, isEqualOrParent } from '../../../../base/common/resources.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ConfirmResult, IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
@@ -305,7 +305,7 @@ export class AdeProjectService extends Disposable {
 		if (!this.initialized) {
 			this.initialized = true;
 			if (this._modelUri) {
-				this.restoring = this.loadModel(this._modelUri);
+				this.restoring = this.restoreSelectedModel(this._modelUri);
 			} else {
 				this.restoring = this.restoreWorkspaceProject();
 				this.context = normalizeDiagramContext(this.model, this.context);
@@ -314,6 +314,26 @@ export class AdeProjectService extends Disposable {
 			}
 		}
 		return this.restoring ?? Promise.resolve();
+	}
+
+	private async restoreSelectedModel(resource: URI): Promise<void> {
+		const imports = dirname(dirname(resource));
+		const metadata = dirname(imports);
+		if (basename(resource) !== 'model.ade.json' || basename(imports) !== 'imports' || basename(metadata) !== '.ade' || !this.belongsToWorkspace(resource)) {
+			return this.loadModel(resource);
+		}
+		const generation = this.generation;
+		let active = resource;
+		try {
+			active = await this.activeCodeProjectModel(dirname(metadata)) ?? resource;
+		} catch { /* Keep the selected document available if the project pointer is unreadable. */ }
+		if (generation !== this.generation) { return; }
+		if (isEqual(active, resource)) {
+			await this.loadModel(resource);
+		} else {
+			const location = this.section === 'home' ? { section: 'diagram' as const, viewId: this.context.viewId } : this.location;
+			await this.loadModel(active, { diagram: this.context, location });
+		}
 	}
 
 	/** Carry the current visual document through a native folder-window reload. */
@@ -650,15 +670,16 @@ export class AdeProjectService extends Disposable {
 	async openProject(folder: URI): Promise<void> {
 		if (await this.prepareToReplace()) {
 			this._section = 'diagram';
-			const pointer = URI.joinPath(folder, '.ade', 'code-project.json');
-			let resource = URI.joinPath(folder, '.ade', 'model.json');
-			if (await this.fileService.exists(pointer)) {
-				const value = JSON.parse((await this.fileService.readFile(pointer)).value.toString());
-				if (value.version !== 1 || typeof value.active !== 'string' || !/^[a-f0-9-]{36}$/.test(value.active)) { throw new Error(localize('ade.code.invalidPointer', "Invalid code project snapshot.")); }
-				resource = URI.joinPath(folder, '.ade', 'imports', value.active, 'model.ade.json');
-			}
-			await this.loadModel(resource);
+			await this.loadModel(await this.activeCodeProjectModel(folder) ?? URI.joinPath(folder, '.ade', 'model.json'));
 		}
+	}
+
+	private async activeCodeProjectModel(folder: URI): Promise<URI | undefined> {
+		const pointer = URI.joinPath(folder, '.ade', 'code-project.json');
+		if (!await this.fileService.exists(pointer)) { return undefined; }
+		const value = JSON.parse((await this.fileService.readFile(pointer)).value.toString());
+		if (value.version !== 1 || typeof value.active !== 'string' || !/^[a-f0-9-]{36}$/.test(value.active)) { throw new Error(localize('ade.code.invalidPointer', "Invalid code project snapshot.")); }
+		return URI.joinPath(folder, '.ade', 'imports', value.active, 'model.ade.json');
 	}
 
 	private readDocument(document: IResolvedTextFileEditorModel): void {

@@ -632,6 +632,18 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		assert.strictEqual(value, 'foo');
 	});
 
+	test('input - confirm button submits an opted-in input', async () => {
+		const wait = setupWaitTilShownListener(controller);
+		const input = controller.input({ value: 'foo', showConfirmButton: true });
+		await wait;
+
+		const button = fixture.querySelector<HTMLElement>('.quick-input-action .monaco-button');
+		assert.ok(button && button.parentElement?.style.display !== 'none');
+		assert.strictEqual(button.textContent, 'OK');
+		button.click();
+		assert.strictEqual(await raceTimeout(input, 2000), 'foo');
+	});
+
 	test('onDidChangeValue - gets triggered when .value is set', async () => {
 		const quickpick = store.add(controller.createQuickPick());
 
