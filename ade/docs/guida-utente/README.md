@@ -328,7 +328,7 @@ Seleziona ogni container e apri **Properties > Architecture > Scope and Responsi
 | Archivio Mercato | Conserva ordini e prodotti | Data Store |
 | Broker eventi | Distribuisce eventi | Messaging |
 
-Apri **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. In **Element** scegli il container da modificare; nell’elenco dei proprietari scegli **Mercato**, poi **Architecture**. Completa Next, Review e Apply Changes per ogni container: dichiari così quali parti compongono il sistema. Spostare una scheda nel rettangolo non assegna questa appartenenza.
+Assegna **Mercato** come owner architetturale a tutti e quattro i container, incluso **Web shop**, già creato in L2. Apri **Structural Blueprint > Structure > Architectural or Lifecycle Owner** e scegli **Web shop** in **Element**. Seleziona **Mercato** come owner e **Architecture** in **Ownership Role**. Premi **Next** dopo ogni scelta e **Apply Changes** nel riepilogo. Ripeti per **API Mercato**, **Archivio Mercato** e **Broker eventi**. Prima di creare la vista, verifica nelle proprietà **Architecture** di ciascuno che compaia **Owner: Mercato**.
 
 #### Crea e apri la vista Container
 
