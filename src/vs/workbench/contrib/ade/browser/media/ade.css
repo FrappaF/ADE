@@ -3112,6 +3112,18 @@
 	flex-shrink: 0;
 }
 
+.ade-shell .ade-workspace-trailing > button,
+.ade-shell .ade-navigation > button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+}
+
+.ade-workspace-trailing > button > .codicon,
+.ade-navigation > button > .codicon {
+	flex-shrink: 0;
+}
+
 .ade-shell .ade-workspace-trailing .ade-document-state {
 	max-width: 180px;
 	font-size: var(--vscode-fontSize-body2);
