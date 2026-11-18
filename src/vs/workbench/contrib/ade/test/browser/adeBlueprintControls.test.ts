@@ -6,7 +6,6 @@
 import assert from 'assert';
 import * as dom from '../../../../../base/browser/dom.js';
 import { mock } from '../../../../../base/test/common/mock.js';
-import { toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
@@ -14,11 +13,10 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { type ThemeIcon } from '../../../../../base/common/themables.js';
 import { InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
+import { AdeBlueprintEditor } from '../../browser/adeBlueprintEditor.js';
 import { AdeCanvasController } from '../../browser/adeCanvasController.js';
 import { AdeCanvasSurface } from '../../browser/adeCanvasSurface.js';
 import { AdeControls } from '../../browser/adeControls.js';
-import { type AdeEditingContext } from '../../browser/adeEditingContext.js';
-import { runAdeSpecificationCommand } from '../../browser/adeEditingSpecification.js';
 import { AdeProjectService } from '../../browser/adeProjectService.js';
 import { applyVisualEdit } from '../../common/visualEditing.js';
 import { type VisualEdit } from '../../common/visualEditTypes.js';
@@ -30,24 +28,24 @@ suite('A.D.E blueprint diagram controls', () => {
 	setup(() => { root = dom.append(document.body, dom.$('section')); });
 	teardown(() => root.remove());
 
-	const page = (title: string): Promise<void> => {
-		const ready = () => root.querySelector('h3')?.textContent === title;
-		if (ready()) { return Promise.resolve(); }
-		return new Promise(resolve => {
-			const observer = new MutationObserver(() => { if (ready()) { observer.disconnect(); resolve(); } });
-			store.add(toDisposable(() => observer.disconnect()));
-			observer.observe(root, { subtree: true, childList: true, characterData: true });
-		});
-	};
-	const button = (label: string) => {
+	function button(label: string): HTMLButtonElement {
 		const button = [...root.querySelectorAll('button')].find(button => (button.getAttribute('aria-label') ?? button.textContent) === label);
-		assert.ok(button, `Missing button: ${label}`); button.click();
-	};
-	const select = (label: string) => {
-		const row = [...root.querySelectorAll('label')].find(row => row.querySelector('strong')?.textContent === label);
-		assert.ok(row, `Missing option: ${label}`); row.click();
-	};
-	const next = async (title: string) => { button('Next'); await page(title); };
+		assert.ok(button, `Missing button: ${label}`);
+		return button;
+	}
+
+	function field(label: string): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
+		const wrapper = [...root.querySelectorAll('label')].find(labelElement => labelElement.firstElementChild?.textContent === label);
+		const field = wrapper?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea');
+		assert.ok(field, `Missing field: ${label}`);
+		return field;
+	}
+
+	function setField(label: string, value: string): void {
+		const input = field(label);
+		input.value = value;
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+	}
 
 	function fixture() {
 		const model = structuredClone(blueprintFixture);
@@ -64,6 +62,23 @@ suite('A.D.E blueprint diagram controls', () => {
 		});
 		const surface = new AdeCanvasSurface(host, canvas, controls, project, commandService, new (mock<IQuickInputService>())(), new (mock<IContextMenuService>())(), new (mock<INotificationService>())());
 		return { surface, project, commands };
+	}
+
+	function editorFixture() {
+		const { project } = fixture();
+		const batches: (readonly VisualEdit[])[] = [];
+		const opened: string[] = [];
+		Object.assign(project, {
+			documentVersion: 'model:0',
+			editBatch: (edits: readonly VisualEdit[]) => {
+				batches.push(edits);
+				const model = edits.reduce((current, edit) => applyVisualEdit(current, edit) as typeof current, project.model);
+				Object.assign(project, { model, activeView: model.views.find(view => view.id === project.activeView?.id), documentVersion: `model:${batches.length}` });
+			},
+			showDiagram: (id: string) => opened.push(id)
+		});
+		const editor = store.add(new AdeBlueprintEditor(project));
+		return { project, editor, batches, opened };
 	}
 
 	for (const presentation of ['canvas', 'toolbar'] as const) {
@@ -83,30 +98,115 @@ suite('A.D.E blueprint diagram controls', () => {
 		assert.ok(!root.textContent?.includes('Edit Visible Elements') && !root.textContent?.includes('Edit Context Dependencies'));
 	});
 
-	test('creating a blueprint opens its new diagram after applying the edit', async () => {
-		const { project } = fixture();
-		const opened: string[] = [];
-		Object.assign(project, { showDiagram: (id: string) => { assert.ok(project.model.views.some(view => view.id === id)); opened.push(id); } });
-		const ui = Object.assign(new (mock<AdeEditingContext>())(), { project, container: root, edit: (edits: VisualEdit[]) => { project.model = edits.reduce((model, edit) => applyVisualEdit(model, edit) as typeof model, project.model); } });
-		const result = runAdeSpecificationCommand(ui, 'blueprint', undefined, 'c4');
-		await page('C4 View Subject and Context'); select('Create New'); await next('C4 Level');
-		select('L3 · Components'); await next('View Subject'); select('API'); await next('View Name');
-		root.querySelector<HTMLInputElement>('input[type="text"]')!.value = 'New Blueprint';
-		await next('Context Dependencies (Outside the Subject)'); await next('Visible Elements'); await next('Review Your Blueprint Changes');
-		assert.deepStrictEqual(opened, []); button('Apply Changes'); await result;
-		assert.deepStrictEqual(opened.map(id => project.model.views.find(view => view.id === id)?.name), ['New Blueprint']);
+	test('applying a new C4 view keeps the blueprint editor open', () => {
+		const { editor, project, batches, opened } = editorFixture();
+		editor.open(undefined, 'c4');
+		editor.render(root);
+		button('New C4 View').click();
+		setField('View Name', 'New Blueprint');
+		setField('C4 Level', 'c4Component');
+		setField('View Subject', 'container.api');
+		assert.strictEqual(batches.length, 0);
+		assert.ok(!root.querySelector('dialog'));
+		button('Apply to Model').click();
+		assert.deepStrictEqual(batches.map(batch => batch.length), [1]);
+		assert.strictEqual(project.model.views.find(view => view.name === 'New Blueprint')?.subjectId, 'container.api');
+		assert.deepStrictEqual(opened, []);
+		assert.ok(button('New C4 View').isConnected);
+		button('Open Diagram').click();
+		assert.strictEqual(opened.at(0), project.model.views.find(view => view.name === 'New Blueprint')?.id);
 	});
 
-	for (const [mode, title] of [['c4Visibility', 'Visible Elements'], ['c4Dependencies', 'Context Dependencies (Outside the Subject)']] as const) {
-		test(`${mode} opens the current diagram selection in the wizard and applies only after review`, async () => {
-			const { project } = fixture(); const edits: VisualEdit[][] = [];
-			const ui = Object.assign(new (mock<AdeEditingContext>())(), { project, container: root, edit: (batch: VisualEdit[]) => { edits.push(batch); } });
-			const result = runAdeSpecificationCommand(ui, 'blueprint', undefined, mode);
-			await page(title);
-			assert.ok(root.querySelector('input[type="checkbox"]:checked'));
-			await next('Review Your Blueprint Changes'); assert.strictEqual(edits.length, 0);
-			button('Apply Changes'); await result;
-			assert.strictEqual(edits[0]?.[0]?.kind, 'c4View');
+	test('a shared operation can use a type from the same draft and remain selected across applications', () => {
+		const { editor, project, batches } = editorFixture();
+		editor.open(undefined, 'operations');
+		editor.render(root);
+		button('New Shared Operation').click();
+		setField('Operation Name', 'getTrackingCode');
+		setField('Operation Owner', 'contract.checkout');
+		button('Add Input').click();
+		setField('Name', 'code');
+
+		button('Shared Types').click();
+		button('New Shared Type').click();
+		setField('Type Name', 'Tracking Code');
+		setField('Type Kind', 'primitive');
+		setField('Primitive Defined by the Profile', 'string');
+		button('Shared Operations').click();
+		assert.strictEqual(field('Operation Name').value, 'getTrackingCode');
+		const type = Array.from((field('Type') as HTMLSelectElement).options).find(option => option.textContent?.includes('Tracking Code'));
+		assert.ok(type);
+		setField('Type', type.value);
+		assert.strictEqual(batches.length, 0);
+
+		button('Review').click();
+		assert.ok(root.querySelector('.ade-blueprint-review')?.textContent?.includes('Tracking Code'));
+		button('Apply to Model').click();
+		assert.deepStrictEqual(batches.map(batch => batch.map(edit => edit.kind)), [['type', 'blueprint']]);
+		assert.ok(project.model.version === 4 || project.model.version === 5);
+		const operation = project.model.foundation.blueprint?.operations.find(operation => operation.name === 'getTrackingCode');
+		assert.ok(operation);
+		assert.strictEqual(operation.inputs[0]?.typeId, type.value);
+		assert.strictEqual(field('Operation Name').value, operation.name);
+
+		setField('Operation Name', 'readTrackingCode');
+		button('Access and Acceptance').click();
+		button('Add Criterion').click();
+		setField('Given', 'A tracking code exists');
+		button('Behavior Rules').click();
+		assert.strictEqual(button('Apply to Model').getAttribute('aria-disabled'), 'true');
+		button('Access and Acceptance').click();
+		setField('When', 'The customer looks up the delivery');
+		setField('Then', 'The current status is shown');
+		button('Apply to Model').click();
+		assert.strictEqual(batches.length, 2);
+		const updated = project.model.foundation.blueprint?.operations.find(entry => entry.id === operation.id);
+		assert.strictEqual(updated?.name, 'readTrackingCode');
+		assert.strictEqual(updated?.acceptanceCriteria[0]?.then, 'The current status is shown');
+		assert.strictEqual(button('Access and Acceptance').getAttribute('aria-selected'), 'true');
+	});
+
+	test('an external model revision preserves the draft and allows a fresh edit after discarding it', () => {
+		const { editor, project, batches } = editorFixture();
+		editor.open(undefined, 'types');
+		editor.render(root);
+		button('New Shared Type').click();
+		setField('Type Name', 'Draft Before External Change');
+
+		Object.assign(project, { model: { ...project.model, name: 'External Revision' }, documentVersion: 'model:external' });
+		editor.render(root);
+		assert.strictEqual(field('Type Name').value, 'Draft Before External Change');
+		assert.strictEqual(button('Apply to Model').getAttribute('aria-disabled'), 'true');
+		button('Apply to Model').click();
+		assert.strictEqual(batches.length, 0);
+
+		button('Discard Draft').click();
+		assert.strictEqual(project.model.name, 'External Revision');
+		assert.strictEqual(button('Apply to Model').getAttribute('aria-disabled'), 'true');
+		button('New Shared Type').click();
+		setField('Type Name', 'New Type on Current Revision');
+		button('Apply to Model').click();
+		assert.strictEqual(batches.length, 1);
+		assert.ok(project.model.version === 4 || project.model.version === 5);
+		assert.ok(project.model.foundation.types.some(type => type.name === 'New Type on Current Revision'));
+		assert.ok(!project.model.foundation.types.some(type => type.name === 'Draft Before External Change'));
+	});
+
+	for (const [mode, target, initialState] of [['c4Visibility', 'Audit · Visible', true], ['c4Dependencies', 'Payments · Context', false]] as const) {
+		test(`${mode} opens the active C4 view and keeps changes in the editor until applied`, () => {
+			const { editor, batches } = editorFixture();
+			editor.open(undefined, mode);
+			editor.render(root);
+			const control = root.querySelector<HTMLInputElement>(`input[aria-label="${target}"]`);
+			assert.ok(control);
+			assert.strictEqual(control.checked, initialState);
+			control.click();
+			assert.strictEqual(batches.length, 0);
+			button('Apply to Model').click();
+			const edit = batches.at(0)?.at(0);
+			assert.strictEqual(edit?.kind, 'c4View');
+			assert.strictEqual(edit.view.id, 'c4.l3');
+			assert.strictEqual(root.querySelector<HTMLInputElement>(`input[aria-label="${target}"]`)?.checked, !initialState);
 		});
 	}
 });

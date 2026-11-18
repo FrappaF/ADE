@@ -186,7 +186,7 @@ export class AdeView extends ViewPane {
 					[localize('ade.blueprint.sidebar', "Structural Blueprint"), 'ade.blueprint', Codicon.symbolStructure, localize('ade.outline.blueprintHelp', "Define structure, ownership and shared contracts.")]
 				] as const) {
 					const button = actionMenu.action(command === 'ade.blueprint' ? architecture : authored, label, () => { this.controls.setExpanded('outline-new', false); return this.commandService.executeCommand(command); }, { icon, description });
-					button.disabled = this.ai.busy || this.code.busy || this.project.hasDiagramErrors || (command === 'ade.blueprint' && model.version !== 4 && model.version !== 5);
+					button.disabled = this.ai.busy || this.code.busy || (command === 'ade.blueprint' ? model.version !== 4 && model.version !== 5 : this.project.hasDiagramErrors);
 					if (command === 'ade.blueprint') { button.classList.add('ade-sidebar-blueprint'); }
 				}
 			}

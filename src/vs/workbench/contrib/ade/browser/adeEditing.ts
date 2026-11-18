@@ -16,6 +16,7 @@ import { getProjectedInteraction } from '../common/visualNavigation.js';
 import { VisualEdit } from '../common/visualEditing.js';
 import { getDeletionPreview } from '../common/deletionPreview.js';
 import { confirmAdeDeletion } from './adeDeletionDialog.js';
+import { AdeEditor } from './adeEditor.js';
 import { AdeInput } from './adeInput.js';
 import { AdeProjectService, IAdeProjectService } from './adeProjectService.js';
 import { type BlueprintEditMode } from './adeBlueprintEditing.js';
@@ -63,7 +64,7 @@ class EditingUI implements AdeEditingContext {
 		return picked?.feature;
 	}
 
-	async run(command: AdeEditingCommand, id?: string, mode?: BlueprintEditMode): Promise<void> {
+	async run(command: Exclude<AdeEditingCommand, 'blueprint' | 'projectDecisions'>, id?: string): Promise<void> {
 		switch (command) {
 			case 'createProject':
 			case 'openProject':
@@ -83,9 +84,7 @@ class EditingUI implements AdeEditingContext {
 			case 'stateMachine':
 			case 'interaction':
 			case 'predicate':
-			case 'prepareStructuralContext':
-			case 'blueprint':
-			case 'projectDecisions': return runAdeSpecificationCommand(this, command, id, mode);
+			case 'prepareStructuralContext': return runAdeSpecificationCommand(this, command, id);
 			case 'addFeature':
 			case 'parent':
 			case 'notation':
@@ -132,12 +131,25 @@ for (const [command, title] of adeEditingCommands) {
 			const project = accessor.get(IAdeProjectService);
 			const editor = accessor.get(IEditorService);
 			const notifications = accessor.get(INotificationService);
+			const editorOptions = { pinned: true, revealIfOpened: true };
 			const workspace = command === 'createProject' || command === 'openProject' ? accessor.get(IAdeProjectWorkspaceService) : undefined;
-			const ui = new EditingUI(accessor.get(IWorkbenchLayoutService).activeContainer, project, accessor.get(IQuickInputService), accessor.get(IDialogService), accessor.get(IFileDialogService));
 			try {
-				await ui.run(command, id, mode);
+				if (command === 'blueprint' || command === 'projectDecisions') {
+					await project.restore();
+					if (!project.editable) { return; }
+					const version = project.model.version;
+					if (version !== 4 && version !== 5) { throw new Error(localize('ade.blueprint.upgrade', "Upgrade the model to version 4 to edit its blueprint.")); }
+					const resource = project.modelUri?.toString();
+					const pane = await editor.openEditor({ resource: AdeInput.RESOURCE, options: editorOptions });
+					if (pane instanceof AdeEditor && project.editable && project.modelUri?.toString() === resource) {
+						pane.showBlueprint(id, command === 'projectDecisions' ? 'decision' : mode);
+					}
+					return;
+				}
+				const ui = new EditingUI(accessor.get(IWorkbenchLayoutService).activeContainer, project, accessor.get(IQuickInputService), accessor.get(IDialogService), accessor.get(IFileDialogService));
+				await ui.run(command, id);
 				if (ui.projectChanged) { await workspace?.align(); }
-				await editor.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+				await editor.openEditor({ resource: AdeInput.RESOURCE, options: editorOptions });
 			} catch (error) { notifications.error(adeErrorNotification(error, 'edit', project.model)); }
 		}
 	});

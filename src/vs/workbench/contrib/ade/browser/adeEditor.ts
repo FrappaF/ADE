@@ -57,6 +57,8 @@ import { AdeCanvasController } from './adeCanvasController.js';
 import { AdeCanvasSurface } from './adeCanvasSurface.js';
 import { AdeInspector } from './adeInspector.js';
 import { AdeWorkflowContent } from './adeWorkflowContent.js';
+import { AdeBlueprintEditor } from './adeBlueprintEditor.js';
+import { type BlueprintEditMode } from './adeBlueprintEditing.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
 
 export class AdeEditor extends EditorPane {
@@ -66,7 +68,7 @@ export class AdeEditor extends EditorPane {
 
 	private reviewOpen = false;
 
-	private activeTab: 'workspace' | 'project' | 'ai' | 'code' = 'workspace';
+	private activeTab: 'workspace' | 'project' | 'ai' | 'code' | 'blueprint' = 'workspace';
 
 	private reviewContext: string | undefined;
 
@@ -101,7 +103,7 @@ export class AdeEditor extends EditorPane {
 		this.render();
 		void this.ai.refreshConnection().catch(error => this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)));
 		this._register(dom.addDisposableListener(this.root, 'keydown', (event: KeyboardEvent) => {
-			if (event.key === 'Escape') {
+			if (event.key === 'Escape' && this.activeTab !== 'blueprint') {
 				if (this.surface.pendingConnection) { this.surface.pendingConnection = undefined; this.render(); }
 				else if (this.surface.inspectorOpen) { this.surface.inspectorOpen = false; this.render(); this.canvas.canvasViewport?.focus(); }
 				this.controls.setExpanded('canvas-actions', false);
@@ -121,6 +123,15 @@ export class AdeEditor extends EditorPane {
 
 	showWorkspace(): void { this.activeTab = 'workspace'; if (this.root) { this.render(); } }
 
+	showBlueprint(id?: string, mode?: BlueprintEditMode): void {
+		this.blueprint.open(id, mode);
+		this.activeTab = 'blueprint';
+		if (this.root) {
+			this.render();
+			this.blueprint.focus();
+		}
+	}
+
 	captureAccessibilityFocus(): () => void { return this.controls.captureFocus(this.root); }
 
 	describeCurrentContext(): string {
@@ -130,6 +141,7 @@ export class AdeEditor extends EditorPane {
 	}
 
 	focusSelection(): void {
+		if (this.activeTab === 'blueprint') { this.showWorkspace(); }
 		if (!this.controls.focusTarget(`node:${this.project.selectedId}`)) { this.focus(); }
 	}
 
@@ -147,6 +159,8 @@ export class AdeEditor extends EditorPane {
 	}
 
 	private render(): void {
+		const active = dom.getActiveElement();
+		const blueprintFocus = this.activeTab === 'blueprint' && dom.isHTMLElement(active) && this.content?.contains(active) ? active : undefined;
 		if (this.lastElementSelection !== this.project.selectedId || !this.project.activeView?.relationIds.includes(this.surface.relationSelection ?? '')) { this.surface.relationSelection = undefined; }
 		this.lastElementSelection = this.project.selectedId;
 		if (this.surface.pendingConnection && (this.surface.pendingConnection.version !== this.project.documentVersion || this.surface.pendingConnection.viewId !== this.project.activeView?.id)) { this.surface.pendingConnection = undefined; }
@@ -160,13 +174,16 @@ export class AdeEditor extends EditorPane {
 		this.canvas.floatingMenu = undefined;
 		this.canvas.floatingInspector = undefined;
 		this.activeReview = undefined;
-		this.renderedContext = `${this.project.modelUri?.toString() ?? 'demo'}:${this.activeTab}:${this.project.section}:${this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id ?? ''}`;
 		const reviewContext = this.ai.structuralReview ? `${this.ai.structuralReview.root}:${this.ai.structuralReview.id}` : undefined;
-		if (reviewContext !== this.reviewContext) { this.reviewOpen = !!reviewContext; this.reviewContext = reviewContext; if (reviewContext) { this.activeTab = 'workspace'; } }
+		if (reviewContext !== this.reviewContext) { this.reviewOpen = !!reviewContext; this.reviewContext = reviewContext; if (reviewContext && this.activeTab !== 'blueprint') { this.activeTab = 'workspace'; } }
+		const blueprintMode = this.activeTab === 'blueprint' && !this.project.error && !this.project.loading;
+		this.renderedContext = JSON.stringify([this.project.modelUri?.toString(), this.activeTab, blueprintMode ? undefined : this.project.section, blueprintMode ? undefined : this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id]);
 		const reviewMode = this.activeTab === 'workspace' && (!!this.ai.diagramReview || this.reviewOpen && !!this.ai.structuralReview && this.project.section !== 'home') && !this.project.error && !this.project.loading;
+		this.root.classList.toggle('ade-blueprint-mode', blueprintMode);
 		this.root.classList.toggle('ade-review-mode', reviewMode);
 		const sourceEvidence = isSourceEvidenceModel(this.project.model);
 		const warnings = this.project.error || this.project.loading ? [] : validateSemanticModel(this.project.model).filter(diagnostic => diagnostic.severity === 'warning');
+		const showStructuralErrors = this.project.hasStructuralErrors && !this.project.hasDiagramErrors && !this.project.error && !blueprintMode;
 		const canvasMode = this.activeTab === 'workspace' && !reviewMode && !sourceEvidence && this.project.section === 'diagram' && !!this.project.activeView && !this.project.loading && !this.project.error && !this.project.hasDiagramErrors;
 		this.root.classList.toggle('ade-canvas-mode', canvasMode);
 		if (this.canvas.cameraKey) { this.canvas.cameras.set(this.canvas.cameraKey, { ...this.canvas.camera }); }
@@ -177,7 +194,7 @@ export class AdeEditor extends EditorPane {
 			dom.clearNode(this.root);
 			this.renderWorkspaceBar(this.root);
 			if (!canvasMode && this.activeTab === 'workspace' && this.project.section !== 'home' && this.project.model.views.length > 0) { this.renderNavigation(this.root); }
-			if (warnings.length || this.project.saveError || this.project.hasStructuralErrors && !this.project.hasDiagramErrors && !this.project.error) {
+			if (warnings.length || this.project.saveError || showStructuralErrors) {
 				const summary = dom.append(this.root, dom.$('div.ade-error-summary'));
 				for (const warning of warnings) { dom.append(summary, dom.$('p', { role: 'status' })).textContent = diagnosticMessage(warning, this.project.model); }
 				if (this.project.saveError) {
@@ -185,16 +202,20 @@ export class AdeEditor extends EditorPane {
 					this.button(notice, localize('ade.retrySave', "Retry Save"), () => this.project.save());
 					this.button(notice, localize('ade.saveCopy', "Save Copy"), () => this.commandService.executeCommand('ade.saveCopy'));
 				}
-				if (this.project.hasStructuralErrors && !this.project.hasDiagramErrors && !this.project.error) {
+				if (showStructuralErrors) {
 					const notice = renderAdeErrorNotice(summary, describeAdeError(new InvalidSemanticModelError(validateSemanticModel(this.project.model)), 'edit', this.project.model), this.controls);
 					this.button(notice, localize('ade.blueprint.edit', "Edit Blueprint"), () => this.commandService.executeCommand('ade.blueprint'));
 				}
 			}
 			const content = dom.append(this.root, dom.$('main.ade-content'));
 			this.content = content;
-			content.setAttribute('role', 'region'); content.setAttribute('aria-label', this.activeTab === 'code' ? localize('ade.code.title', "Code") : this.activeTab === 'project' ? localize('ade.project.settingsTitle', "Project Settings") : this.activeTab === 'ai' ? localize('ade.ai.settings', "AI Settings") : localize('ade.workspaceTab', "Diagrams"));
+			content.setAttribute('role', 'region'); content.setAttribute('aria-label', blueprintMode ? localize('ade.blueprint.sidebar', "Structural Blueprint") : this.activeTab === 'code' ? localize('ade.code.title', "Code") : this.activeTab === 'project' ? localize('ade.project.settingsTitle', "Project Settings") : this.activeTab === 'ai' ? localize('ade.ai.settings', "AI Settings") : localize('ade.workspaceTab', "Diagrams"));
 			if (this.activeTab === 'workspace' && !reviewMode && !canvasMode && !sourceEvidence && this.project.section !== 'home' && (this.project.section !== 'diagram' || !!this.project.activeView) && !this.project.error && !this.project.loading) { this.workflow.renderWorkflow(content); }
-			if (this.activeTab === 'code') {
+			if (blueprintMode) {
+				content.tabIndex = -1;
+				this.controls.trackFocus('workspace-blueprint-content', content);
+				this.blueprint.render(content);
+			} else if (this.activeTab === 'code') {
 				this.workflow.renderCodeActions(content, () => { this.activeTab = 'project'; this.render(); }, parent => this.renderPrimaryActions(parent, true));
 			} else if (this.activeTab === 'project') {
 				this.workflow.renderProjectActions(content);
@@ -241,6 +262,9 @@ export class AdeEditor extends EditorPane {
 		});
 		if (!canvasMode) { this.restoreCanvasScroll(); }
 		if (this.content) { this.content.scrollTop = this.contentPositions.get(this.renderedContext) ?? 0; }
+		if (blueprintMode && blueprintFocus?.isConnected && dom.getActiveElement() !== blueprintFocus) {
+			blueprintFocus.focus({ preventScroll: true });
+		}
 		this.readingChanged.fire();
 	}
 
@@ -263,7 +287,10 @@ export class AdeEditor extends EditorPane {
 		action(preferences, localize('ade.project.settingsTitle', "Project Settings"), Codicon.settingsGear, () => { this.activeTab = 'project'; this.render(); }, undefined, true);
 		action(preferences, localize('ade.ai.settings', "AI Settings"), Codicon.sparkle, () => { this.activeTab = 'ai'; this.render(); }, undefined, true);
 		action(preferences, this.configurationService.getValue<boolean>('ade.focusDiagrams') === false ? localize('ade.layout.focus', "Focus on Diagrams") : localize('ade.layout.showIDE', "Show IDE"), Codicon.layout, () => this.commandService.executeCommand('ade.toggleWorkbench'));
-		if (this.activeTab === 'workspace' && this.project.section === 'diagram' && this.project.activeView) {
+		if (this.activeTab === 'blueprint') {
+			const label = this.project.section === 'diagram' && this.project.activeView ? localize('ade.backToDiagram', "Back to Diagram") : localize('ade.blueprint.backToWorkspace', "Back to Workspace");
+			this.button(bar, label, () => this.showWorkspace(), 'workspace-diagram').classList.add('ade-diagram-picker');
+		} else if (this.activeTab === 'workspace' && this.project.section === 'diagram' && this.project.activeView) {
 			const diagram = this.button(bar, this.project.activeView.name, () => { this.controls.setExpanded('workspace-project-menu', false); return this.chooseDiagram(); }, 'workspace-diagram');
 			diagram.classList.add('ade-diagram-picker'); diagram.setAttribute('aria-haspopup', 'listbox'); diagram.setAttribute('aria-label', this.project.activeView.name);
 		} else if (this.project.section !== 'home' && !!this.project.activeView && !this.project.error && !this.project.loading) {
@@ -278,6 +305,15 @@ export class AdeEditor extends EditorPane {
 		if (this.project.section !== 'home' && !this.project.loading && !this.project.error && (this.project.model.semantics.elements.length > 0 || !!this.code.context)) {
 			const code = this.button(trailing, localize('ade.code.title', "Code"), () => { this.controls.setExpanded('workspace-project-menu', false); this.activeTab = 'code'; this.render(); }, 'workspace-code');
 			code.setAttribute('aria-pressed', String(this.activeTab === 'code'));
+		}
+		if (this.project.editable) {
+			const model = this.project.model;
+			if ((model.version === 4 || model.version === 5) && !isSourceEvidenceModel(model)) {
+				const blueprint = this.button(trailing, localize('ade.blueprint.sidebar', "Structural Blueprint"), () => this.showBlueprint(), 'workspace-blueprint');
+				prependAdeIcon(blueprint, Codicon.symbolStructure);
+				blueprint.setAttribute('aria-pressed', String(this.activeTab === 'blueprint'));
+				blueprint.disabled = this.ai.busy || this.code.busy;
+			}
 		}
 		if (this.project.dirty) { this.button(trailing, localize('ade.save', "Save"), () => this.project.save(true), 'workspace-save').classList.add('ade-primary-action'); }
 		const state = dom.append(trailing, dom.$('span.ade-document-state')); state.setAttribute('role', 'status'); state.textContent = this.documentStatus();
@@ -578,6 +614,8 @@ export class AdeEditor extends EditorPane {
 
 	private readonly workflow: AdeWorkflowContent;
 
+	private readonly blueprint: AdeBlueprintEditor;
+
 	constructor(
 		group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -601,12 +639,31 @@ export class AdeEditor extends EditorPane {
 		this.surface = new AdeCanvasSurface({ button: (parent, label, action, id) => this.button(parent, label, action, id), chooseDiagram: () => this.chooseDiagram(), focusSelection: () => this.focusSelection(), renderBreadcrumbs: (parent) => this.renderBreadcrumbs(parent), renderNavigation: (parent, canvas) => this.renderNavigation(parent, canvas), renderPrimaryActions: (parent) => this.renderPrimaryActions(parent), documentStatus: () => this.documentStatus(), render: () => this.render(), iconButton: (parent, label, icon, action, id) => this.iconButton(parent, label, icon, action, id), paragraph: (parent, content) => this.paragraph(parent, content), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId) }, this.canvas, this.controls, this.project, this.commandService, this.quick, this.contextMenus, this.notifications);
 		this.inspector = new AdeInspector({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId), relationMenu: (id, x, y) => this.surface.relationMenu(id, x, y), beginConnection: id => this.surface.beginConnection(id) }, this.controls, this.project, this.code, this.commandService);
 		this.workflow = new AdeWorkflowContent({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), documentStatus: () => this.documentStatus(), get root() { return self.root; }, showReview: () => this.showReview() }, this.controls, this.project, this.ai, this.configurationService, this.notifications, this.code, this.commandService);
+		this.blueprint = this._register(new AdeBlueprintEditor(project, id => {
+			project.showDiagram(id);
+			if (this.activeTab === 'blueprint') { this.showWorkspace(); }
+		}));
 
 		this._register(code.onDidChange(() => { if (this.root) { this.render(); } }));
 		let reviewId = ai.diagramReview?.id;
-		this._register(ai.onDidChange(() => { if (ai.diagramReview?.id !== reviewId) { reviewId = ai.diagramReview?.id; if (reviewId) { this.activeTab = 'workspace'; } } if (this.root) { this.render(); } }));
-		let navigationContext = `${project.section}:${project.activeView?.id}`;
-		this._register(project.onDidChange(() => { const context = `${project.section}:${project.activeView?.id}`; if (context !== navigationContext) { this.activeTab = 'workspace'; navigationContext = context; } if (this.root) { this.render(); } }));
+		this._register(ai.onDidChange(() => { if (ai.diagramReview?.id !== reviewId) { reviewId = ai.diagramReview?.id; if (reviewId && this.activeTab !== 'blueprint') { this.activeTab = 'workspace'; } } if (this.root) { this.render(); } }));
+		const navigationKey = () => `${project.section}:${project.activeView?.id ?? (project.section === 'element' || project.section === 'impact' ? project.selectedId : '')}`;
+		let navigationContext = navigationKey();
+		let modelRevision = project.modelRevision;
+		let modelResource = project.modelUri?.toString();
+		this._register(project.onDidChange(() => {
+			const context = navigationKey();
+			const revision = project.modelRevision;
+			const resource = project.modelUri?.toString();
+			// Repair or creation may change the available diagram as part of applying a document edit.
+			if (resource !== modelResource || context !== navigationContext && (this.activeTab !== 'blueprint' || revision === modelRevision)) {
+				this.activeTab = 'workspace';
+			}
+			navigationContext = context;
+			modelRevision = revision;
+			modelResource = resource;
+			if (this.root) { this.render(); }
+		}));
 		this._register(configurationService.onDidChangeConfiguration(event => {
 			if (this.root && (event.affectsConfiguration(AccessibilityVerbositySettingId.Ade) || event.affectsConfiguration('chat.disableAIFeatures') || event.affectsConfiguration('ade.focusDiagrams'))) { this.render(); }
 		}));

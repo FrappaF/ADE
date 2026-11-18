@@ -14,14 +14,12 @@ import { editAdeInteraction } from './adeInteractionEditing.js';
 import { editAdePredicate } from './adePredicateEditing.js';
 import { editAdeStack } from './adeStackEditing.js';
 import { editAdeTask } from './adeTaskEditing.js';
-import { type BlueprintEditMode } from './adeBlueprintEditing.js';
-import { AdeBlueprintWizard } from './adeBlueprintWizard.js';
 import { AdeEditingWizard } from './adeEditingWizard.js';
 import { type AdeEditingContext } from './adeEditingContext.js';
 import { type AdeEditingCommand } from './adeEditingCommands.js';
 
 /** Collects specification intent; domain mutation remains in the project service. */
-export async function runAdeSpecificationCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'taskIntent' | 'createPureFeature' | 'selectStructuralProfile' | 'messaging' | 'simulateMessaging' | 'stateMachine' | 'interaction' | 'predicate' | 'prepareStructuralContext' | 'blueprint' | 'projectDecisions'>, id?: string, mode?: BlueprintEditMode): Promise<void> {
+export async function runAdeSpecificationCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'taskIntent' | 'createPureFeature' | 'selectStructuralProfile' | 'messaging' | 'simulateMessaging' | 'stateMachine' | 'interaction' | 'predicate' | 'prepareStructuralContext'>, id?: string): Promise<void> {
 	const view = ui.project.activeView;
 	const model = ui.project.model;
 	const collect = async <T>(title: string, callback: (quick: Pick<IQuickInputService, 'pick' | 'input'>) => Promise<T | undefined>): Promise<T | undefined> => {
@@ -65,19 +63,5 @@ export async function runAdeSpecificationCommand(ui: AdeEditingContext, command:
 			return intent ? { operationId: operation.operation.id, intent } : undefined;
 		});
 		if (configured) { await ui.project.prepareStructuralContext(configured.operationId, configured.intent); } return;
-	}
-	if (command === 'blueprint' || command === 'projectDecisions') {
-		if ((model.version !== 4 && model.version !== 5)) { throw new Error(localize('ade.blueprint.upgrade', "Upgrade the model to version 4 to edit its blueprint.")); }
-		const disposables = new DisposableStore();
-		try {
-			const wizard = disposables.add(new AdeBlueprintWizard(ui.container));
-			const edits = await wizard.open(model, id ?? ui.project.selectedId, view, command === 'projectDecisions' ? 'decision' : mode);
-			if (edits?.length) {
-				ui.edit(edits);
-				const created = edits.find(edit => edit.kind === 'c4View' && !model.views.some(view => view.id === edit.view.id));
-				if (created?.kind === 'c4View') { ui.project.showDiagram(created.view.id); }
-			}
-		} finally { disposables.dispose(); }
-		return;
 	}
 }

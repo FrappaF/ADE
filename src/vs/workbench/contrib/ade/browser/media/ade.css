@@ -76,6 +76,280 @@
 	min-width: 0;
 }
 
+.ade-shell.ade-blueprint-mode .ade-content {
+	padding: 0;
+}
+
+.ade-shell .ade-blueprint-editor {
+	display: grid;
+	grid-template-columns: minmax(145px, 240px) minmax(0, 1fr);
+	grid-template-rows: 1fr auto;
+	min-height: 100%;
+}
+
+.ade-blueprint-editor .ade-blueprint-activities {
+	padding: var(--vscode-spacing-size120);
+	background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+	border-inline-end: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-blueprint-editor .ade-blueprint-area-nav > button,
+.ade-blueprint-editor .ade-blueprint-activity-list > button {
+	display: block;
+	width: 100%;
+	background: transparent;
+	color: inherit;
+	overflow-wrap: anywhere;
+}
+
+.ade-blueprint-editor .ade-blueprint-activity-list > button[aria-current="true"] {
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+.ade-blueprint-editor .ade-blueprint-area-nav > button {
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-blueprint-editor .ade-blueprint-area-nav > button[aria-expanded]::after {
+	content: '›';
+	float: inline-end;
+	margin-inline-start: var(--vscode-spacing-size80);
+}
+
+.ade-blueprint-editor .ade-blueprint-area-nav > button[aria-expanded="true"]::after {
+	transform: rotate(90deg);
+}
+
+.ade-blueprint-editor .ade-blueprint-activity-list {
+	padding-inline-start: var(--vscode-spacing-size120);
+}
+
+.ade-blueprint-editor .ade-blueprint-main {
+	min-width: 0;
+	padding: var(--vscode-spacing-size240);
+}
+
+.ade-blueprint-editor .ade-blueprint-sheet {
+	max-width: 960px;
+}
+
+.ade-blueprint-editor .ade-blueprint-heading,
+.ade-blueprint-editor .ade-blueprint-record {
+	margin-bottom: var(--vscode-spacing-size200);
+}
+
+.ade-blueprint-editor .ade-blueprint-path {
+	color: var(--vscode-textLink-foreground);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	margin: 0 0 var(--vscode-spacing-size80);
+}
+
+.ade-blueprint-editor .ade-blueprint-title,
+.ade-blueprint-editor .ade-blueprint-record-title,
+.ade-blueprint-editor .ade-blueprint-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-blueprint-editor :is(h2, h3) {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.ade-blueprint-editor .ade-blueprint-note,
+.ade-blueprint-editor .ade-blueprint-status {
+	color: var(--vscode-descriptionForeground);
+	overflow-wrap: anywhere;
+}
+
+.ade-blueprint-editor .ade-blueprint-note {
+	margin: var(--vscode-spacing-size80) 0;
+}
+
+.ade-blueprint-editor .ade-blueprint-record {
+	max-width: 360px;
+}
+
+.ade-blueprint-editor .ade-blueprint-group {
+	padding-block: var(--vscode-spacing-size160);
+}
+
+.ade-blueprint-editor .ade-blueprint-group + .ade-blueprint-group,
+.ade-blueprint-editor .ade-blueprint-review {
+	border-top: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-blueprint-editor .ade-blueprint-group > h3 {
+	margin-bottom: var(--vscode-spacing-size120);
+}
+
+.ade-blueprint-editor .ade-blueprint-field {
+	display: grid;
+	gap: var(--vscode-spacing-size40);
+	min-width: 0;
+	max-width: 100%;
+	margin-bottom: var(--vscode-spacing-size120);
+}
+
+.ade-blueprint-editor :is(input:not([type="checkbox"]), select, textarea) {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	min-height: 28px;
+	color: var(--vscode-input-foreground);
+	background: var(--vscode-input-background);
+	border: var(--vscode-strokeThickness) solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small);
+	font: inherit;
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+}
+
+.ade-blueprint-editor textarea {
+	resize: vertical;
+}
+
+.ade-blueprint-editor :is(input, select, textarea):focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.ade-blueprint-editor .ade-blueprint-check {
+	display: flex;
+	flex-direction: row-reverse;
+	align-items: center;
+	justify-content: start;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-blueprint-editor :is(.ade-blueprint-fields, .ade-blueprint-form-row, .ade-blueprint-collection-row) {
+	display: flex;
+	align-items: start;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-blueprint-editor :is(.ade-blueprint-fields, .ade-blueprint-form-row, .ade-blueprint-collection-row) > .ade-blueprint-field {
+	flex: 1 1 120px;
+}
+
+.ade-blueprint-editor :is(.ade-blueprint-form-row, .ade-blueprint-collection-row) {
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	margin-bottom: var(--vscode-spacing-size120);
+}
+
+.ade-blueprint-editor .ade-blueprint-form-fieldset {
+	min-inline-size: 0;
+	border: 0;
+	padding: 0;
+	margin: 0;
+}
+
+.ade-blueprint-editor .ade-blueprint-c4-grid {
+	border-collapse: collapse;
+	width: 100%;
+	margin-block: var(--vscode-spacing-size120);
+}
+
+.ade-blueprint-editor .ade-blueprint-c4-grid :is(td, th) {
+	padding: var(--vscode-spacing-size80);
+	text-align: start;
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	overflow-wrap: anywhere;
+}
+
+.ade-blueprint-editor .ade-blueprint-c4-grid td .ade-blueprint-field {
+	margin: 0;
+}
+
+.ade-blueprint-editor .ade-blueprint-c4-grid td .ade-blueprint-field > span {
+	display: none;
+}
+
+.ade-blueprint-editor .ade-blueprint-c4-name > small {
+	display: block;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-blueprint-editor .ade-blueprint-c4-preview {
+	padding: var(--vscode-spacing-size120);
+	background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+	border: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.ade-blueprint-editor .ade-blueprint-review {
+	padding: var(--vscode-spacing-size160) 0;
+}
+
+.ade-blueprint-editor .ade-blueprint-review ul {
+	padding-inline-start: var(--vscode-spacing-size240);
+	overflow-wrap: anywhere;
+}
+
+.ade-blueprint-editor .ade-blueprint-error {
+	color: var(--vscode-errorForeground);
+}
+
+.ade-blueprint-editor .ade-blueprint-footer {
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	grid-column: 1 / -1;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size240);
+	background: var(--vscode-editor-background);
+	border-top: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+}
+
+.ade-blueprint-editor .ade-blueprint-footer button {
+	margin: 0;
+}
+
+.ade-blueprint-editor button[aria-disabled="true"] {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.ade-blueprint-editor .ade-blueprint-footer[hidden] {
+	display: none;
+}
+
+@container (min-width: 920px) {
+	.ade-blueprint-editor .ade-blueprint-c4-form {
+		display: grid;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+		gap: 0 var(--vscode-spacing-size240);
+	}
+
+	.ade-blueprint-editor .ade-blueprint-c4-identity {
+		grid-column: 1 / -1;
+	}
+
+	.ade-blueprint-editor .ade-blueprint-c4-summary {
+		align-self: start;
+	}
+}
+
+@container (max-width: 640px) {
+	.ade-shell .ade-blueprint-editor {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto 1fr auto;
+	}
+
+	.ade-blueprint-editor .ade-blueprint-activities {
+		border-inline-end: 0;
+		border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+	}
+}
+
 .ade-shell .ade-navigation {
 	max-height: 25%;
 	overflow: auto;
