@@ -5,10 +5,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { DiagramBox, DiagramPoint } from '../../src/vs/workbench/contrib/ade/common/diagramRouting.ts';
+import type { ModelView, SemanticElement, SemanticModel, SemanticRelation } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import '../scripts/source-loader.mjs';
-const { arrangeDiagram, diagramNodeWidth, diagramNodeHeight } = await import('../../src/vs/workbench/contrib/ade/common/diagramLayout.ts');
+const { arrangeDiagram, diagramNodeWidth, diagramNodeHeight, notationBoundaries, notationGroupMembers, notationNodeSize } = await import('../../src/vs/workbench/contrib/ade/common/diagramLayout.ts');
+const { routeDiagramConnections } = await import('../../src/vs/workbench/contrib/ade/common/diagramRouting.ts');
 const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ade/common/visualEditing.ts');
-const { notationGroupMembers } = await import('../../src/vs/workbench/contrib/ade/common/diagramLayout.ts');
 
 test('group traversal preserves ownership/hosting closure, including cycles and hidden descendants', () => {
 	for (const version of [3, 4, 5]) {
@@ -66,4 +68,62 @@ test('a linear behavior flow wraps into readable bands instead of one long horiz
 	assert.ok(Math.max(...nodes.map(node => node.x)) < 1500);
 	assert.ok(Math.max(...nodes.map(node => node.y)) > 0);
 	assert.deepEqual(model.semantics.elements.map(item => item.id), nodes.map(node => node.elementId));
+});
+
+test('arranging a deployment encloses nested hosts and separates unrelated hosts and shared artifacts', () => {
+	const elements: SemanticElement[] = [
+		...['web', 'api', 'data', 'runtime'].map(id => ({ id, kind: 'deploymentNode' as const, name: id })),
+		...['bundle', 'server', 'database', 'shared'].map(id => ({ id, kind: 'artifact' as const, name: id })),
+		{ id: 'application', kind: 'container', name: 'Application', parentId: 'data' }
+	];
+	const relations: SemanticRelation[] = [
+		['web', 'bundle'], ['api', 'runtime'], ['runtime', 'server'], ['api', 'application'],
+		['data', 'database'], ['web', 'shared'], ['data', 'shared']
+	].map(([from, to]) => ({ id: `${from}-${to}`, name: 'Hosts', kind: 'hosting', from, to }));
+	const view: ModelView = {
+		id: 'deployment', kind: 'deployment', name: 'Deployment',
+		nodes: elements.map(({ id }) => ({ elementId: id, x: 0, y: 0 })),
+		relationIds: relations.map(relation => relation.id)
+	};
+	const model: SemanticModel = {
+		version: 3, id: 'layout', name: 'Layout', semantics: { elements, relations }, views: [view], codeMappings: [], verifications: []
+	};
+	const byId = new Map(elements.map(element => [element.id, element]));
+	const overlaps = (a: DiagramBox, b: DiagramBox) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+	const contains = (outer: DiagramBox, inner: DiagramBox) => outer.x < inner.x && outer.y < inner.y && inner.x + inner.width < outer.x + outer.width && inner.y + inner.height < outer.y + outer.height;
+	for (const density of ['compact', 'balanced', 'spacious'] as const) {
+		const updated = applyVisualEdit(model, { kind: 'layout', viewId: view.id, density });
+		const arranged = updated.views[0];
+		const boundaries = notationBoundaries(updated, arranged);
+		const boxes = arranged.nodes.map(node => boundaries.find(boundary => boundary.elementId === node.elementId) ?? { ...node, ...notationNodeSize(byId.get(node.elementId)!) });
+		const membership = Object.fromEntries(boundaries.map(boundary => [boundary.elementId, [...notationGroupMembers(updated, arranged, boundary.elementId)].sort()]));
+		const conflicts = boundaries.flatMap(boundary => boxes.flatMap(box => {
+			if (box.elementId === boundary.elementId || membership[box.elementId]?.includes(boundary.elementId)) { return []; }
+			const valid = membership[boundary.elementId].includes(box.elementId) ? contains(boundary, box) : !overlaps(boundary, box);
+			return valid ? [] : [[boundary.elementId, box.elementId]];
+		}));
+		assert.deepEqual({ membership, conflicts, relationIds: arranged.relationIds, semantics: updated.semantics }, {
+			membership: { web: ['bundle', 'web'], api: ['api', 'application', 'runtime', 'server'], runtime: ['runtime', 'server'], data: ['data', 'database'] },
+			conflicts: [], relationIds: view.relationIds, semantics: model.semantics
+		});
+	}
+});
+
+test('off-center flow connections meet the outlines of sized decision and end nodes', () => {
+	const decision = { id: 'decision', x: 0, y: 0, outline: 'diamond' as const, ...notationNodeSize({ id: 'decision', kind: 'decision', name: 'Scorte disponibili?' }) };
+	const end = { id: 'end', x: 360, y: 0, outline: 'ellipse' as const, ...notationNodeSize({ id: 'end', kind: 'end', name: 'Fine' }) };
+	const routes = routeDiagramConnections([decision, end], [
+		{ id: 'first', from: decision.id, to: end.id },
+		{ id: 'second', from: decision.id, to: end.id }
+	]);
+	const normalizedOffset = (point: DiagramPoint, box: DiagramBox) => ({
+		x: Math.abs(2 * (point.x - box.x) / box.width - 1),
+		y: Math.abs(2 * (point.y - box.y) / box.height - 1)
+	});
+	for (const route of routes.values()) {
+		assert.ok(route);
+		const first = normalizedOffset(route[0], decision);
+		const last = normalizedOffset(route[route.length - 1], end);
+		assert.deepEqual([(first.x + first.y).toFixed(6), (last.x ** 2 + last.y ** 2).toFixed(6)], ['1.000000', '1.000000']);
+	}
 });

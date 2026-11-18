@@ -52,6 +52,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { getDefaultHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegateFactory.js';
 import { renderChangeImpact } from './adeImpact.js';
+import { impactScopeDescription } from './adeImpactContent.js';
 import { AdeCanvasController } from './adeCanvasController.js';
 import { AdeCanvasSurface } from './adeCanvasSurface.js';
 import { AdeInspector } from './adeInspector.js';
@@ -495,10 +496,22 @@ export class AdeEditor extends EditorPane {
 		const model = this.project.model;
 		const element = model.semantics.elements.find(element => element.id === this.project.selectedId);
 		if (!element) { return; }
-		this.renderInspectionHeader(content, localize('ade.impact.title', "Change Impact: {0}", element.name), localize('ade.impact.intent', "{0} · Declared Model Review", model.name));
-		this.button(content, localize('ade.elementDetails', "Element Details"), () => this.project.inspectElement(element.id), 'impact-details');
-		renderChangeImpact(content, model, element.id, this.controls, id => this.project.inspectElement(id), id => this.project.showDiagram(id));
-		this.inspector.renderProperties(dom.append(content, dom.$('section.ade-properties')), model);
+		const page = dom.append(content, dom.$('section.ade-impact-page'));
+		this.renderBreadcrumbs(page);
+		const header = dom.append(page, dom.$('header.ade-impact-header'));
+		const introduction = dom.append(header, dom.$('div.ade-impact-introduction'));
+		dom.append(introduction, dom.$('h1')).textContent = localize('ade.impact.title', "Change Impact: {0}", element.name);
+		dom.append(introduction, dom.$('p.ade-page-description')).textContent = impactScopeDescription;
+		const actions = dom.append(header, dom.$('div.ade-impact-actions'));
+		this.surface.renderEditingToolbar(actions);
+		const detailsLabel = localize('ade.elementDetails', "Element Details");
+		const details = this.button(actions, detailsLabel, () => this.project.inspectElement(element.id), 'impact-details');
+		details.setAttribute('aria-label', detailsLabel);
+		prependAdeIcon(details, Codicon.info);
+		renderChangeImpact(page, model, element.id, this.controls, id => this.project.inspectElement(id), id => this.project.showDiagram(id));
+		const properties = new AdeActionMenu(this.controls).disclosure(page, localize('ade.impact.elementProperties', "Element Properties"), 'impact-properties', { icon: Codicon.settingsGear });
+		properties.parentElement!.classList.add('ade-impact-disclosure', 'ade-impact-properties');
+		this.inspector.renderProperties(dom.append(properties, dom.$('section.ade-properties')), model);
 	}
 
 	private renderElement(content: HTMLElement): void {

@@ -1386,16 +1386,141 @@
 	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
 }
 
-.ade-impact-group,
 .ade-recorded-evidence {
 	margin-block: var(--vscode-spacing-size160);
 	overflow-wrap: anywhere;
 }
 
-.ade-impact-entry {
-	margin-block: var(--vscode-spacing-size120);
-	padding-inline-start: var(--vscode-spacing-size120);
-	border-inline-start: var(--vscode-strokeThickness) solid var(--vscode-panel-border);
+.ade-impact-page {
+	width: min(100%, 1040px);
+	margin-inline: auto;
+	padding-block: var(--vscode-spacing-size160) var(--vscode-spacing-size320);
+	overflow-wrap: anywhere;
+}
+
+.ade-impact-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size160);
+	margin-block-end: var(--vscode-spacing-size240);
+}
+
+.ade-impact-introduction {
+	flex: 1 1 320px;
+	min-width: 0;
+}
+
+.ade-impact-introduction h1 {
+	margin: 0;
+}
+
+.ade-impact-introduction p {
+	max-width: 64ch;
+	margin-block: var(--vscode-spacing-size80) 0;
+}
+
+.ade-impact-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	min-width: 0;
+}
+
+.ade-shell .ade-impact-actions .ade-editing {
+	margin: 0;
+	min-width: 0;
+}
+
+.ade-shell .ade-impact-actions button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	max-width: 100%;
+	min-height: var(--vscode-spacing-size320);
+	margin: 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.ade-impact {
+	display: grid;
+	grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--vscode-spacing-size160);
+}
+
+.ade-impact-column {
+	display: grid;
+	min-width: 0;
+	gap: var(--vscode-spacing-size160);
+}
+
+.ade-impact-group,
+.ade-impact-disclosure {
+	min-width: 0;
+	padding: var(--vscode-spacing-size120);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.ade-shell .ade-impact-group > h2 {
+	padding-inline: var(--vscode-spacing-size80);
+	margin: var(--vscode-spacing-size40) 0 var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-heading3);
+}
+
+.ade-impact-entry + .ade-impact-entry {
+	border-block-start: var(--vscode-strokeThickness) solid var(--vscode-contrastBorder, var(--vscode-panel-border));
+}
+
+.ade-impact-note,
+.ade-impact-relationship > p {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.5;
+}
+
+.ade-impact-note {
+	padding: var(--vscode-spacing-size80);
+}
+
+.ade-impact-relationship {
+	display: grid;
+	gap: var(--vscode-spacing-size60);
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size80);
+}
+
+.ade-impact-relationship > h3 {
+	margin: 0;
+	font-size: var(--vscode-fontSize-body1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-shell .ade-impact-page .ade-menu-disclosure > summary:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.ade-impact .ade-recorded-evidence {
+	margin: 0 var(--vscode-spacing-size80) var(--vscode-spacing-size80);
+}
+
+.ade-impact .ade-recorded-evidence > p {
+	margin: 0 0 var(--vscode-spacing-size60);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-impact-properties {
+	margin-block-start: var(--vscode-spacing-size160);
+}
+
+@container (max-width: 760px) {
+	.ade-impact {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 
 .ade-shell .ade-workspace.has-inspector {
@@ -1484,6 +1609,31 @@
 
 .ade-canvas-mode .ade-canvas-scroll.is-panning {
 	cursor: grabbing;
+}
+
+.ade-canvas-mode .ade-canvas-scroll.is-connecting:not(.is-panning) {
+	cursor: crosshair;
+}
+
+.ade-shell .ade-relation-preview-layer {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 1;
+	pointer-events: none;
+}
+
+.ade-shell .ade-relation-preview-layer path {
+	fill: none;
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 2px;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.ade-shell .ade-relation-preview {
+	stroke-dasharray: 6 4;
 }
 
 .ade-canvas-mode .ade-canvas,
@@ -1776,9 +1926,6 @@
 .ade-shell .ade-node[data-notation-kind="process"] {
 	border-radius: 32px;
 }
-.ade-shell .ade-node[data-notation-kind="decision"] {
-	clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-}
 .ade-shell .ade-connection path.ade-composition {
 	fill: var(--vscode-editor-foreground);
 }
@@ -1787,6 +1934,11 @@
 	stroke: var(--vscode-descriptionForeground);
 	stroke-opacity: 0.55;
 	stroke-dasharray: 8 6;
+}
+
+.ade-shell .ade-notation-boundary[data-notation-kind="deploymentNode"] {
+	stroke: var(--vscode-contrastBorder, color-mix(in srgb, var(--vscode-descriptionForeground) 75%, transparent));
+	stroke-opacity: 1;
 }
 
 .ade-shell .ade-notation-boundary-label {
@@ -1815,15 +1967,138 @@
 	display: none;
 }
 
-
-.ade-shell .ade-node[data-notation-kind="start"],
-.ade-shell .ade-node[data-notation-kind="end"] {
-	border-radius: 50%;
+.ade-shell .ade-node.is-boundary[data-notation-kind="deploymentNode"] {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	color: var(--vscode-editor-foreground);
+	background: var(--vscode-editorWidget-background);
+	border-color: var(--vscode-contrastBorder, var(--vscode-descriptionForeground));
+	font-weight: var(--vscode-fontWeight-semiBold);
 }
+
+.ade-shell .ade-node.is-boundary[data-notation-kind="deploymentNode"] > .codicon {
+	flex: none;
+	font-size: var(--vscode-codiconFontSize);
+}
+
+.ade-shell .ade-node.is-boundary[data-notation-kind="deploymentNode"] > .ade-node-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.ade-shell .ade-node.is-boundary[data-notation-kind="deploymentNode"]:hover {
+	background: var(--vscode-list-hoverBackground, var(--vscode-editorWidget-background));
+}
+
+.ade-shell .ade-node.is-boundary[data-notation-kind="deploymentNode"][aria-pressed="true"] {
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground, var(--vscode-editorWidget-background));
+}
+
+.ade-shell .ade-node.is-boundary[data-notation-kind="deploymentNode"].ade-related-node {
+	border-color: var(--vscode-focusBorder);
+}
+
+.ade-shell .ade-node:is([data-notation-kind="start"], [data-notation-kind="end"], [data-notation-kind="decision"]) {
+	--ade-flow-node-fill: var(--vscode-editorWidget-background);
+	--ade-flow-node-outline: var(--vscode-contrastBorder, var(--vscode-descriptionForeground));
+	background: var(--ade-flow-node-fill);
+	border-color: var(--ade-flow-node-outline);
+	color: var(--vscode-editor-foreground);
+	text-align: center;
+}
+
+.ade-shell .ade-node:is([data-notation-kind="start"], [data-notation-kind="end"]) {
+	border-radius: 50%;
+	border-width: 2px;
+	padding: var(--vscode-spacing-size80);
+}
+
 .ade-shell .ade-node[data-notation-kind="end"] {
 	border-style: double;
 	border-width: 4px;
 }
+
+.ade-shell .ade-node[data-notation-kind="decision"] {
+	--ade-flow-node-fill: color-mix(in srgb, var(--vscode-charts-blue) 10%, var(--vscode-editor-background));
+	--ade-flow-node-outline: var(--vscode-contrastBorder, var(--vscode-charts-blue));
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	padding: 0;
+	background: transparent;
+	line-height: 20px;
+	clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.ade-shell .ade-node > .ade-decision-shape {
+	width: 100%;
+	height: 100%;
+	fill: var(--ade-flow-node-fill);
+	stroke: var(--ade-flow-node-outline);
+	/* The clip path retains the inner half of the stroke and keeps the hit target diamond-shaped. */
+	stroke-width: 4px;
+}
+
+.ade-shell .ade-node[data-notation-kind="decision"] > span {
+	/* Match the centered content area in notationNodeSize. */
+	position: relative;
+	width: 60%;
+	flex-shrink: 0;
+	text-align: center;
+}
+
+.ade-shell .ade-node[data-notation-kind="decision"] > .ade-node-name {
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-shell .ade-node:is([data-notation-kind="start"], [data-notation-kind="end"], [data-notation-kind="decision"]):hover {
+	--ade-flow-node-fill: var(--vscode-button-secondaryHoverBackground, var(--vscode-editorWidget-background));
+}
+
+.ade-shell .ade-node:is([data-notation-kind="start"], [data-notation-kind="end"], [data-notation-kind="decision"])[aria-pressed="true"] {
+	--ade-flow-node-fill: var(--vscode-list-activeSelectionBackground, var(--vscode-editorWidget-background));
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.ade-shell .ade-node:is([data-notation-kind="start"], [data-notation-kind="end"], [data-notation-kind="decision"]):is([aria-pressed="true"], .ade-related-node, :focus-visible) {
+	--ade-flow-node-outline: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
+}
+
+.ade-shell .ade-node.is-connection-candidate {
+	--ade-connection-target-border: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
+}
+
+.ade-shell .ade-node.is-connection-candidate:not(:focus-visible) {
+	outline: 1px dashed var(--ade-connection-target-border);
+	outline-offset: -1px;
+}
+
+.ade-shell .ade-node.is-connection-target:not(:focus-visible) {
+	outline: 2px solid var(--ade-connection-target-border);
+	outline-offset: -2px;
+}
+
+.ade-shell .ade-node[data-notation-kind="decision"].is-connection-candidate {
+	--ade-flow-node-outline: var(--ade-connection-target-border);
+}
+
+.ade-shell .ade-node[data-notation-kind="decision"]:is(:focus-visible, .is-connection-candidate) {
+	outline: none;
+}
+
+.ade-shell .ade-node[data-notation-kind="decision"].is-connection-candidate:not(:focus-visible, .is-connection-target) > .ade-decision-shape {
+	stroke-dasharray: 6 4;
+}
+
+.ade-shell .ade-node[data-notation-kind="decision"]:is(:focus-visible, .is-connection-target) > .ade-decision-shape {
+	stroke-width: 6px;
+}
+
 .ade-shell .ade-node[data-notation-kind="start"][data-kind]::before,
 .ade-shell .ade-node[data-notation-kind="end"][data-kind]::before,
 .ade-shell .ade-node[data-notation-kind="decision"][data-kind]::before {

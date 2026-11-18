@@ -5,7 +5,16 @@
 
 export interface DiagramPoint { x: number; y: number }
 export interface DiagramBox extends DiagramPoint { width: number; height: number }
-export interface DiagramObstacle extends DiagramBox { id: string }
+export interface DiagramObstacle extends DiagramBox {
+	id: string;
+	outline?: 'diamond' | 'ellipse';
+}
+
+/** Align the routing ports with the deployment boundary's title control. */
+export function deploymentBoundaryHeader(boundary: DiagramBox, name: string): DiagramBox {
+	const width = Math.min(boundary.width - 24, Math.max(88, name.length * 8 + 44));
+	return { x: boundary.x + 12, y: boundary.y + 6, width, height: 32 };
+}
 
 function inside(point: DiagramPoint, box: DiagramBox): boolean {
 	return point.x > box.x && point.x < box.x + box.width && point.y > box.y && point.y < box.y + box.height;
@@ -29,6 +38,20 @@ function ports(box: DiagramBox, offset: number, gap: number): Port[] {
 		{ edge: { x: box.x, y }, point: { x: box.x - gap, y } },
 		{ edge: { x, y: box.y }, point: { x, y: box.y - gap } }
 	];
+}
+
+/** Extend the orthogonal endpoint from its routing box to the visible silhouette. */
+function outlineAnchor(port: Port, box: DiagramObstacle, obstacles: readonly DiagramObstacle[]): DiagramPoint {
+	if (!box.outline) { return port.edge; }
+	const centerX = box.x + box.width / 2, centerY = box.y + box.height / 2;
+	const horizontal = port.edge.y === port.point.y;
+	const offset = horizontal ? Math.abs(port.edge.y - centerY) / (box.height / 2) : Math.abs(port.edge.x - centerX) / (box.width / 2);
+	if (offset >= 1) { return port.edge; }
+	const extent = box.outline === 'diamond' ? 1 - offset : Math.sqrt(1 - offset ** 2);
+	const anchor = horizontal
+		? { x: centerX + (port.edge.x - centerX) * extent, y: port.edge.y }
+		: { x: port.edge.x, y: centerY + (port.edge.y - centerY) * extent };
+	return isClearSegment(anchor, port.edge, obstacles.filter(obstacle => obstacle !== box)) ? anchor : port.edge;
 }
 
 interface SearchStep { index: number; cost: number }
@@ -95,10 +118,10 @@ export function routeDiagramConnection(boxes: readonly DiagramObstacle[], fromId
 		const point = pointAt(index);
 		const end = ends.get(index);
 		if (end) {
-			const route = [end.edge, point];
+			const route = [outlineAnchor(end, to, boxes), point];
 			let key = step.index;
 			while (previous.has(key)) { key = previous.get(key)!; route.push(pointAt(Math.floor(key / 2))); }
-			route.push(starts.get(key)!.edge);
+			route.push(outlineAnchor(starts.get(key)!, from, boxes));
 			route.reverse();
 			return route.filter((value, i) => i === 0 || i === route.length - 1 || !((route[i - 1].x === value.x && value.x === route[i + 1].x) || (route[i - 1].y === value.y && value.y === route[i + 1].y)));
 		}
@@ -148,19 +171,22 @@ function overlaps(a: DiagramBox, b: DiagramBox): boolean {
 	return a.x < b.x + b.width + 6 && a.x + a.width + 6 > b.x && a.y < b.y + b.height + 6 && a.y + a.height + 6 > b.y;
 }
 
-/** Keep complete labels clear of nodes and earlier labels; crowded labels use a leader line. */
-export function placeConnectionLabel(route: readonly DiagramPoint[], width: number, obstacles: readonly DiagramBox[]): { box: DiagramBox; anchor: DiagramPoint; detached: boolean } {
-	const segments = route.slice(1).map((point, index) => ({ a: route[index], b: point }))
-		.sort((a, b) => (Math.abs(b.b.x - b.a.x) + Math.abs(b.b.y - b.a.y)) - (Math.abs(a.b.x - a.a.x) + Math.abs(a.b.y - a.a.y)));
-	for (const { a, b } of segments) {
-		const anchor = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-		for (const distance of [6, 30, 54, 78]) {
+/** Keep labels close to any clear part of the route before resorting to a leader line. */
+export function placeConnectionLabel(route: readonly DiagramPoint[], width: number, obstacles: readonly DiagramBox[], { allowNegativeCoordinates = false } = {}): { box: DiagramBox; anchor: DiagramPoint; detached: boolean } {
+	const anchors = route.slice(1).map((point, index) => ({ a: route[index], b: point }))
+		.sort((a, b) => (Math.abs(b.b.x - b.a.x) + Math.abs(b.b.y - b.a.y)) - (Math.abs(a.b.x - a.a.x) + Math.abs(a.b.y - a.a.y)))
+		.flatMap(({ a, b }) => [0.5, 0.25, 0.75].map(fraction => ({
+			anchor: { x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction },
+			horizontal: a.y === b.y
+		})));
+	for (const distance of [6, 30, 54, 78]) {
+		for (const { anchor, horizontal } of anchors) {
 			for (const side of [-1, 1]) {
-				const box = a.y === b.y
+				const box = horizontal
 					? { x: anchor.x - width / 2, y: anchor.y + (side < 0 ? -20 - distance : distance), width, height: 20 }
 					: { x: anchor.x + (side < 0 ? -width - distance : distance), y: anchor.y - 10, width, height: 20 };
 				const attachment = { x: Math.max(box.x, Math.min(anchor.x, box.x + box.width)), y: Math.max(box.y, Math.min(anchor.y, box.y + box.height)) };
-				if (box.x >= 8 && box.y >= 8 && !obstacles.some(obstacle => overlaps(box, obstacle)) && isClearSegment(anchor, attachment, obstacles)) {
+				if ((allowNegativeCoordinates || box.x >= 8 && box.y >= 8) && !obstacles.some(obstacle => overlaps(box, obstacle)) && isClearSegment(anchor, attachment, obstacles)) {
 					return { box, anchor, detached: distance > 6 };
 				}
 			}

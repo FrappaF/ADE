@@ -61,7 +61,8 @@ export async function createSmokeHarness(platform = process.platform) {
 	const sequenceOnly = process.argv.includes('--sequence-only');
 	const stateOnly = process.argv.includes('--state-only');
 	const impactOnly = process.argv.includes('--impact-only');
-	const canvasOnly = process.argv.includes('--canvas-only');
+	const connectionPreviewOnly = process.argv.includes('--connection-preview-only');
+	const canvasOnly = process.argv.includes('--canvas-only') || connectionPreviewOnly;
 	const notationsOnly = process.argv.includes('--notations-only');
 	const semanticOnly = process.argv.includes('--semantic-import');
 	const generatedOnly = process.argv.includes('--generated-diagrams');
@@ -155,7 +156,7 @@ export async function createSmokeHarness(platform = process.platform) {
 		}
 	}
 
-	return { validateSemanticModel, checkoutModel, root, aiLive, product, executablePath, directory, portable, userData, workspace, evidence, launchEnv, navigationOnly, sequenceOnly, stateOnly, impactOnly, canvasOnly, notationsOnly, semanticOnly, generatedOnly, workflowOnly, codeOnly, aiOnly, extraCleanup, projectsOnly, modelFile, emptyFile, invalidFile, otherFile, args, uxOnly, followupOnly, launch, reportFailure, dispose, get app(): ElectronApplication { if (!app) { throw new Error('No desktop process is active'); } return app; }, set app(value: ElectronApplication | undefined) { app = value; } };
+	return { validateSemanticModel, checkoutModel, root, aiLive, product, executablePath, directory, portable, userData, workspace, evidence, launchEnv, navigationOnly, sequenceOnly, stateOnly, impactOnly, canvasOnly, connectionPreviewOnly, notationsOnly, semanticOnly, generatedOnly, workflowOnly, codeOnly, aiOnly, extraCleanup, projectsOnly, modelFile, emptyFile, invalidFile, otherFile, args, uxOnly, followupOnly, launch, reportFailure, dispose, get app(): ElectronApplication { if (!app) { throw new Error('No desktop process is active'); } return app; }, set app(value: ElectronApplication | undefined) { app = value; } };
 }
 
 export type SmokeHarness = Awaited<ReturnType<typeof createSmokeHarness>>;

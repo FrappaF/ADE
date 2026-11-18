@@ -8,6 +8,8 @@ import { SemanticModel, Verification } from '../common/modelTypes.js';
 import { getElementEvidence, getModelImpact } from '../common/modelImpact.js';
 import { relationLabels } from './adeLabels.js';
 
+export const impactScopeDescription = localize('ade.impact.scopeDescription', "Review the scope defined by model containment and incoming references, regardless of relationship conditions.");
+
 export function evidenceSummary(evidence: ReturnType<typeof getElementEvidence>): string {
 	return localize('ade.evidence.summary', "Design Declaration · Code References: {0} · Verification Records: {1}", evidence.mappings.length, evidence.verifications.length);
 }
@@ -31,21 +33,23 @@ export function describeRecordedEvidence(model: SemanticModel, id: string): stri
 /** Explain a concrete reverse-reference step, keeping ownership context separate from dependents. */
 export function impactReason(model: SemanticModel, entry: ReturnType<typeof getModelImpact>['dependents'][number]): string {
 	const target = model.semantics.elements.find(element => element.id === entry.via.targetId)!;
-	if (entry.via.kind === 'contract') { return localize('ade.impact.contractReason', "Shared contract reference to {0} · Reference Distance: {1}", target.name, entry.distance); }
-	if (entry.via.kind === 'module') { return localize('ade.impact.moduleReason', "Shared module reference to {0} · Reference Distance: {1}", target.name, entry.distance); }
-	return entry.via.kind === 'relationship'
-		? localize('ade.impact.relationReason', "{0} to {1}: {2} · Reference Distance: {3}", relationLabels[entry.via.relation.kind], target.name, entry.via.relation.name, entry.distance)
-		: localize('ade.impact.authorizationReason', "Authorization reference to {0}: {1} · Reference Distance: {2}", target.name, entry.via.capability, entry.distance);
+	if (entry.via.kind === 'contract') { return localize('ade.impact.contractReference', "Shared contract reference to {0}", target.name); }
+	if (entry.via.kind === 'module') { return localize('ade.impact.moduleReference', "Shared module reference to {0}", target.name); }
+	if (entry.via.kind === 'authorization') { return localize('ade.impact.authorizationReference', "Authorization reference to {0} · {1}", target.name, entry.via.capability); }
+	const { kind, name } = entry.via.relation;
+	return name
+		? localize('ade.impact.namedRelationReason', "{0} to {1} · {2}", relationLabels[kind], target.name, name)
+		: localize('ade.impact.unnamedRelationReason', "{0} to {1}", relationLabels[kind], target.name);
 }
 
 export function describeChangeImpact(model: SemanticModel, id: string): string[] {
 	const impact = getModelImpact(model, id);
 	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
 	const lines = [localize('ade.impact.title', "Change Impact: {0}", impact.subject.name),
-		localize('ade.impact.limits', "Potential review scope from declared containment and reverse directed references. Conditions are not evaluated. This is not a prediction of code changes."),
+		impactScopeDescription,
 		localize('ade.impact.scope', "Selected Scope: {0}", impact.scope.map(element => element.name).join(', ')),
 		localize('ade.impact.dependents', "Potential Dependents: {0}", impact.dependents.length)];
-	for (const entry of impact.dependents) { lines.push(localize('ade.impact.dependent', "{0}: {1}", entry.element.name, impactReason(model, entry))); }
+	for (const entry of impact.dependents) { lines.push(localize('ade.impact.dependentWithDistance', "{0} · {1} · Reference Distance: {2}", entry.element.name, impactReason(model, entry), entry.distance)); }
 	lines.push(localize('ade.impact.owners', "Ownership Context: {0}", impact.owners.map(element => element.name).join(', ')),
 		localize('ade.impact.views', "Diagrams to Review: {0}", impact.views.map(view => view.name).join(', ')),
 		localize('ade.impact.uncertain', "Unclassified Relationships Not Propagated: {0}", impact.unclassified.length));

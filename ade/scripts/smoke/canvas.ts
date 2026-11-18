@@ -9,11 +9,118 @@ import type { SmokeHarness } from './harness.ts';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, copyFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { Locator } from 'playwright-core';
 import { openModelFile, pickValue, runCommand, chooseAdeDiagram, submitAdeForm, revealAdeButton } from './helpers.ts';
 
 /** canvas scenarios share only the harness values listed here. */
 export function createCanvasScenarios(harness: SmokeHarness) {
 	const { launch, modelFile, evidence, directory, checkoutModel, args, workspace } = harness;
+
+	async function checkConnectionPreview() {
+		const window = await launch();
+		await openModelFile(window, modelFile);
+		const diagram = window.locator('.ade-canvas-scroll');
+		const source = diagram.getByRole('button', { name: 'Checkout', exact: true });
+		await source.waitFor();
+		const shell = window.locator('.ade-shell');
+		await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+		await source.press('Enter');
+		const connect = async (action: Locator, kind: string) => {
+			await action.click();
+			await pickValue(window, 'Relationship Type', kind);
+			await shell.locator('.ade-canvas-help.is-pending').waitFor();
+		};
+		const candidates = diagram.locator('.is-connection-candidate');
+		const candidateNames = () => candidates.evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')).sort());
+		const dependencyCandidates = ['Carrello', 'Checkout', 'Cliente', 'Conferma ordine', 'Ordine', 'Richiedi pagamento', 'Servizio pagamenti'];
+		const preview = diagram.locator('.ade-relation-preview');
+		const drawnPreview = diagram.locator('.ade-relation-preview[d]');
+		const readArrow = async () => {
+			await drawnPreview.waitFor({ state: 'attached' });
+			return drawnPreview.evaluate(element => {
+				if (!(element instanceof SVGGeometryElement)) { throw new Error('Expected SVG relationship preview'); }
+				const point = (distance: number) => {
+					const { x, y } = element.getPointAtLength(distance).matrixTransform(element.getScreenCTM()!);
+					return { x: Math.round(x), y: Math.round(y) };
+				};
+				return { start: point(0), tip: point(element.getTotalLength()) };
+			});
+		};
+		const viewport = await diagram.boundingBox();
+		assert.ok(viewport);
+		const pointer = (x: number, y: number) => ({ x: Math.round(viewport.x + viewport.width * x), y: Math.round(viewport.y + viewport.height * y) });
+		const before = await readFile(modelFile, 'utf8');
+		await connect(shell.getByRole('button', { name: 'Create Relationship on Canvas…', exact: true }), 'Dependency');
+		assert.deepEqual(await candidateNames(), dependencyCandidates, 'All compatible nodes are marked immediately after choosing a relationship type');
+		const first = pointer(.44, .25), second = pointer(.72, .25);
+		await window.mouse.move(first.x, first.y);
+		assert.deepEqual((await readArrow()).tip, first, 'The preview starts by following the first pointer movement');
+		await window.mouse.move(second.x, second.y);
+		const arrow = await readArrow();
+		assert.deepEqual(arrow.tip, second, 'The preview follows the pointer in the fitted canvas');
+		await diagram.press('ArrowLeft');
+		const afterPan = await readArrow();
+		assert.deepEqual(afterPan.tip, second, 'Panning keeps the preview tip at the stationary pointer');
+		assert.notDeepEqual(afterPan.start, arrow.start, 'Panning moves the start with the source');
+		const zoom = await shell.locator('.ade-zoom-readout').textContent();
+		await window.keyboard.down('Control');
+		await window.mouse.wheel(0, -120);
+		await window.keyboard.up('Control');
+		await window.waitForFunction(previous => document.querySelector('.ade-zoom-readout')?.textContent !== previous, zoom);
+		const afterZoom = await readArrow();
+		assert.deepEqual(afterZoom.tip, second, 'Zooming keeps the preview tip at the stationary pointer');
+		assert.notDeepEqual(afterZoom.start, afterPan.start, 'Zooming moves the start with the source');
+		await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+		const cart = diagram.getByRole('button', { name: 'Carrello', exact: true });
+		const cartBounds = await cart.boundingBox();
+		assert.ok(cartBounds);
+		const cartCenter = { x: Math.round(cartBounds.x + cartBounds.width / 2), y: Math.round(cartBounds.y + cartBounds.height / 2) };
+		const highlighted = diagram.locator('.is-connection-target');
+		const highlightedNames = () => highlighted.evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')));
+		const cartOutline = () => cart.evaluate(element => {
+			const { outlineStyle, outlineWidth } = getComputedStyle(element);
+			return { style: outlineStyle, width: parseFloat(outlineWidth) };
+		});
+		const candidateOutline = await cartOutline();
+		await window.mouse.move(cartCenter.x, cartCenter.y);
+		const snapped = (await readArrow()).tip;
+		assert.deepEqual(await highlightedNames(), ['Carrello'], 'Only the compatible node under the pointer is emphasized');
+		const hoveredOutline = await cartOutline();
+		assert.ok(candidateOutline.style === 'dashed' && candidateOutline.width > 0 && hoveredOutline.style === 'solid' && hoveredOutline.width > candidateOutline.width, 'The hovered target has a stronger outline than its candidate indication');
+		assert.ok(Math.abs(snapped.x - cartCenter.x) <= 1 && Math.abs(snapped.y - cartBounds.y) <= 1, 'The arrow tip snaps to the upper border of the target');
+		await window.screenshot({ path: path.join(evidence, 'relationship-connection-preview.png') });
+		await window.mouse.move(first.x, first.y);
+		assert.deepEqual({ tip: (await readArrow()).tip, highlighted: await highlightedNames(), candidates: await candidateNames() }, { tip: first, highlighted: [], candidates: dependencyCandidates }, 'Leaving the target restores the free preview and keeps the compatible nodes marked');
+		await source.hover();
+		const sourceBounds = await source.boundingBox();
+		assert.ok(sourceBounds);
+		const self = await readArrow();
+		assert.deepEqual(await highlightedNames(), ['Checkout'], 'A compatible self-relationship highlights its source');
+		assert.ok(Math.abs(self.start.x - sourceBounds.x - sourceBounds.width) <= 1 && Math.abs(self.tip.y - sourceBounds.y - sourceBounds.height) <= 1, 'The self-relationship preview leaves and returns to distinct edges');
+		await window.mouse.move(cartCenter.x, cartCenter.y);
+		await highlighted.waitFor();
+		await window.keyboard.press('Escape');
+		await preview.waitFor({ state: 'detached' });
+		await highlighted.waitFor({ state: 'detached' });
+		assert.deepEqual(await candidateNames(), [], 'Escape clears the compatible node indications');
+		await connect(shell.getByRole('button', { name: 'Connect', exact: true }), 'Invocation');
+		assert.deepEqual(await candidateNames(), ['Checkout', 'Conferma ordine', 'Richiedi pagamento', 'Servizio pagamenti'], 'Changing the relationship kind marks only its compatible targets');
+		await window.mouse.move(cartCenter.x, cartCenter.y);
+		assert.deepEqual({ tip: (await readArrow()).tip, highlighted: await highlightedNames() }, { tip: cartCenter, highlighted: [] }, 'An incompatible node leaves the preview free');
+		const controller = diagram.getByRole('button', { name: 'Conferma ordine', exact: true });
+		await controller.hover();
+		await highlighted.waitFor();
+		await controller.click();
+		const relationForm = window.getByRole('dialog', { name: 'Create Relationship', exact: true });
+		await relationForm.getByText('Checkout → Conferma ordine', { exact: true }).waitFor();
+		await preview.waitFor({ state: 'detached' });
+		await highlighted.waitFor({ state: 'detached' });
+		assert.deepEqual(await candidateNames(), [], 'Selecting the target clears the compatible node indications');
+		await relationForm.getByRole('button', { name: 'Cancel', exact: true }).click();
+		assert.equal(await readFile(modelFile, 'utf8'), before, 'Previewing and canceling a relationship leaves the model intact');
+		console.log('PASS: relationship preview marks compatible targets, emphasizes the hovered target, and clears on Escape or target selection.');
+		await harness.app.close(); harness.app = undefined;
+	}
 
 	async function checkInfiniteCanvas() {
 		const names = ['game.js', 'preload', 'create', 'drawTamagotchi', 'createStatBar', 'createGlassButton', 'update', 'updateProgressBar', 'updateTamagotchiExpression', 'feed', 'play', 'sleep', 'animateTamagotchi', 'degradeStats', 'incrementAge', 'showFeedback', 'disableButtons'];
@@ -194,5 +301,5 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		console.log('PASS: all 16 native notation canvases render; table compartments fit and member editing persists. Authored fixture, no live inference.');
 	}
 
-	return { checkInfiniteCanvas, checkNotations };
+	return { checkConnectionPreview, checkInfiniteCanvas, checkNotations };
 }

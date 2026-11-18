@@ -19,13 +19,13 @@ import { createAccessibilityScenarios } from './smoke/accessibility.ts';
 import { createBasicScenarios } from './smoke/basic.ts';
 
 const harness = await createSmokeHarness();
-const { notationsOnly, generatedOnly, followupOnly, canvasOnly, semanticOnly, aiOnly, codeOnly, projectsOnly, impactOnly, stateOnly, sequenceOnly, navigationOnly, uxOnly, evidence, modelFile, emptyFile, invalidFile, workspace, args, root, executablePath, launchEnv } = harness;
-const { checkInfiniteCanvas, checkNotations, checkSemanticTodo, checkGeneratedDiagrams, checkCodeBridge, checkAiWorkflow, checkIndependentProjects, checkModelImpact, checkStateDiagram, checkSequenceDiagram, checkSemanticNavigation, checkVisualUX, checkManualFollowup, checkBasicWorkflow } = { ...createCanvasScenarios(harness), ...createImportScenarios(harness), ...createAiScenarios(harness), ...createProjectsScenarios(harness), ...createBehaviorScenarios(harness), ...createNavigationScenarios(harness), ...createAccessibilityScenarios(harness), ...createBasicScenarios(harness) };
+const { notationsOnly, generatedOnly, followupOnly, canvasOnly, connectionPreviewOnly, semanticOnly, aiOnly, codeOnly, projectsOnly, impactOnly, stateOnly, sequenceOnly, navigationOnly, uxOnly, evidence, modelFile, emptyFile, invalidFile, workspace, args, root, executablePath, launchEnv } = harness;
+const { checkConnectionPreview, checkInfiniteCanvas, checkNotations, checkSemanticTodo, checkGeneratedDiagrams, checkCodeBridge, checkAiWorkflow, checkIndependentProjects, checkModelImpact, checkStateDiagram, checkSequenceDiagram, checkSemanticNavigation, checkVisualUX, checkManualFollowup, checkBasicWorkflow } = { ...createCanvasScenarios(harness), ...createImportScenarios(harness), ...createAiScenarios(harness), ...createProjectsScenarios(harness), ...createBehaviorScenarios(harness), ...createNavigationScenarios(harness), ...createAccessibilityScenarios(harness), ...createBasicScenarios(harness) };
 
 try {
 	if (notationsOnly) { await checkNotations(); } else if (generatedOnly) { await checkGeneratedDiagrams(); }
 	if (followupOnly) { await checkManualFollowup(); }
-	if (canvasOnly) { await checkInfiniteCanvas(); }
+	if (connectionPreviewOnly) { await checkConnectionPreview(); } else if (canvasOnly) { await checkInfiniteCanvas(); }
 	if (semanticOnly) { await checkSemanticTodo(); }
 	if (aiOnly) { await checkAiWorkflow(); }
 	if (codeOnly) { await checkCodeBridge(); }

@@ -34,14 +34,15 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		const dependents = () => shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Potential Dependents: 5', exact: true }) });
 		assert.equal(await dependents().locator('.ade-impact-entry').count(), 5);
 		assert.equal(await dependents().locator('[data-element-id="cart"]').count(), 0);
-		await shell.getByText('Unclassified Relationships Not Propagated: 1', { exact: true }).waitFor();
-		const links = shell.locator('.ade-impact > details');
+		const links = shell.locator('.ade-impact-relationships');
 		await links.locator('summary').click();
+		await links.getByText('Unclassified Relationships Not Propagated: 1', { exact: true }).waitFor();
 		await links.getByText('Unclassified relationship: excluded from propagation.', { exact: true }).waitFor();
 		await links.getByRole('button', { name: 'Target: Pagamento', exact: true }).first().click();
 		await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Back', exact: true }).click();
 		const evidenceGroup = shell.locator('.ade-impact-group').filter({ has: window.getByRole('heading', { name: 'Evidence to Review', exact: true }) });
+		await evidenceGroup.getByText('Recorded Evidence by Element', { exact: true }).click();
 		const controller = evidenceGroup.locator('[data-element-id="checkout-controller"]');
 		await controller.getByText('Inspect Recorded Evidence', { exact: true }).click();
 		await controller.getByText('Recorded Passed · Criterion: purchase-success · Evidence: fixture-passed · Revision: fixture-rev-1', { exact: true }).waitFor();
@@ -66,6 +67,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		await diagrams.getByRole('button', { name: 'Esito pagamento', exact: true }).click();
 		await shell.getByRole('region', { name: 'Diagram: Esito pagamento', exact: true }).waitFor();
 		await runCommand(window, 'A.D.E: Go Back');
+		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Pagamento', exact: true }).waitFor();
 		await clickAdeButton(window, 'Element Details');
 		await shell.getByRole('heading', { level: 1, name: 'Pagamento', exact: true }).waitFor();
 		await runCommand(window, 'A.D.E: Show Change Impact');
@@ -91,6 +93,7 @@ export function createBehaviorScenarios(harness: SmokeHarness) {
 		shell = window.locator('.ade-shell');
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Contratto pagamento', exact: true }).waitFor();
 		await harness.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 800));
+		assert.ok(await shell.locator('.ade-impact-page').evaluate(page => page.scrollWidth <= page.clientWidth), 'Impact stays within the available width');
 		await (await revealAdeButton(window, 'Element Details')).focus();
 		await window.keyboard.press('Enter');
 		await shell.getByRole('heading', { level: 1, name: 'Contratto pagamento', exact: true }).waitFor();

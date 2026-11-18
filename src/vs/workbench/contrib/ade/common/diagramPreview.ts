@@ -6,14 +6,16 @@
 import { projectDescriptiveActivity } from './descriptiveActivity.js';
 import { notationRelationLabel } from './modelNotation.js';
 import { scenarioUnorderedOccurrences } from './modelScenario.js';
-import { type ModelView, type SemanticModelV4 } from './modelTypes.js';
+import { type ModelView, type SemanticElement, type SemanticModelV4 } from './modelTypes.js';
 import { arrangeDiagram, notationLines, notationBoundaries, notationGroupMembers, notationNodeSize, wrapDiagramText } from './diagramLayout.js';
 import { describeModelInteraction } from './modelInteractions.js';
-import { routeDiagramConnections, placeConnectionLabel, type DiagramBox } from './diagramRouting.js';
+import { deploymentBoundaryHeader, routeDiagramConnections, placeConnectionLabel, type DiagramBox } from './diagramRouting.js';
 
 /** A conservative local layout: ownership groups occupy separate bands, unrelated views are untouched. */
 export function arrangeExplorationView(model: SemanticModelV4, view: ModelView): ModelView['nodes'] {
-	const nodes = arrangeDiagram(model, view), boundaries = notationBoundaries(model, { ...view, nodes });
+	const nodes = arrangeDiagram(model, view);
+	if (view.kind === 'deployment') { return nodes; }
+	const boundaries = notationBoundaries(model, { ...view, nodes });
 	if (!boundaries.length) { return nodes; }
 	const assigned = new Set<string>(); let x = 0;
 	const ordered = [...boundaries].sort((a, b) => notationGroupMembers(model, view, b.elementId).size - notationGroupMembers(model, view, a.elementId).size);
@@ -28,6 +30,15 @@ export function arrangeExplorationView(model: SemanticModelV4, view: ModelView):
 	return nodes;
 }
 export interface DiagramQualityDiagnostic { level: 'integrity' | 'domain' | 'fidelity' | 'readability'; code: string; objectId: string; severity: 'error' | 'warning' }
+
+function previewRoutingBox(element: SemanticElement, node: { x: number; y: number }, boundary: DiagramBox | undefined): DiagramBox {
+	const size = notationNodeSize(element);
+	if (!boundary) { return { x: node.x, y: node.y, ...size }; }
+	return element.kind === 'deploymentNode'
+		? deploymentBoundaryHeader(boundary, element.name)
+		: { x: boundary.x + 12, y: boundary.y + 6, width: size.width, height: 32 };
+}
+
 /** Geometry and evidence warnings remain distinct from shape/domain checks. */
 export function inspectDiagramQuality(model: SemanticModelV4, view: ModelView): DiagramQualityDiagnostic[] {
 	if (view.kind === 'activity' && view.interactionId) {
@@ -46,7 +57,8 @@ export function inspectDiagramQuality(model: SemanticModelV4, view: ModelView): 
 		}
 		const routingBoxes = view.nodes.map(node => {
 			const boundary = boundaries.find(boundary => boundary.elementId === node.elementId);
-			return { id: node.elementId, ...notationNodeSize(model.semantics.elements.find(element => element.id === node.elementId)!), ...(boundary ? { x: boundary.x + 12, y: boundary.y + 6, height: 32 } : { x: node.x, y: node.y }) };
+			const element = model.semantics.elements.find(element => element.id === node.elementId)!;
+			return { id: node.elementId, ...previewRoutingBox(element, node, boundary) };
 		});
 		const relations = model.semantics.relations.filter(relation => view.relationIds.includes(relation.id)), routes = routeDiagramConnections(routingBoxes, relations);
 		for (const relation of relations) { if (!routes.get(relation.id)?.length) { diagnostics.push({ level: 'readability', code: 'unroutableRelation', objectId: relation.id, severity: 'error' }); } }
@@ -122,12 +134,19 @@ export function renderDiagramPreview(model: SemanticModelV4, view: ModelView): s
 	} else {
 		const boundaries = notationBoundaries(model, view), boundaryIds = new Set(boundaries.map(boundary => boundary.elementId));
 		const nodes = view.nodes.map(node => ({ ...node, ...notationNodeSize(elements.get(node.elementId)!) }));
-		const minX = Math.min(0, ...nodes.map(node => node.x), ...boundaries.map(boundary => boundary.x)) - 32, minY = Math.min(0, ...nodes.map(node => node.y), ...boundaries.map(boundary => boundary.y)) - 32;
-		width = Math.max(width, ...nodes.map(node => node.x + node.width - minX + 32)); height = Math.max(height, ...nodes.map(node => node.y + node.height - minY + 32));
-		for (const boundary of boundaries) { body += box(boundary.x - minX, boundary.y - minY, boundary.width, boundary.height, boundary.name, true); }
+		const contents = [...nodes, ...boundaries];
+		const minX = Math.min(0, ...contents.map(box => box.x)) - 32, minY = Math.min(0, ...contents.map(box => box.y)) - 32;
+		width = Math.max(width, ...contents.map(box => box.x + box.width - minX + 32)); height = Math.max(height, ...contents.map(box => box.y + box.height - minY + 32));
+		for (const boundary of boundaries) {
+			const x = boundary.x - minX, y = boundary.y - minY;
+			body += elements.get(boundary.elementId)!.kind === 'deploymentNode'
+				? `<rect x="${x}" y="${y}" width="${boundary.width}" height="${boundary.height}" fill="#f3f6fa" stroke="#53657b" stroke-dasharray="8 6"/>`
+				: box(x, y, boundary.width, boundary.height, boundary.name, true);
+		}
 		const boxes = nodes.map(node => {
 			const boundary = boundaries.find(boundary => boundary.elementId === node.elementId);
-			return { id: node.elementId, ...node, x: (boundary ? boundary.x + 12 : node.x) - minX, y: (boundary ? boundary.y + 6 : node.y) - minY, ...(boundary ? { height: 32 } : {}) };
+			const geometry = previewRoutingBox(elements.get(node.elementId)!, node, boundary);
+			return { id: node.elementId, ...geometry, x: geometry.x - minX, y: geometry.y - minY };
 		});
 		const relations = model.semantics.relations.filter(relation => view.relationIds.includes(relation.id)), routes = routeDiagramConnections(boxes, relations), occupied: DiagramBox[] = [...boxes];
 		let captions = '';
@@ -142,6 +161,13 @@ export function renderDiagramPreview(model: SemanticModelV4, view: ModelView): s
 			captions += `<rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" fill="#ffffff"/>` + text(bounds.x + 6, bounds.y + 15, label);
 		}
 		for (const node of nodes.filter(node => !boundaryIds.has(node.elementId))) { body += box(node.x - minX, node.y - minY, node.width, node.height, elements.get(node.elementId)!.name, false, notationLines(elements.get(node.elementId)!)); }
+		for (const header of boxes.filter(box => boundaryIds.has(box.id) && elements.get(box.id)!.kind === 'deploymentNode')) {
+			const name = elements.get(header.id)!.name;
+			const columns = Math.max(1, Math.floor((header.width - 24) / 8));
+			const label = name.length > columns ? name.slice(0, columns - 1) + '…' : name;
+			body += `<rect x="${header.x}" y="${header.y}" width="${header.width}" height="${header.height}" rx="4" fill="#ffffff" stroke="#53657b"><title>${escape(name)}</title></rect>`
+				+ text(header.x + 8, header.y + 21, label);
+		}
 		body += captions;
 	}
 	return `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escape(view.name)}" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>${escape(view.name)}</title><defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#53657b"/></marker></defs><rect width="100%" height="100%" fill="#ffffff"/><g font-family="sans-serif" font-size="14" fill="#17283b">${body}</g></svg>`;

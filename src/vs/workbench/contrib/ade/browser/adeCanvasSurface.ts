@@ -9,13 +9,13 @@ import * as dom from '../../../../base/browser/dom.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { acceptsNotationRelation, notationRelationLabel, notationRules } from '../common/modelNotation.js';
 import { isCompatibleRelation } from '../common/modelValidation.js';
-import { ModelView, RelationKind, SemanticModel } from '../common/modelTypes.js';
+import { ModelView, RelationKind, SemanticElement, SemanticModel } from '../common/modelTypes.js';
 import { AdeProjectService } from './adeProjectService.js';
 import { AdeControls } from './adeControls.js';
 import { elementLabels, relationLabels, viewLabels } from './adeLabels.js';
 import { AdeActionMenu } from './adeActionMenu.js';
-import { diagramIcon } from './adeIcons.js';
-import { DiagramBox, placeConnectionLabel, routeDiagramConnections } from '../common/diagramRouting.js';
+import { diagramIcon, elementIcon, prependAdeIcon } from './adeIcons.js';
+import { deploymentBoundaryHeader, DiagramBox, DiagramObstacle, placeConnectionLabel, routeDiagramConnections } from '../common/diagramRouting.js';
 import { getSequenceDiagram } from '../common/sequenceDiagram.js';
 import { renderAdeDescriptiveActivity } from './adeDescriptiveActivity.js';
 import { renderAdeSequence } from './adeSequence.js';
@@ -48,6 +48,12 @@ interface AdeCanvasSurfaceHost {
 	paragraph(parent: HTMLElement, content: string): void;
 	readonly root: HTMLElement;
 	revealElement(id: string, viewId?: string): void;
+}
+
+/** State diagrams only accept transitions owned by a resource. */
+function canConnectNodes(view: ModelView, elements: ReadonlyMap<string, SemanticElement>, kind: RelationKind, source: SemanticElement, target: SemanticElement): boolean {
+	return isCompatibleRelation(kind, source.kind, target.kind) && (kind !== 'transition' || source.parentId === target.parentId
+		&& (view.kind !== 'state' || elements.get(source.parentId ?? '')?.kind === 'resource'));
 }
 
 /** Draws the diagram surface and coordinates node/connection actions for the ADE editor. */
@@ -182,6 +188,20 @@ export class AdeCanvasSurface {
 			this.canvas.worldBounds = { x: 0, y: 0, width: size.width, height: size.height }; canvas.style.transformOrigin = '0 0'; canvas.style.transform = `scale(${this.canvas.zoom})`;
 			return;
 		}
+		const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
+		const pending = this.pendingConnection;
+		const source = pending && elements.get(pending.from);
+		let origin: { button: HTMLElement; outline?: DiagramObstacle['outline'] } | undefined;
+		const targets = new Set<HTMLElement>();
+		const registerConnectionNode = (id: string, button: HTMLElement, outline?: DiagramObstacle['outline']) => {
+			if (!pending || !source) { return; }
+			if (id === source.id) { origin = { button, outline }; }
+			const target = elements.get(id);
+			if (target && canConnectNodes(view, elements, pending.kind, source, target)) { targets.add(button); }
+		};
+		const installConnectionPreview = () => {
+			if (origin) { this.canvas.installConnectionPreview(parent, origin.button, targets, origin.outline); }
+		};
 		if (view.kind === 'sequence') {
 			const frame = dom.append(parent, dom.$('.ade-canvas'));
 			const canvas = dom.append(frame, dom.$('.ade-canvas-content'));
@@ -189,7 +209,10 @@ export class AdeCanvasSurface {
 			const selectRelation = (id: string) => { this.inspectorOpen = true; this.relationSelection = id; this.host.render(); };
 			const size = renderAdeSequence(canvas, model, view, this.controls, this.project.selectedId, id => { if (this.pendingConnection) { return this.finishConnection(id); } else { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(id); this.host.render(); } return undefined; }, {
 				selectRelation, selectedRelation: this.relationSelection,
-				element: (target, id) => this.installContextMenu(target, (x, y) => this.elementMenu(id, x, y)),
+				element: (target, id) => {
+					this.installContextMenu(target, (x, y) => this.elementMenu(id, x, y));
+					registerConnectionNode(id, target);
+				},
 				relation: (target, id) => {
 					this.installContextMenu(target, (x, y) => this.relationMenu(id, x, y));
 					if (dom.isSVGElement(target)) { this.canvas.interactions.add(dom.addDisposableListener(target, 'click', () => selectRelation(id))); }
@@ -205,6 +228,7 @@ export class AdeCanvasSurface {
 			if (sequence.unsupported.length) {
 				this.host.paragraph(parent, localize('ade.sequence.unsupported', "Not rendered as sequence messages: {0}. These relationships remain in Properties and Read Diagram.", sequence.unsupported.map(relation => relation.name || relationLabels[relation.kind]).join(', ')));
 			}
+			installConnectionPreview();
 			return;
 		}
 
@@ -220,9 +244,11 @@ export class AdeCanvasSurface {
 		boundaries.setAttribute('aria-hidden', 'true');
 		svg.appendChild(boundaries);
 		const boundaryBoxes = notationBoundaries(model, view);
+		const boundariesById = new Map(boundaryBoxes.map(box => [box.elementId, box]));
 		for (const box of boundaryBoxes) {
 			const rect = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
 			rect.setAttribute('class', 'ade-notation-boundary');
+			rect.setAttribute('data-notation-kind', elements.get(box.elementId)!.kind);
 			for (const key of ['x', 'y', 'width', 'height'] as const) { rect.setAttribute(key, String(box[key])); }
 			const label = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'text');
 			label.setAttribute('class', 'ade-notation-boundary-label'); label.setAttribute('x', String(box.x + 12)); label.setAttribute('y', String(box.y + 24)); label.textContent = box.name;
@@ -232,9 +258,14 @@ export class AdeCanvasSurface {
 		const paths = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
 		const labels = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
 		svg.append(paths, labels);
-		const boxes = view.nodes.map(node => {
-			const boundary = boundaryBoxes.find(box => box.elementId === node.elementId);
-			return { id: node.elementId, ...notationNodeSize(model.semantics.elements.find(element => element.id === node.elementId)!), ...(boundary ? { x: boundary.x + 12, y: boundary.y + 6, height: 32 } : { x: node.x, y: node.y }) };
+		const boxes = view.nodes.map((node): DiagramObstacle => {
+			const element = elements.get(node.elementId)!;
+			const outline = element.kind === 'decision' ? 'diamond' : element.kind === 'start' || element.kind === 'end' ? 'ellipse' : undefined;
+			const boundary = boundariesById.get(node.elementId);
+			if (boundary && element.kind === 'deploymentNode') {
+				return { id: node.elementId, ...deploymentBoundaryHeader(boundary, element.name) };
+			}
+			return { id: node.elementId, outline, ...notationNodeSize(element), ...(boundary ? { x: boundary.x + 12, y: boundary.y + 6, height: 32 } : { x: node.x, y: node.y }) };
 		});
 		const relationships = model.semantics.relations.filter(relation => view.relationIds.includes(relation.id));
 		const routes = routeDiagramConnections(boxes, relationships);
@@ -256,8 +287,8 @@ export class AdeCanvasSurface {
 			group.setAttribute('class', `ade-connection${this.relationSelection === relation.id ? ' selected' : ''}${related ? ' is-related' : ''}`);
 			group.setAttribute('tabindex', '0'); group.setAttribute('role', 'button');
 			group.setAttribute('data-relation-id', relation.id);
-			const fromName = model.semantics.elements.find(element => element.id === relation.from)!.name;
-			const toName = model.semantics.elements.find(element => element.id === relation.to)!.name;
+			const fromName = elements.get(relation.from)!.name;
+			const toName = elements.get(relation.to)!.name;
 			group.setAttribute('aria-label', localize('ade.relation.accessible', "{0} · {1} → {2} · {3}", relationLabels[relation.kind], fromName, toName, relation.name));
 			group.setAttribute('aria-description', [relation.condition, relation.errorCode].filter(Boolean).join(' · '));
 			this.controls.trackFocus(`edge:${relation.id}`, group);
@@ -313,7 +344,7 @@ export class AdeCanvasSurface {
 			this.canvas.interactions.add(dom.addDisposableListener(label, 'click', (event: MouseEvent) => this.runAction(() => select(event))));
 			this.installContextMenu(label, context);
 			caption.appendChild(label);
-			const placement = placeConnectionLabel(route, label.getComputedTextLength() + 12, occupied);
+			const placement = placeConnectionLabel(route, label.getComputedTextLength() + 12, occupied, { allowNegativeCoordinates: true });
 			if (visibleCaption) { occupied.push(placement.box); }
 			const { x, y, width: labelWidth } = placement.box;
 			const background = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -348,11 +379,13 @@ export class AdeCanvasSurface {
 			this.host.paragraph(parent, localize('ade.routing.blocked', "{0} connections cannot be routed through overlapping nodes. Move the nodes apart; all relationships remain available in Properties and Read Diagram.", blocked));
 		}
 		for (const node of view.nodes) {
-			const element = model.semantics.elements.find(element => element.id === node.elementId)!;
+			const element = elements.get(node.elementId)!;
 			const position = positions.get(element.id)!;
+			const isBoundary = boundariesById.has(element.id);
+			const isDeploymentHeader = isBoundary && element.kind === 'deploymentNode';
 			const button = this.host.button(canvas, element.name, () => { if (this.pendingConnection) { return this.finishConnection(element.id); } else { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(element.id); this.host.render(); } return undefined; }, `node:${element.id}`);
 			button.classList.add('ade-node');
-			button.classList.toggle('is-boundary', boundaryBoxes.some(box => box.elementId === element.id));
+			button.classList.toggle('is-boundary', isBoundary);
 			button.dataset.kind = elementLabels[element.kind];
 			button.setAttribute('aria-label', element.name);
 			const selectedRelation = model.semantics.relations.find(relation => relation.id === this.relationSelection);
@@ -362,18 +395,27 @@ export class AdeCanvasSurface {
 			button.style.width = `${position.width}px`;
 			button.style.height = `${position.height}px`;
 			button.dataset.notationKind = element.kind;
-			if (element.kind === 'useCase') {
+			if (element.kind === 'useCase' || element.kind === 'decision' || isDeploymentHeader) {
 				button.textContent = '';
 				dom.append(button, dom.$('span.ade-node-name')).textContent = element.name;
 			}
-			for (const line of boundaryBoxes.some(box => box.elementId === element.id) ? [] : notationLines(element)) { dom.append(button, dom.$('span.ade-node-member')).textContent = line; }
+			if (isDeploymentHeader) { prependAdeIcon(button, elementIcon(element.kind)); }
+			if (element.kind === 'decision') {
+				const { width, height } = position;
+				button.prepend(dom.$.SVG('svg', { class: 'ade-decision-shape', 'aria-hidden': 'true' },
+					dom.$.SVG('polygon', { points: `${width / 2},0 ${width},${height / 2} ${width / 2},${height} 0,${height / 2}` })
+				));
+			}
+			for (const line of isBoundary ? [] : notationLines(element)) { dom.append(button, dom.$('span.ade-node-member')).textContent = line; }
 			button.setAttribute('aria-pressed', String(!this.relationSelection && element.id === this.project.selectedId));
 			button.setAttribute('aria-description', [elementLabels[element.kind], ...notationLines(element)].join(' · '));
 			this.installContextMenu(button, (x, y) => this.elementMenu(element.id, x, y));
-			if (this.project.editable) { this.canvas.installNodeEditing(button, view, element.id, model, boundaryBoxes.some(box => box.elementId === element.id)); }
+			registerConnectionNode(element.id, button, position.outline);
+			if (this.project.editable) { this.canvas.installNodeEditing(button, view, element.id, model, isBoundary); }
 		}
 		// Keep the historical node-first tab order, followed by keyboard-accessible connections.
 		canvas.appendChild(svg);
+		installConnectionPreview();
 	}
 
 	private renderBlueprintActions(parent: HTMLElement, view: ModelView): void {
@@ -473,12 +515,13 @@ export class AdeCanvasSurface {
 	async beginConnection(id: string): Promise<void> {
 		try {
 			const view = this.project.activeView;
-			const source = this.project.model.semantics.elements.find(element => element.id === id);
+			const elements = new Map(this.project.model.semantics.elements.map(element => [element.id, element]));
+			const source = elements.get(id);
 			if (!view || !source) { this.notifications.error(adeErrorNotification(new Error('No source element selected'), 'edit', this.project.model)); return; }
 			const version = this.project.documentVersion;
 			const kind = await this.quick.pick((Object.keys(relationLabels) as RelationKind[]).filter(kind => acceptsNotationRelation(view.kind, { kind }) && (view.kind !== 'state' || kind === 'transition') && (view.kind !== 'sequence' || ['invocation', 'read', 'write'].includes(kind))
-				&& view.nodes.some(node => { const target = this.project.model.semantics.elements.find(element => element.id === node.elementId)!; return isCompatibleRelation(kind, source.kind, target.kind) && (kind !== 'transition' || source.parentId === target.parentId); })).map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") });
-			if (!kind || version !== this.project.documentVersion) { return; }
+				&& view.nodes.some(node => canConnectNodes(view, elements, kind, source, elements.get(node.elementId)!))).map(kind => ({ label: relationLabels[kind], kind })), { title: localize('ade.relationType', "Relationship Type") });
+			if (!kind || version !== this.project.documentVersion || view.id !== this.project.activeView?.id) { return; }
 			this.controls.setExpanded('canvas-actions', false);
 			this.controls.setExpanded('canvas-code-unavailable', false);
 			this.inspectorOpen = false;
@@ -493,15 +536,18 @@ export class AdeCanvasSurface {
 		try {
 			const pending = this.pendingConnection;
 			if (!pending) { return; }
-			const from = this.project.model.semantics.elements.find(element => element.id === pending.from);
-			const to = this.project.model.semantics.elements.find(element => element.id === id);
-			if (pending.version !== this.project.documentVersion || !from || !to) {
+			const view = this.project.activeView;
+			const elements = new Map(this.project.model.semantics.elements.map(element => [element.id, element]));
+			const from = elements.get(pending.from);
+			const to = elements.get(id);
+			if (pending.version !== this.project.documentVersion || view?.id !== pending.viewId || !from || !to) {
 				this.pendingConnection = undefined;
 				this.notifications.error(adeErrorNotification(new Error('The project changed while creating the relationship.'), 'edit', this.project.model));
 				this.host.render(); return;
 			}
-			if (!isCompatibleRelation(pending.kind, from.kind, to.kind) || pending.kind === 'transition' && from.parentId !== to.parentId) { this.notifications.error(adeErrorNotification(new Error(pending.kind === 'transition' ? 'Unsupported resource transition' : 'Relationship cannot be included in this diagram'), 'edit', this.project.model)); return; }
+			if (!canConnectNodes(view, elements, pending.kind, from, to)) { this.notifications.error(adeErrorNotification(new Error(pending.kind === 'transition' ? 'Unsupported resource transition' : 'Relationship cannot be included in this diagram'), 'edit', this.project.model)); return; }
 			this.pendingConnection = undefined;
+			this.canvas.clearConnectionPreview();
 			const parent = this.host.root.closest<HTMLElement>('.monaco-workbench') ?? this.host.root.ownerDocument.body;
 			const value = await editAdeConnectionDetails(parent, localize('ade.relation.endpoints', "{0} → {1}", from.name, to.name));
 			if (!value) { this.host.render(); return; }

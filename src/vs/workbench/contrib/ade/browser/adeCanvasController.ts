@@ -4,17 +4,41 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../base/browser/dom.js';
-import { DisposableStore, Disposable } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ModelView, SemanticModel } from '../common/modelTypes.js';
 import { AdeProjectService } from './adeProjectService.js';
 import { AdeControls } from './adeControls.js';
 import { DiagramCamera, DiagramBounds, fitDiagramCamera, zoomDiagram } from '../common/diagramCamera.js';
 import { notationGroupMembers } from '../common/diagramLayout.js';
+import { DiagramBox, DiagramObstacle, DiagramPoint } from '../common/diagramRouting.js';
 
 interface AdeCanvasControllerHost {
 	readonly root: HTMLElement;
 	reportError?(error: unknown): void;
+}
+
+/** Use the facing side's midpoint as a stable port on a hovered node, regardless of its silhouette. */
+function connectionPreviewRoute(source: DiagramBox, target: DiagramBox | undefined, pointer: DiagramPoint, outline?: DiagramObstacle['outline']): DiagramPoint[] | undefined {
+	const center = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+	if (source === target) {
+		const right = source.x + source.width;
+		const bottom = source.y + source.height;
+		const gap = 24;
+		return [{ x: right, y: center.y }, { x: right + gap, y: center.y }, { x: right + gap, y: bottom + gap }, { x: center.x, y: bottom + gap }, { x: center.x, y: bottom }];
+	}
+	let tip = pointer;
+	if (target) {
+		const targetCenter = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+		const dx = center.x - targetCenter.x, dy = center.y - targetCenter.y;
+		tip = Math.abs(dx) / target.width >= Math.abs(dy) / target.height
+			? { x: dx < 0 ? target.x : target.x + target.width, y: targetCenter.y }
+			: { x: targetCenter.x, y: dy < 0 ? target.y : target.y + target.height };
+	}
+	const dx = tip.x - center.x, dy = tip.y - center.y;
+	const normalizedX = Math.abs(dx * 2 / source.width), normalizedY = Math.abs(dy * 2 / source.height);
+	const outlineDistance = outline === 'diamond' ? normalizedX + normalizedY : outline === 'ellipse' ? Math.hypot(normalizedX, normalizedY) : Math.max(normalizedX, normalizedY);
+	return outlineDistance > 1 ? [{ x: center.x + dx / outlineDistance, y: center.y + dy / outlineDistance }, tip] : undefined;
 }
 
 /** Owns camera state and per-render pointer/keyboard listeners for the ADE editor. */
@@ -44,6 +68,8 @@ export class AdeCanvasController extends Disposable {
 	canvasViewport: HTMLElement | undefined;
 
 	canvasContent: HTMLElement | undefined;
+
+	private connectionPreview: { listeners: DisposableStore; update: () => void } | undefined;
 
 	private visibleViewport(): { x: number; y: number; width: number; height: number } | undefined {
 		if (!this.canvasViewport) { return undefined; }
@@ -79,6 +105,76 @@ export class AdeCanvasController extends Disposable {
 		if (menu) { menu.style.setProperty('--ade-canvas-menu-max-height', `${Math.max(48, this.canvasViewport.clientHeight - menu.offsetTop - menu.offsetHeight - 88)}px`); }
 		if (menu && inspector) { inspector.style.top = menu.offsetLeft + menu.offsetWidth + inspector.offsetWidth + 24 > this.host.root.clientWidth ? `${menu.offsetTop + menu.offsetHeight + 12}px` : ''; }
 		if (this.cameraKey) { this.cameras.set(this.cameraKey, { ...this.camera }); }
+		this.connectionPreview?.update();
+	}
+
+	/** Update the temporary arrow and its hovered target using the current viewport geometry. */
+	installConnectionPreview(viewport: HTMLElement, source: HTMLElement, targets: ReadonlySet<HTMLElement>, outline?: DiagramObstacle['outline']): void {
+		const shaft = dom.$.SVG('path', { class: 'ade-relation-preview' });
+		const arrowhead = dom.$.SVG('path');
+		const overlay = dom.append(viewport, dom.$.SVG('svg', { class: 'ade-relation-preview-layer', 'aria-hidden': 'true' }, shaft, arrowhead));
+		viewport.classList.add('is-connecting');
+		for (const target of targets) {
+			target.classList.add('is-connection-candidate');
+		}
+		let pointer: DiagramPoint | undefined;
+		let highlighted: HTMLElement | undefined;
+		const highlight = (target: HTMLElement | undefined) => {
+			if (target === highlighted) { return; }
+			highlighted?.classList.remove('is-connection-target');
+			highlighted = target;
+			highlighted?.classList.add('is-connection-target');
+		};
+		const update = () => {
+			const bounds = overlay.getBoundingClientRect();
+			if (pointer && pointer.x >= bounds.left && pointer.x <= bounds.right && pointer.y >= bounds.top && pointer.y <= bounds.bottom) {
+				const hit = viewport.ownerDocument.elementFromPoint(pointer.x, pointer.y)?.closest<HTMLElement>('.ade-node');
+				const target = hit && targets.has(hit) ? hit : undefined;
+				highlight(target);
+				const sourceBounds = source.getBoundingClientRect();
+				const targetBounds = target === source ? sourceBounds : target?.getBoundingClientRect();
+				const route = connectionPreviewRoute(sourceBounds, targetBounds, pointer, outline);
+				if (route) {
+					const tip = route[route.length - 1], previous = route[route.length - 2];
+					const dx = tip.x - previous.x, dy = tip.y - previous.y;
+					const angle = Math.atan2(dy, dx), length = Math.min(12, Math.hypot(dx, dy) / 2);
+					const x = tip.x - bounds.left, y = tip.y - bounds.top;
+					shaft.setAttribute('d', route.map((point, index) => `${index ? 'L' : 'M'} ${point.x - bounds.left} ${point.y - bounds.top}`).join(' '));
+					arrowhead.setAttribute('d', `M ${x - length * Math.cos(angle - 0.5)} ${y - length * Math.sin(angle - 0.5)} L ${x} ${y} L ${x - length * Math.cos(angle + 0.5)} ${y - length * Math.sin(angle + 0.5)}`);
+					return;
+				}
+			} else {
+				highlight(undefined);
+			}
+			shaft.removeAttribute('d');
+			arrowhead.removeAttribute('d');
+		};
+		const track = (event: PointerEvent) => {
+			pointer = event.pointerType === 'touch' ? undefined : { x: event.clientX, y: event.clientY };
+			update();
+		};
+		const reset = () => { pointer = undefined; update(); };
+		const listeners = this.interactions.add(new DisposableStore());
+		this.connectionPreview = { listeners, update };
+		listeners.add(toDisposable(() => {
+			highlight(undefined);
+			for (const target of targets) {
+				target.classList.remove('is-connection-candidate');
+			}
+			overlay.remove();
+			viewport.classList.remove('is-connecting');
+			this.connectionPreview = undefined;
+		}));
+		listeners.add(dom.addDisposableListener(viewport, 'pointerenter', track));
+		listeners.add(dom.addDisposableListener(viewport, 'pointermove', track));
+		listeners.add(dom.addDisposableListener(viewport, 'pointerleave', reset));
+		listeners.add(dom.addDisposableListener(viewport, 'pointercancel', reset));
+	}
+
+	clearConnectionPreview(): void {
+		if (this.connectionPreview) {
+			this.interactions.delete(this.connectionPreview.listeners);
+		}
 	}
 
 	installPan(parent: HTMLElement): void {

@@ -7,7 +7,7 @@ import '../scripts/source-loader.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const { isClearSegment, placeConnectionLabel, routeDiagramConnection, routeDiagramConnections } = await import('../../src/vs/workbench/contrib/ade/common/diagramRouting.ts');
+const { deploymentBoundaryHeader, isClearSegment, placeConnectionLabel, routeDiagramConnection, routeDiagramConnections } = await import('../../src/vs/workbench/contrib/ade/common/diagramRouting.ts');
 
 const boxes = [
 	{ id: 'from', x: 64, y: 100, width: 192, height: 88 },
@@ -72,4 +72,20 @@ test('short gaps use a nearby label with an unobstructed leader instead of a lon
 	const placement = placeConnectionLabel([{ x: 256, y: 108 }, { x: 324, y: 108 }], 180, nodes);
 	const attachment = { x: placement.anchor.x, y: placement.box.y + placement.box.height };
 	assert.deepEqual({ near: placement.box.y < 64, leader: placement.detached, clear: isClearSegment(placement.anchor, attachment, nodes) }, { near: true, leader: true, clear: true });
+});
+
+test('short deployment connections keep their captions near the route across the canvas origin', () => {
+	const boundary = { x: -24, y: -44, width: 256, height: 164 };
+	const host = { id: 'host', ...deploymentBoundaryHeader(boundary, 'Host Web') };
+	const artifact = { id: 'artifact', x: 0, y: 0, width: 208, height: 96 };
+	const nodes = [host, artifact];
+	const route = routeDiagramConnection(nodes, host.id, artifact.id);
+	assertClear(route, nodes);
+	const placement = placeConnectionLabel(route, 83, nodes, { allowNegativeCoordinates: true });
+	assert.deepEqual({
+		startsAtHeader: route[0].x === host.x + host.width,
+		endsAtArtifact: route.at(-1).y === artifact.y,
+		aboveArtifact: placement.box.y + placement.box.height <= artifact.y,
+		detached: placement.detached
+	}, { startsAtHeader: true, endsAtArtifact: true, aboveArtifact: true, detached: false });
 });
