@@ -159,6 +159,8 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	async configureDiagramBudget(): Promise<void> { return this.diagrams.configureDiagramBudget(); }
 
+	async configureDefaultDiagramBudget(): Promise<void> { return this.diagrams.configureDefaultDiagramBudget(); }
+
 	async configureDiagramCheckpointTimeout(): Promise<void> { return this.diagrams.configureDiagramCheckpointTimeout(); }
 
 	async reviewDiagramProposal(id?: string): Promise<void> { return this.diagrams.reviewDiagramProposal(id); }

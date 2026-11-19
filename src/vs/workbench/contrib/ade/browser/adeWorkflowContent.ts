@@ -24,7 +24,8 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { type ThemeIcon } from '../../../../base/common/themables.js';
 import { AdeActionMenu } from './adeActionMenu.js';
 import { AdeCodebaseExploration } from './adeCodebaseExploration.js';
-import { diagramCheckpointTimeoutSetting, getDiagramCheckpointTimeoutMinutes } from '../common/diagramExplorationSettings.js';
+import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting, getDiagramCheckpointTimeoutMinutes } from '../common/diagramExplorationSettings.js';
+import { getProjectDiagramExplorationBudget } from '../common/diagramExplorationBudget.js';
 
 interface AdeWorkflowContentHost {
 	paragraph(parent: HTMLElement, content: string): void;
@@ -62,10 +63,14 @@ export class AdeWorkflowContent {
 		const limit = minutes === 1 ? localize('ade.diagram.attemptOneMinute', "1 minute per attempt") : localize('ade.diagram.attemptMinutes', "{0} minutes per attempt", minutes);
 		const budget = this.group(parent, localize('ade.ai.generationSettings', "Diagram Generation"), incremental ? limit : localize('ade.ai.generationSettingsHint', "Control How Much Source the Assistant Can Explore While Preparing Diagrams."));
 		if (incremental) {
+			const initial = getProjectDiagramExplorationBudget(this.configurationService.getValue(diagramExplorationBudgetSetting));
+			const summary = dom.$('p');
+			summary.textContent = localize('ade.diagram.defaultBudgetSummary', "New explorations · {0} local tool calls · {1} KiB of tool response data · {2} min · {3} reported turns", initial.maxToolCalls, Math.ceil(initial.maxReadBytes / 1024), Math.ceil(initial.maxDurationMs / 60_000), initial.maxModelTurns);
+			budget.before(summary);
+			this.host.button(budget, localize('ade.diagram.setDefaultBudget', "Set Default Exploration Budget"), () => this.ai.configureDefaultDiagramBudget().catch(error => this.notifications.error(adeErrorNotification(error, 'ai', this.project.model))), 'default-exploration-budget');
 			this.host.button(budget, localize('ade.diagram.setAttemptLimit', "Set Diagram Attempt Time Limit"), () => this.ai.configureDiagramCheckpointTimeout().catch(error => this.notifications.error(adeErrorNotification(error, 'ai', this.project.model))), 'diagram-attempt-time-limit');
 		}
-		this.host.button(budget, localize('ade.explore.adjustBudget', "Add Exploration Budget"), () => this.ai.configureDiagramBudget()).disabled = this.ai.busy || !this.ai.diagramExploration;
-		if (!this.ai.diagramExploration) { this.host.paragraph(budget, localize('ade.explore.initializeBudget', "Open Architecture Exploration to Initialize a Project Budget. No AI Request Is Sent Until You Send a Message.")); }
+		this.host.button(budget, localize('ade.explore.adjustBudget', "Add Exploration Budget"), () => this.ai.configureDiagramBudget().catch(error => this.notifications.error(adeErrorNotification(error, 'ai', this.project.model))), 'add-exploration-budget').disabled = this.ai.busy || this.code.busy || !this.ai.diagramExploration;
 		const advanced = this.controls.details(parent, localize('ade.ai.advancedSettings', "Advanced · Model Benchmarks"), 'ai-benchmarks');
 		for (const [label, action] of [
 			[localize('ade.ai.benchmarkButton', "Compare AI Models"), () => this.ai.benchmark()],

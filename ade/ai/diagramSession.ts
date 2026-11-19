@@ -15,6 +15,7 @@ import { contentHash, sourceFile } from '../runtime/sourceChanges.ts';
 import { applyReconciliation, assertNoInterruptedOperation, operationHistory, recoverReconciliation } from '../code-import/reconciliationJournal.ts';
 import { ExplorationSourceRangeError, explorationCapabilities, explorationPage, refreshExplorationAnalysis, indexScopeRevision, readExplorationSource, searchExplorationSource, sourceRole, type ExplorationCapabilities, type IndexQuery } from '../code-import/explorationIndex.ts';
 import { diagramProposalExample, diagramSessionInstruction, diagramToolDefinitions, diagramViewCatalog } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
+import { defaultProjectDiagramExplorationBudget, getDiagramBudgetExtensionCapacity, isDiagramExplorationBudget, maximumDiagramExplorationBudget, type DiagramExplorationBudget } from '../../src/vs/workbench/contrib/ade/common/diagramExplorationBudget.ts';
 import { applyDiagramProposal, diagramModelRevision, proposeDiagramModel, type DiagramProposal, type DiagramProposalRequest } from '../../src/vs/workbench/contrib/ade/common/modelProposals.ts';
 import { migrateSemanticModelToV5 } from '../../src/vs/workbench/contrib/ade/common/modelMigration.ts';
 import { canonicalJson } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';
@@ -29,8 +30,7 @@ import { diagramFeatureCatalog, diagramFeatureStage, diagramProjectBlockers, dia
 import { notationNodeSize } from '../../src/vs/workbench/contrib/ade/common/diagramLayout.ts';
 import { checkpointToolAllowed, diagramCheckpointSchema, sameDiagramCheckpoint, type DiagramCheckpoint } from './diagramCheckpoint.ts';
 
-export interface ExplorationBudget { maxToolCalls: number; maxReadBytes: number; maxDurationMs: number; maxModelTurns: number }
-const defaultProjectBudget: ExplorationBudget = { maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 };
+export type ExplorationBudget = DiagramExplorationBudget;
 const defaultExplorationBudget: ExplorationBudget = { maxToolCalls: 80, maxReadBytes: 1024 * 1024, maxDurationMs: 30 * 60 * 1000, maxModelTurns: 8 };
 type TaskState = 'queued' | 'running' | 'waitingContext' | 'waitingUser' | 'blocked' | 'ready' | 'applied' | 'cancelled';
 interface ExplorationTask { id: string; intent: string; status: TaskState; gaps: string[]; proposalId?: string; previewedProposalId?: string }
@@ -44,6 +44,7 @@ export interface DiagramExplorationSession {
 }
 export interface ExplorationRequest {
 	action: 'open' | 'status' | 'tool' | 'publish' | 'budget' | 'review' | 'publishAll'; sessionId?: string; model?: string; budget?: ExplorationBudget; workflow?: 'project'; reviewId?: string;
+	budgetIncrease?: ExplorationBudget;
 	featureWorkflow?: true;
 	checkpoint?: DiagramCheckpoint;
 	tool?: string; arguments?: object; callId?: string; turnId?: string; proposalId?: string;
@@ -53,7 +54,7 @@ export interface DiagramExplorationResult {
 	capabilities: ExplorationCapabilities[]; data: object; diagnostics: object[];
 }
 const requestValidator = new Ajv2020().compile({ type: 'object', additionalProperties: false, required: ['action'], properties: {
-	workflow: { const: 'project' }, featureWorkflow: { const: true }, checkpoint: diagramCheckpointSchema, reviewId: { type: 'string', maxLength: 100 }, action: { enum: ['open', 'status', 'tool', 'publish', 'budget', 'review', 'publishAll'] }, sessionId: { type: 'string', maxLength: 100 }, model: { type: 'string', minLength: 1, maxLength: 200 }, budget: { type: 'object' }, tool: { type: 'string', maxLength: 120 }, arguments: { type: 'object' }, callId: { type: 'string', maxLength: 300 }, turnId: { type: 'string', maxLength: 300 }, proposalId: { type: 'string', maxLength: 100 }
+	workflow: { const: 'project' }, featureWorkflow: { const: true }, checkpoint: diagramCheckpointSchema, reviewId: { type: 'string', maxLength: 100 }, action: { enum: ['open', 'status', 'tool', 'publish', 'budget', 'review', 'publishAll'] }, sessionId: { type: 'string', maxLength: 100 }, model: { type: 'string', minLength: 1, maxLength: 200 }, budget: { type: 'object' }, budgetIncrease: { type: 'object' }, tool: { type: 'string', maxLength: 120 }, arguments: { type: 'object' }, callId: { type: 'string', maxLength: 300 }, turnId: { type: 'string', maxLength: 300 }, proposalId: { type: 'string', maxLength: 100 }
 } });
 const toolValidator = new Ajv2020({ strict: false, allErrors: true });
 const validators = new Map(diagramToolDefinitions.map(tool => [tool.name, toolValidator.compile(tool.inputSchema)]));
@@ -133,8 +134,28 @@ function argumentDiagnostics(tool: string, args: object): object[] {
 	return result.slice(0, 8);
 }
 function budget(value: ExplorationBudget): ExplorationBudget {
-	if (!value || !Number.isSafeInteger(value.maxToolCalls) || value.maxToolCalls < 1 || value.maxToolCalls > 1000 || !Number.isSafeInteger(value.maxReadBytes) || value.maxReadBytes < 1024 || value.maxReadBytes > 32 * 1024 * 1024 || !Number.isSafeInteger(value.maxDurationMs) || value.maxDurationMs < 1000 || value.maxDurationMs > 24 * 60 * 60 * 1000 || !Number.isSafeInteger(value.maxModelTurns) || value.maxModelTurns < 1 || value.maxModelTurns > 100) { throw new Error('invalidSessionBudget'); }
+	if (!isDiagramExplorationBudget(value)) { throw new Error('invalidSessionBudget'); }
 	return structuredClone(value);
+}
+
+/** Apply a validated increment under the session lock, retaining all consumed usage. */
+function extendBudget(session: DiagramExplorationSession, increase: ExplorationBudget, now: number): void {
+	const keys = Object.keys(maximumDiagramExplorationBudget) as (keyof ExplorationBudget)[];
+	if (!keys.every(key => Number.isSafeInteger(increase[key]) && increase[key] >= 0 && increase[key] <= maximumDiagramExplorationBudget[key]) || !keys.some(key => increase[key] > 0)) { throw new Error('invalidSessionBudgetIncrease'); }
+	const elapsedMs = Math.max(0, now - session.created);
+	const remainingMs = Math.max(0, session.budget.maxDurationMs - elapsedMs);
+	const capacity = getDiagramBudgetExtensionCapacity(session.budget, session.usage, remainingMs);
+	if (keys.some(key => increase[key] > capacity[key])) { throw new Error('sessionBudgetIncreaseExceedsLimit'); }
+	const current = session.budget;
+	const usage = session.usage;
+	const next = budget({
+		maxToolCalls: increase.maxToolCalls ? Math.max(current.maxToolCalls, usage.toolCalls) + increase.maxToolCalls : current.maxToolCalls,
+		maxReadBytes: increase.maxReadBytes ? Math.max(current.maxReadBytes, usage.readBytes) + increase.maxReadBytes : current.maxReadBytes,
+		maxDurationMs: increase.maxDurationMs ? remainingMs + increase.maxDurationMs : current.maxDurationMs,
+		maxModelTurns: increase.maxModelTurns ? Math.max(current.maxModelTurns, usage.modelTurns.length) + increase.maxModelTurns : current.maxModelTurns,
+	});
+	session.budget = next;
+	if (increase.maxDurationMs) { session.created = now; }
 }
 async function sessionPath(root: string, id: string): Promise<string> {
 	if (!snapshotId(id)) { throw new Error('invalidSessionId'); }
@@ -268,7 +289,7 @@ function updateTask(session: DiagramExplorationSession, task: ExplorationTask): 
 /** One project-scoped domain service serves both workbench tools and the official MCP adapter. */
 export async function executeDiagramExploration(snapshotDirectory: string, request: ExplorationRequest, signal?: AbortSignal): Promise<DiagramExplorationResult> {
 	if (Buffer.byteLength(JSON.stringify(request)) > 1024 * 1024) { throw new Error('explorationRequestLimit'); }
-	if (!requestValidator(request) || request.checkpoint && (request.action !== 'tool' || !request.turnId)) { throw new Error('invalidExplorationRequest'); }
+	if (!requestValidator(request) || request.checkpoint && (request.action !== 'tool' || !request.turnId) || request.budgetIncrease && (request.action !== 'budget' || request.budget)) { throw new Error('invalidExplorationRequest'); }
 	const initial = await readSnapshot(snapshotDirectory), root = initial.state.sourceRoot;
 	if (snapshotDirectory !== initial.directory || initial.directory !== join(root, '.ade', 'imports', basename(initial.directory))) { throw new Error('snapshotOutsideProjectScope'); }
 	// UI progress reads must neither contend with the MCP writer nor rewrite its session file.
@@ -290,7 +311,7 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		if (request.action === 'open' && !request.sessionId) {
 			session = { version: 2, id: randomUUID(), root, projectId: snapshot.state.projectId, model: request.model ?? 'user-selected', created: Date.now(), budget: budget(request.budget ?? defaultExplorationBudget), usage: { toolCalls: 0, readBytes: 0, modelTurns: [], inputTokens: null, outputTokens: null, turnsObservable: false }, evidence: [], queries: [], proposals: [], tasks: [{ id: 'overview', intent: 'Discover the main runtime responsibilities and integrations', status: 'queued', gaps: [] }], calls: [] };
 		} else { if (!request.sessionId) { throw new Error('sessionRequired'); } session = await readExplorationSession(root, request.sessionId); }
-		if (request.workflow === 'project' && session.workflow !== 'project') { session.workflow = 'project'; session.budget = budget(request.budget ?? defaultProjectBudget); session.created = Date.now(); }
+		if (request.workflow === 'project' && session.workflow !== 'project') { session.workflow = 'project'; session.budget = budget(request.budget ?? defaultProjectDiagramExplorationBudget); session.created = Date.now(); }
 		if (request.action === 'open' && request.featureWorkflow && session.workflow === 'project' && !session.plan && !session.proposals.length && !session.featureWorkflow) {
 			session.featureWorkflow = true;
 			session.tasks = [];
@@ -327,8 +348,10 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		const invalidation = { evidenceIds: [...staleEvidence], objectIds: [...affected], viewIds: model.views.filter(view => view.nodes.some(node => affected.has(node.elementId)) || view.relationIds.some(id => affected.has(id)) || affected.has(view.interactionId ?? '')).map(view => view.id), queryIds: session.queries.filter(query => query.revision !== indexScopeRevision(queryState, query.filePrefix)).map(query => query.id) };
 		const summary = () => ({ ...sessionSummary(session, staged.blockers), invalidation, sourceChanged: state.revision !== snapshot.state.revision });
 		if (request.action === 'budget') {
-			if (!request.budget) { throw new Error('budgetRequired'); }
-			session.budget = budget(request.budget); session.created = Date.now(); await save(session); return envelope(summary());
+			if (request.budgetIncrease) { extendBudget(session, request.budgetIncrease, Date.now()); }
+			else if (request.budget) { session.budget = budget(request.budget); session.created = Date.now(); }
+			else { throw new Error('budgetRequired'); }
+			await save(session); return envelope(summary());
 		}
 		if (request.action === 'open') { await save(session); return envelope(summary()); }
 		if (request.action === 'review' || request.action === 'publishAll') {

@@ -25,7 +25,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { type SemanticModel } from '../../common/modelTypes.js';
 import { canonicalJson, semanticContent } from '../../common/modelSerialization.js';
 import type { CodeContext, CodeDiagramExploration } from '../../common/codeBridge.js';
-import { diagramCheckpointTimeoutSetting } from '../../common/diagramExplorationSettings.js';
+import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../../common/diagramExplorationSettings.js';
 
 suite('A.D.E imported diagram review', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -196,10 +196,12 @@ suite('A.D.E imported diagram review', () => {
 		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.parse(f.review.modelUri), section: 'home', selectedId: '', diagnostics: [], onDidChange: Event.None, restore: async () => {} });
 		const exploration: CodeDiagramExploration = { ...(projectWorkflow ? { workflow: 'project' as const, batch: { blockers: [] } } : {}), sessionId: 'session', model: 'test', proposals: [f.review.proposal], plan: f.review.plan, tasks: f.review.tasks ?? [], usage: { toolCalls: 1, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, budget: { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 } };
 		let timeoutSettingsOpened = 0;
+		let budgetSettingsOpened = 0;
 		const ai = Object.assign(new (mock<IAdeAiService>())(), {
 			available: true, onDidChange: changed.event, diagramReview: undefined as AdeDiagramReview | undefined,
 			diagramExploration: exploration as CodeDiagramExploration | undefined,
 			configureDiagramCheckpointTimeout: async () => { timeoutSettingsOpened++; },
+			configureDefaultDiagramBudget: async () => { budgetSettingsOpened++; },
 			refreshConnection: async () => {},
 			reviewDiagramProposal: async () => { ai.diagramReview = f.review; changed.fire(); },
 			applyDiagramReview: async () => { f.called.push('apply'); },
@@ -237,15 +239,22 @@ suite('A.D.E imported diagram review', () => {
 		assert.deepStrictEqual([generationSettings?.querySelector('h2')?.textContent, timeoutSettings.disabled, generationSettings?.textContent?.includes('20 minutes per attempt')], ['Diagram Generation', false, true]);
 		timeoutSettings.click();
 		assert.equal(timeoutSettingsOpened, 1);
+		const budgetSettings = button('Set Default Exploration Budget');
+		assert.deepStrictEqual([budgetSettings.disabled, generationSettings?.textContent?.includes('800 local tool calls'), button('Add Exploration Budget').disabled], [false, true, true]);
+		budgetSettings.click();
+		assert.equal(budgetSettingsOpened, 1);
 		await configuration.setUserConfiguration(diagramCheckpointTimeoutSetting, 35);
+		await configuration.setUserConfiguration(diagramExplorationBudgetSetting, { maxToolCalls: 900, maxReadBytes: 20 * 1024 * 1024, maxDurationMs: 240 * 60_000, maxModelTurns: 70 });
+		const keys = [diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting];
 		configuration.onDidChangeConfigurationEmitter.fire({
 			source: ConfigurationTarget.USER,
-			affectedKeys: new Set([diagramCheckpointTimeoutSetting]),
-			change: { keys: [diagramCheckpointTimeoutSetting], overrides: [] },
-			affectsConfiguration: key => key === diagramCheckpointTimeoutSetting
+			affectedKeys: new Set(keys),
+			change: { keys, overrides: [] },
+			affectsConfiguration: key => keys.includes(key)
 		});
 		const updatedText = button('Set Diagram Attempt Time Limit').closest('.ade-action-group')?.textContent ?? '';
 		assert.deepStrictEqual([updatedText.includes('35 minutes per attempt'), updatedText.includes('20 minutes per attempt')], [true, false]);
+		assert.ok(updatedText.includes('900 local tool calls'));
 		ai.diagramExploration = exploration; changed.fire();
 		editor.showWorkspace();
 		assert.ok(button(reviewLabel), 'returning to the workspace preserves the saved review');

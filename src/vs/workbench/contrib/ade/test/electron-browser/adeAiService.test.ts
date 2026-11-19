@@ -40,7 +40,7 @@ import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { IAdeOperationService, AdeOperationService } from '../../browser/adeOperationService.js';
 import { CliAccountState, CodeContext, CodeDiagramProgress, CodeDiagramExploration, CodePreview, CodeRequest, type CodeDiagramCheckpointResult } from '../../common/codeBridge.js';
-import { diagramCheckpointTimeoutSetting } from '../../common/diagramExplorationSettings.js';
+import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../../common/diagramExplorationSettings.js';
 import { AdeAiService } from '../../electron-browser/adeAiService.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { stateFixture, stateCriteriaFixture } from '../common/stateFixture.js';
@@ -50,7 +50,11 @@ import { checkoutModel } from '../../common/checkoutModel.js';
 import { featureCodeProfiles, type FeatureCodeGenerationRun } from '../../common/featureCodeGeneration.js';
 
 interface Choice { description?: string; value?: unknown; label?: string; id?: string; provider?: string; maxCalls?: number; picked?: boolean; send?: boolean; generate?: boolean; propose?: boolean }
+type ExplorationBudget = CodeDiagramExploration['budget'];
+type BudgetEditorOptions = Parameters<IAdeAiDialogService['editDiagramBudget']>[0];
 const config = { version: 1, provider: 'codex', connection: 'cli', executable: 'codex', model: 'native-model', timeoutMs: 10000, maxContextBytes: 65536, maxCalls: 2 };
+const defaultProjectBudget: ExplorationBudget = { maxToolCalls: 800, maxReadBytes: 16 * 1024 * 1024, maxDurationMs: 180 * 60_000, maxModelTurns: 64 };
+const budgetIncrease: ExplorationBudget = { maxToolCalls: 100, maxReadBytes: 2 * 1024 * 1024, maxDurationMs: 30 * 60_000, maxModelTurns: 8 };
 
 suite('A.D.E native AI orchestration', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -83,6 +87,8 @@ suite('A.D.E native AI orchestration', () => {
 		const inputOptions: IInputOptions[] = [];
 		const configurationValues = new Map<string, unknown>();
 		const configurationEdits: { key: string; value: unknown; target: ConfigurationTarget }[] = [];
+		const budgetEditors: BudgetEditorOptions[] = [];
+		let editBudget: IAdeAiDialogService['editDiagramBudget'] | undefined;
 		const chats: { resource: string; attachments: string[]; focused: boolean }[] = [];
 		const chatPrompts: string[] = [];
 		const pickerTitles: string[] = [];
@@ -101,8 +107,9 @@ suite('A.D.E native AI orchestration', () => {
 		let featureState: Partial<CodeDiagramExploration> | undefined;
 		let onCheckpoint: ((request: Extract<CodeRequest, { operation: 'diagramChat' }>, token: CancellationToken) => Promise<string | CodeDiagramCheckpointResult>) | undefined;
 		let onExplorationStatus: ((response: string) => Promise<string>) | undefined;
-		let explorationBudget = { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 }, explorationBudgetStarted = Date.now();
-		const explorationBudgetRequests: typeof explorationBudget[] = [];
+		let explorationBudget: ExplorationBudget = { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 }, explorationBudgetStarted = Date.now();
+		const explorationBudgetRequests: { sessionId: string; budgetIncrease: ExplorationBudget }[] = [];
+		const explorationOpens: { sessionId?: string; budget?: ExplorationBudget }[] = [];
 		const explorationSessionIds: (string | undefined)[] = [];
 		let explorationId = savedExploration?.id ?? generateUuid(), explorationMissing = false, explorationReadError: Error | undefined;
 		let planApproved = false;
@@ -153,7 +160,16 @@ suite('A.D.E native AI orchestration', () => {
 		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => { await focusRequested.complete(); await terminalFocus; }, onExit: terminalExit.event }; }, setActiveInstance: () => {} });
 		stub(ITerminalGroupService, { showPanel: async () => {}, hidePanel: () => { hiddenPanels++; } });
 		stub(IChatWidgetService, { openSession: async (resource: URI) => {  const chat = { resource: resource.toString(), attachments: [] as string[], focused: false }; chats.push(chat); return { input: { setCurrentLanguageModel: (model: { identifier: string }) => selectedChatModels.push(model.identifier) }, attachmentModel: { get fileAttachments() { return attachmentFiles.get(resource.toString()) ?? []; }, delete: (id: string) => { deletedAttachments.push(id); attachmentFiles.set(resource.toString(), (attachmentFiles.get(resource.toString()) ?? []).filter(uri => uri.toString() !== id)); }, addFile: async (uri: URI) => { chat.attachments.push(uri.toString()); attachmentFiles.set(resource.toString(), [...(attachmentFiles.get(resource.toString()) ?? []), uri]); }, updateContext: (_deleted: string[], entries: { value: string }[]) => { diagramContexts.push(entries[0].value); } }, setInput: (value: string) => { chatPrompts.push(value); }, setInputPlaceholder: () => {}, focusInput: () => { chat.focused = true; } }; } });
-		stub(IAdeAiDialogService, { updateConversation: (event: import('../../common/codeBridge.js').CodeAiProgress) => liveUpdates.push(event), updateProgress: () => {}, open: async (options: AdeAiDialogOptions) => { dialogs.push(options); activeDialog = options; return options.resource ? instantiation.get(IChatWidgetService).openSession(options.resource) : undefined; }, close: async () => { const options = activeDialog; activeDialog = undefined; await options?.onClose(); } });
+		stub(IAdeAiDialogService, {
+			updateConversation: (event: import('../../common/codeBridge.js').CodeAiProgress) => liveUpdates.push(event),
+			updateProgress: () => {},
+			open: async (options: AdeAiDialogOptions) => { dialogs.push(options); activeDialog = options; return options.resource ? instantiation.get(IChatWidgetService).openSession(options.resource) : undefined; },
+			close: async () => { const options = activeDialog; activeDialog = undefined; await options?.onClose(); },
+			editDiagramBudget: async (options: BudgetEditorOptions) => {
+				budgetEditors.push(structuredClone(options));
+				return editBudget?.(options);
+			}
+		});
 		stub(ICodexAccountService, { account, onDidChangeAccount: accountChanged.event, signIn: () => signIns++ });
 		stub(IAgentSdkSetupService, { setups, requestReload: () => {} });
 		stub(IAgentHostService, { rootState: { value: { agents: [{ provider: 'codex', models: [{ id: '@provider=openai:native-model', name: 'Native Account', provider: 'codex' }, { id: '@provider=vscode-proxy:proxy-model', name: 'Other Account', provider: 'codex' }] }] } } });
@@ -186,11 +202,31 @@ suite('A.D.E native AI orchestration', () => {
 					case 'exploration': {
 						const input = JSON.parse((JSON.parse(inputText) as { request: string }).request);
 						explorationActions.push(input.tool ?? input.action);
-						if (input.action === 'budget') { explorationBudget = structuredClone(input.budget); explorationBudgetRequests.push(explorationBudget); explorationBudgetStarted = Date.now(); }
+						if (input.action === 'budget') {
+							const increase: ExplorationBudget = input.budgetIncrease;
+							explorationBudgetRequests.push({ sessionId: input.sessionId, budgetIncrease: increase });
+							const now = Date.now();
+							const remainingMs = Math.max(0, explorationBudget.maxDurationMs - (now - explorationBudgetStarted));
+							explorationBudget = {
+								maxToolCalls: explorationBudget.maxToolCalls + increase.maxToolCalls,
+								maxReadBytes: explorationBudget.maxReadBytes + increase.maxReadBytes,
+								maxModelTurns: explorationBudget.maxModelTurns + increase.maxModelTurns,
+								maxDurationMs: increase.maxDurationMs ? remainingMs + increase.maxDurationMs : explorationBudget.maxDurationMs
+							};
+							if (increase.maxDurationMs) { explorationBudgetStarted = now; }
+						}
 						if (input.action === 'open') {
 							explorationSessionIds.push(input.sessionId);
+							explorationOpens.push({ sessionId: input.sessionId, budget: input.budget });
 							if (input.sessionId && explorationMissing) { throw new Error('ENOENT: saved exploration session was removed'); }
-							if (!input.sessionId) { explorationId = generateUuid(); explorationMissing = false; }
+							if (!input.sessionId) {
+								explorationId = generateUuid();
+								explorationMissing = false;
+								if (input.budget) {
+									explorationBudget = structuredClone(input.budget);
+									explorationBudgetStarted = Date.now();
+								}
+							}
 						}
 						if (input.action === 'review') { return JSON.stringify({ sessionId: explorationId, data: { reviewId: 'whole-project-review', proposal: { id: 'whole-project-review', status: 'ready', diagnostics: [], views: checkoutModel.views.slice(0, 2) }, reviewFile: root + '/.ade/exploration/review-fixture.json', images: checkoutModel.views.slice(0, 2).map(view => ({ viewId: view.id, path: root + '/.ade/exploration/' + view.id + '.svg' })) }, diagnostics: [] }); }
 						if (input.action === 'publish' || input.action === 'publishAll') { exploratoryApplied = true; return JSON.stringify({ sessionId: explorationId, data: { snapshot: root + '/.ade/imports/published' }, diagnostics: [] }); }
@@ -238,7 +274,8 @@ suite('A.D.E native AI orchestration', () => {
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
 		return { explorationBudgetRequests, setExplorationBudget: (budget: typeof explorationBudget, elapsedMs = 0) => { explorationBudget = structuredClone(budget); explorationBudgetStarted = Date.now() - elapsedMs; }, setCriteria: (value: unknown) => { stateData = JSON.stringify(value); }, pickerOptions, readonlyResources, setPureRoot: (value: string) => { pure.root = value; }, setProjectRoot: (value: URI) => { Object.assign(projectService, { projectRoot: value }); }, savedModel, contextFiles, chatRequests, prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
-			configurationValues, configurationEdits, diagramPrepares, failDiagramPrepare: (error: Error) => { diagramPrepareError = error; },
+			configurationValues, configurationEdits, budgetEditors, explorationOpens, diagramPrepares, failDiagramPrepare: (error: Error) => { diagramPrepareError = error; },
+			handleBudgetEditor: (handler: IAdeAiDialogService['editDiagramBudget']) => { editBudget = handler; },
 			setFeatureState: (state: Partial<CodeDiagramExploration>) => { incremental = true; projectWorkflow = true; featureState = state; storage.store('ade.ai.diagramModel.codex', 'native-model', StorageScope.PROFILE, StorageTarget.MACHINE); },
 			handleCheckpoint: (handler: typeof onCheckpoint) => { onCheckpoint = handler; },
 			handleExplorationStatus: (handler: typeof onExplorationStatus) => { onExplorationStatus = handler; },
@@ -1220,16 +1257,86 @@ suite('A.D.E native AI orchestration', () => {
 		assert.deepStrictEqual([f.dialogDetails.length, f.chatRequests.length], [1, 3]);
 	});
 
-	test('adding exploration budget preserves unused capacity, remaining time and consumption without starting a provider', async () => {
-		const f = fixture(true, 'codex', 0); f.prepareProjectReview();
-		f.setExplorationBudget({ maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 }, 600000);
+	test('editing the default exploration budget stores user capacity without starting work', async () => {
+		const f = fixture(true, 'codex', 0);
+		await f.service.configureDefaultDiagramBudget();
+		assert.deepStrictEqual(f.budgetEditors[0], { mode: 'default', budget: defaultProjectBudget });
+		assert.deepStrictEqual(f.configurationEdits, []);
+		const custom = { maxToolCalls: 640, maxReadBytes: 12 * 1024 * 1024, maxDurationMs: 105 * 60_000, maxModelTurns: 48 };
+		f.handleBudgetEditor(async () => custom);
+		await f.service.configureDefaultDiagramBudget();
+		assert.deepStrictEqual(f.configurationEdits, [{ key: diagramExplorationBudgetSetting, value: custom, target: ConfigurationTarget.USER }]);
+		assert.deepStrictEqual(f.requests, []);
+		assert.equal(f.service.diagramExploration, undefined);
+
+		f.prepareProjectReview();
 		await f.service.buildDiagrams();
-		const before = structuredClone(f.service.diagramExploration!.usage);
-		f.picks.push(items => items[0]); await f.service.configureDiagramBudget();
-		const budget = f.explorationBudgetRequests[0];
-		assert.deepStrictEqual([budget.maxToolCalls, budget.maxReadBytes, budget.maxModelTurns], [480, 9437184, 40]);
-		assert.ok(budget.maxDurationMs >= 6599000 && budget.maxDurationMs <= 6600000, 'ten elapsed minutes leave eighty, plus thirty added minutes');
-		assert.deepStrictEqual(f.service.diagramExploration!.usage, before);
+		assert.deepStrictEqual(f.explorationOpens, [{ sessionId: undefined, budget: custom }]);
+		assert.deepStrictEqual(f.service.diagramExploration?.budget, custom);
+		assert.deepStrictEqual(f.chatRequests, []);
+	});
+
+	test('the default budget is used only when a new project exploration opens', async () => {
+		const f = fixture(true, 'codex', 0);
+		f.prepareProjectReview();
+		await f.service.buildDiagrams();
+		const id = f.service.diagramExploration!.sessionId;
+		assert.deepStrictEqual(f.service.diagramExploration!.budget, defaultProjectBudget);
+		f.configurationValues.set(diagramExplorationBudgetSetting, { ...defaultProjectBudget, maxToolCalls: 900 });
+		await f.service.resumeDiagrams();
+		assert.deepStrictEqual(f.explorationOpens, [{ sessionId: undefined, budget: defaultProjectBudget }, { sessionId: id, budget: undefined }]);
+		assert.deepStrictEqual(f.service.diagramExploration!.budget, defaultProjectBudget);
+	});
+
+	test('adding exploration budget sends deltas, retains consumed capacity and measures elapsed time at commit', async () => {
+		const clock = sinon.useFakeTimers({ now: Date.now() });
+		try {
+			const id = generateUuid(), f = fixture(true, 'codex', 0, { id });
+			const previous = { maxToolCalls: 400, maxReadBytes: 8 * 1024 * 1024, maxDurationMs: 90 * 60_000, maxModelTurns: 32 };
+			const usage = { toolCalls: 70, readBytes: 65536, modelTurns: ['turn'], turnsObservable: true, inputTokens: null, outputTokens: null };
+			f.prepareProjectReview();
+			f.setExplorationBudget(previous, 10 * 60_000);
+			f.setFeatureState({ usage });
+			await f.service.buildDiagrams();
+			f.handleBudgetEditor(async () => { await clock.tickAsync(2 * 60_000); return budgetIncrease; });
+			await f.service.configureDiagramBudget();
+			assert.deepStrictEqual(f.budgetEditors[0], {
+				mode: 'extension',
+				capacity: { maxToolCalls: 600, maxReadBytes: 24 * 1024 * 1024, maxDurationMs: (24 * 60 - 80) * 60_000, maxModelTurns: 68 }
+			});
+			assert.deepStrictEqual(f.explorationBudgetRequests, [{ sessionId: id, budgetIncrease }]);
+			assert.deepStrictEqual(f.service.diagramExploration!.budget, { maxToolCalls: 500, maxReadBytes: 10 * 1024 * 1024, maxDurationMs: 108 * 60_000, maxModelTurns: 40 });
+			assert.deepStrictEqual(f.service.diagramExploration!.usage, usage);
+
+			const capacityOnly = { maxToolCalls: 50, maxReadBytes: 0, maxDurationMs: 0, maxModelTurns: 0 };
+			const window = f.service.diagramExploration!.budgetWindow!;
+			f.handleBudgetEditor(async () => { await clock.tickAsync(60_000); return capacityOnly; });
+			await f.service.configureDiagramBudget();
+			assert.deepStrictEqual(f.explorationBudgetRequests.at(-1), { sessionId: id, budgetIncrease: capacityOnly });
+			assert.equal(f.service.diagramExploration!.budgetWindow?.started, window.started);
+			assert.equal(f.service.diagramExploration!.budgetWindow?.remainingMs, window.remainingMs - 60_000);
+			assert.deepStrictEqual(f.configurationEdits, []);
+			assert.deepStrictEqual(f.chatRequests, []);
+		} finally { clock.restore(); }
+	});
+
+	test('canceling an extension or changing the source snapshot leaves the exploration budget intact', async () => {
+		const f = fixture(true, 'codex', 0);
+		f.prepareProjectReview();
+		await f.service.buildDiagrams();
+		await f.service.configureDiagramBudget();
+		assert.equal(f.budgetEditors.length, 1);
+		assert.deepStrictEqual(f.explorationBudgetRequests, []);
+
+		const shown = new DeferredPromise<void>(), response = new DeferredPromise<ExplorationBudget>();
+		f.handleBudgetEditor(() => { void shown.complete(); return response.p; });
+		const editing = f.service.configureDiagramBudget();
+		await shown.p;
+		f.code.context.snapshot = f.root + '/.ade/imports/replacement';
+		f.changed.fire();
+		await response.complete(budgetIncrease);
+		await editing;
+		assert.deepStrictEqual(f.explorationBudgetRequests, []);
 		assert.deepStrictEqual(f.chatRequests, []);
 	});
 

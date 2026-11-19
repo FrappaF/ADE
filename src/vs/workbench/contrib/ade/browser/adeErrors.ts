@@ -210,6 +210,9 @@ export function describeAdeError(error: unknown, context: AdeErrorContext = 'edi
 	if (['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT'].includes(code) || /\b(?:ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT)\b|fetch failed|network error/i.test(message)) {
 		return info(localize('ade.error.network.cause', "The remote service could not be reached or the connection was interrupted."), localize('ade.error.network.fix', "Check your network connection and any proxy settings, then retry the request."));
 	}
+	if (/sessionBudgetIncreaseExceedsLimit/i.test(message)) {
+		return info(localize('ade.error.budgetIncrease.cause', "The requested increase is larger than the remaining capacity for this exploration."), localize('ade.error.budgetIncrease.fix', "Open Add Exploration Budget again to see the available amounts."));
+	}
 	if (/request budget allows no AI calls|(?:context|request|session|input|byte|call|preparation).*(?:exceeds|exhausted|budget)|invalidSessionBudget|sessionStorageLimit/i.test(message)) {
 		return info(localize('ade.error.budget.cause', "The request exceeds a configured size, time or AI request limit, or the configured budget is invalid."), localize('ade.error.budget.fix', "Narrow the selected scope or review the request budget in AI Settings, then prepare the request again."));
 	}

@@ -10,6 +10,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, stat } from 'node:fs/
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { defaultProjectDiagramExplorationBudget, getProjectDiagramExplorationBudget, isDiagramExplorationBudget, maximumDiagramExplorationBudget, minimumDiagramExplorationBudget, projectDiagramBudgetPresets, type DiagramExplorationBudget } from '../../../src/vs/workbench/contrib/ade/common/diagramExplorationBudget.ts';
 const { executeDiagramExploration, readExplorationSession } = await import('../diagramSession.ts');
 const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
 const { active, managed, atomicJson } = await import('../../runtime/projectStore.ts');
@@ -118,6 +119,26 @@ test('stale source evidence, negative queries, documentation changes and paths a
 	assert.match((await f.tool('ade_source_read', { file: 'redirect.mjs', revision: contentHash('nonexistent now exists') })).diagnostics[0].code, /outsideDisclosureScope/);
 });
 
+test('new project sessions use the standard budget and existing sessions retain their saved limits', async t => {
+	const f = await fixture(t);
+	const open = (budget?: DiagramExplorationBudget, sessionId?: string) => executeDiagramExploration(f.context.snapshot, { action: 'open', workflow: 'project', featureWorkflow: true, budget, sessionId });
+	const standard = await open();
+	const compact = await open(projectDiagramBudgetPresets.compact);
+	const resumed = await open(undefined, compact.sessionId);
+	assert.deepEqual([f.opened.data.budget, standard.data.budget, resumed.data.budget], [
+		{ maxToolCalls: 80, maxReadBytes: 1024 * 1024, maxDurationMs: 30 * 60_000, maxModelTurns: 8 },
+		{ maxToolCalls: 800, maxReadBytes: 16 * 1024 * 1024, maxDurationMs: 180 * 60_000, maxModelTurns: 64 },
+		projectDiagramBudgetPresets.compact
+	]);
+	assert.ok(isDiagramExplorationBudget(minimumDiagramExplorationBudget) && isDiagramExplorationBudget(maximumDiagramExplorationBudget));
+	const configured = getProjectDiagramExplorationBudget(projectDiagramBudgetPresets.compact);
+	assert.deepEqual(configured, projectDiagramBudgetPresets.compact);
+	assert.notEqual(configured, projectDiagramBudgetPresets.compact);
+	const invalid = { ...defaultProjectDiagramExplorationBudget, maxToolCalls: 1001 };
+	assert.deepEqual(getProjectDiagramExplorationBudget(invalid), defaultProjectDiagramExplorationBudget);
+	await assert.rejects(open(invalid), /invalidSessionBudget/);
+});
+
 test('session budget increases keep evidence and IDs; tool calls are not model inferences', async t => {
 	const f = await fixture(t), read = await readSource(f), proposal = await f.tool('ade_model_propose', proposalRequest(read.semanticRevision, read.data.evidence.id));
 	const before = await readExplorationSession(f.root, f.opened.sessionId);
@@ -128,6 +149,42 @@ test('session budget increases keep evidence and IDs; tool calls are not model i
 	assert.deepEqual([after.evidence, after.proposals[0].aliases, after.usage.inputTokens, after.usage.modelTurns, resumed.data.budget.maxToolCalls], [before.evidence, proposal.data.aliases, null, [], 120]);
 	await executeDiagramExploration(f.context.snapshot, { action: 'budget', sessionId: f.opened.sessionId, budget: { ...after.budget, maxToolCalls: after.usage.toolCalls } });
 	assert.equal((await f.tool('ade_project_inspect', {})).diagnostics[0].code, 'sessionBudgetExhausted');
+});
+
+test('atomic budget increments retain consumed usage and preserve the existing window when adding no time', async t => {
+	const f = await fixture(t), read = await readSource(f);
+	await f.tool('ade_model_propose', proposalRequest(read.semanticRevision, read.data.evidence.id), { turnId: 'first-turn' });
+	const before = await readExplorationSession(f.root, f.opened.sessionId);
+	const request = { action: 'budget', sessionId: before.id } as const;
+	const replace = { ...before.budget, maxToolCalls: 1, maxReadBytes: 1024 };
+	await executeDiagramExploration(f.context.snapshot, { ...request, budget: replace });
+	const expired = await readExplorationSession(f.root, before.id);
+	expired.created = Date.now() - expired.budget.maxDurationMs - 1_000;
+	await atomicJson(join(f.root, '.ade', 'exploration', `${before.id}.json`), expired);
+	const zero = { maxToolCalls: 0, maxReadBytes: 0, maxDurationMs: 0, maxModelTurns: 0 };
+	const increase = (budgetIncrease: DiagramExplorationBudget) => executeDiagramExploration(f.context.snapshot, { ...request, budgetIncrease });
+	const withoutTime = await increase({ ...zero, maxToolCalls: 5, maxReadBytes: 1_024 });
+	const after = await readExplorationSession(f.root, before.id);
+	assert.deepEqual([after.created, after.usage, after.evidence, after.proposals, after.budget, withoutTime.data.budgetStatus.exhausted], [
+		expired.created, expired.usage, expired.evidence, expired.proposals,
+		{ ...replace, maxToolCalls: expired.usage.toolCalls + 5, maxReadBytes: expired.usage.readBytes + 1_024 },
+		['duration']
+	]);
+	await assert.rejects(increase(zero), /invalidSessionBudgetIncrease/);
+	await assert.rejects(increase({ ...zero, maxToolCalls: 0.5 }), /invalidSessionBudgetIncrease/);
+	await assert.rejects(executeDiagramExploration(f.context.snapshot, { ...request, budget: replace, budgetIncrease: zero }), /invalidExplorationRequest/);
+	assert.deepEqual(await readExplorationSession(f.root, before.id), after);
+
+	const time = await increase({ ...zero, maxDurationMs: 30 * 60_000 });
+	assert.deepEqual([time.data.budget.maxDurationMs, time.data.budgetStatus.exhausted, time.data.usage], [30 * 60_000, [], expired.usage]);
+	const increment = Math.floor((maximumDiagramExplorationBudget.maxToolCalls - after.budget.maxToolCalls) / 2) + 1;
+	const results = await Promise.allSettled([increase({ ...zero, maxToolCalls: increment }), increase({ ...zero, maxToolCalls: increment })]);
+	assert.deepEqual(results.map(result => result.status).sort(), ['fulfilled', 'rejected']);
+	assert.match(results.find(result => result.status === 'rejected')!.reason.message, /sessionBudgetIncreaseExceedsLimit/);
+	const final = await readExplorationSession(f.root, before.id);
+	assert.deepEqual([final.budget, final.created, final.usage], [
+		{ ...time.data.budget, maxToolCalls: after.budget.maxToolCalls + increment }, time.data.budgetWindow.started, expired.usage
+	]);
 });
 
 test('malformed union commands get actionable diagnostics and consume the persisted tool budget', async t => {

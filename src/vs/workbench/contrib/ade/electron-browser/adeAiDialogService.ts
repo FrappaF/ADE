@@ -23,11 +23,14 @@ import { type IChatWidget } from '../../chat/browser/chat.js';
 import { AdeAiDialog } from '../browser/adeAiDialogView.js';
 import { IAdeAiDialogService, type AdeAiDialogOptions } from '../browser/adeAiDialog.js';
 import { type CodeAiProgress } from '../common/codeBridge.js';
+import { type DiagramExplorationBudget } from '../common/diagramExplorationBudget.js';
+import { AdeDiagramBudgetForm, type AdeDiagramBudgetFormOptions } from '../browser/adeDiagramBudgetForm.js';
 
 /** Hosts native chat or the headless CLI inside the same temporary ADE modal. */
 class AdeAiDialogService extends Disposable implements IAdeAiDialogService {
 	declare readonly _serviceBrand: undefined;
 	private readonly current = this._register(new MutableDisposable<DisposableStore>());
+	private readonly budgetForm = this._register(new MutableDisposable<AdeDiagramBudgetForm>());
 	private dialog: AdeAiDialog | undefined;
 	private widget: IChatWidget | undefined;
 	private resource: string | undefined;
@@ -74,6 +77,13 @@ class AdeAiDialogService extends Disposable implements IAdeAiDialogService {
 	}
 
 	async close(): Promise<void> { await this.dialog?.close(); }
+	async editDiagramBudget(options: AdeDiagramBudgetFormOptions): Promise<DiagramExplorationBudget | undefined> {
+		if (this.budgetForm.value) { return undefined; }
+		const form = this.budgetForm.value = new AdeDiagramBudgetForm(this.layout.activeContainer, options);
+		try { return await form.edit(); }
+		finally { this.budgetForm.clear(); }
+	}
+
 	updateProgress(message: string): void { this.dialog?.updateProgress(message); }
 	updateConversation(event: CodeAiProgress): void { this.dialog?.updateConversation(event); }
 

@@ -39,7 +39,8 @@ import { AdeDiagramLayout } from './adeDiagramLayout.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 import { defaultDiagramCheckpointTimeoutMinutes, maxDiagramCheckpointTimeoutMinutes } from '../common/codeBridge.js';
-import { diagramCheckpointTimeoutSetting } from '../common/diagramExplorationSettings.js';
+import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../common/diagramExplorationSettings.js';
+import { defaultProjectDiagramExplorationBudget, maximumDiagramExplorationBudget, minimumDiagramExplorationBudget } from '../common/diagramExplorationBudget.js';
 
 class AdeWorkingCopyEditor extends Disposable {
 	static readonly ID = 'workbench.contrib.adeWorkingCopyEditor';
@@ -250,6 +251,20 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: defaultDiagramCheckpointTimeoutMinutes,
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('ade.diagram.attemptMinutesSetting', "Maximum minutes for each attempt at a step in automatic diagram generation. The remaining exploration budget can end the attempt sooner.")
+		},
+		[diagramExplorationBudgetSetting]: {
+			type: 'object',
+			scope: ConfigurationScope.APPLICATION,
+			default: { ...defaultProjectDiagramExplorationBudget },
+			description: localize('ade.diagram.defaultBudgetSetting', "Limits for new diagram explorations. Use Set Default Exploration Budget in ADE AI Settings to choose a preset or enter values in KiB and minutes."),
+			additionalProperties: false,
+			required: ['maxToolCalls', 'maxReadBytes', 'maxDurationMs', 'maxModelTurns'],
+			properties: {
+				maxToolCalls: { type: 'integer', minimum: minimumDiagramExplorationBudget.maxToolCalls, maximum: maximumDiagramExplorationBudget.maxToolCalls },
+				maxReadBytes: { type: 'integer', minimum: minimumDiagramExplorationBudget.maxReadBytes, maximum: maximumDiagramExplorationBudget.maxReadBytes },
+				maxDurationMs: { type: 'integer', minimum: minimumDiagramExplorationBudget.maxDurationMs, maximum: maximumDiagramExplorationBudget.maxDurationMs },
+				maxModelTurns: { type: 'integer', minimum: minimumDiagramExplorationBudget.maxModelTurns, maximum: maximumDiagramExplorationBudget.maxModelTurns }
+			}
 		}
 	}
 });

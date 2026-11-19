@@ -61,7 +61,7 @@ import { AdeBlueprintEditor } from './adeBlueprintEditor.js';
 import { type BlueprintEditMode } from './adeBlueprintEditing.js';
 import { AdeFeatureCodeGeneration, hasFeatureCodeReview } from './adeFeatureCodeGeneration.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
-import { diagramCheckpointTimeoutSetting } from '../common/diagramExplorationSettings.js';
+import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../common/diagramExplorationSettings.js';
 
 export class AdeEditor extends EditorPane {
 	static readonly ID = AdeInput.ID;
@@ -712,7 +712,7 @@ export class AdeEditor extends EditorPane {
 			if (this.root) { this.render(); }
 		}));
 		this._register(configurationService.onDidChangeConfiguration(event => {
-			const diagramSettingsChanged = this.activeTab === 'ai' && (event.affectsConfiguration(diagramCheckpointTimeoutSetting) || event.affectsConfiguration('ade.diagramImport.incremental'));
+			const diagramSettingsChanged = this.activeTab === 'ai' && (event.affectsConfiguration(diagramCheckpointTimeoutSetting) || event.affectsConfiguration(diagramExplorationBudgetSetting) || event.affectsConfiguration('ade.diagramImport.incremental'));
 			if (this.root && (event.affectsConfiguration(AccessibilityVerbositySettingId.Ade) || event.affectsConfiguration('chat.disableAIFeatures') || event.affectsConfiguration('ade.focusDiagrams') || diagramSettingsChanged)) { this.render(); }
 		}));
 		this._register(keybindingService.onDidUpdateKeybindings(() => { if (this.root) { this.render(); } }));

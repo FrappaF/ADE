@@ -295,7 +295,7 @@ export class AdeCodebaseExploration {
 		const usage = this.disclosure(activity, localize('ade.explore.usageDetails', "Exploration Usage"), 'exploration-usage', Codicon.pulse);
 		const grid = dom.append(usage, dom.$('dl.ade-explore-usage'));
 		this.metric(grid, localize('ade.explore.toolCalls', "Local tool calls"), localize('ade.explore.usageFraction', "{0} / {1}", exploration.usage.toolCalls, exploration.budget.maxToolCalls));
-		this.metric(grid, localize('ade.explore.retrieved', "Source retrieved"), localize('ade.explore.readFraction', "{0} / {1} KiB", Math.ceil(exploration.usage.readBytes / 1024), Math.ceil(exploration.budget.maxReadBytes / 1024)));
+		this.metric(grid, localize('ade.explore.toolResponseData', "Tool response data"), localize('ade.explore.readFraction', "{0} / {1} KiB", Math.ceil(exploration.usage.readBytes / 1024), Math.ceil(exploration.budget.maxReadBytes / 1024)));
 		if (exploration.budgetWindow) {
 			const remaining = exploration.budgetWindow.remainingMs;
 			this.metric(grid, localize('ade.explore.remaining', "Time remaining at last refresh"), `${Math.floor(remaining / 60000)}:${String(Math.floor(remaining / 1000) % 60).padStart(2, '0')}`);

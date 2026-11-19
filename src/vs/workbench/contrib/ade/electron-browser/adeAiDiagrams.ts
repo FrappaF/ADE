@@ -42,7 +42,8 @@ import { equals } from '../../../../base/common/objects.js';
 import { canonicalJson, semanticContent } from '../common/modelSerialization.js';
 import { CodeDiagramProgress, CodeDiagramExploration, maxDiagramCheckpointTimeoutMinutes, type CodeAiProgress, type CodeDiagramCheckpointResult } from '../common/codeBridge.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
-import { diagramCheckpointTimeoutSetting, getDiagramCheckpointTimeoutMinutes, isDiagramCheckpointTimeoutMinutes } from '../common/diagramExplorationSettings.js';
+import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting, getDiagramCheckpointTimeoutMinutes, isDiagramCheckpointTimeoutMinutes } from '../common/diagramExplorationSettings.js';
+import { getDiagramBudgetExtensionCapacity, getProjectDiagramExplorationBudget, isDiagramExplorationBudget } from '../common/diagramExplorationBudget.js';
 import { type CliConfig, type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
 import { AdeAiConnection } from './adeAiConnection.js';
 
@@ -308,23 +309,31 @@ export class AdeAiDiagrams extends Disposable {
 	}
 
 	private async exploreDiagrams(initialPrompt?: string, refreshApplied = false, openConversation = false): Promise<void> {
-		if (this.host.busy || this.operations.busy || !this.code.context) { return; }
-		let opened = false, needsBudget = false;
+		const context = this.code.context;
+		if (this.host.busy || this.operations.busy || !context) { return; }
+		const { sourceRoot: root, snapshot } = context;
+		const sameContext = () => this.code.context?.sourceRoot === root && this.code.context.snapshot === snapshot;
+		let opened: ExplorationSession | undefined;
+		let needsBudget = false;
 		await this.host.run(async token => {
-			if (!await this.project.save()) { return; }
-			const root = this.code.context!.sourceRoot;
+			if (!await this.project.save() || !sameContext()) { return; }
 			if (this.exploration?.root !== root) { this.exploration = undefined; }
 			await this.discardMissingExploration();
 			const startFresh = refreshApplied && !!this._diagramExploration?.phase && getDiagramExplorationPhase(this._diagramExploration) === 'applied';
 			if (startFresh) { await this.returnToDiagrams(); }
+			if (!sameContext() || token.isCancellationRequested) { return; }
 			const previous = startFresh ? undefined : this.exploration;
-			const result = await this.explorationRequest({ action: 'open', workflow: 'project', featureWorkflow: true, ...(!previous || this._diagramExploration?.workflow !== 'project' ? { budget: { maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 } } : {}), ...(previous ? { sessionId: previous.id } : { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' }) }, token);
-			this.exploration = { ...previous, ...(!openConversation && initialPrompt ? { goal: initialPrompt } : {}), root, id: result.sessionId, snapshot: this.code.context!.snapshot };
+			const budget = !previous || this._diagramExploration?.workflow !== 'project' ? this.defaultExplorationBudget() : undefined;
+			const result = await this.explorationRequest({ action: 'open', workflow: 'project', featureWorkflow: true, ...(budget ? { budget } : {}), ...(previous ? { sessionId: previous.id } : { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' }) }, token);
+			if (!sameContext() || token.isCancellationRequested) { return; }
+			opened = this.exploration = { ...previous, ...(!openConversation && initialPrompt ? { goal: initialPrompt } : {}), root, id: result.sessionId, snapshot };
 			this._diagramExploration = result.data; needsBudget = !!result.data.budgetStatus?.exhausted.length; this._diagramProgress = undefined; this.persistExploration();
-			opened = true;
 		}, { kind: 'diagram', inline: true });
-		if (opened && needsBudget) { await this.configureDiagramBudget(); if (this._diagramExploration?.budgetStatus?.exhausted.length) { return; } }
-		if (!opened) { return; }
+		if (!opened || this.exploration !== opened || !sameContext()) { return; }
+		if (needsBudget) {
+			await this.configureDiagramBudget();
+			if (this.exploration !== opened || !sameContext() || this._diagramExploration?.budgetStatus?.exhausted.length) { return; }
+		}
 		if (openConversation || !this._diagramExploration?.phase) { await this.chat(initialPrompt); return; }
 		if (getDiagramExplorationPhase(this._diagramExploration) === 'review') { await this.reviewDiagramProposal(); return; }
 		await this.runFeatureExploration();
@@ -523,16 +532,36 @@ export class AdeAiDiagrams extends Disposable {
 		}
 	}
 
+	private defaultExplorationBudget() {
+		return getProjectDiagramExplorationBudget(this.configuration.getValue(diagramExplorationBudgetSetting));
+	}
+
+	async configureDefaultDiagramBudget(): Promise<void> {
+		const budget = await this.aiDialog.editDiagramBudget({ mode: 'default', budget: this.defaultExplorationBudget() });
+		if (isDiagramExplorationBudget(budget)) {
+			await this.configuration.updateValue(diagramExplorationBudgetSetting, budget, ConfigurationTarget.USER);
+		}
+	}
+
 	async configureDiagramBudget(): Promise<void> {
-		if (!this.exploration || this.host.busy) { return; }
-		const selected = await this.quick.pick([
-			{ label: localize('ade.explore.budgetSmall', "Explore One Scenario"), description: localize('ade.explore.budgetSmallDetail', "8 Reported Turns · 80 Local Tool Calls · 1 MiB Retrieved · 30 Minutes"), calls: 80, bytes: 1048576, turns: 8, duration: 1800000 },
-			{ label: localize('ade.explore.budgetMedium', "Explore Several Scenarios"), description: localize('ade.explore.budgetMediumDetail', "16 Reported Turns · 160 Local Tool Calls · 2 MiB Retrieved · 60 Minutes"), calls: 160, bytes: 2097152, turns: 16, duration: 3600000 }
-		], { title: localize('ade.explore.budget', "Add Exploration Budget"), placeHolder: localize('ade.explore.budgetHint', "Evidence and Drafts Are Retained. Provider Turns and Tokens Are Counted Only When Reported.") });
-		if (!selected || !this._diagramExploration) { return; }
-		const { usage, budget: current, budgetWindow } = this._diagramExploration;
-		const remainingMs = Math.max(0, current.maxDurationMs - (budgetWindow ? Math.max(0, Date.now() - budgetWindow.started) : 0));
-		await this.host.run(async token => { await this.explorationRequest({ action: 'budget', sessionId: this.exploration!.id, budget: { maxToolCalls: Math.min(1000, Math.max(current.maxToolCalls, usage.toolCalls) + selected.calls), maxReadBytes: Math.min(33554432, Math.max(current.maxReadBytes, usage.readBytes) + selected.bytes), maxModelTurns: Math.min(100, Math.max(current.maxModelTurns, usage.modelTurns.length) + selected.turns), maxDurationMs: Math.min(86400000, Math.floor(remainingMs) + selected.duration) } }, token); await this.refreshExploration(); }, { kind: 'local' });
+		const session = this.exploration;
+		const context = this.code.context;
+		if (!session || !context || session.root !== context.sourceRoot || this.host.busy || this.operations.busy) { return; }
+		const { sourceRoot, snapshot } = context;
+		const current = () => this.exploration === session && this.code.context?.sourceRoot === sourceRoot && this.code.context.snapshot === snapshot;
+		await this.refreshExploration(true);
+		const state = this._diagramExploration;
+		if (!current() || state?.sessionId !== session.id) { return; }
+		const elapsedMs = state.budgetWindow ? Math.max(0, Date.now() - state.budgetWindow.started) : 0;
+		const remainingMs = Math.max(0, state.budget.maxDurationMs - elapsedMs);
+		const capacity = getDiagramBudgetExtensionCapacity(state.budget, state.usage, remainingMs);
+		const budgetIncrease = await this.aiDialog.editDiagramBudget({ mode: 'extension', capacity });
+		if (!budgetIncrease || !current()) { return; }
+		await this.host.run(async token => {
+			if (!current() || token.isCancellationRequested) { return; }
+			await this.explorationRequest({ action: 'budget', sessionId: session.id, budgetIncrease }, token);
+			if (current()) { await this.refreshExploration(true, token); }
+		}, { kind: 'local' });
 	}
 
 	async reviewDiagramProposal(id?: string): Promise<void> {

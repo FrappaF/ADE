@@ -6,6 +6,7 @@
 import { defaultDiagramCheckpointTimeoutMinutes, maxDiagramCheckpointTimeoutMinutes } from './codeBridge.js';
 
 export const diagramCheckpointTimeoutSetting = 'ade.diagramImport.checkpointTimeoutMinutes';
+export const diagramExplorationBudgetSetting = 'ade.diagramImport.explorationBudget';
 
 export function isDiagramCheckpointTimeoutMinutes(value: unknown): value is number {
 	return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= maxDiagramCheckpointTimeoutMinutes;

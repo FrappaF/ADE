@@ -3,10 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import type { DiagramExplorationBudget } from './diagramExplorationBudget.js';
+
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 14;
+export const adeCodeProtocolVersion = 15;
 export const defaultDiagramCheckpointTimeoutMinutes = 20;
 export const maxDiagramCheckpointTimeoutMinutes = 90;
 export interface CodeAiProgress { requestId: string; kind: 'connecting' | 'thinking' | 'waiting' | 'tool' | 'message'; itemId?: string; text?: string; tool?: string }
@@ -79,7 +81,7 @@ export interface CodeDiagramExploration {
 	budgetStatus?: { exhausted: string[] };
 	budgetWindow?: { started: number; measuredAt: number; elapsedMs: number; remainingMs: number };
 	invalidation?: { evidenceIds: string[]; objectIds: string[]; viewIds: string[]; queryIds: string[] };
-	budget: { maxToolCalls: number; maxReadBytes: number; maxDurationMs: number; maxModelTurns: number };
+	budget: DiagramExplorationBudget;
 	usage: { toolCalls: number; readBytes: number; modelTurns: string[]; turnsObservable: boolean; inputTokens: null; outputTokens: null };
 	toolActivity?: { id: string; tool: string; turnId?: string; state: 'running' | 'complete' | 'failed' | 'interrupted' }[];
 	tasks: { id: string; intent: string; status: string; gaps: string[]; proposalId?: string }[];

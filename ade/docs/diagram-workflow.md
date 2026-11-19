@@ -47,7 +47,19 @@ Dopo modifiche al sorgente, **Update Diagrams** riprende l'esplorazione. Le evid
 
 ## Budget e interruzioni
 
-Le nuove generazioni dispongono di 400 chiamate locali, 8 MiB di dati restituiti, 90 minuti e 32 turni osservabili; questi limiti non certificano il numero delle inferenze interne del provider. Il piano è limitato a 40 viste. La sessione conserva piano, evidenze, obiettivi, proposte, chiamate e consumo in `.ade/exploration`. Il documento pubblicato resta nello snapshot attivo. **Exploration Goals and Gaps** mostra il lavoro ancora da esplorare; **Adjust Exploration Budget** aggiunge un budget esplicito senza scartare il lavoro precedente. Le chiamate locali agli strumenti non sono conteggiate come inferenze del modello. Turni interni e token non esposti dal provider rimangono sconosciuti; i contatori della chat riguardano le richieste osservate che usano strumenti.
+Le nuove sessioni di progetto partono dal profilo **Standard**. In **AI Settings → Diagram Generation → Set Default Exploration Budget** puoi scegliere un profilo oppure impostare i quattro limiti con valori interi. Inserisci il volume in KiB e il tempo in minuti interi. La scelta si applica alle nuove sessioni. Le sessioni già aperte o salvate conservano il loro budget.
+
+| Profilo | Chiamate locali | Risposte degli strumenti | Tempo trascorso | Turni di richiesta osservati |
+| --- | ---: | ---: | ---: | ---: |
+| Compact | 400 | 8 MiB | 90 min | 32 |
+| Standard | 800 | 16 MiB | 180 min | 64 |
+| Large | 1.000 | 32 MiB | 360 min | 100 |
+
+Per estendere una sessione, usa **Add Exploration Budget** in **Diagram Generation** o nei dettagli dell’esplorazione. I profili aggiuntivi propongono 100 chiamate, 2 MiB, 30 minuti e 8 turni, oppure 200 chiamate, 4 MiB, 60 minuti e 16 turni, oppure 400 chiamate, 8 MiB, 120 minuti e 32 turni. Gli incrementi dei profili si fermano al margine ancora disponibile. Puoi anche inserire un incremento personalizzato lasciando a zero le voci che non ti servono. Almeno una voce deve aumentare.
+
+Il motore ammette al massimo 1.000 chiamate locali, 32 MiB di risposte, una finestra di 1.440 minuti (24 ore) e 100 turni osservati. L’estensione conserva la stessa sessione, il consumo registrato, il piano, le evidenze e le bozze completate. La nuova finestra temporale somma i minuti aggiunti al tempo ancora disponibile al momento della conferma, entro il limite del motore. **Continue Generation** riprende il lavoro salvato. **Set Diagram Attempt Time Limit** regola separatamente la durata massima del singolo tentativo.
+
+**Tool Response Data** conta i byte delle risposte degli strumenti ADE, inclusi gli estratti e gli altri dati restituiti. Le chiamate locali sono operazioni degli strumenti. ADE registra un turno osservato quando la richiesta usa per la prima volta uno strumento locale. Inferenze interne e token restano sconosciuti quando il provider non li comunica. Piano, evidenze, obiettivi, bozze e consumo sono conservati in `.ade/exploration`. Il documento pubblicato resta nello snapshot attivo.
 
 Ricerca, lettura e anteprima non richiedono una conferma per ciascuna chiamata. L'applicazione resta una decisione della UI. Gli strumenti non possono aumentare budget o scope né pubblicare direttamente. Un errore locale non impone di rigenerare l'intero modello. Una pubblicazione con esito incerto viene recuperata dal journal e dal puntatore attivo; riapplicare lo stesso proposal ID non duplica gli oggetti. Un arresto forzato può richiedere la scadenza del lock condiviso prima della ripresa.
 
