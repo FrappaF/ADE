@@ -17,7 +17,9 @@ interface CodeAction {
 }
 
 interface CodeActions {
-	update: CodeAction;
+	update?: CodeAction;
+	newGeneration?: CodeAction;
+	generationStatus?(parent: HTMLElement): void;
 	prepare: CodeAction;
 	continuity: CodeAction;
 	continuityStatus: string;
@@ -58,7 +60,9 @@ export function renderAdeCodeActions(parent: HTMLElement, controls: AdeControls,
 		button(worktree, actions.worktree, 'code-worktree-action', true);
 	}
 	const update = panel(page, localize('ade.codeUpdate.group', "Codebase from Diagrams"), localize('ade.code.updateHint', "Prepare code changes from the saved model and your latest diagram edits. Review the result before keeping it."), Codicon.code, !actions.worktree);
-	button(update, actions.update, 'code-update', !actions.worktree);
+	actions.generationStatus?.(update);
+	if (actions.update) { button(update, actions.update, 'code-update', !actions.worktree); }
+	if (actions.newGeneration) { button(update, actions.newGeneration, 'code-prepare-new'); }
 	if (actions.sources?.length) {
 		const sources = panel(page, localize('ade.code.sources', "Source Code"), localize('ade.code.sourcesHint', "Inspect source evidence or update the project diagrams from your linked codebase."), Codicon.search);
 		for (const [index, action] of actions.sources.entries()) { button(sources, action, `code-source:${index}`); }

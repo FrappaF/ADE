@@ -10,10 +10,14 @@ import { AdeControls } from '../../browser/adeControls.js';
 import { IAdeAiService, type AdeDiagramReview } from '../../browser/adeAiService.js';
 import { renderAdeDiagramReview } from '../../browser/adeDiagramReview.js';
 import { AdeEditor } from '../../browser/adeEditor.js';
+import { AdeWorkflowContent } from '../../browser/adeWorkflowContent.js';
 import { IAdeProjectService, AdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { type IEditorGroup } from '../../../../services/editor/common/editorGroupsService.js';
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
+import { type ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -43,6 +47,58 @@ suite('A.D.E imported diagram review', () => {
 		for (const text of ['HTTP API', 'src/api.ts', 'complete coverage', 'Git', 'Other drafts remain available']) { assert.ok(root.textContent?.includes(text), text); }
 		root.querySelector('button')!.click();
 		assert.deepStrictEqual(f.called, ['apply']);
+	});
+
+	test('serial exploration shows the current feature and keeps its full diagram plan in a disclosure', () => {
+		const exploration: CodeDiagramExploration = {
+			sessionId: 'session', model: 'test', workflow: 'project', phase: 'discovery', tasks: [], proposals: [],
+			budget: { maxToolCalls: 10, maxReadBytes: 1000, maxDurationMs: 1000, maxModelTurns: 10 },
+			usage: { toolCalls: 2, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }
+		};
+		let stops = 0;
+		const ai = Object.assign(new (mock<IAdeAiService>())(), { available: true, busy: true, generatingDiagrams: true, stopDiagramExploration: () => stops++, diagramExploration: exploration, diagramActivity: [{ requestId: 'turn', kind: 'message' as const, text: 'Found the checkout module.' }] });
+		const code = Object.assign(new (mock<IAdeCodeService>())(), { context: { diagramState: 'index' } });
+		const controls = store.add(new AdeControls());
+		const workflow = new AdeWorkflowContent({
+			root,
+			paragraph: (parent, text) => { dom.append(parent, dom.$('p')).textContent = text; },
+			button: (parent, label, action, id) => controls.button(parent, label, action, id),
+			documentStatus: () => '',
+			showReview: () => {}
+		}, controls, new (mock<AdeProjectService>())(), ai, new TestConfigurationService(), new TestNotificationService(), code, new (mock<ICommandService>())());
+		const draw = () => controls.render(root, () => { dom.clearNode(root); workflow.renderWorkflow(root); });
+		draw();
+		assert.equal(root.querySelector('[role="status"]')?.textContent, 'Identifying Features from Source Evidence…');
+		const activity = Array.from(root.querySelectorAll('details')).find(detail => detail.querySelector('summary')?.textContent === 'Activity Details');
+		assert.deepStrictEqual([activity?.open, activity?.querySelector('p')?.textContent, stops], [false, 'Assistant · Found the checkout module.', 0]);
+		activity!.open = true;
+		activity!.open = false;
+		assert.equal(stops, 0);
+		[...root.querySelectorAll('button')].find(button => button.textContent === 'Stop Generation')!.click();
+		assert.equal(stops, 1);
+
+		exploration.featureCatalog = { revision: 'catalog', features: [{ id: 'purchase', name: 'Checkout', description: 'Confirm an order', evidenceIds: ['evidence'], dependsOn: [] }] };
+		exploration.plan = { revision: 'plan', items: [{ id: 'activity', name: 'Order Flow', viewKind: 'activity', intent: 'Steps', rationale: 'Explains checkout', featureId: 'purchase', dependsOn: [] }] };
+		exploration.nextFeatureId = 'purchase'; exploration.nextTaskId = 'activity'; exploration.phase = 'diagrams';
+		draw();
+		const plan = Array.from(root.querySelectorAll('details')).find(detail => detail.querySelector('summary')?.textContent === 'Features and Diagram Plan');
+		assert.deepStrictEqual([root.querySelector('[role="status"]')?.textContent, plan?.open, plan?.querySelector('h3')?.textContent, plan?.querySelector('li')?.textContent], ['Preparing Order Flow · Checkout…', false, 'Checkout', 'Order Flow · Activity · Pending']);
+	});
+
+	test('the project review groups previews by canonical feature ID and retains feature exclusions', () => {
+		const f = fixture();
+		f.review.projectReviewId = 'batch';
+		f.review.proposal.views[0].featureId = 'checkout-element';
+		f.review.proposal.views.push({ id: 'returns', name: 'Returns', kind: 'structure', featureId: 'returns-element', nodes: [], relationIds: [] });
+		f.review.featureCatalog = { revision: 'catalog', features: [
+			{ id: 'purchase', elementId: 'checkout-element', name: 'Checkout', description: 'Confirm an order', evidenceIds: ['evidence'], dependsOn: [] },
+			{ id: 'return', elementId: 'returns-element', name: 'Returns', description: 'Return an order', evidenceIds: ['evidence'], dependsOn: ['purchase'] }
+		] };
+		f.review.plan = { revision: 'plan', items: [] };
+		f.review.featurePlans = [{ featureId: 'return', gaps: ['Refund settlement is outside the imported source.'] }];
+		f.render();
+		assert.deepStrictEqual([...root.querySelectorAll('.ade-review-feature')].map(section => [section.querySelector('h3')?.textContent, section.querySelector('figcaption')?.textContent]), [['Checkout', 'Overview'], ['Returns', 'Returns']]);
+		assert.ok(root.textContent?.includes('Returns · Refund settlement is outside the imported source.'));
 	});
 
 	for (const projectWorkflow of [false, true]) {

@@ -80,8 +80,18 @@ export function renderAdeDiagramReview(parent: HTMLElement, review: AdeDiagramRe
 		if (!ready && actions.continue) { controls.button(blocked, localize('ade.explore.continueProject', "Continue Generation"), actions.continue, 'diagram-review-continue').disabled = actions.busy; }
 	}
 	const body = dom.append(section, dom.$('div.ade-review-body'));
+	const featureSections = new Map<string | undefined, HTMLElement>();
+	const features = review.featureCatalog?.features ?? [];
+	if (features.length) {
+		for (const feature of [{ elementId: undefined, name: localize('ade.explore.systemScope', "System Overview") }, ...features.filter(feature => feature.elementId)]) {
+			if (!review.proposal.views.some(view => view.featureId === feature.elementId)) { continue; }
+			const group = dom.append(body, dom.$('section.ade-review-feature'));
+			dom.append(group, dom.$('h3')).textContent = feature.name;
+			featureSections.set(feature.elementId, group);
+		}
+	}
 	for (const view of review.proposal.views) {
-		const figure = dom.append(body, dom.$('figure.ade-review-preview'));
+		const figure = dom.append(featureSections.get(view.featureId) ?? body, dom.$('figure.ade-review-preview'));
 		dom.append(figure, dom.$('figcaption')).textContent = view.name;
 		if (view.spec?.intent) { dom.append(figure, dom.$('p.ade-supporting-text')).textContent = view.spec.intent; }
 		const image = review.images.find(image => image.viewId === view.id);
@@ -111,6 +121,10 @@ export function renderAdeDiagramReview(parent: HTMLElement, review: AdeDiagramRe
 	if (review.plan) {
 		dom.append(details, dom.$('h3')).textContent = localize('ade.review.diagramPlan', "Diagram Plan and Exclusions");
 		const list = dom.append(details, dom.$('ul'));
+		for (const featurePlan of review.featurePlans ?? []) {
+			const name = featurePlan.featureId ? features.find(feature => feature.id === featurePlan.featureId)?.name ?? featurePlan.featureId : localize('ade.explore.systemScope', "System Overview");
+			for (const gap of featurePlan.gaps) { dom.append(list, dom.$('li')).textContent = localize('ade.review.groupGap', "{0} · {1}", name, gap); }
+		}
 		for (const item of review.plan.items) {
 			const row = dom.append(list, dom.$('li')); row.textContent = item.name + ' · ' + item.rationale;
 			for (const gap of review.tasks?.find(task => task.id === item.id)?.gaps ?? []) { dom.append(row, dom.$('p')).textContent = gap; }

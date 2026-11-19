@@ -23,12 +23,14 @@ import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { IAdeAiService, type AdeDiagramReview } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { CodePreview, CodeResolution, CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
+import type { FeatureCodeGenerationRequest, FeatureCodeGenerationRun, FeatureCodeGenerationSetup } from '../common/featureCodeGeneration.js';
 import { type AdeAiWorkflow, type AdeAiRunOptions, type AdeAiProject } from './adeAiTypes.js';
 import { AdeAiConnection } from './adeAiConnection.js';
 import { AdeAiDiagrams } from './adeAiDiagrams.js';
 import { AdeAiCodeUpdates } from './adeAiCodeUpdates.js';
 import { AdeAiStructural } from './adeAiStructural.js';
 import { AdeAiImplementation } from './adeAiImplementation.js';
+import { AdeAiFeatureCode } from './adeAiFeatureCode.js';
 
 /** Coordinates independent ADE AI workflows through one native service boundary. */
 export class AdeAiService extends Disposable implements IAdeAiService {
@@ -62,6 +64,11 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	get diagramProgress(): CodeDiagramProgress | undefined { return this.diagrams.diagramProgress; }
 
 	get diagramExploration(): CodeDiagramExploration | undefined { return this.diagrams.diagramExploration; }
+	get diagramActivity() { return this.diagrams.diagramActivity; }
+	get diagramExplorationIssue(): string | undefined { return this.diagrams.diagramExplorationIssue; }
+	get diagramClarification(): string | undefined { return this.diagrams.diagramClarification; }
+	stopDiagramExploration(): void { this.diagrams.stopDiagramExploration(); }
+	async clarifyDiagramExploration(): Promise<void> { return this.diagrams.clarifyDiagramExploration(); }
 
 	get structuralProblem(): string | undefined { return this.structural.structuralProblem; }
 
@@ -92,7 +99,16 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			recover: localize('ade.ai.phase.recover', "Recovering Interrupted Implementation"), benchmark: localize('ade.ai.phase.benchmark', "Comparing Models"),
 			structuralPrepare: localize('ade.pure.phase.prepare', "Preparing Model Behavior Review"), structuralVerify: localize('ade.pure.phase.verify', "Verifying Model Behavior"),
 			structuralApply: localize('ade.pure.phase.apply', "Applying Reviewed Model Behavior"), structuralUndo: localize('ade.pure.phase.undo', "Restoring Model and Code"),
-			structuralSession: localize('ade.pure.phase.session', "Loading Saved Review"), structuralRecover: localize('ade.pure.phase.recover', "Recovering Local Publication")
+			structuralSession: localize('ade.pure.phase.session', "Loading Saved Review"), structuralRecover: localize('ade.pure.phase.recover', "Recovering Local Publication"),
+			featureImplementationInspect: localize('ade.featureCode.phase.inspect', "Checking the Target and Available Profiles"),
+			featureImplementationPrepare: localize('ade.featureCode.phase.prepare', "Preparing Feature Contracts and Verification Cases"),
+			featureImplementationStep: localize('ade.featureCode.phase.step', "Preparing the Next Feature"),
+			featureImplementationSession: localize('ade.featureCode.phase.session', "Loading Saved Code Generation"),
+			featureImplementationDiff: localize('ade.featureCode.phase.diff', "Loading the Reviewed Changes"),
+			featureImplementationVerify: localize('ade.featureCode.phase.verify', "Running Independent Verification"),
+			featureImplementationApply: localize('ade.featureCode.phase.apply', "Applying Verified Code"),
+			featureImplementationUndo: localize('ade.featureCode.phase.undo', "Restoring Previous Code"),
+			featureImplementationRecover: localize('ade.featureCode.phase.recover', "Recovering Code Publication")
 		};
 		const label = labels[request.operation] ?? localize('ade.ai.phase.request', "Running AI Operation");
 		this.report(label);
@@ -112,11 +128,15 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		const cancellation = new CancellationTokenSource();
 		try {
 			if (!local && !await this.trust.requestWorkspaceTrust({ message: localize('ade.ai.trust', "A.D.E runs the original AI CLI and reviewed project tests on this computer.") })) { this.info(localize('ade.ai.untrusted', "AI Operation Cancelled · Workspace Trust Was Not Granted.")); return; }
-			await this.progress.withProgress({ location: interactive ? ProgressLocation.Window : ProgressLocation.Notification, title: local ? localize('ade.states.simulation.progress', "A.D.E Local Operation") : localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, async progress => {
-				this.operationProgress = progress;
-				if (this.activityStatus) { progress.report({ message: this.activityStatus }); }
-				try { await task(cancellation.token); } finally { this.operationProgress = undefined; }
-			}, () => cancellation.cancel());
+			if (options.inline) {
+				await task(cancellation.token);
+			} else {
+				await this.progress.withProgress({ location: interactive ? ProgressLocation.Window : ProgressLocation.Notification, title: local ? localize('ade.states.simulation.progress', "A.D.E Local Operation") : localize('ade.ai.progress', "A.D.E AI"), cancellable: true }, async progress => {
+					this.operationProgress = progress;
+					if (this.activityStatus) { progress.report({ message: this.activityStatus }); }
+					try { await task(cancellation.token); } finally { this.operationProgress = undefined; }
+				}, () => cancellation.cancel());
+			}
 			if (cancellation.token.isCancellationRequested) { this.info(cancelled()); }
 		}
 		catch (error) {
@@ -152,6 +172,18 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	async updateDiagrams(): Promise<void> { return this.diagrams.updateDiagrams(); }
 	async updateCodebase(): Promise<void> { return this.codeUpdates.update(); }
+
+	get codeGeneration(): FeatureCodeGenerationRun | undefined { return this.featureCode.run; }
+	get codeGenerationProblem(): string | undefined { return this.featureCode.problem; }
+	async inspectCodeGeneration(): Promise<FeatureCodeGenerationSetup | undefined> { return this.featureCode.inspect(); }
+	async prepareCodeGeneration(request: FeatureCodeGenerationRequest): Promise<void> { return this.featureCode.prepare(request); }
+	async resumeCodeGeneration(clarification?: string): Promise<void> { return this.featureCode.resume(clarification); }
+	async cancelCodeGeneration(): Promise<void> { this.featureCode.cancel(); }
+	async verifyCodeGeneration(): Promise<void> { return this.featureCode.action('featureImplementationVerify'); }
+	async applyCodeGeneration(): Promise<void> { return this.featureCode.action('featureImplementationApply'); }
+	async undoCodeGeneration(): Promise<void> { return this.featureCode.action('featureImplementationUndo'); }
+	async recoverCodeGeneration(): Promise<void> { return this.featureCode.action('featureImplementationRecover'); }
+	async openCodeGenerationDiff(file: string): Promise<void> { return this.featureCode.diff(file); }
 
 	async chooseDiagramModel(): Promise<void> { return this.diagrams.chooseDiagramModel(); }
 
@@ -207,6 +239,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 	private readonly structural: AdeAiStructural;
 
 	private readonly implementation: AdeAiImplementation;
+	private readonly featureCode: AdeAiFeatureCode;
 
 	constructor(
 		@IAdeProjectService private readonly project: AdeAiProject,
@@ -233,10 +266,12 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		this.codeUpdates = this._register(instantiation.createInstance(AdeAiCodeUpdates, workflow, this.diagrams));
 		this.structural = this._register(instantiation.createInstance(AdeAiStructural, workflow));
 		this.implementation = this._register(instantiation.createInstance(AdeAiImplementation, workflow, this.connection));
+		this.featureCode = this._register(instantiation.createInstance(AdeAiFeatureCode, workflow, this.connection));
 
 		let projectId = project.model.id;
 		this._register(project.onDidChange(() => {
 			if (projectId !== project.model.id) { this.structural.resetProject(); this.diagrams.resetProject(); projectId = project.model.id; }
+			this.featureCode.followProject();
 			this.structural.updateContinuity();
 			if (!this.busy) { this.activityStatus = undefined; this.changes.fire(); }
 		}));
@@ -245,6 +280,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 			this.implementation.followCodeContext();
 		}));
 		this.diagrams.followCodeContext();
+		this.featureCode.followProject();
 
 	}
 }

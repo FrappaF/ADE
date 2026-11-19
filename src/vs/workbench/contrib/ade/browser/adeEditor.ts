@@ -59,6 +59,7 @@ import { AdeInspector } from './adeInspector.js';
 import { AdeWorkflowContent } from './adeWorkflowContent.js';
 import { AdeBlueprintEditor } from './adeBlueprintEditor.js';
 import { type BlueprintEditMode } from './adeBlueprintEditing.js';
+import { AdeFeatureCodeGeneration, hasFeatureCodeReview } from './adeFeatureCodeGeneration.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
 
 export class AdeEditor extends EditorPane {
@@ -71,6 +72,10 @@ export class AdeEditor extends EditorPane {
 	private activeTab: 'workspace' | 'project' | 'ai' | 'code' | 'blueprint' = 'workspace';
 
 	private reviewContext: string | undefined;
+
+	private codeGenerationReviewId: string | undefined;
+
+	private readonly codeGeneration: AdeFeatureCodeGeneration;
 
 	private activeReview: HTMLElement | undefined;
 
@@ -132,6 +137,18 @@ export class AdeEditor extends EditorPane {
 		}
 	}
 
+	async prepareReviewedCodeFromDiagrams(): Promise<void> {
+		this.showCode();
+		if (this.ai.busy || this.code.busy || !this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true || this.project.loading || this.project.error || this.project.hasStructuralErrors || !this.project.editable || !this.project.projectRoot || !this.project.model.semantics.elements.some(element => element.kind === 'feature')) { return; }
+		const run = this.ai.codeGeneration;
+		if (run && run.status !== 'applied' && run.status !== 'undone') {
+			if (hasFeatureCodeReview(run)) { this.showCodeGenerationReview(); } else { this.controls.focusTarget('code-update'); }
+			return;
+		}
+		try { await this.codeGeneration.configure(); }
+		catch (error) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); }
+	}
+
 	captureAccessibilityFocus(): () => void { return this.controls.captureFocus(this.root); }
 
 	describeCurrentContext(): string {
@@ -178,7 +195,9 @@ export class AdeEditor extends EditorPane {
 		if (reviewContext !== this.reviewContext) { this.reviewOpen = !!reviewContext; this.reviewContext = reviewContext; if (reviewContext && this.activeTab !== 'blueprint') { this.activeTab = 'workspace'; } }
 		const blueprintMode = this.activeTab === 'blueprint' && !this.project.error && !this.project.loading;
 		this.renderedContext = JSON.stringify([this.project.modelUri?.toString(), this.activeTab, blueprintMode ? undefined : this.project.section, blueprintMode ? undefined : this.project.section === 'element' || this.project.section === 'impact' ? this.project.selectedId : this.project.activeView?.id]);
-		const reviewMode = this.activeTab === 'workspace' && (!!this.ai.diagramReview || this.reviewOpen && !!this.ai.structuralReview && this.project.section !== 'home') && !this.project.error && !this.project.loading;
+		const codeRun = this.ai.codeGeneration;
+		const codeReview = this.activeTab === 'code' && codeRun?.id === this.codeGenerationReviewId && hasFeatureCodeReview(codeRun) ? codeRun : undefined;
+		const reviewMode = (this.activeTab === 'workspace' && (!!this.ai.diagramReview || this.reviewOpen && !!this.ai.structuralReview && this.project.section !== 'home') || !!codeReview) && !this.project.error && !this.project.loading;
 		this.root.classList.toggle('ade-blueprint-mode', blueprintMode);
 		this.root.classList.toggle('ade-review-mode', reviewMode);
 		const sourceEvidence = isSourceEvidenceModel(this.project.model);
@@ -216,7 +235,13 @@ export class AdeEditor extends EditorPane {
 				this.controls.trackFocus('workspace-blueprint-content', content);
 				this.blueprint.render(content);
 			} else if (this.activeTab === 'code') {
-				this.workflow.renderCodeActions(content, () => { this.activeTab = 'project'; this.render(); }, parent => this.renderPrimaryActions(parent, true));
+				if (reviewMode && codeReview) {
+					this.activeReview = this.codeGeneration.renderReview(content, codeReview, this.controls, this.ai.busy || this.code.busy, () => {
+						this.codeGenerationReviewId = undefined; this.render(); this.controls.focusTarget('code-update');
+					});
+				} else {
+					this.workflow.renderCodeActions(content, () => { this.activeTab = 'project'; this.render(); }, parent => this.renderPrimaryActions(parent, true), { ui: this.codeGeneration, review: () => this.showCodeGenerationReview() });
+				}
 			} else if (this.activeTab === 'project') {
 				this.workflow.renderProjectActions(content);
 			} else if (this.activeTab === 'ai') {
@@ -305,8 +330,8 @@ export class AdeEditor extends EditorPane {
 			const map = this.button(trailing, localize('ade.systemMap', "System Map"), () => { this.activeTab = 'workspace'; this.project.showSystemMap(); }, 'workspace-map');
 			prependAdeIcon(map, Codicon.typeHierarchy); map.setAttribute('aria-current', String(this.project.section === 'map'));
 		}
-		if (this.project.section !== 'home' && !this.project.loading && !this.project.error && (this.project.model.semantics.elements.length > 0 || !!this.code.context)) {
-			const code = this.button(trailing, localize('ade.code.title', "Code"), () => { this.controls.setExpanded('workspace-project-menu', false); this.activeTab = 'code'; this.render(); }, 'workspace-code');
+		if ((this.project.section !== 'home' || !!this.project.modelUri) && !this.project.loading && !this.project.error && (this.project.model.semantics.elements.length > 0 || !!this.code.context)) {
+			const code = this.button(trailing, localize('ade.code.title', "Code"), () => this.showCode(), 'workspace-code');
 			code.setAttribute('aria-pressed', String(this.activeTab === 'code'));
 		}
 		if (this.project.editable) {
@@ -361,10 +386,8 @@ export class AdeEditor extends EditorPane {
 		if (this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true && this.code.context?.diagramState === 'diagrams') {
 			const exploration = this.ai.diagramExploration, phase = getDiagramExplorationPhase(exploration);
 			if (exploration && phase !== 'applied') { return; }
-			if (phase === 'review' || phase === 'incomplete' || this.code.changed || exploration?.invalidation?.viewIds.length) {
-				const review = phase === 'review';
-				const label = review ? exploration?.workflow === 'project' ? localize('ade.explore.reviewAll', "Review All Changes") : localize('ade.explore.reviewDraft', "Review Draft") : phase === 'incomplete' ? exploration?.workflow === 'project' ? localize('ade.explore.continueProject', "Continue Generation") : localize('ade.explore.continue', "Continue Exploration") : localize('ade.updateDiagrams', "Update Diagrams");
-				const action = this.button(parent, label, () => (review ? this.ai.reviewDiagramProposal(exploration?.workflow === 'project' ? undefined : exploration?.proposals.find(proposal => proposal.status === 'ready')?.id) : this.ai.resumeDiagrams()));
+			if (this.code.changed || exploration?.invalidation?.viewIds.length) {
+				const action = this.button(parent, localize('ade.updateDiagrams', "Update Diagrams"), () => this.ai.updateDiagrams());
 				action.disabled = busy;
 				if (!this.ai.structuralReview) { action.classList.add('ade-primary-action'); }
 			}
@@ -379,6 +402,21 @@ export class AdeEditor extends EditorPane {
 		this.controls.focusTarget(this.ai.canApply ? 'review-publish' : 'review-verify');
 	}
 
+	private showCode(): void {
+		this.controls.setExpanded('workspace-project-menu', false);
+		this.codeGenerationReviewId = undefined;
+		this.activeTab = 'code';
+		this.render();
+	}
+
+	private showCodeGenerationReview(): void {
+		const run = this.ai.codeGeneration;
+		if (!run || !hasFeatureCodeReview(run)) { return; }
+		this.codeGenerationReviewId = run.id;
+		this.render();
+		if (!this.controls.focusTarget(run.status === 'verified' ? 'feature-code-apply' : 'feature-code-verify')) { this.controls.focusTarget('feature-code-back'); }
+	}
+
 	private renderReview(parent: HTMLElement): void {
 		const diagramReview = this.ai.diagramReview;
 		if (diagramReview) {
@@ -387,7 +425,7 @@ export class AdeEditor extends EditorPane {
 				current: this.project.modelUri?.toString() === diagramReview.modelUri && canonicalJson(semanticContent(this.project.model)) === diagramReview.semanticRevision,
 				apply: () => this.ai.applyDiagramReview(), refresh: () => this.ai.reviewDiagramProposal(diagramReview.id),
 				continue: () => this.ai.resumeDiagrams(),
-				close: () => { this.ai.closeDiagramReview(); this.controls.focusTarget(`proposal-review:${diagramReview.id}`); },
+				close: () => { this.ai.closeDiagramReview(); this.controls.focusTarget(diagramReview.featureCatalog ? 'exploration-action' : diagramReview.projectReviewId ? 'project-review' : `proposal-review:${diagramReview.id}`); },
 				technical: () => this.ai.inspectDiagramReview()
 			});
 			return;
@@ -645,6 +683,7 @@ export class AdeEditor extends EditorPane {
 		this.canvas = this._register(new AdeCanvasController({ get root() { return self.root; }, reportError: error => { this.notifications.error(adeErrorNotification(error, 'edit', this.project.model)); this.render(); } }, this.controls, this.project, storageService));
 		this.surface = new AdeCanvasSurface({ button: (parent, label, action, id) => this.button(parent, label, action, id), chooseDiagram: () => this.chooseDiagram(), focusSelection: () => this.focusSelection(), renderBreadcrumbs: (parent) => this.renderBreadcrumbs(parent), renderNavigation: (parent, canvas) => this.renderNavigation(parent, canvas), renderPrimaryActions: (parent) => this.renderPrimaryActions(parent), documentStatus: () => this.documentStatus(), render: () => this.render(), iconButton: (parent, label, icon, action, id) => this.iconButton(parent, label, icon, action, id), paragraph: (parent, content) => this.paragraph(parent, content), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId) }, this.canvas, this.controls, this.project, this.commandService, this.quick, this.contextMenus, this.notifications);
 		this.inspector = new AdeInspector({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), get root() { return self.root; }, revealElement: (id, viewId) => this.revealElement(id, viewId), relationMenu: (id, x, y) => this.surface.relationMenu(id, x, y), beginConnection: id => this.surface.beginConnection(id) }, this.controls, this.project, this.code, this.commandService);
+		this.codeGeneration = this._register(new AdeFeatureCodeGeneration(this.project, this.ai, () => this.root.parentElement ?? this.root));
 		this.workflow = new AdeWorkflowContent({ paragraph: (parent, content) => this.paragraph(parent, content), button: (parent, label, action, id) => this.button(parent, label, action, id), documentStatus: () => this.documentStatus(), get root() { return self.root; }, showReview: () => this.showReview() }, this.controls, this.project, this.ai, this.configurationService, this.notifications, this.code, this.commandService);
 		this.blueprint = this._register(new AdeBlueprintEditor(project, id => {
 			project.showDiagram(id);

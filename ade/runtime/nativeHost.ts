@@ -26,6 +26,7 @@ import { executeCollaboration } from '../ai/engine.ts';
 import { needsExternalStructuralNode, verifyWithExternalNode } from '../ai/trustedNode.ts';
 import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelValidation.ts';
 import { type StructuredProvider } from '../ai/contracts.ts';
+import { type DiagramCheckpoint } from '../ai/diagramCheckpoint.ts';
 import { prepareDiagramImport, advanceDiagramImport, readDiagramJob, approveDiagramPlan, diagramProgress, finishDiagramImport } from '../ai/diagramImport.ts';
 import { validateCodeRequest } from './codeProtocol.ts';
 export { codeBridgeProtocol } from './codeProtocol.ts';
@@ -49,10 +50,10 @@ function context(snapshot: string, state: CodeImport, model = state.model): Code
 	};
 }
 
-async function diagramMcp(root: string, sessionId: string): Promise<{ command: string; args: string[] }> {
+async function diagramMcp(root: string, sessionId: string, invocation?: { checkpoint: DiagramCheckpoint; turnId: string }): Promise<{ command: string; args: string[] }> {
 	const mcpPath = fileURLToPath(new URL(import.meta.url.endsWith('/adeCodeEngine.js') ? './adeDiagramMcp.js' : '../ai/diagram-mcp.mjs', import.meta.url));
 	if (!(await stat(mcpPath).catch(() => undefined))?.isFile()) { throw new Error(`Diagram tools are missing at ${mcpPath}. Rebuild ADE and restart before continuing exploration.`); }
-	return { command: process.env.ADE_NODE_EXECUTABLE || 'node', args: [mcpPath, root, sessionId] };
+	return { command: process.env.ADE_NODE_EXECUTABLE || 'node', args: [mcpPath, root, sessionId, ...(invocation ? [JSON.stringify(invocation)] : [])] };
 }
 function previewResponse(token: string, preview: Preview): CodePreview {
 	const { next, previous, result: prepared } = preview;
@@ -102,6 +103,7 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 			signal?.throwIfAborted();
 			if (request.operation === 'diagramChat') {
 				const root = await realpath(request.root);
+				const config = JSON.parse(request.config);
 				let mcp: { command: string; args: string[] } | undefined;
 				let durationMs: number | undefined;
 				let resumeContext: object | undefined;
@@ -110,19 +112,30 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 					const snapshot = await readSnapshot(request.snapshot);
 					if (await realpath(snapshot.state.sourceRoot) !== root) { throw new Error('The assistant project changed. Open it again.'); }
 					const { executeDiagramExploration } = await import('../ai/diagramSession.ts');
-					const opened = await executeDiagramExploration(request.snapshot, { action: 'open', sessionId: request.sessionId }, signal);
+					const opened = await executeDiagramExploration(request.snapshot, { action: 'open', sessionId: request.sessionId, ...(request.checkpoint && typeof config?.model === 'string' ? { model: config.model } : {}) }, signal);
 					const state = opened.data as import('../../src/vs/workbench/contrib/ade/common/codeBridge.ts').CodeDiagramExploration;
 					if (state.budgetStatus?.exhausted.length) { throw new Error('The exploration budget is exhausted (' + state.budgetStatus.exhausted.join(', ') + '). Close the assistant and choose Continue Generation to add budget. Prepared drafts are retained.'); }
-					durationMs = state.budget.maxDurationMs;
-					resumeContext = {
+					durationMs = state.budgetWindow?.remainingMs ?? state.budget.maxDurationMs;
+					if (request.checkpoint && (!state.phase || state.phase === 'review')) { return JSON.stringify({ text: '', phase: state.phase }); }
+					resumeContext = state.phase ? {
+						phase: state.phase,
+						nextFeatureId: state.nextFeatureId,
+						nextTaskId: state.nextTaskId,
+						blockers: state.batch?.blockers.slice(0, 12) ?? [],
+					} : {
 						plan: state.plan ? { revision: state.plan.revision, items: state.plan.items.map(item => ({ id: item.id, name: item.name.slice(0, 240), kind: item.viewKind, parentId: item.parentId, dependsOn: item.dependsOn })) } : undefined,
 						tasks: state.tasks.map(task => ({ id: task.id, status: task.status, proposalId: task.proposalId })), blockers: state.batch?.blockers ?? [],
 						drafts: [...state.proposals].sort((a, b) => Number(b.status === 'invalid') - Number(a.status === 'invalid')).slice(0, 24).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics.slice(0, 4).map(diagnostic => ({ code: diagnostic.code, path: diagnostic.path, args: diagnostic.args.map(arg => arg.slice(0, 200)) })), views: proposal.views.map(view => ({ id: view.id, name: view.name.slice(0, 240), kind: view.kind })) }))
 					};
-					mcp = await diagramMcp(root, request.sessionId);
+					const invocation = request.checkpoint && state.phase && state.phase !== 'review' ? {
+						checkpoint: { phase: state.phase, nextFeatureId: state.nextFeatureId, nextTaskId: state.nextTaskId, toolCalls: state.usage.toolCalls, readBytes: state.usage.readBytes },
+						turnId: request.requestId ?? randomUUID()
+					} : undefined;
+					if (invocation) { durationMs = Math.min(durationMs, 180000); }
+					mcp = await diagramMcp(root, request.sessionId, invocation);
 				}
 				const { runDiagramChat } = await import('../ai/diagramChat.ts');
-				return JSON.stringify(await runDiagramChat(root, JSON.parse(request.config), request.messages, mcp, signal, undefined, durationMs, event => progress?.({ ...event, requestId: request.requestId ?? '' }), resumeContext));
+				return JSON.stringify(await runDiagramChat(root, config, request.messages, mcp, signal, undefined, durationMs, event => progress?.({ ...event, requestId: request.requestId ?? '' }), resumeContext, request.checkpoint));
 			}
 			if (request.operation === 'exploration') {
 				if (import.meta.url.endsWith('/nativeHost.ts')) { await import('../scripts/source-loader.mjs'); }

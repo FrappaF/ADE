@@ -93,7 +93,8 @@ test('a correction preserves shared IDs, invalidates dependent reads and survive
 	await f.propose('overview-2', f.overviewCommands.map(command => command.kind === 'element' && command.ref === '@api' ? { ...command, element: { ...command.element, name: 'Revised Todo API' } } : command), { supersedes: 'overview-1' });
 	const after = await readExplorationSession(f.root, f.opened.sessionId);
 	assert.deepEqual(after.proposals.at(-1).aliases, before.proposals[0].aliases);
-	const reopened = await f.request({ action: 'open' });
+	const reopened = await f.request({ action: 'open', featureWorkflow: true });
+	assert.equal(reopened.data.phase, undefined);
 	assert.ok(reopened.data.batch.blockers.length);
 	assert.equal(reopened.data.proposals.length, 2);
 	const review = await f.request({ action: 'review' });
@@ -174,4 +175,126 @@ test('expired saved exploration budgets stop before starting a provider and can 
 	await assert.rejects(createCodeEngine().execute(JSON.stringify({ operation: 'diagramChat', root: f.root, snapshot: f.context.snapshot, sessionId: f.opened.sessionId, config: JSON.stringify(config), messages: [{ role: 'user', text: 'Resume' }] })), /exploration budget is exhausted/);
 	const resumed = await f.request({ action: 'budget', budget: session.budget });
 	assert.deepEqual([resumed.data.budgetStatus.exhausted, resumed.data.usage.toolCalls, resumed.data.proposals.length], [[], session.usage.toolCalls, session.proposals.length]);
+});
+
+async function featureFixture(t) {
+	const root = await mkdtemp(join(tmpdir(), 'ade-feature-diagrams-'));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	await writeFile(join(root, 'purchase.mjs'), 'export function purchase(store) { return store.reserve(); }\n');
+	await writeFile(join(root, 'returns.mjs'), 'export function returns(store) { return store.release(); }\n');
+	const context = JSON.parse(await createCodeEngine().execute(JSON.stringify({ operation: 'import', root, syntaxOnly: true })));
+	const opened = await executeDiagramExploration(context.snapshot, { action: 'open', workflow: 'project', featureWorkflow: true });
+	let revision = opened.semanticRevision;
+	const request = input => executeDiagramExploration(context.snapshot, { sessionId: opened.sessionId, ...input });
+	const call = async (name, args) => request({ action: 'tool', tool: name, arguments: args });
+	const tool = async (name, args) => {
+		const result = await call(name, args);
+		assert.deepEqual(result.diagnostics, []);
+		revision = result.semanticRevision;
+		return result.data;
+	};
+	const evidence = async path => {
+		const inventory = await tool('ade_project_inspect', {});
+		const file = inventory.files.items.find(file => file.path === path);
+		return (await tool('ade_source_read', { file: path, revision: file.revision })).evidence.id;
+	};
+	const purchase = { id: 'purchase', name: 'Purchase', description: 'Reserve an item', evidenceIds: [await evidence('purchase.mjs')], dependsOn: [] };
+	const returns = { id: 'returns', name: 'Returns', description: 'Release an item', evidenceIds: [await evidence('returns.mjs')], dependsOn: ['purchase'] };
+	const plan = (id, name, dependsOn = []) => ({ id, name, viewKind: 'structure', intent: 'Explain ' + name, rationale: 'Clarify responsibilities', dependsOn });
+	const update = (id, status, proposalId?) => ({ id, intent: id, status, gaps: [], ...(proposalId ? { proposalId } : {}) });
+	const proposal = (taskId, proposalId, commands, evidenceIds, supersedes?) => ({ taskId, proposalId, baseSemanticRevision: revision, readEvidenceIds: evidenceIds, readObjectIds: [], queryIds: [], commands, ...(supersedes ? { supersedes } : {}) });
+	const commands = (item, feature, elementId = '@feature', store = '@store') => [
+		...(elementId.startsWith('@') ? [{ kind: 'element', ref: elementId, element: { kind: 'feature', name: feature.name }, evidenceIds: feature.evidenceIds }] : []),
+		...(store.startsWith('@') ? [{ kind: 'element', ref: store, element: { kind: 'resource', name: 'Inventory' }, evidenceIds: feature.evidenceIds }] : []),
+		{ kind: 'view', ref: '@view', name: item.name, viewKind: item.viewKind, intent: item.intent, elementIds: [store], relationIds: [], featureId: elementId }
+	];
+	return { root, opened, request, call, tool, evidence, purchase, returns, plan, update, proposal, commands };
+}
+
+test('one provider checkpoint cannot read or advance the next feature phase', async t => {
+	const f = await featureFixture(t);
+	const start = (await f.request({ action: 'status' })).data;
+	const discovery = { phase: 'discovery', toolCalls: start.usage.toolCalls, readBytes: start.usage.readBytes };
+	const call = (tool, args, checkpoint = discovery, turnId = 'discovery-turn') => f.request({ action: 'tool', tool, arguments: args, checkpoint, turnId });
+	assert.equal((await call('ade_diagram_plan', { items: [] })).diagnostics[0].code, 'toolOutsideDiagramCheckpoint');
+	const recorded = await call('ade_feature_catalog', { features: [f.purchase, f.returns] });
+	assert.deepEqual([recorded.diagnostics, recorded.data], [[], { checkpointComplete: true, phase: 'planning' }]);
+	const early = await call('ade_project_inspect', {});
+	assert.deepEqual([early.diagnostics[0].code, early.data], ['diagramCheckpointChanged', { phase: 'planning' }]);
+	const current = (await f.request({ action: 'status' })).data;
+	const plan = { phase: 'planning', toolCalls: current.usage.toolCalls, readBytes: current.usage.readBytes };
+	const inspected = await call('ade_project_inspect', {}, plan, 'planning-turn');
+	assert.deepEqual([inspected.diagnostics, inspected.data.exploration.phase, inspected.data.exploration.features.map(feature => feature.id), inspected.data.exploration.tasks], [[], 'planning', ['purchase', 'returns'], undefined]);
+	assert.deepEqual((await f.request({ action: 'status' })).data.usage.modelTurns, ['discovery-turn', 'planning-turn']);
+});
+
+test('feature catalog orders dependencies, enforces one previewed diagram at a time and shares stable model IDs', async t => {
+	const f = await featureFixture(t);
+	assert.equal(f.opened.data.phase, 'discovery');
+	const badEvidence = await f.call('ade_feature_catalog', { features: [{ ...f.purchase, evidenceIds: ['fabricated'] }] });
+	assert.equal(badEvidence.diagnostics[0].code, 'missingEvidence');
+	const catalog = await f.tool('ade_feature_catalog', { features: [f.returns, f.purchase] });
+	assert.deepEqual(catalog.featureCatalog.features.map(feature => feature.id), ['purchase', 'returns']);
+	await f.tool('ade_diagram_plan', { items: [], gaps: ['Use focused feature views for this repository'] });
+	const purchase = f.plan('purchase-overview', 'Purchase Overview'), stock = f.plan('stock-detail', 'Stock Details', [purchase.id]), returns = f.plan('returns-overview', 'Returns Overview', [purchase.id]);
+	const rejectedPlan = await f.call('ade_diagram_plan', { featureId: 'returns', items: [returns] });
+	assert.equal(rejectedPlan.diagnostics[0].code, 'featurePlanOutOfOrder:purchase');
+	await f.tool('ade_diagram_plan', { featureId: 'purchase', items: [stock, purchase] });
+	assert.equal((await f.call('ade_task_update', f.update(stock.id, 'running'))).diagnostics[0].code, 'diagramTaskOutOfOrder:purchase-overview');
+	const first = f.proposal(purchase.id, 'purchase-first', f.commands(purchase, f.purchase), f.purchase.evidenceIds);
+	assert.equal((await f.call('ade_model_propose', first)).diagnostics[0].code, 'diagramTaskNotActive:purchase-overview');
+	await f.tool('ade_task_update', f.update(purchase.id, 'running'));
+	const proposal = await f.tool('ade_model_propose', first);
+	assert.equal((await f.call('ade_task_update', f.update(purchase.id, 'ready', first.proposalId))).diagnostics[0].code, 'plannedProposalNotPreviewed');
+	await f.tool('ade_view_preview', { proposalId: first.proposalId });
+	await f.tool('ade_task_update', f.update(purchase.id, 'ready', first.proposalId));
+	const reopened = await f.request({ action: 'open' });
+	assert.deepEqual([reopened.data.nextTaskId, reopened.data.featureCatalog.features[0].elementId], [stock.id, proposal.aliases['@feature']]);
+	const lookup = await f.tool('ade_model_query', { collection: 'elements', match: { name: 'Inventory', kind: 'resource', evidenceIds: f.purchase.evidenceIds } });
+	assert.equal(lookup.candidates[0].id, proposal.aliases['@store']);
+	await f.tool('ade_model_propose', first);
+	assert.equal((await f.request({ action: 'status' })).data.nextTaskId, stock.id);
+	await f.tool('ade_task_update', f.update(stock.id, 'running'));
+	await f.tool('ade_model_propose', f.proposal(stock.id, 'stock-first', f.commands(stock, f.purchase, proposal.aliases['@feature'], proposal.aliases['@store']), f.purchase.evidenceIds));
+	await f.tool('ade_view_preview', { proposalId: 'stock-first' });
+	await f.tool('ade_task_update', f.update(stock.id, 'ready', 'stock-first'));
+	await f.tool('ade_diagram_plan', { featureId: 'returns', items: [returns] });
+	await f.tool('ade_task_update', f.update(returns.id, 'running'));
+	const wrong = f.proposal(returns.id, 'returns-wrong', f.commands(returns, f.returns, proposal.aliases['@feature'], proposal.aliases['@store']), f.returns.evidenceIds);
+	assert.equal((await f.call('ade_model_propose', wrong)).diagnostics[0].code, 'featureElementMismatch:returns');
+	await f.tool('ade_model_propose', f.proposal(returns.id, 'returns-first', f.commands(returns, f.returns, '@feature', proposal.aliases['@store']), f.returns.evidenceIds));
+	await f.tool('ade_view_preview', { proposalId: 'returns-first' });
+	await f.tool('ade_task_update', f.update(returns.id, 'ready', 'returns-first'));
+	const review = await f.request({ action: 'review' });
+	assert.deepEqual([review.data.phase, review.data.proposal.status, review.data.images.length], ['review', 'ready', 3]);
+	const published = await f.request({ action: 'publishAll', reviewId: review.data.reviewId });
+	const model = JSON.parse(await readFile(join(published.data.snapshot, 'model.ade.json'), 'utf8'));
+	assert.deepEqual(model.semantics.elements.map(element => element.name).sort(), ['Inventory', 'Purchase', 'Returns']);
+	assert.deepEqual(model.views.map(view => view.nodes[0].elementId), Array(3).fill(proposal.aliases['@store']));
+});
+
+test('stale earlier evidence pauses a later running feature and repair preserves canonical IDs', async t => {
+	const f = await featureFixture(t);
+	await f.tool('ade_feature_catalog', { features: [f.purchase, f.returns] });
+	await f.tool('ade_diagram_plan', { items: [], gaps: ['Feature views cover the project'] });
+	const purchase = f.plan('purchase-overview', 'Purchase Overview'), returns = f.plan('returns-overview', 'Returns Overview', [purchase.id]);
+	await f.tool('ade_diagram_plan', { featureId: 'purchase', items: [purchase] });
+	await f.tool('ade_task_update', f.update(purchase.id, 'running'));
+	const original = await f.tool('ade_model_propose', f.proposal(purchase.id, 'original', f.commands(purchase, f.purchase), f.purchase.evidenceIds));
+	await f.tool('ade_view_preview', { proposalId: 'original' });
+	await f.tool('ade_task_update', f.update(purchase.id, 'ready', 'original'));
+	await f.tool('ade_diagram_plan', { featureId: 'returns', items: [returns] });
+	await f.tool('ade_task_update', f.update(returns.id, 'running'));
+	await writeFile(join(f.root, 'purchase.mjs'), 'export function purchase(store) { return store.reserve(1); }\n');
+	const reopened = await f.request({ action: 'open' });
+	assert.deepEqual([reopened.data.phase, reopened.data.tasks.map(task => task.status)], ['discovery', ['blocked', 'blocked']]);
+	const updated = { ...f.purchase, evidenceIds: [await f.evidence('purchase.mjs')] };
+	await f.tool('ade_feature_catalog', { features: [updated, f.returns] });
+	assert.equal((await f.call('ade_task_update', f.update(returns.id, 'running'))).diagnostics[0].code, 'diagramTaskOutOfOrder:purchase-overview');
+	await f.tool('ade_task_update', f.update(purchase.id, 'running'));
+	const replacement = await f.tool('ade_model_propose', f.proposal(purchase.id, 'replacement', f.commands(purchase, updated), updated.evidenceIds, 'original'));
+	assert.deepEqual(replacement.aliases, original.aliases);
+	await f.tool('ade_view_preview', { proposalId: 'replacement' });
+	const next = await f.tool('ade_task_update', f.update(purchase.id, 'ready', 'replacement'));
+	assert.equal(next.nextTaskId, returns.id);
 });

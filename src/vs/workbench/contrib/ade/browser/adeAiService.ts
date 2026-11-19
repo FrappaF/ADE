@@ -8,8 +8,17 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { type StructuralProjectSession } from '../common/modelProject.js';
 import { CodePreview, CodeResolution, CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
+import { type FeatureCodeGenerationRequest, type FeatureCodeGenerationRun, type FeatureCodeGenerationSetup } from '../common/featureCodeGeneration.js';
 
 export const IAdeAiService = createDecorator<IAdeAiService>('adeAiService');
+
+/** Optional, bounded provider feedback for the current exploration. */
+export interface AdeDiagramActivity {
+	requestId: string;
+	itemId?: string;
+	kind: 'tool' | 'message';
+	text: string;
+}
 
 /** A detached, human-readable review; the exploration service remains the publication authority. */
 export interface AdeDiagramReview {
@@ -19,6 +28,7 @@ export interface AdeDiagramReview {
 	sources: { file: string; revision: string; start: number; end: number }[];
 	images: { path: string; viewId: string }[];
 	contents: string; problem?: string; projectReviewId?: string; plan?: CodeDiagramExploration['plan']; tasks?: CodeDiagramExploration['tasks'];
+	featureCatalog?: CodeDiagramExploration['featureCatalog']; featurePlans?: CodeDiagramExploration['featurePlans'];
 }
 
 export interface IAdeAiService {
@@ -39,6 +49,11 @@ export interface IAdeAiService {
 	returnToDiagrams(): Promise<void>;
 	readonly diagramProgress: CodeDiagramProgress | undefined;
 	readonly diagramExploration: CodeDiagramExploration | undefined;
+	readonly diagramActivity?: readonly AdeDiagramActivity[];
+	readonly diagramExplorationIssue?: string;
+	readonly diagramClarification?: string;
+	stopDiagramExploration?(): void;
+	clarifyDiagramExploration?(): Promise<void>;
 	readonly diagramReview: AdeDiagramReview | undefined;
 	reviewDiagramProposal(id?: string): Promise<void>;
 	applyDiagramReview(): Promise<void>;
@@ -51,6 +66,17 @@ export interface IAdeAiService {
 	resumeDiagrams(): Promise<void>;
 	updateDiagrams(): Promise<void>;
 	updateCodebase(): Promise<void>;
+	readonly codeGeneration: FeatureCodeGenerationRun | undefined;
+	readonly codeGenerationProblem?: string;
+	inspectCodeGeneration(): Promise<FeatureCodeGenerationSetup | undefined>;
+	prepareCodeGeneration(request: FeatureCodeGenerationRequest): Promise<void>;
+	resumeCodeGeneration(clarification?: string): Promise<void>;
+	cancelCodeGeneration(): Promise<void>;
+	verifyCodeGeneration(): Promise<void>;
+	applyCodeGeneration(): Promise<void>;
+	undoCodeGeneration(): Promise<void>;
+	recoverCodeGeneration(): Promise<void>;
+	openCodeGenerationDiff(path: string): Promise<void>;
 	connect(): Promise<void>;
 	refreshConnection(): Promise<void>;
 	openCli(): Promise<void>;
@@ -104,6 +130,16 @@ class UnavailableAiService implements IAdeAiService {
 	async resumeDiagrams(): Promise<void> { }
 	async updateDiagrams(): Promise<void> { }
 	async updateCodebase(): Promise<void> { }
+	readonly codeGeneration = undefined;
+	async inspectCodeGeneration(): Promise<FeatureCodeGenerationSetup | undefined> { return undefined; }
+	async prepareCodeGeneration(_request: FeatureCodeGenerationRequest): Promise<void> { }
+	async resumeCodeGeneration(_clarification?: string): Promise<void> { }
+	async cancelCodeGeneration(): Promise<void> { }
+	async verifyCodeGeneration(): Promise<void> { }
+	async applyCodeGeneration(): Promise<void> { }
+	async undoCodeGeneration(): Promise<void> { }
+	async recoverCodeGeneration(): Promise<void> { }
+	async openCodeGenerationDiff(_path: string): Promise<void> { }
 	async connect(): Promise<void> { }
 	async refreshConnection(): Promise<void> { }
 	async openCli(): Promise<void> { }

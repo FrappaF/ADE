@@ -130,6 +130,9 @@ export class AdeAiDialog extends Disposable {
 			ade_project_inspect: localize('ade.ai.progress.inspect', "Inspecting the Project and Saved Drafts…"),
 			ade_source_search: localize('ade.ai.progress.search', "Searching Project Sources…"),
 			ade_source_read: localize('ade.ai.progress.read', "Reading Project Sources…"),
+			ade_feature_catalog: localize('ade.ai.progress.features', "Saving the Identified Features…"),
+			ade_diagram_plan: localize('ade.ai.progress.plan', "Planning the Next Diagrams…"),
+			ade_model_query: localize('ade.ai.progress.reuse', "Checking the Shared Model…"),
 			ade_model_propose: localize('ade.ai.progress.propose', "Preparing a Diagram Draft…"),
 			ade_view_preview: localize('ade.ai.progress.preview', "Checking a Diagram Preview…"),
 			ade_proposal_discard: localize('ade.ai.progress.discard', "Archiving an Obsolete Invalid Draft…")

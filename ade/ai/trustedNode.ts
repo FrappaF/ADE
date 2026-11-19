@@ -6,11 +6,11 @@
 import { isAbsolute } from 'node:path';
 import { runProcess } from './process.ts';
 
-/** Electron owns the UI runtime; structural checks require the separately installed Node runtime. */
+/** Electron owns the UI runtime; isolated verification uses the separately installed Node runtime. */
 export function needsExternalStructuralNode(input: string, electronVersion?: string): boolean {
 	if (!electronVersion) { return false; }
 	const request: { operation?: string } = JSON.parse(input);
-	return request?.operation === 'structuralVerify';
+	return request?.operation === 'structuralVerify' || request?.operation === 'featureImplementationVerify';
 }
 
 /** Import only the tool-owned engine bundle, passing the reviewed request over stdin, never shell text. */

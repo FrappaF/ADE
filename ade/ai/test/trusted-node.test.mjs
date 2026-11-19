@@ -15,9 +15,9 @@ const { needsExternalStructuralNode, verifyWithExternalNode } = await import('..
 const { createPureProject } = await import('../../../src/vs/workbench/contrib/ade/common/modelProject.ts');
 const { prepareStructuralProject } = await import('../structuralProject.ts');
 
-test('Electron dispatches only structural verification to external Node; ordinary Node retains its existing path', () => {
-	for (const operation of ['structuralPrepare', 'structuralApply', 'structuralUndo', 'structuralVerify']) {
-		assert.equal(needsExternalStructuralNode(JSON.stringify({ operation }), '43.8.3'), operation === 'structuralVerify');
+test('Electron dispatches isolated verification to external Node; ordinary Node retains its existing path', () => {
+	for (const operation of ['structuralPrepare', 'structuralApply', 'structuralUndo', 'structuralVerify', 'featureImplementationInspect', 'featureImplementationPrepare', 'featureImplementationVerify', 'featureImplementationApply']) {
+		assert.equal(needsExternalStructuralNode(JSON.stringify({ operation }), '43.8.3'), operation.endsWith('Verify'));
 		assert.equal(needsExternalStructuralNode(JSON.stringify({ operation })), false);
 	}
 });

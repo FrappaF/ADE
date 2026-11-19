@@ -118,12 +118,20 @@ export const planReviewId = (prepared: PreparedImplementation, plan: Implementat
 const implementationReviewId = (session: ImplementationSession): string => hash(JSON.stringify({ planId: session.planId, generated: session.generated, before: session.before, baseCommit: session.baseCommit }));
 
 async function save(session: ImplementationSession): Promise<void> {
-	const directory = await managed(session.root, 'collaboration', session.id);
-	const path = join(directory, 'session.json');
+	await saveCodeSession(await codeSessionPath(session.root, session.id, 'session.json'), session);
+}
+
+export async function codeSessionPath(root: string, id: string, name: 'session.json' | 'feature.json' | 'transaction.json'): Promise<string> {
+	return join(await managed(root, 'collaboration', id), name);
+}
+
+export async function saveCodeSession(path: string, value: object): Promise<void> {
 	const temporary = path + '.' + randomUUID() + '.tmp';
-	await durableFile(temporary, JSON.stringify(session, null, '\t'), 0o600);
-	await rename(temporary, path);
-	await syncDirectory(directory);
+	try {
+		await durableFile(temporary, JSON.stringify(value, null, '\t'), 0o600);
+		await rename(temporary, path);
+		await syncDirectory(dirname(path));
+	} finally { await rm(temporary, { force: true }); }
 }
 
 /** Session IDs, not arbitrary persisted paths, are accepted by native operations. */
@@ -231,6 +239,8 @@ async function editLocked<T>(root: string, task: () => Promise<T>, recoveringId?
 
 interface ImplementationMutation { file: string; expected: string | null; next: string | null; mode: number }
 interface ImplementationTransaction { version: 2; attempt: string; legacy: boolean; undo: boolean; mutations: ImplementationMutation[] }
+export interface ReviewedSourceChange { file: string; before: string | null; after: string | null; mode: number | null }
+export interface AppliedSourceMode { file: string; mode: number }
 interface FileImage { content: string; mode: number; dev: bigint; ino: bigint }
 const validMode = (mode: number, original: number | null): boolean => Number.isInteger(mode) && mode >= 0 && mode <= 0o777 && (original === null ? (mode & ~(process.platform === 'win32' ? 0o666 : 0o644)) === 0 : mode === original);
 
@@ -412,6 +422,99 @@ async function writeTransaction(root: string, id: string, transaction: Implement
 	return path;
 }
 
+
+/** Drop only private staging links after commit; this keeps new sources readable by the single-link importer. */
+async function releaseCommittedSourceLinks(directory: string, mutations: ImplementationMutation[]): Promise<void> {
+	for (const [index, mutation] of mutations.entries()) {
+		if (mutation.next !== null) { await rm(join(directory, `apply-${index}.next`), { force: true }); }
+	}
+	await syncDirectory(directory);
+}
+
+/** Release only the exact restored source links after rolling an uncommitted feature publication back. */
+async function releaseRestoredSourceLinks(root: string, directory: string, mutations: ImplementationMutation[]): Promise<void> {
+	for (const [index, mutation] of mutations.entries()) {
+		if (mutation.expected === null) { continue; }
+		const current = await image(await sourcePath(root, mutation.file, false));
+		if (!matches(current, mutation.expected, mutation.mode)) { continue; }
+		for (const name of [`apply-${index}.before`, `restore-${index}.next`]) {
+			const retained = join(directory, name);
+			if (sameInode(current, await image(retained))) { await rm(retained, { force: true }); }
+		}
+	}
+	await syncDirectory(directory);
+}
+
+/** The caller owns the shared project lock and validates its exact review before claiming any paths. */
+export async function publishReviewedSources(root: string, id: string, changes: ReviewedSourceChange[], undo: boolean, appliedModes: ReadonlyMap<string, number> | undefined, commit: (modes: AppliedSourceMode[]) => Promise<void>, rollback: () => Promise<void>, releaseCommittedLinks = false): Promise<void> {
+	const mutations = changes.map(change => {
+		const mode = change.mode ?? (undo ? appliedModes?.get(change.file) : 0o644 & ~process.umask());
+		if (mode === undefined) { throw new Error('Applied source permissions are missing; source files were preserved'); }
+		return { file: change.file, expected: undo ? change.after : change.before, next: undo ? change.before : change.after, mode };
+	});
+	for (const edit of mutations) {
+		let current: string | null = null;
+		try { current = await readFile(await sourcePath(root, edit.file, true), 'utf8'); }
+		catch (error) { if (!(errorCode(error) === 'ENOENT')) { throw error; } }
+		if (current !== edit.expected) { throw new Error('Source changed since review; manual edits are preserved'); }
+		if (current !== null && ((await lstat(join(root, edit.file))).mode & 0o777) !== edit.mode) { throw new Error('Source permissions changed since review; manual edits are preserved'); }
+	}
+	const transaction: ImplementationTransaction = { version: 2, attempt: randomUUID(), legacy: false, undo, mutations };
+	const directory = await transactionDirectory(root, id, transaction);
+	await assertPublicationSupport(root, mutations, directory, !undo);
+	const path = await writeTransaction(root, id, transaction);
+	try {
+		for (let index = 0; index < mutations.length; index++) { await replaceImage(root, mutations[index], directory, `apply-${index}`); }
+		await commit(mutations.map(({ file, mode }) => ({ file, mode })));
+	} catch (error) {
+		await rollbackTransaction(root, id, transaction);
+		if (releaseCommittedLinks) { await releaseRestoredSourceLinks(root, directory, mutations); }
+		await rollback();
+		await unlink(path); await syncDirectory(dirname(path));
+		throw error;
+	}
+	// Publication and its durable session state have committed. Cleanup failure
+	// must not start a rollback after removing the active recovery journal.
+	if (releaseCommittedLinks) { await releaseCommittedSourceLinks(directory, transaction.mutations); }
+	await unlink(path); await syncDirectory(dirname(path));
+}
+
+/** Completes an interrupted source publication, preserving unrecognized manual edits and retained inodes. */
+export async function recoverReviewedSources(root: string, id: string, changes: ReviewedSourceChange[], rollback: (undo: boolean) => Promise<void>, committed?: (undo: boolean) => boolean): Promise<void> {
+	const path = join(await managed(root, 'collaboration', id), 'transaction.json');
+	const info = await lstat(path);
+	if (!info.isFile() || info.isSymbolicLink() || info.size > 16 * 1024 * 1024) { throw new Error('Invalid recovery transaction'); }
+	const stored: { version?: number; attempt?: string; legacy?: boolean; undo: boolean; mutations: ImplementationMutation[] } = JSON.parse(await readBoundedText(path, 16 * 1024 * 1024));
+	if (typeof stored.undo !== 'boolean' || !Array.isArray(stored.mutations)) { throw new Error('Invalid recovery transaction'); }
+	const expected = changes.map(change => {
+		const mode = change.mode ?? stored.mutations.find(edit => edit.file === change.file)?.mode;
+		if (mode === undefined || !validMode(mode, change.mode)) { throw new Error('Invalid recovery source permissions'); }
+		return { file: change.file, expected: stored.undo ? change.after : change.before, next: stored.undo ? change.before : change.after, mode };
+	});
+	if (JSON.stringify(stored.mutations) !== JSON.stringify(expected) || stored.version !== undefined && stored.version !== 2 || stored.version === 2 && (!stored.attempt || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(stored.attempt) || typeof stored.legacy !== 'boolean')) { throw new Error('Recovery transaction differs from its reviewed implementation'); }
+	const transaction: ImplementationTransaction = stored.version === 2
+		? { version: 2, attempt: stored.attempt!, legacy: stored.legacy!, undo: stored.undo, mutations: expected }
+		: { version: 2, attempt: randomUUID(), legacy: true, undo: stored.undo, mutations: expected };
+	if (committed?.(transaction.undo)) {
+		await releaseCommittedSourceLinks(await transactionDirectory(root, id, transaction), transaction.mutations);
+	} else {
+		const directory = await transactionDirectory(root, id, transaction);
+		await assertPublicationSupport(root, transaction.mutations, directory);
+		if (stored.version === undefined) { await writeTransaction(root, id, transaction, true); }
+		await rollbackTransaction(root, id, transaction);
+		if (committed) { await releaseRestoredSourceLinks(root, directory, transaction.mutations); }
+		await rollback(transaction.undo);
+	}
+	await unlink(path); await syncDirectory(dirname(path));
+}
+
+function reviewedChanges(session: ImplementationSession): ReviewedSourceChange[] {
+	return session.generated.files.map(file => {
+		const before = session.before.find(entry => entry.file === file.file)!;
+		return { file: file.file, before: before.content, after: file.content, mode: before.mode };
+	});
+}
+
 /** Refuses to overwrite later manual edits; rollback uses exact preimages retained across restarts. */
 export async function applyImplementation(root: string, id: string, reviewId: string, undo = false): Promise<ImplementationSession> {
 	root = await realpath(root);
@@ -423,41 +526,17 @@ export async function applyImplementation(root: string, id: string, reviewId: st
 			if ((await inspectImplementationBaseline(session.prepared)).baseCommit !== session.baseCommit) { throw new Error('Git base changed after implementation review'); }
 			await checkWorktree(session);
 		}
-		const appliedModes = undo ? session.appliedModes ? new Map(session.appliedModes.map(entry => [entry.file, entry.mode])) : await legacyAppliedModes(session) : undefined;
-		const mutations = session.generated.files.map(file => {
-			const before = session.before.find(before => before.file === file.file)!;
-			const mode = before.mode ?? (undo ? appliedModes!.get(file.file) : 0o644 & ~process.umask());
-			if (mode === undefined) { throw new Error('Applied source permissions are missing; source files were preserved'); }
-			return { file: file.file, expected: undo ? file.content : before.content, next: undo ? before.content : file.content, mode };
-		});
-		for (const edit of mutations) {
-			let current: string | null = null;
-			try { current = await readFile(await sourcePath(root, edit.file, true), 'utf8'); }
-			catch (error) { if (!(errorCode(error) === 'ENOENT')) { throw error; } }
-			if (current !== edit.expected) { throw new Error('Source changed since review; manual edits are preserved'); }
-			if (current !== null && ((await lstat(join(root, edit.file))).mode & 0o777) !== edit.mode) { throw new Error('Source permissions changed since review; manual edits are preserved'); }
-		}
-		const transaction: ImplementationTransaction = { version: 2, attempt: randomUUID(), legacy: false, undo, mutations };
-		const directory = await transactionDirectory(root, id, transaction);
-		await assertPublicationSupport(root, mutations, directory, !undo);
-		const path = await writeTransaction(root, id, transaction);
 		const previousModes = session.appliedModes;
-		try {
-			for (let index = 0; index < mutations.length; index++) { await replaceImage(root, mutations[index], directory, `apply-${index}`); }
+		const modes = undo ? session.appliedModes ? new Map(session.appliedModes.map(entry => [entry.file, entry.mode])) : await legacyAppliedModes(session) : undefined;
+		await publishReviewedSources(root, id, reviewedChanges(session), undo, modes, async appliedModes => {
 			session.status = undo ? 'undone' : 'applied';
-			if (!undo) { session.appliedModes = mutations.map(({ file, mode }) => ({ file, mode })); }
+			if (!undo) { session.appliedModes = appliedModes; }
 			await save(session);
-		} catch (error) {
-			await rollbackTransaction(root, id, transaction);
+		}, async () => {
 			session.status = undo ? 'applied' : 'passed';
 			session.appliedModes = previousModes;
 			await save(session);
-			await unlink(path); await syncDirectory(dirname(path));
-			throw error;
-		}
-		// Publication and its durable session state have committed. Cleanup failure
-		// must not start a rollback after removing the active recovery journal.
-		await unlink(path); await syncDirectory(dirname(path));
+		});
 		return session;
 	});
 }
@@ -467,27 +546,10 @@ export async function recoverImplementation(root: string, id: string): Promise<I
 	root = await realpath(root);
 	return editLocked(root, async () => {
 		const session = await readSession(root, id);
-		const path = join(await managed(root, 'collaboration', id), 'transaction.json');
-		const info = await lstat(path);
-		if (!info.isFile() || info.isSymbolicLink() || info.size > 16 * 1024 * 1024) { throw new Error('Invalid recovery transaction'); }
-		const stored: { version?: number; attempt?: string; legacy?: boolean; undo: boolean; mutations: ImplementationMutation[] } = JSON.parse(await readBoundedText(path, 16 * 1024 * 1024));
-		if (typeof stored.undo !== 'boolean' || !Array.isArray(stored.mutations)) { throw new Error('Invalid recovery transaction'); }
-		const expected = session.generated.files.map(file => {
-			const before = session.before.find(before => before.file === file.file)!;
-			const mode = before.mode ?? stored.mutations.find(edit => edit.file === file.file)?.mode;
-			if (mode === undefined || !validMode(mode, before.mode)) { throw new Error('Invalid recovery source permissions'); }
-			return { file: file.file, expected: stored.undo ? file.content : before.content, next: stored.undo ? before.content : file.content, mode };
+		await recoverReviewedSources(root, id, reviewedChanges(session), async undo => {
+			session.status = undo ? 'applied' : 'passed';
+			await save(session);
 		});
-		if (JSON.stringify(stored.mutations) !== JSON.stringify(expected) || stored.version !== undefined && stored.version !== 2 || stored.version === 2 && (!stored.attempt || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(stored.attempt) || typeof stored.legacy !== 'boolean')) { throw new Error('Recovery transaction differs from its reviewed implementation'); }
-		const transaction: ImplementationTransaction = stored.version === 2
-			? { version: 2, attempt: stored.attempt!, legacy: stored.legacy!, undo: stored.undo, mutations: expected }
-			: { version: 2, attempt: randomUUID(), legacy: true, undo: stored.undo, mutations: expected };
-		await assertPublicationSupport(root, transaction.mutations, await transactionDirectory(root, id, transaction));
-		if (stored.version === undefined) { await writeTransaction(root, id, transaction, true); }
-		await rollbackTransaction(root, id, transaction);
-		session.status = transaction.undo ? 'applied' : 'passed';
-		await save(session);
-		await unlink(path); await syncDirectory(dirname(path));
 		return session;
 	}, id);
 }

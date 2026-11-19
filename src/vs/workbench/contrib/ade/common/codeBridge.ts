@@ -6,7 +6,7 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 10;
+export const adeCodeProtocolVersion = 12;
 export interface CodeAiProgress { requestId: string; kind: 'connecting' | 'thinking' | 'waiting' | 'tool' | 'message'; itemId?: string; text?: string; tool?: string }
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
@@ -22,7 +22,7 @@ export interface CodeResolution { path: string; choice: 'model' | 'code' }
 export type CodeRequest =
 	| { operation: 'collaboration'; request: string }
 	| { operation: 'exploration'; snapshot: string; request: string }
-	| { operation: 'diagramChat'; requestId?: string; root: string; snapshot?: string; sessionId?: string; config: string; messages: { role: 'user' | 'assistant'; text: string }[] }
+	| { operation: 'diagramChat'; requestId?: string; root: string; snapshot?: string; sessionId?: string; checkpoint?: true; config: string; messages: { role: 'user' | 'assistant'; text: string }[] }
 	| { operation: 'import'; root: string; modelFile?: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
 	| { operation: 'inspect' | 'preview' | 'history'; snapshot: string; inventoryOnly?: boolean; scope?: CodeScope; renames?: CodeRename[]; resolutions?: CodeResolution[]; bundles?: string[] }
 	| { operation: 'undoSync' | 'recoverSync'; snapshot: string; id: string }
@@ -64,7 +64,12 @@ export interface CodeEngine { execute(request: string, signal?: AbortSignal, pro
 export interface CodeDiagramExploration {
 	sessionId: string; model: string;
 	workflow?: 'project';
-	plan?: { revision: string; items: { id: string; name: string; viewKind: import('./modelTypes.js').ModelView['kind']; intent: string; rationale: string; parentId?: string; dependsOn: string[] }[] };
+	phase?: 'discovery' | 'planning' | 'diagrams' | 'review';
+	nextFeatureId?: string;
+	nextTaskId?: string;
+	featureCatalog?: { revision: string; features: { id: string; name: string; description: string; evidenceIds: string[]; dependsOn: string[]; elementId?: string }[] };
+	featurePlans?: { featureId?: string; gaps: string[] }[];
+	plan?: { revision: string; items: { id: string; name: string; viewKind: import('./modelTypes.js').ModelView['kind']; intent: string; rationale: string; parentId?: string; featureId?: string; dependsOn: string[] }[] };
 	batch?: { blockers: string[] };
 	budgetStatus?: { exhausted: string[] };
 	budgetWindow?: { started: number; measuredAt: number; elapsedMs: number; remainingMs: number };

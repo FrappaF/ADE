@@ -4,6 +4,8 @@
 
 Data: 10 novembre 2026. Evoluzione di [ADR 0015](0015-incremental-diagram-exploration.md).
 
+Le nuove sessioni desktop e MCP scoprono prima le feature e poi pianificano e verificano le viste una feature alla volta. Il servizio conserva i checkpoint e presenta al passo successivo il modello temporaneo con gli ID già assegnati. La review unica e la pubblicazione atomica qui definite si applicano all’intero lavoro. [Regole degli strumenti ADE](../ai-workflows-plan.md#regole-operative-degli-strumenti-ade)
+
 ## Decisione
 
 Il percorso desktop predefinito pianifica l'insieme dei diagrammi rilevanti, prepara le viste dalla panoramica ai dettagli e chiede una sola approvazione finale. La pianificazione e i singoli passi non richiedono conferme intermedie. Il catalogo restituito da `ade_project_inspect` descrive le notazioni e i loro requisiti; `ade_diagram_plan` registra un grafo limitato di obiettivi, gerarchia e dipendenze. Non viene richiesta una vista per ogni notazione disponibile.

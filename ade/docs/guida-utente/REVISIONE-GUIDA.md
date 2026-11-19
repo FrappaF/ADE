@@ -67,7 +67,7 @@ python3 -m venv /tmp/ade-guide-venv
 /tmp/ade-guide-venv/bin/python ade/scripts/build-user-guide.py --revision 8a069e4b
 ```
 
-Su un sistema con i font in un’altra cartella, aggiungi `--font-dir` seguito dal percorso che contiene i file Liberation. Il parametro `--revision` indica la versione **del software documentato**: aggiornalo solo dopo una nuova verifica della guida contro quella versione. Il generatore sostituisce gli export correnti e ricrea il kit, senza modificare gli originali o i progetti. Se cambi solo rapporto, verbale o istruzioni iniziali, lo stesso comando con `--kit-only` aggiorna il pacchetto senza rigenerare PDF e HTML. Per evitare di distribuire un export superato, completa la rigenerazione dopo ogni modifica al sorgente e ripeti i controlli pertinenti.
+Su un sistema con i font in un’altra cartella, aggiungi `--font-dir` seguito dal percorso che contiene i file Liberation. Il parametro `--revision` descrive la versione del software documentato. Il generatore sostituisce gli export correnti e ricrea il kit. Dopo una modifica agli esempi usa anche `--rebuild-examples` per ricostruire l’archivio dalla cartella `ade/examples/guida`, compresi i modelli e i casi dentro `.ade`. Se cambi soltanto il rapporto, il verbale o le istruzioni iniziali, usa `--kit-only` per aggiornare il pacchetto. Dopo ogni modifica al testo della guida rigenera gli export e ripeti i controlli pertinenti.
 
 ## Punti ancora da verificare
 
@@ -284,4 +284,16 @@ Per riprodurre l’edizione con l’indicazione “scopi e motivazioni” in cop
 
 ```sh
 /tmp/ade-guide-venv/bin/python ade/scripts/build-user-guide.py --revision 8a069e4b --edition "17 novembre 2026 · scopi e motivazioni"
+```
+
+## Laboratori IA e aggiornamento del workbench · 19 novembre 2026
+
+L16 conserva il modulo, la demo e l’inventario locale. L17 usa `codice-ia` per seguire la scoperta di Acquisto e Resi, interrompere la generazione, riprenderla dal checkpoint e confrontare le due viste con il codice prima di applicare. L18 usa `moduli/generazione-ia` per generare la prima implementazione in una copia senza sorgenti o Git. Gli esercizi di aggiornamento, worktree e Sync restano accessibili quando il progetto soddisfa i loro prerequisiti.
+
+L’edizione integra l’aggiornamento del laboratorio di `20028af9`, con l’editor Structural Blueprint persistente e i percorsi rivisti per importazione, worktree e Sync. Include una schermata di avanzamento e una di review, entrambe ottenute dai componenti ADE eseguiti in Chromium con dati sintetici Mercato. Il [verbale](VERIFICA-LABORATORIO.md#laboratori-ia-e-aggiornamento-del-workbench--19-novembre-2026) registra i riscontri locali e il limite del tentativo con un provider reale.
+
+```sh
+/tmp/ade-guide-venv/bin/python ade/scripts/build-user-guide.py --rebuild-examples \
+  --revision "ADE desktop, aggiornamento del laboratorio su base 20028af9 e flussi IA di questa revisione" \
+  --edition "19 novembre 2026 · Laboratorio e flussi IA"
 ```

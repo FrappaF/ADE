@@ -1,0 +1,7 @@
+{
+  "name": "mercato-acquisto-resi",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=24" }
+}

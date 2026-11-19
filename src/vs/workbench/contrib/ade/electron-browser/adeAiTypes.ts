@@ -49,4 +49,4 @@ export interface AdeAiWorkflow {
 }
 
 /** Names the execution policy instead of positional boolean flags. */
-export interface AdeAiRunOptions { kind?: 'ai' | 'diagram' | 'local'; interactive?: boolean; review?: AdeDiagramReview }
+export interface AdeAiRunOptions { kind?: 'ai' | 'diagram' | 'local'; interactive?: boolean; inline?: boolean; review?: AdeDiagramReview }

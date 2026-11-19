@@ -214,7 +214,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		return !!this.context;
 	}
 	async sync(direction?: 'model' | 'code'): Promise<void> {
-		if (this.project.model.version === 5 && this.context && direction !== 'model' && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.commands.executeCommand('ade.ai.resumeDiagrams'); return; }
+		if (this.project.model.version === 5 && this.context && direction !== 'model' && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.commands.executeCommand(this.context.diagramState === 'diagrams' ? 'ade.ai.updateDiagrams' : 'ade.ai.resumeDiagrams'); return; }
 		if ((this.project.model.version === 4 || this.project.model.version === 5)) { this.notifications.info(localize('ade.code.v4Profile', "Legacy Sync Is Unavailable for This Model Format. Use Architecture Exploration for Imported Diagrams, or Prepare Model to Code Review for Executable Project Specifications. You Can Continue Editing and Saving the Draft.")); return; }
 		await this.refreshing;
 		if (this.busy) { this.notifications.info(localize('ade.code.syncBusy', "Wait for the active A.D.E operation to finish before preparing Sync.")); return; }

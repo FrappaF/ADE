@@ -12,17 +12,25 @@ import { interpretResiduals } from './interpretation.ts';
 import { benchmarkModels, type BenchmarkCandidate } from './benchmark.ts';
 import { benchmarkReconciliation } from './reconciliationBenchmark.ts';
 import { applyImplementation, planReviewId, readSession, recoverImplementation, stageImplementation, verifyImplementation } from './implementation.ts';
+import { type FeatureCodeCase } from '../../src/vs/workbench/contrib/ade/common/featureCodeGeneration.ts';
 
 interface CollaborationRequest {
 	maxInputBytes?: number; direction?: 'forward' | 'reverse'; paths?: Record<string, string>;
-	operation: 'structuralPrepare' | 'structuralVerify' | 'structuralApply' | 'structuralUndo' | 'structuralSession' | 'structuralRecover' | 'prepare' | 'plan' | 'interpret' | 'stage' | 'session' | 'verify' | 'apply' | 'undo' | 'recover' | 'benchmark' | 'reconciliationBenchmark';
+	operation: 'structuralPrepare' | 'structuralVerify' | 'structuralApply' | 'structuralUndo' | 'structuralSession' | 'structuralRecover' | 'prepare' | 'plan' | 'interpret' | 'stage' | 'session' | 'verify' | 'apply' | 'undo' | 'recover' | 'benchmark' | 'reconciliationBenchmark' | 'featureImplementationInspect' | 'featureImplementationPrepare' | 'featureImplementationStep' | 'featureImplementationSession' | 'featureImplementationVerify' | 'featureImplementationApply' | 'featureImplementationUndo' | 'featureImplementationRecover' | 'featureImplementationDiff';
 	candidates?: BenchmarkCandidate[];
 	request?: object; config?: object; prepared?: PreparedImplementation; plan?: object;
 	reviewId?: string; root?: string; id?: string;
+	modelFile?: string; profileId?: string; featureIds?: string[]; intent?: string; clarification?: string; cases?: FeatureCodeCase[]; file?: string;
 }
 const valid = new Ajv2020().compile<CollaborationRequest>({ oneOf: [
 	object({ operation: { const: 'structuralPrepare' }, root: text, direction: { enum: ['forward', 'reverse'] }, paths: { type: 'object', additionalProperties: text }, maxInputBytes: { type: 'integer', minimum: 1, maximum: 196608 } }, ['direction', 'paths', 'maxInputBytes']),
 	object({ operation: { enum: ['structuralVerify', 'structuralApply', 'structuralUndo', 'structuralSession', 'structuralRecover'] }, root: text, id: text, reviewId: text }, ['reviewId']),
+	object({ operation: { const: 'featureImplementationInspect' }, root: text, modelFile: text }, ['modelFile']),
+	object({ operation: { const: 'featureImplementationPrepare' }, root: text, modelFile: text, profileId: text, featureIds: { type: 'array', minItems: 1, maxItems: 12, items: text }, intent: { type: 'string', maxLength: 8000 }, cases: { type: 'array', minItems: 1, maxItems: 100, items: { type: 'object' } }, config: { type: 'object' } }, ['modelFile', 'intent', 'cases']),
+	object({ operation: { const: 'featureImplementationStep' }, root: text, id: text, clarification: { type: 'string', maxLength: 8000 } }, ['clarification']),
+	object({ operation: { enum: ['featureImplementationSession', 'featureImplementationRecover'] }, root: text, id: text }),
+	object({ operation: { enum: ['featureImplementationVerify', 'featureImplementationApply', 'featureImplementationUndo'] }, root: text, id: text, reviewId: text }),
+	object({ operation: { const: 'featureImplementationDiff' }, root: text, id: text, file: text }),
 	object({ operation: { const: 'prepare' }, request: { type: 'object' }, config: { type: 'object' } }),
 	object({ operation: { enum: ['plan', 'interpret'] }, prepared: { type: 'object' }, reviewId: text }),
 	object({ operation: { const: 'stage' }, prepared: { type: 'object' }, plan: { type: 'object' }, reviewId: text }),
@@ -38,6 +46,21 @@ export async function executeCollaboration(input: string, signal?: AbortSignal):
 	signal?.throwIfAborted();
 	let result: object;
 	switch (request.operation) {
+		case 'featureImplementationInspect': case 'featureImplementationPrepare': case 'featureImplementationStep': case 'featureImplementationSession': case 'featureImplementationVerify': case 'featureImplementationApply': case 'featureImplementationUndo': case 'featureImplementationRecover': case 'featureImplementationDiff': {
+			const adapter = await import('./featureImplementation.ts');
+			const root = request.root!;
+			switch (request.operation) {
+				case 'featureImplementationInspect': result = await adapter.inspectFeatureImplementation(root, request.modelFile); break;
+				case 'featureImplementationPrepare': result = await adapter.prepareFeatureImplementation(root, { profileId: request.profileId!, featureIds: request.featureIds!, config: request.config!, modelFile: request.modelFile, intent: request.intent, cases: request.cases }, signal); break;
+				case 'featureImplementationStep': result = await adapter.advanceFeatureImplementation(root, request.id!, request.clarification, signal); break;
+				case 'featureImplementationSession': result = await adapter.readFeatureImplementation(root, request.id!); break;
+				case 'featureImplementationDiff': result = await adapter.readFeatureDiff(root, request.id!, request.file!); break;
+				case 'featureImplementationVerify': result = await adapter.verifyFeatureImplementation(root, request.id!, request.reviewId!, signal); break;
+				case 'featureImplementationRecover': result = await adapter.recoverFeatureImplementation(root, request.id!); break;
+				default: result = await adapter.publishFeatureImplementation(root, request.id!, request.reviewId!, request.operation === 'featureImplementationUndo', signal);
+			}
+			break;
+		}
 		case 'structuralPrepare': case 'structuralVerify': case 'structuralApply': case 'structuralUndo': case 'structuralSession': case 'structuralRecover': {
 			const adapter = await import('./structuralProject.ts');
 			const root = await realpath(request.root!);

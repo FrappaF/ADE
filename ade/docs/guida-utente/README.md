@@ -2,7 +2,7 @@
 
 # Guida completa ad ADE
 
-**Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione del 18 novembre 2026. Il riferimento è ADE desktop con base `main` al commit `c8c4f6d81dc567e457e259c98a68e841221138bf` e le correzioni del collaudo applicate nel workspace.
+**Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione del 19 novembre 2026. Il riferimento è ADE desktop con l’aggiornamento del laboratorio su base `20028af9` e i flussi IA di questa revisione.
 
 ADE è un ambiente di sviluppo integrato (IDE) desktop per progettare software con diagrammi, definire contratti e comportamenti, esplorare codice e lavorare con l’intelligenza artificiale (IA). I diagrammi chiariscono chi fa cosa, quali dati usa e cosa accade se qualcosa fallisce. Con questa guida costruirai un modello di negozio, lo salverai e proverai alcune regole locali. Il modello descrittivo, il codice prodotto e le verifiche hanno risultati distinti, indicati in ogni fase.
 
@@ -21,7 +21,9 @@ Prima di T1 verifica che ADE si avvii e di poter scrivere nella cartella degli e
 | Verificare una regola locale | L12, poi reverse in L20 | Limite 1–10 verificato, file applicati e prova di annullamento |
 | Esplorare altri comportamenti locali | L13-L15, dopo i concetti di L7 e la review di L12 | Leggi le chiamate e simuli stati e consegne in moduli separati |
 | Confrontarti con il codice | L16 | Sette test superati, demo e dichiarazione aperta dalle evidenze |
-| Usare IA, worktree o Sync | L17-L19, solo con i prerequisiti della sezione | Bozze o modifiche revisionate nel percorso compatibile |
+| Generare diagrammi con l’IA | L17 | Viste di Acquisto e Resi revisionate insieme, con l’Ordine condiviso |
+| Generare codice con l’IA | L18 | Prima implementazione verificata e applicata a un progetto di soli diagrammi |
+| Aggiornare sorgenti esistenti, usare un worktree o provare Sync | L18-L19 | Modifiche revisionate nel percorso compatibile |
 | Consegnare il lavoro | L21 | Progetto riapribile, risultati e decisioni aperte documentati |
 
 L’ordine L1-L11 prepara gli oggetti riusati nelle lezioni successive. L13-L15 sono esercizi autonomi e puoi sceglierne uno dopo aver imparato la review in L12. L17-L19 sono rami facoltativi: il completamento delle attività locali non li richiede.
@@ -36,8 +38,10 @@ Estrai [i progetti di esempio](progetti-esempio.zip) in una cartella tua. Copia 
 | `07-mercato-laboratorio/inizio` | Spazio iniziale del laboratorio, senza un modello precostruito |
 | `07-mercato-laboratorio/tappe` | Due checkpoint visuali per confrontare i primi risultati |
 | `07-mercato-laboratorio/soluzione` | Riferimento completo con 18 viste nelle 16 notazioni |
-| `07-mercato-laboratorio/moduli` | Esercizi eseguibili di quantità, interazioni, stati e messaggi; ogni sottocartella è un progetto ADE autonomo |
+| `07-mercato-laboratorio/moduli` | Esercizi eseguibili di quantità, interazioni, stati e messaggi. Ogni sottocartella è un progetto ADE autonomo |
 | `07-mercato-laboratorio/codice` | Piccolo modulo JavaScript da eseguire e importare |
+| `07-mercato-laboratorio/codice-ia` | Sorgenti e test per ricavare i diagrammi di Acquisto e Resi in L17 |
+| `07-mercato-laboratorio/moduli/generazione-ia` | Modello e casi indipendenti per generare i primi sorgenti in L18 |
 | `02` fino a `06` | Le stesse basi dei laboratori avanzati, disponibili anche separatamente |
 
 I nomi inglesi in grassetto riprendono i controlli dell’interfaccia. **Progetto > Project Settings** significa aprire il menu con il nome del progetto. **Palette** significa `F1`, oppure `Cmd+Shift+P` su macOS e `Ctrl+Shift+P` su Windows/Linux. La ricerca nella palette è anche un’alternativa ai menu. Nella versione HTML l’indice e la ricerca raggiungono i capitoli; clicca le immagini per ingrandirle.
@@ -169,7 +173,10 @@ La regola didattica è: quantità intera da 1 a 10 per riga, prezzi in centesimi
 | Confronto dopo L10-L11 | `soluzione` | Riferimento finale |
 | L12 | `moduli/quantita`, in una copia | Regola eseguibile, casi, review, verifica, Apply e Undo |
 | L13-L15 | `moduli/interazioni`, poi `moduli/stati`, poi `moduli/messaggi` | Tre esercizi locali distinti |
-| L16-L20 | `codice`, in una copia, e il progetto pertinente alla lezione | Test, importazione e percorsi avanzati |
+| L16 | `codice` in una copia | Test, demo e inventario dei sorgenti |
+| L17 | `codice-ia` in una copia | Importazione e generazione dei diagrammi |
+| L18 | `moduli/generazione-ia` in una copia | Prima generazione di codice verificata |
+| L19-L20 | Progetto compatibile indicato nella lezione e copia di `moduli/quantita` per L20 | Sync, reverse e runtime |
 
 “Root del progetto” significa precisamente la cartella scelta in Open Project o Create Project. Il clone dell’IDE e la cartella del tuo negozio hanno scopi diversi. **Open Project** apre un modello già presente; **Create Project** prepara quello nuovo; **Import Codebase** analizza una cartella di sorgenti.
 
@@ -968,87 +975,87 @@ Prima dell’esplorazione IA delimita l’inventario ai sorgenti e ai documenti 
 
 Le versioni di modello/indice permettono recupero e confronto. Il ripristino storico dell’indice non riscrive i sorgenti correnti. Se un’evidenza risulta superata, aggiorna l’analisi o apri consapevolmente il file corrente senza applicare un vecchio range.
 
-**Controllo L16:** nel nuovo percorso `codice` ottieni sette test passati e un inventario delle dichiarazioni. Apri validateQuantity dal risultato delle evidenze e confrontala con la regola del laboratorio: il modulo iniziale accetta quantità positive senza il massimo 10. È il punto di partenza per la modifica di L18, non la soluzione già aggiornata al nuovo limite.
+**Controllo L16**. Nel percorso `codice` ottieni sette test passati e un inventario delle dichiarazioni. Apri `validateQuantity` dal risultato delle evidenze. Il modulo iniziale accetta quantità intere positive. Puoi usarlo per l’esercizio di aggiornamento in L18. Per esplorare due feature in L17 apri la copia separata `codice-ia`.
 
 
-### L17. Usa l’IA per esplorare, con contesto e review
+### L17. Genera i diagrammi di Acquisto e Resi
 
-L’inventario di L16 elenca fatti dei sorgenti; l’esplorazione IA propone una loro lettura in termini di responsabilità e flussi del checkout. Configura prima account, modello e budget, poi revisiona le bozze contro le evidenze: ottieni viste da discutere, senza trattare le ipotesi dell’assistente come comportamento provato.
+Parti da una codebase con due capacità riconoscibili e controlla come i diagrammi rendono visibile il contratto Ordine condiviso. Riesamina le proposte alla luce dei sorgenti prima di applicarle. Per questo esercizio servono un account IA e un modello disponibili. In loro assenza puoi eseguire i test e consultare l’inventario locale, poi proseguire con le attività di L20.
 
-**Ramo facoltativo.** Per questa lezione serve un account con un modello disponibile. Se l’account o il modello manca, torna al modulo quantità e prosegui da L20.
+#### Collega il provider e avvia la generazione
 
-Apri il menu con il nome del progetto e scegli **AI Settings**. In **Account and Model** premi **Connect Claude Code or Codex** e segui il percorso di accesso del provider. Se una CLI compatibile è già autenticata, usa **Choose Model and CLI** per configurarla. **Refresh Account and Models** aggiorna lo stato dell’account dopo l’accesso. Scegli **Choose Diagram Model** per impostare il modello dell’esplorazione.
+1. Copia la cartella `07-mercato-laboratorio/codice-ia`. Nel terminale della copia esegui `npm test` con Node 24. Devono passare cinque test. Tra gli altri casi, un acquisto approvato rende disponibile l’ordine per il reso e il trentesimo giorno è ancora valido.
+2. Dalla Home scegli **Import Codebase** sulla copia di `codice-ia`. Scegli **Structure and Available Semantic Analysis** e attendi **Source Inventory Ready**. Come in L16, puoi già seguire le dichiarazioni nei file anche prima della generazione.
+3. Nel menu del progetto apri **AI Settings** e poi **Account and Model**. Premi **Connect Claude Code or Codex** e segui la procedura di accesso del provider. Se la CLI è già autenticata, usa **Choose Model and CLI**. Dopo l’accesso usa **Refresh Account and Models** e imposta il modello in **Choose Diagram Model**. Se il catalogo non lo contiene, scegli **Enter Exact Model ID** e inserisci un identificativo ammesso dal provider.
+4. Riapri la scheda di importazione e premi **Explore Architecture**. Nel riepilogo controlla cartella, perimetro dei sorgenti e modello scelto, poi conferma con **Generate Diagrams**. L’elaborazione parte dalla conferma.
 
-![Account, budget delle richieste e budget di esplorazione sono separati](immagini/09-ia.png)
+![La connessione, il modello e i budget si configurano dalle impostazioni IA](immagini/09-ia.png)
 
-Scegli il modello dal catalogo dell’account. Se l’ID che ti serve manca dall’elenco, scegli **Enter Exact Model ID** e inserisci un identificativo ammesso dal provider. Un modello disponibile in Copilot non diventa automaticamente disponibile nella CLI Codex o Claude. Un eseguibile mancante, un account non autenticato e un modello non valido sono problemi distinti.
+Se **The Selected Diagram Model Is Not Available in Codex Chat** compare con un modello già disponibile nella CLI Codex autenticata, usa **Refresh Account and Models**. Se il catalogo della chat continua a escluderlo, riapri **Connect Claude Code or Codex > Codex > Choose Model and CLI** e indica il percorso assoluto della CLI in **Original CLI Executable**. Verifica l’ID in **Choose Diagram Model** e prosegui dalla scheda di importazione con **Continue Generation** o **Explore Architecture**.
 
-Se **The Selected Diagram Model Is Not Available in Codex Chat** compare per un modello ammesso dalla tua CLI autenticata, usa **Refresh Account and Models** e leggi lo stato sotto **Account and Model**. Se il catalogo della chat continua a escludere il modello, riapri **Connect Claude Code or Codex > Codex > Choose Model and CLI**. Mantieni lo stesso ID e in **Original CLI Executable** indica il percorso assoluto della CLI Codex già autenticata. Poi verifica lo stesso ID in **Choose Diagram Model** e torna alla Home. Premi **Continue Generation** se il tentativo precedente ha già aperto una sessione, altrimenti **Explore Architecture**. Controlla il contesto e invia dal compositore.
+In **AI Requests > Configure AI Request Budget** imposta il numero di invocazioni CLI per le operazioni strutturate. In **Diagram Generation > Add Exploration Budget** puoi ampliare il budget dell’esplorazione dopo aver aperto la sessione. Il dettaglio attività distingue chiamate agli strumenti ADE, dati recuperati e tempo dalle misure eventualmente comunicate dal provider. **Advanced · Model Benchmarks** avvia una prova esplicita con i propri limiti.
 
-In **AI Requests > Configure AI Request Budget** imposta il numero di invocazioni della CLI per operazione strutturata. Con zero prepari il contesto, con una prepari il piano e con due puoi richiedere anche l’implementazione. La CLI gestisce le proprie richieste HTTP, i turni e i token. Dopo aver aperto l’esplorazione del progetto, **Diagram Generation > Add Exploration Budget** modifica il suo budget specifico. L’invio nella conversazione avvia il lavoro del provider.
+#### Segui l’avanzamento e prova la ripresa
 
-Apri soltanto la codebase e i file che vuoi coinvolgere. Prima di inviare leggi contesto, selezioni e perimetro. Lo stato nella modale distingue preparazione, attività degli strumenti, attesa, risposta ed errori. Durante una richiesta evita invii ripetuti; usa il controllo di interruzione se necessario. Questo controllo delimita le informazioni usate per proporre l’architettura; un file non incluso non può essere considerato automaticamente verificato.
+ADE identifica prima le feature, poi pianifica e verifica le viste una feature alla volta. Il servizio conserva le bozze convalidate. Una feature successiva può consultarle e riusare gli ID di elementi e relazioni già presenti. Nella vista principale segui il nome della fase e, quando disponibile, della feature o del diagramma. Apri **Activity Details** per consultare l’attività della sessione e richiudilo per tornare all’avanzamento.
 
-La modale dei diagrammi ha una conversazione temporanea: chiudendola la richiesta attiva viene annullata e la cronologia della modale viene azzerata. Piano e bozze già completate rimangono nel progetto. Non usare la chiusura come archivio della conversazione.
+![Avanzamento di Acquisto con Activity Details chiuso, riprodotto dal componente ADE in Chromium](immagini/34-ia-avanzamento-diagrammi.png)
 
-Il confronto modelli è in **Advanced · Model Benchmarks**. Serve per prove esplicite: leggi progetto, modello, esito, contesto, tempi e uso riportato. Risultati simulati, token comunicati dal provider e una fattura effettiva sono misure diverse. Il confronto non sostituisce la scelta del modello disponibile al tuo account.
+Quando compare almeno una bozza completata, prova **Stop Generation**. Annota la feature in lavorazione e usa **Continue Generation**. La parte convalidata deve rimanere disponibile e il lavoro deve ripartire dal primo passaggio incompleto. Se la sessione attende una decisione, leggi **Clarification Needed** e usa **Answer and Continue**. Se si esaurisce il budget, ADE indica quando è necessario aumentarlo.
 
-#### Dal codice alle viste proposte
+#### Confronta le viste e applica la review
 
-Le evidenze e la connessione sono ora disponibili: puoi chiedere viste che rispondano alle domande di Mercato, mantenendo separati regole lette nel codice e ipotesi da chiarire. Dopo l’importazione del modulo codice di Mercato, con account e modello configurati, premi **Explore Architecture**. Leggi il messaggio iniziale e invialo soltanto quando sei pronto a condividere il contesto selezionato.
+1. A generazione conclusa apri **Review All Changes**. Cerca le prospettive di Acquisto e Resi e leggi le eventuali esclusioni. Apri **Change Details, Sources and Diagnostics** per vedere le modifiche e le fonti. I nomi, il numero delle viste e le notazioni dipendono dalle evidenze e dalla proposta.
+2. Controlla dalla review che Acquisto scriva l’Ordine dopo l’approvazione simulata e che Resi legga lo stesso Ordine. Segui i riferimenti a `src/checkout.mjs`, `src/returns.mjs`, `src/orders.mjs` e ai test. Un riferimento statico documenta un collegamento nel codice. Per ricostruire quando avviene, controlla anche il ramo e il relativo test.
+3. Verifica condizioni e limiti. Resi distingue ordine assente e finestra scaduta. Il campione usa un archivio in memoria e un esito di approvazione fornito in input. Mantieni esplicite le lacune, per esempio la mancanza di prove su pagamenti, database o deployment. Le viste di stato descrittive richiedono la modellazione manuale nel percorso attuale.
+4. Quando la proposta riflette il codice, scegli **Apply All Changes** e conferma. Le bozze entrano insieme nel modello locale. Apri le viste dal selettore per controllare il risultato. Se il modello o le evidenze sono cambiati, aggiorna la review prima di applicare.
 
-Per l’esempio puoi chiedere:
-
-> Analizza questa piccola codebase degli ordini. Prepara una panoramica delle responsabilità e un flusso del checkout. Distingui la validazione della quantità, il calcolo in centesimi e l’esito del pagamento. Usa le evidenze dei sorgenti; segnala ciò che non puoi ricavare.
-
-L’assistente esplora inventario e sorgenti nel perimetro, propone un piano di viste e prepara bozze condivise. Controlla che il piano risponda alle tue domande e che le responsabilità riusino identità coerenti. Puoi chiedere correzioni, separare scenari o chiarire il significato di una relazione.
-
-Quando il piano è pronto, confronta responsabilità e collegamenti con le evidenze prima di applicare il gruppo: questo è il momento in cui una proposta diventa parte del modello locale. Procedi così:
-
-1. Quando l’assistente ha finito di preparare le bozze, chiudi il compositore e apri **Review All Changes**.
-2. Leggi prima le anteprime: responsabilità, collegamenti, condizioni e ordine dichiarato.
-3. Controlla sorgenti, esclusioni, lacune e diagnostiche pertinenti. Apri **Change Details** per vedere le singole modifiche.
-4. Se qualcosa non va, torna alla conversazione e chiedi una correzione mirata.
-5. Usa **Apply All Changes** e conferma per applicare il gruppo revisionato al modello locale. Apri le viste dal selettore per controllare il risultato.
-
-Un piano incompleto, una bozza invalida o una review diventata obsoleta impediscono Apply. **Continue Generation** riprende il lavoro incompleto; l’esaurimento del budget richiede un ampliamento esplicito. Per riaprire le viste applicate, dal menu del progetto scegli **Open Project** e seleziona la stessa cartella `codice`. Se cambiano i sorgenti, usa il percorso di aggiornamento per rivedere ciò che è diventato obsoleto invece di ricreare manualmente tutte le viste.
-
-La generazione sceglie le notazioni pertinenti, non una vista di ogni tipo. Gli stati descrittivi non sono attualmente generati da questo percorso incrementale: puoi modellarli manualmente o usare il profilo eseguibile dedicato. I nomi e il numero delle bozze dipendono dall’analisi del provider, quindi non devono coincidere parola per parola con uno screenshot.
-
-**Controllo L17:** prima dell’invio sai quale cartella e quale contesto coinvolgi; prima dell’applicazione sai distinguere evidenza, ipotesi, bozza e vista approvata. Se l’account manca, documenta la lezione come non eseguita e continua con le attività locali.
+**Controllo L17**. Dal menu del progetto scegli **Open Project** e riapri la copia `codice-ia` e cerca Ordine nelle due viste pertinenti. Verifica che entrambe puntino alla stessa identità. Conserva l’esito dei cinque test, una fonte per ciascuna feature e l’esito della prova di ripresa. Se hai completato il solo inventario, annota quel risultato.
 
 
-### L18. Richiedi un aggiornamento del codice e lavora in isolamento
+### L18. Genera il primo codice dai diagrammi
 
-Dopo aver applicato le viste della codebase, puoi chiedere che il limite 10 sia rispettato anche dal codice. Il modello salvato comunica l’intento; diff e test mostrano cosa è cambiato davvero. Il worktree è un percorso distinto per revisionare una feature separatamente, quando il progetto ne soddisfa i prerequisiti.
+Questa attività autonoma parte da un modello di Acquisto e Resi in una cartella senza sorgenti o repository Git. Scegli lo stack, prepara una feature alla volta, poi verifica che il codice esegua ciò che i diagrammi e i casi dichiarano. Servono Node.js 24.22.1 e un account IA con il modello configurato come in L17. Rendi Node disponibile sul `PATH` oppure imposta `ADE_NODE_EXECUTABLE` prima dell’avvio di ADE. Puoi usare questa cartella anche se hai saltato L17.
 
-**Continua qui soltanto se hai completato l’esplorazione e applicato le viste di L17 nella copia del modulo codice.** Un inventario pronto non è ancora un modello interpretato. Senza account o senza queste viste, salta il ramo assistito e continua in L20 sul modulo quantità; i diagrammi del Mercato principale non vengono trasferiti automaticamente nella cartella codice.
+#### Dal progetto di diagrammi alla prima implementazione
 
-Con la copia del modulo codice aperta, scrivibile e attendibile, apri la vista delle responsabilità applicata in L17. Seleziona `validateQuantity`, apri **Manage > Edit Description** e descrivi il nuovo comportamento. Per esempio, “Verifica che la quantità sia un intero sicuro. Restituisce true soltanto per le quantità da 1 a 10 inclusi e false per gli altri interi sicuri. Per un valore che non è un intero sicuro, inclusi decimali e stringhe, solleva TypeError.” Conferma con **Save Changes** e salva il modello con **Save**.
+1. Copia `07-mercato-laboratorio/moduli/generazione-ia`, compresa `.ade`. In ADE scegli **Open Project** e seleziona la copia. Dovresti vedere **Mercato · Acquisto e Resi**. Apri le viste **Acquisto · Struttura**, **Resi · Struttura** e **Mercato · Dipendenze**. Entrambe le feature usano la stessa risorsa Ordine e Resi dipende dal suo contratto.
+2. Apri **Code > Prepare Code from Diagrams**. Nel passaggio **Choose Stack** di **Generate Code from Diagrams** scegli **JavaScript · Node.js 24.22.1 · No Framework**. Il profilo dell’esercizio usa funzioni locali con dati JSON e senza dipendenze da installare.
+3. In **Select Features** seleziona Acquisto e Resi. Puoi lasciare vuoto **Implementation Notes**. In **Independent Verification Cases** lascia vuoto il campo e scegli **Next** per usare i sette casi già presenti nella copia. Per i tuoi progetti puoi fornire casi scritti da te, da confrontare con gli esiti del codice prodotto.
+4. In **Review Code Generation** controlla profilo, feature e destinazione, poi conferma con **Prepare Code Changes**. ADE prepara i file in un’area di staging e avanza solo dopo aver completato la feature corrente. Se il lavoro si interrompe, usa **Resume Generation**. Se una decisione di dominio blocca un passaggio, rispondi al chiarimento e riprendi.
+5. Apri **Review AI Code Changes**. Leggi per ogni feature la modifica dei file, i riferimenti del modello e gli esiti attesi. Usa **Open Diff** per leggere il contenuto. Acquisto produce un Ordine con ID e totale in centesimi. Resi riceve il record nello stesso formato e verifica il numero di giorni trascorsi.
+6. Usa **Run Verification** per eseguire i casi indipendenti distribuiti in `.ade`. Controlla le righe per le due feature. Dopo una verifica superata, premi **Apply to Project** per scrivere i file nella copia del progetto. Se hai cambiato il modello, i criteri o i file coinvolti durante la review, prepara o verifica nuovamente la proposta quando ADE lo richiede. Dopo l’applicazione puoi controllare gli stessi casi con `npm test` in quella copia o usare **Undo Local Changes** per ripristinare i file del progetto.
 
-Se al salvataggio ADE propone **Update Codebase from Diagrams**, scegli quel pulsante. Altrimenti apri **Code** e premi **Update Codebase from Diagrams** nel riquadro **Codebase from Diagrams**. Il messaggio iniziale è modificabile e include il modello attivo e, quando disponibile, il cambiamento dell’ultimo salvataggio.
+Puoi raggiungere lo stesso percorso dalla palette con **A.D.E: Prepare Reviewed Code from Diagrams**. Se esiste una sessione avviata, il comando ti porta allo stato o alla review salvata. Dopo una modifica che rende obsoleta la review, usa **Prepare New Code Changes** dalla pagina Code per ripartire dal modello corrente.
 
-Per la codebase didattica, una richiesta concreta è:
+![Review del codice con il profilo scelto e Apply to Project disponibile dopo la verifica, riprodotta dal componente ADE in Chromium](immagini/35-ia-review-codice.png)
 
-> Limita a 10 le unità di un ordine. Mantieni i prezzi e il totale in centesimi. Aggiungi i controlli per 0, 1, 10 e 11, per un valore non intero e per un testo. Conserva gli esiti confirmed/declined e il comportamento non coinvolto. Mostra i test eseguiti e le eventuali scelte ancora da chiarire.
+| Caso indipendente | Risultato da leggere nella review |
+| --- | --- |
+| Acquisto approvato per due unità a 1.250 centesimi | Ordine `ordine-1`, totale 2.500, esito `confirmed` |
+| Acquisto non approvato o quantità oltre 10 | Esiti `declined` o `invalid-input` senza ordine |
+| Reso di `ordine-1` a 30 o 31 giorni | `accepted` con 2.500 centesimi, oppure `outside-window` dal giorno 31 |
+| Reso con ordine assente | `unknown-order` |
 
-Nel compositore controlla cartella e intento, poi clicca **Send**. Se nel frattempo cambia il modello, prepara un nuovo contesto. Lo spostamento dei nodi riguarda la presentazione. Salva la scelta di business prima di chiedere all’assistente di implementarla.
+**Controllo L18**. Prima di applicare, controlla i sette casi indipendenti e la destinazione. Dopo l’applicazione verifica che compaiano i moduli delle due feature e che ciascuno sia riconducibile ai contratti esaminati. Le prove descrivono il comportamento locale di questo esempio sintetico.
 
-Al termine leggi le modifiche effettive, controlla i file e riesegui `npm test` e `npm start` nel terminale integrato come in L16. Controlla anche il messaggio per i valori fuori intervallo. Per scartare una modifica assistita usa la review e gli strumenti Git del progetto. Il journal e l’undo del profilo deterministico appartengono alla procedura di L12.
+#### Aggiorna una codebase esistente
 
-Apri il flusso del checkout e confronta le condizioni con i nuovi test. Se il flusso descrive ancora la regola precedente, dal canvas scegli **Diagram > Update Diagrams from Codebase**, oppure apri la stessa azione dal pannello **Code**. Nel compositore chiedi di aggiornare la vista Activity già applicata usando il nuovo comportamento. Controlla il contesto prima dell’invio, poi rivedi le bozze prima di applicarle come in L17.
+Con i moduli Node.js ESM compatibili puoi ripetere la preparazione dopo aver aggiornato il modello e i casi. Usa **Code** nella stessa copia, controlla la destinazione e confronta il diff prima di applicare.
 
-Una copia senza diagrammi interpretati può richiedere prima l’esplorazione o la creazione delle viste. L’aggiornamento usa la codebase del progetto aperto; evita di usare il clone dell’IDE come cartella di destinazione.
+Per esercitarti con il percorso conversazionale usa una copia di `codice` di L16. Prepara una vista che includa la validazione della quantità usando lo stesso percorso di generazione di L17. Nella vista seleziona l’elemento che rappresenta `validateQuantity` e apri **Manage > Edit Description**. Dichiara che la funzione restituisce `true` per interi sicuri da 1 a 10, `false` per gli altri interi sicuri e solleva `TypeError` per decimali o stringhe. Premi **Save Changes** e poi **Save**.
+
+Se al salvataggio compare **Update Codebase from Diagrams**, scegli il pulsante. Puoi aprire lo stesso compositore da **Open Quick Access** cercando `>A.D.E: Update Codebase from Diagrams`. Controlla cartella e intento, poi premi **Send**. Leggi il diff e riesegui `npm test` e `npm start` nella copia. Nei test controlla 0, 1, 10, 11 e un valore non intero. Se un diagramma conserva la regola precedente, usa **Update Diagrams from Codebase** e rivedi la proposta aggiornata come in L17.
 
 #### Una feature in un worktree
 
-Un worktree permette di confrontare e verificare i file proposti prima di portarli nella cartella principale. Questo ramo richiede un modello legacy compatibile, una codebase Git collegata con almeno un commit e uno stato pulito, una feature con criteri di accettazione riconosciuti e un provider configurato. I progetti v4/v5 usano **Prepare Model to Code Review** per il comportamento eseguibile. Per la copia v5 importata in L16, continua con L20 dopo l’esercizio assistito disponibile.
+Un worktree permette di confrontare e verificare i file proposti prima di portarli nella cartella principale. Questo ramo richiede un modello legacy compatibile, una codebase Git collegata con almeno un commit e uno stato pulito, una feature con criteri di accettazione riconosciuti e un provider configurato. Per verificare il comportamento eseguibile dei progetti v4 e v5, segui **Prepare Model to Code Review** in L12.
 
 Se parti dalla guida e hai accesso ai sorgenti di ADE preparati in A1, crea in Finder una copia indipendente della codebase didattica iniziale e chiamala `codice-legacy`. Copia al suo interno il file di esempio `ade/examples/checkout.ade.json` dai sorgenti di ADE senza cambiarne il contenuto. Dalla Home scegli **Start a Project > Examples and Model Files > Open Model** e apri il file nella copia. Il modello contiene **Conferma acquisto**, una feature con criteri già dichiarati.
 
 Dal menu del progetto scegli **Show IDE**. Per una copia senza Git, apri **Source Control** ed esegui **Initialize Repository**. Seleziona **Stage All Changes**, scrivi il messaggio “Base del progetto di esempio” e clicca **Commit**. Se Git chiede nome o email, configura prima la tua identità. Verifica in **Source Control** che il commit sia registrato e che non ci siano modifiche in attesa. La cartella di lavoro `.ade` è già esclusa dall’ignore della codebase didattica.
 
-Con il commit iniziale pronto, prepara l’istantanea di modello e codice. Clicca **Open Quick Access**, cerca `>A.D.E: Update Diagrams from Codebase` e seleziona il comando. Se richiesto, controlla il percorso della copia e scegli **Trust Folder & Continue**. Quando si apre il compositore, chiudilo senza inviare la richiesta. ADE ha già preparato l’istantanea iniziale dal modello aperto e dai sorgenti di quella cartella. Se avevi già preparato la baseline prima di inizializzare Git e compare **Source manifest changed**, riallineala con il percorso Sync di L19.
+Con il commit iniziale pronto, prepara l’istantanea di modello e codice. Clicca **Open Quick Access**, cerca `>A.D.E: Update Diagrams from Codebase` e seleziona il comando. Se richiesto, controlla il percorso della copia e scegli **Trust Folder & Continue**. Una volta preparato l’inventario, annulla **Generate Diagrams**. Se compare il compositore precedente, chiudilo prima di inviare. ADE conserva l’istantanea iniziale. Se avevi preparato la baseline prima di inizializzare Git e compare **Source manifest changed**, riallineala con Sync in L19.
 
 Nel progetto compatibile clicca **Open Quick Access**, cerca `>A.D.E: Implement Feature` e seleziona **Conferma acquisto** per l’esempio. Scrivi il cambiamento in **Requested Behavior** e conferma il campo con Invio. Scegli i file da condividere, `src/orders.mjs` e `test/orders.test.mjs` nell’esempio, e clicca **OK**. Leggi **Review Implementation Context**, quindi scegli **Send Context to Codex** o il controllo equivalente del tuo provider. Controlla piano e domande. Con il budget **Plan and Implementation** e dopo gli eventuali chiarimenti, clicca **Generate in Worktree**.
 
@@ -1060,7 +1067,7 @@ Se la feature non ha criteri riconosciuti o il formato non è supportato, l’az
 
 **Resume Implementation** riprende una review salvata. **Recover Interrupted Implementation** gestisce una transazione interrotta. L’undo ripristina preimmagini soltanto quando non sovrascrive modifiche manuali successive. Un test annullato o interrotto richiede una nuova esecuzione riuscita. Il worktree non è una sandbox del sistema operativo e il percorso non installa automaticamente dipendenze suggerite dal modello.
 
-**Esercizio Mercato:** usa una copia del modulo `codice`, porta il limite a 10, aggiungi prove per 0, 1, 10, 11, decimali e testo e verifica che i totali rimangano in centesimi. La consegna è il diff dei file e il risultato dei test. Non presentare come completata l’implementazione se hai soltanto salvato il diagramma o preparato il messaggio.
+Per la consegna del ramo di aggiornamento conserva il diff dei file e il risultato dei test. I criteri di compatibilità del worktree e di Sync vanno controllati separatamente.
 
 
 ### L19. Riconcilia modello e sorgenti con Sync
@@ -1756,21 +1763,20 @@ Se ADE è già installato e funzionante, torna a T1. Per l’avvio dai sorgenti 
 
 #### macOS e Linux
 
-Per riprodurre la versione collaudata in questa edizione, costruisci ADE dal workspace che contiene le correzioni, tenendo separate le cartelle dei progetti Mercato e Bottega. Se ti serve la base pubblicata, la sequenza qui sotto seleziona il commit di partenza e prepara l’applicazione. Chiudi l’istanza di sviluppo prima di aggiornare dipendenze e build. `nvm install` installa il Node richiesto da `.nvmrc` e `nvm use` lo seleziona nella shell.
+Compila ADE dalla revisione che contiene l’aggiornamento del laboratorio e i flussi IA di questa guida. Usa la cartella del clone per ADE e copie distinte per Mercato e Bottega. Chiudi l’istanza di sviluppo prima di aggiornare dipendenze e build. `nvm install` installa il Node richiesto da `.nvmrc` e `nvm use` lo seleziona nella shell.
 
 ```sh
 git clone https://github.com/FrappaF/ADE.git
 cd ADE
-git checkout c8c4f6d81dc567e457e259c98a68e841221138bf
 nvm install
 nvm use
 npm run ade:setup
 ./ade/scripts/dev.sh
 ```
 
-Il checkout seleziona il commit di base in modalità detached HEAD. Per avviare l’edizione collaudata, esegui `nvm install`, `nvm use`, `npm run ade:setup` e `./ade/scripts/dev.sh` nella radice del workspace con le correzioni. `ade:setup` prepara dipendenze, client, motori locali, estensioni ed Electron. Il primo avvio richiede una connessione per gli artifact. Per gli avvii successivi usa `nvm use` e `./ade/scripts/dev.sh`. Puoi aggiungere al comando il percorso della cartella di un progetto.
+`ade:setup` prepara dipendenze, client, motori locali, estensioni ed Electron. Il primo avvio richiede una connessione per scaricare gli artefatti. Per gli avvii successivi bastano `nvm use` e `./ade/scripts/dev.sh`. Puoi aggiungere al comando il percorso della cartella di un progetto.
 
-Gli strumenti di compilazione e le librerie desktop servono alle dipendenze native dell’applicazione; controllali prima della preparazione, così un’assenza non viene confusa con un problema del progetto didattico. Su macOS verifica gli strumenti con `xcode-select -p`, `xcrun --find clang` e `python3 --version`. Se mancano i Command Line Tools, usa `xcode-select --install` e completa l’installazione. Su Debian/Ubuntu servono `build-essential`, `pkg-config`, `libx11-dev`, `libxkbfile-dev`, `libkrb5-dev`, `libsecret-1-dev`, `libgtk-3-dev`, `libgbm-dev`, `libnss3`, `libasound2-dev` e `xvfb`; per i test senza display anche `xauth`. I nomi possono variare con la distribuzione. La [preparazione del fork alla revisione di base](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/fork-development.md#da-un-clone-pulito) raccoglie anche prerequisiti Windows e avvio con `scripts\code.bat`. Il collegamento richiede una connessione.
+Gli strumenti di compilazione e le librerie desktop servono alle dipendenze native dell’applicazione; controllali prima della preparazione, così un’assenza non viene confusa con un problema del progetto didattico. Su macOS verifica gli strumenti con `xcode-select -p`, `xcrun --find clang` e `python3 --version`. Se mancano i Command Line Tools, usa `xcode-select --install` e completa l’installazione. Su Debian/Ubuntu servono `build-essential`, `pkg-config`, `libx11-dev`, `libxkbfile-dev`, `libkrb5-dev`, `libsecret-1-dev`, `libgtk-3-dev`, `libgbm-dev`, `libnss3`, `libasound2-dev` e `xvfb`; per i test senza display anche `xauth`. I nomi possono variare con la distribuzione. La [preparazione del fork alla revisione di base](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/fork-development.md#da-un-clone-pulito) raccoglie anche prerequisiti Windows e avvio con `scripts\code.bat`. Il collegamento richiede una connessione.
 
 Se aggiorni il clone a una revisione successiva, seleziona nuovamente il suo Node e riesegui `npm run ade:setup`: il semplice riavvio non ricompila sempre i sorgenti cambiati. Prima di seguire la guida confronta la nuova interfaccia con la revisione indicata in apertura. Il controllo dei tipi e le suite del repository sono strumenti per sviluppare ADE; non servono per usare i progetti di questa guida.
 
@@ -1909,7 +1915,9 @@ Usa questa tabella quando il risultato di un passaggio non coincide con quello a
 | Ho cambiato un criterio dopo i test | Prepara e verifica una nuova review: il risultato precedente riguarda la vecchia regola |
 | I test sono stati annullati | Riesegui la verifica e attendi un esito completo; annullato non equivale a passato |
 | Undo è bloccato da un file | Confronta e conserva le modifiche manuali successive, perché il ripristino non deve sovrascriverle; ripristina solo se è la scelta desiderata |
-| L’import non ha prodotto architettura | Source Inventory Ready raccoglie le evidenze; Explore Architecture le interpreta nel percorso incrementale. Consulta L16-L17 per scegliere quale risultato ti serve |
+| L’importazione mostra soltanto l’inventario | Source Inventory Ready raccoglie le evidenze. Per preparare le viste premi Explore Architecture come in L17 |
+| La generazione dei diagrammi si è interrotta | Apri Activity Details, verifica il passaggio in sospeso e usa Continue Generation per ripartire dal checkpoint |
+| La verifica del codice non passa | In AI Code Review leggi Verification Output e il diff della feature. Usa Repair Failing Features, se disponibile, e ripeti la verifica prima di applicare |
 | Un’evidenza è superata | Aggiorna l’analisi per riferirla ai sorgenti correnti; la vecchia posizione potrebbe ora indicare altro codice |
 | L’account è connesso ma la richiesta fallisce | Controlla separatamente eseguibile, modello esatto, quota e configurazione del provider: la connessione dell’account da sola non li rende disponibili |
 | È finito il budget | Per proseguire, aumenta esplicitamente quello dell’operazione pertinente; il budget IA strutturato e l’esplorazione sono separati |
@@ -1952,8 +1960,9 @@ Usa la matrice seguente per passare dall’attività che vuoi svolgere alla lezi
 | Scenari descrittivi, prospettive e interazioni eseguibili | L7; L13; D7-D8 | Dati descrittivi oppure contratto eseguibile esplicito |
 | Macchine a stati e messaggistica | L14-L15; D9 | Simulazioni locali; nessun broker richiesto |
 | Importazione, scope, evidenze, indici, versioni | L16 | Sorgenti accessibili; servizio semantico pertinente |
-| Account IA, conversazioni, diagrammi, benchmark | L17 | Account, CLI/modello e budget espliciti |
-| Aggiornamento codice, worktree, Sync e riconciliazione | L18-L19 | Repository/radice pertinenti; provider dove previsto |
+| Account IA, generazione dei diagrammi e benchmark | L17 | Sorgenti nel perimetro, account, modello e budget espliciti |
+| Prima generazione di codice assistita | L18 | Diagrammi, casi indipendenti, Node 24.22.1 e modello configurato |
+| Aggiornamento codice, worktree, Sync e riconciliazione | L18-L19 | Radice e profilo pertinenti. Git, baseline e provider secondo il percorso |
 | Reverse, migrazione runtime, task e continuità | L20 | Sottoinsieme del profilo e runtime disponibili |
 | File, editing, linguaggi, terminale, task | A2 | Servizi del linguaggio e tool locali |
 | Git, debug, test e coverage | A3 | Git/remoto, debugger o test provider secondo l’azione |
@@ -1961,7 +1970,7 @@ Usa la matrice seguente per passare dall’attività che vuoi svolgere alla lezi
 | Personalizzazione, estensioni, trust, chat e MCP | A1; A4 | Account/SDK/estensioni dove richiesti |
 | Accessibilità e presentazione | A5 | Tastiera, lettura testuale e impostazioni del workbench |
 
-Il verbale del laboratorio registra le prove su ADE desktop macOS e i controlli successivi. Le immagini comprendono le 16 notazioni della soluzione, che contiene 18 viste, e schermate dei comandi. I profili eseguibili sono quelli dei moduli didattici. Le procedure IA dipendono dai prerequisiti di L17-L19. Nomi, numero di bozze e risultati possono variare in base al provider.
+Il verbale del laboratorio registra le prove su ADE desktop macOS, i successivi controlli di componenti e le verifiche dei nuovi campioni IA. Le immagini comprendono le 16 notazioni della soluzione, che contiene 18 viste, e schermate dei comandi. Ogni percorso assistito indica i propri prerequisiti. Nomi e numero delle bozze possono variare secondo le evidenze recuperate e la proposta del modello.
 
 
 ### A8. Glossario e riferimenti
@@ -1994,7 +2003,7 @@ Consulta il glossario quando due parole sembrano indicare lo stesso risultato: u
 
 Questa edizione segue l’editor **Structural Blueprint**, il riuso delle relazioni con **Add Existing Relationship** e l’Atlante a livelli di **System Map**. Le schermate aiutano a orientarsi. In T2 trovi gli esiti per riconoscere le quattro prospettive dell’acquisto.
 
-Approfondimenti online del repository alla revisione di base: [editing visuale](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/visual-editing.md), [esploratore semantico](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/semantic-explorer.md), [accessibilità](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/accessibility.md), [importazione](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/code-import.md), [collaborazione IA](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/ai-collaboration.md), [riconciliazione](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/reconciliation.md) e [profili eseguibili](https://github.com/FrappaF/ADE/blob/c8c4f6d81dc567e457e259c98a68e841221138bf/ade/docs/diagram-driven-ai/dai-12.md). Richiedono una connessione e comprendono anche verbali storici: per le procedure parti dai capitoli di questa guida.
+Approfondimenti online del repository alla revisione di base: [editing visuale](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/visual-editing.md), [esploratore semantico](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/semantic-explorer.md), [accessibilità](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/accessibility.md), [importazione](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/code-import.md), [collaborazione IA](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/ai-collaboration.md), [riconciliazione](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/reconciliation.md) e [profili eseguibili](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md). Richiedono una connessione e comprendono anche verbali storici: per le procedure parti dai capitoli di questa guida.
 
 Gli esempi sono sintetici e derivano dai modelli dimostrativi del repository ADE e dal laboratorio Bottega. Sono distribuiti con la licenza MIT del progetto. Il pacchetto non contiene account, credenziali, cronologie IA o repository Git personali.
 

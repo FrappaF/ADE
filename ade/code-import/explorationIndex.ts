@@ -8,6 +8,7 @@ import { isDisclosableSource } from './paths.ts';
 import type { CodeImport, IndexedFile } from './importCode.ts';
 import { type EvidenceRecord } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import { canonicalJson } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';
+import { sourceDeclarationFact } from '../../src/vs/workbench/contrib/ade/common/diagramIdentity.ts';
 
 export interface ExplorationCapabilities { language: string; syntax: boolean; definitions: boolean; references: boolean; calls: false; controlFlow: false; runtimeObservations: false; indexedFiles: number; totalFiles: number }
 export interface IndexQuery { id: string; revision: string; filePrefix: string; fingerprint: string }
@@ -37,8 +38,9 @@ export function explorationPage<T>(items: T[], revision: string, query: object, 
 	const page = items.slice(offset, offset + limit), end = offset + page.length;
 	return { items: page, total: items.length, omitted: items.length - page.length, nextCursor: end < items.length ? `${key}:${end}` : null, complete: offset === 0 && end === items.length };
 }
-function sourceRecord(file: IndexedFile, revision: string, start: number, end: number, nature: EvidenceRecord['nature']): EvidenceRecord {
-	return { id: 'evidence:' + contentHash(canonicalJson({ file: file.file, revision, start, end, nature })), revision, file: file.file, start, end, encoding: 'utf-16', nature, producer: 'ade-source-index', producerVersion: '2', factIds: [] };
+function sourceRecord(file: IndexedFile, revision: string, start: number, end: number, nature: EvidenceRecord['nature'], symbolId?: string): EvidenceRecord {
+	const factIds = symbolId ? [sourceDeclarationFact(symbolId)] : [];
+	return { id: 'evidence:' + contentHash(canonicalJson({ file: file.file, revision, start, end, nature, ...(symbolId ? { symbolId } : {}) })), revision, file: file.file, start, end, encoding: 'utf-16', nature, producer: 'ade-source-index', producerVersion: '2', factIds };
 }
 async function contents(state: CodeImport, file: IndexedFile): Promise<{ content: string; revision: string }> {
 	if (file.status === 'excluded' || !isDisclosableSource(file.file)) { throw new Error('outsideDisclosureScope'); }
@@ -61,7 +63,7 @@ export async function searchExplorationSource(state: CodeImport, input: { query:
 		try {
 			if (input.mode === 'symbol') {
 				for (const declaration of file.declarations.filter(entry => entry.name.toLowerCase().includes(query))) {
-					hits.push({ evidence: sourceRecord(file, declaration.evidence.revision, declaration.evidence.start, declaration.evidence.end, 'syntax'), symbolId: declaration.id, name: declaration.name, text: declaration.header.slice(0, 300), role: sourceRole(file.file) });
+					hits.push({ evidence: sourceRecord(file, declaration.evidence.revision, declaration.evidence.start, declaration.evidence.end, 'syntax', declaration.id), symbolId: declaration.id, name: declaration.name, text: declaration.header.slice(0, 300), role: sourceRole(file.file) });
 				}
 			} else {
 				const { content, revision } = await contents(state, file); scannedBytes += Buffer.byteLength(content); pattern.lastIndex = 0;
@@ -93,7 +95,8 @@ export async function readExplorationSource(state: CodeImport, input: { file?: s
 	const start = input.start ?? declaration?.evidence.start ?? 0, end = input.end ?? declaration?.evidence.end ?? content.length, maxChars = input.maxChars ?? 8192;
 	if (![start, end, maxChars].every(Number.isSafeInteger) || start < 0 || end < start || end > content.length || maxChars < 1 || maxChars > 16384) { throw new ExplorationSourceRangeError({ start, end, fileLength: content.length, maxChars, maxAllowedChars: 16384 }); }
 	const stop = Math.min(end, start + maxChars);
-	return { evidence: sourceRecord(file, revision, start, stop, sourceRole(file.file) === 'documentation' ? 'documentation' : declaration ? 'syntax' : 'text'), text: content.slice(start, stop), requestedEnd: end, nextStart: stop < end ? stop : null, truncated: stop < end, role: sourceRole(file.file) };
+	const wholeDeclaration = declaration && start === declaration.evidence.start && stop === declaration.evidence.end ? declaration.id : undefined;
+	return { evidence: sourceRecord(file, revision, start, stop, sourceRole(file.file) === 'documentation' ? 'documentation' : declaration ? 'syntax' : 'text', wholeDeclaration), text: content.slice(start, stop), requestedEnd: end, nextStart: stop < end ? stop : null, truncated: stop < end, role: sourceRole(file.file) };
 }
 
 /** Retain only still-valid resolved facts when an external index cannot be rerun locally. */

@@ -10,9 +10,9 @@ import { ILanguageModelToolsService, ToolDataSource } from '../../chat/common/to
 import { IAgentHostActiveClientService } from '../../chat/browser/agentSessions/agentHost/agentHostActiveClientService.js';
 import { type IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { localize } from '../../../../nls.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
@@ -33,16 +33,32 @@ import { IAdeAiDialogService, type AdeAiMessage } from '../browser/adeAiDialog.j
 import { getNewChatSessionResource } from '../../chat/common/model/chatUri.js';
 import { IAdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
-import { type AdeDiagramReview } from '../browser/adeAiService.js';
+import { type AdeDiagramActivity, type AdeDiagramReview } from '../browser/adeAiService.js';
 import { IAdeOperationService, AdeOperationService } from '../browser/adeOperationService.js';
 import { AdeInput } from '../browser/adeInput.js';
 import { viewLabels } from '../browser/adeLabels.js';
 import { ThrottledDelayer } from '../../../../base/common/async.js';
 import { canonicalJson, semanticContent } from '../common/modelSerialization.js';
-import { CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
+import { CodeDiagramProgress, CodeDiagramExploration, type CodeAiProgress } from '../common/codeBridge.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
 import { type CliConfig, type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
 import { AdeAiConnection } from './adeAiConnection.js';
+
+interface ExplorationSession {
+	root: string;
+	id: string;
+	snapshot: string;
+	resource?: string;
+	selectedModel?: string;
+	approvedScope?: string;
+	goal?: string;
+	clarification?: { checkpoint: string; question: string; answer?: string };
+	activity?: AdeDiagramActivity[];
+}
+
+function checkpoint(state: CodeDiagramExploration): string {
+	return JSON.stringify([state.phase, state.nextFeatureId, state.nextTaskId]);
+}
 
 /** Diagram exploration, generation and review workflow; lifecycle belongs to this component. */
 export class AdeAiDiagrams extends Disposable {
@@ -68,7 +84,11 @@ export class AdeAiDiagrams extends Disposable {
 
 	private restoringExploration: string | undefined;
 
-	private exploration: { root: string; id: string; snapshot: string; resource?: string; selectedModel?: string } | undefined;
+	private exploration: ExplorationSession | undefined;
+
+	private readonly explorationRun = this._register(new MutableDisposable<CancellationTokenSource>());
+
+	private _diagramExplorationIssue: string | undefined;
 
 	private readonly explorationTools = this._register(new DisposableStore());
 
@@ -80,7 +100,7 @@ export class AdeAiDiagrams extends Disposable {
 		if (this.host.busy || this.operations.busy || this.chatOpening || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
 		if (this.conversation && !!this.conversation.codeUpdate !== !!codeUpdate) { await this.aiDialog.close(); }
 		if (!codeUpdate) { await this.discardMissingExploration(); }
-		if (!codeUpdate && this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(initialPrompt); return; }
+		if (!codeUpdate && this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(initialPrompt, false, true); return; }
 		const session = codeUpdate ? undefined : this.exploration;
 		const opening = this.operations.acquire('ai');
 		if (!opening) { return; }
@@ -139,6 +159,8 @@ export class AdeAiDiagrams extends Disposable {
 
 	private conversationPrompt(): string {
 		if (getDiagramExplorationPhase(this._diagramExploration) === 'applied') { return ''; }
+		if (this._diagramExploration?.phase === 'discovery') { return localize('ade.explore.discoverFeatures', "Identify the project features and their source evidence with the ADE tools. Then prepare the necessary diagrams one feature at a time, reusing shared elements and relations by their existing IDs. Finish with one project review."); }
+		if (this._diagramExploration?.phase) { return localize('ade.explore.resumeFeatures', "Inspect the saved ADE checkpoint and continue the next permitted step. Keep valid drafts and reuse existing elements and relations. Finish each feature before proceeding to the next, then open one project review."); }
 		return this._diagramExploration?.plan ? localize('ade.explore.repairPrompt', "Continue the saved diagram plan. Inspect its existing drafts and final-review blockers first. Keep valid diagrams and shared IDs. Repair assigned invalid drafts with supersedes and relink their tasks. Archive obsolete unassigned invalid attempts with ade_proposal_discard and a reason. Complete missing diagrams without intermediate approvals, then report whether the complete project review is ready.") : localize('ade.explore.firstQuestion', "Plan the relevant project diagrams from overview to detail using the ADE tools, then create and preview every planned draft. Continue without intermediate approvals and finish with one complete project review.");
 	}
 
@@ -257,7 +279,7 @@ export class AdeAiDiagrams extends Disposable {
 		this.explorationTools.add({ dispose: () => this.activeClients.clearSessionTools(resource) });
 	}
 
-	private async exploreDiagrams(initialPrompt?: string): Promise<void> {
+	private async exploreDiagrams(initialPrompt?: string, refreshApplied = false, openConversation = false): Promise<void> {
 		if (this.host.busy || this.operations.busy || !this.code.context) { return; }
 		let opened = false, needsBudget = false;
 		await this.host.run(async token => {
@@ -265,13 +287,116 @@ export class AdeAiDiagrams extends Disposable {
 			const root = this.code.context!.sourceRoot;
 			if (this.exploration?.root !== root) { this.exploration = undefined; }
 			await this.discardMissingExploration();
-			const result = await this.explorationRequest({ action: 'open', workflow: 'project', ...(!this.exploration || this._diagramExploration?.workflow !== 'project' ? { budget: { maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 } } : {}), ...(this.exploration ? { sessionId: this.exploration.id } : {}), ...(!this.exploration ? { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' } : {}) }, token);
-			this.exploration = { ...this.exploration, root, id: result.sessionId, snapshot: this.code.context!.snapshot };
+			const startFresh = refreshApplied && !!this._diagramExploration?.phase && getDiagramExplorationPhase(this._diagramExploration) === 'applied';
+			if (startFresh) { await this.returnToDiagrams(); }
+			const previous = startFresh ? undefined : this.exploration;
+			const result = await this.explorationRequest({ action: 'open', workflow: 'project', featureWorkflow: true, ...(!previous || this._diagramExploration?.workflow !== 'project' ? { budget: { maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 } } : {}), ...(previous ? { sessionId: previous.id } : { model: this.storage.get('ade.ai.diagramModel.codex', StorageScope.PROFILE) ?? 'chat-selected' }) }, token);
+			this.exploration = { ...previous, ...(!openConversation && initialPrompt ? { goal: initialPrompt } : {}), root, id: result.sessionId, snapshot: this.code.context!.snapshot };
 			this._diagramExploration = result.data; needsBudget = !!result.data.budgetStatus?.exhausted.length; this._diagramProgress = undefined; this.persistExploration();
 			opened = true;
-		}, { kind: 'diagram' });
+		}, { kind: 'diagram', inline: true });
 		if (opened && needsBudget) { await this.configureDiagramBudget(); if (this._diagramExploration?.budgetStatus?.exhausted.length) { return; } }
-		if (opened) { await this.chat(initialPrompt); }
+		if (!opened) { return; }
+		if (openConversation || !this._diagramExploration?.phase) { await this.chat(initialPrompt); return; }
+		if (getDiagramExplorationPhase(this._diagramExploration) === 'review') { await this.reviewDiagramProposal(); return; }
+		await this.runFeatureExploration();
+	}
+
+	private recordDiagramActivity(session: ExplorationSession, event: CodeAiProgress): void {
+		const text = event.kind === 'tool' ? event.tool : event.kind === 'message' ? event.text : undefined;
+		if (!text?.trim()) { return; }
+		const entry: AdeDiagramActivity = { requestId: event.requestId, itemId: event.itemId, kind: event.kind === 'tool' ? 'tool' : 'message', text: text.trim().slice(0, 1600) };
+		const activity = session.activity ??= [];
+		const previous = entry.itemId && activity.findIndex(item => item.requestId === entry.requestId && item.itemId === entry.itemId);
+		if (typeof previous === 'number' && previous >= 0) { activity[previous] = entry; }
+		else { activity.push(entry); if (activity.length > 30) { activity.shift(); } }
+		this.host.changed();
+	}
+
+	private async runFeatureExploration(): Promise<void> {
+		const session = this.exploration, context = this.code.context;
+		if (!session || !context || session.root !== context.sourceRoot || !this._diagramExploration || getDiagramExplorationPhase(this._diagramExploration) !== 'incomplete' || this.diagramClarification) { return; }
+		const snapshot = context.snapshot;
+		this._diagramExplorationIssue = undefined;
+		await this.host.run(async operationToken => {
+			const cancellation = new CancellationTokenSource(operationToken);
+			this.explorationRun.value = cancellation;
+			const token = cancellation.token;
+			const current = () => this.exploration === session && this.code.context?.sourceRoot === session.root && this.code.context.snapshot === snapshot;
+			this.diagramRunning = true;
+			this.host.changed();
+			try {
+				const configured = await this.readyDiagramConfig();
+				if (!configured || !current() || token.isCancellationRequested) { return; }
+				if (!configured.maxCalls) { this._diagramExplorationIssue = localize('ade.explore.requestsOff', "Enable AI Requests to Prepare the Diagrams."); return; }
+				const model = this.storage.get(`ade.ai.diagramModel.${configured.provider}`, StorageScope.PROFILE) ?? await this.selectDiagramModel(configured);
+				if (!model || !current() || token.isCancellationRequested) { return; }
+				const config = { ...configured, model };
+				const approvedScope = canonicalJson([snapshot, context.scope, config.provider, config.model]);
+				if (session.approvedScope !== approvedScope) {
+					const provider = config.provider === 'codex' ? 'Codex' : 'Claude Code';
+					const included = context.files.filter(file => file.status !== 'excluded').length;
+					const confirmation = await this.dialogs.confirm({
+						message: localize('ade.explore.confirmStart', "Generate Diagrams with {0}?", model),
+						detail: localize('ade.explore.confirmScope', "{0}\nImported source scope · Included {1} · Excluded {2}\n{3} will receive relevant source excerpts as each feature is analyzed. You can stop at any time and review the proposed diagrams before applying them.", context.sourceRoot, included, context.files.length - included, provider),
+						primaryButton: localize('ade.explore.confirmAction', "Generate Diagrams")
+					});
+					if (!confirmation.confirmed || !current() || token.isCancellationRequested) { return; }
+					session.approvedScope = approvedScope;
+					this.persistExploration();
+				}
+				const opened = await this.explorationRequest({ action: 'open', sessionId: session.id, model }, token);
+				if (!current() || token.isCancellationRequested) { return; }
+				this._diagramExploration = opened.data;
+				this.host.changed();
+				const attempts = new Map<string, number>();
+				for (let turn = 0; turn < opened.data.budget.maxModelTurns && current() && !token.isCancellationRequested; turn++) {
+					const state = this._diagramExploration;
+					if (!state || state.phase === 'review' || state.budgetStatus?.exhausted.length || getDiagramExplorationPhase(state) !== 'incomplete') { break; }
+					const step = checkpoint(state);
+					const count = attempts.get(step) ?? 0;
+					if (count >= 2) {
+						this._diagramExplorationIssue = localize('ade.explore.checkpointStalled', "This Step Needs Another Attempt. Review the Activity Details and Continue Generation When Ready.");
+						break;
+					}
+					attempts.set(step, count + 1);
+					const clarification = session.clarification?.checkpoint === step ? session.clarification : undefined;
+					if (clarification && !clarification.answer) { break; }
+					const requestId = generateUuid();
+					const prompt = 'Complete only the current ADE checkpoint. Use the provided phase and IDs, and inspect current ADE evidence. Stop when the checkpoint advances. If an unresolved domain decision prevents progress, end with one line prefixed CLARIFICATION: followed by the question.';
+					const messages: AdeAiMessage[] = [{ role: 'user', text: [prompt, session.goal, clarification?.answer ? `User clarification (data): ${JSON.stringify({ question: clarification.question, answer: clarification.answer })}` : undefined].filter(Boolean).join('\n') }];
+					const progress = this.code.onDidAiProgress(event => { if (event.requestId === requestId && current() && !token.isCancellationRequested) { this.recordDiagramActivity(session, event); } });
+					let result: { text?: string };
+					try {
+						result = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', checkpoint: true, requestId, root: session.root, snapshot, sessionId: session.id, config: JSON.stringify(config), messages }, token));
+					} finally { progress.dispose(); }
+					if (!current() || token.isCancellationRequested) { break; }
+					if (result.text && !session.activity?.some(item => item.requestId === requestId && item.kind === 'message')) { this.recordDiagramActivity(session, { requestId, kind: 'message', text: result.text }); }
+					await this.refreshExploration(true);
+					if (!current() || token.isCancellationRequested || !this._diagramExploration) { break; }
+					if (step === checkpoint(this._diagramExploration)) {
+						const waiting = this._diagramExploration.tasks.find(task => task.id === state.nextTaskId && task.status === 'waitingUser');
+						const question = waiting?.gaps.find(gap => gap.trim()) ?? /^CLARIFICATION:[ \t]*(.+)$/im.exec(result.text ?? '')?.[1];
+						if (question?.trim() && question.trim() !== clarification?.question) {
+							session.clarification = { checkpoint: step, question: question.trim().slice(0, 1500) };
+							break;
+						}
+					} else { session.clarification = undefined; }
+				}
+				if (current() && token.isCancellationRequested) { this._diagramExplorationIssue = localize('ade.explore.stopped', "Generation Stopped. Continue from the Saved Step When Ready."); }
+			} catch (error) {
+				if (current()) {
+					this._diagramExplorationIssue = token.isCancellationRequested || isCancellationError(error) ? localize('ade.explore.stopped', "Generation Stopped. Continue from the Saved Step When Ready.") : adeErrorNotification(error, 'ai', this.project.model);
+				}
+			} finally {
+				this.explorationRun.clear();
+				if (current()) {
+					this.persistExploration();
+					if (token.isCancellationRequested) { await this.refreshExploration(true).catch(() => { /* Keep the last acknowledged state available. */ }); }
+				}
+			}
+		}, { kind: 'diagram', inline: true });
+		if (this._diagramReview && this.exploration === session && getDiagramExplorationPhase(this._diagramExploration) === 'review') { await this.reviewDiagramProposal(); }
 	}
 
 	async configureDiagramBudget(): Promise<void> {
@@ -303,7 +428,7 @@ export class AdeAiDiagrams extends Disposable {
 			const contents = preview.data.reviewFile ? (await this.files.readFile(URI.file(preview.data.reviewFile))).value.toString() : JSON.stringify(preview.data, null, '\t');
 			const report: { changes?: AdeDiagramReview['changes']; diff?: { items: AdeDiagramReview['changes'] }; sourceAnchors?: AdeDiagramReview['sources'] } = JSON.parse(contents);
 			if (token.isCancellationRequested || this.code.context?.sourceRoot !== root || this.project.modelUri?.toString() !== modelUri || canonicalJson(semanticContent(this.project.model)) !== semanticRevision) { return; }
-			this._diagramReview = { id: proposal.id, sessionId, root, modelUri, semanticRevision, proposal: structuredClone(proposal), changes: report.changes ?? report.diff?.items ?? [], sources: report.sourceAnchors ?? [], images: preview.data.images ?? [], contents, ...(projectReview ? { projectReviewId: preview.data.reviewId, plan: preview.data.plan, tasks: preview.data.tasks } : {}), ...(preview.diagnostics.length ? { problem: preview.diagnostics.map(entry => entry.code).join(' · ') } : {}) };
+			this._diagramReview = { id: proposal.id, sessionId, root, modelUri, semanticRevision, proposal: structuredClone(proposal), changes: report.changes ?? report.diff?.items ?? [], sources: report.sourceAnchors ?? [], images: preview.data.images ?? [], contents, ...(projectReview ? { projectReviewId: preview.data.reviewId, plan: preview.data.plan, tasks: preview.data.tasks, featureCatalog: preview.data.featureCatalog, featurePlans: preview.data.featurePlans } : {}), ...(preview.diagnostics.length ? { problem: preview.diagnostics.map(entry => entry.code).join(' · ') } : {}) };
 			await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 			this.host.changed();
 		}, { kind: 'local' });
@@ -377,7 +502,7 @@ export class AdeAiDiagrams extends Disposable {
 	async updateDiagrams(): Promise<void> {
 		if (this.host.busy || this.operations.busy || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true || !await this.code.ensureProjectContext()) { return; }
 		if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') === false) { await this.generateDiagrams(true); return; }
-		await this.exploreDiagrams(localize('ade.explore.updatePrompt', "Update the project diagrams from the current codebase using the ADE tools. Inspect the saved project, diagram plan and drafts first. Identify code changes and preserve existing diagram and object IDs and manual layout where they still apply. Prepare the necessary additions, updates and removals, including any missing views from overview to detail. Read only the sources relevant to these diagrams and validate drafts with ADE. Do not run application test suites, linters or builds unless I ask for them. Reconcile the plan and task assignments, resolve validation errors and preview every proposed diagram. Continue without intermediate approvals and finish with a single complete project review. Do not publish changes: I will apply them from the review."));
+		await this.exploreDiagrams(localize('ade.explore.updatePrompt', "Update the project diagrams from the current codebase using the ADE tools. Inspect the saved project and the workflow phase first. Identify code changes and preserve existing diagram and object IDs, feature identities and manual layout where they still apply. Prepare the affected diagrams in workflow order and reuse existing definitions. Read only the relevant sources, validate and preview all revised drafts, and finish with a single complete project review. Do not publish changes: I will apply them from the review."), true);
 	}
 
 	private async generateDiagrams(resume: boolean): Promise<void> {
@@ -429,7 +554,8 @@ export class AdeAiDiagrams extends Disposable {
 	async chooseDiagramModel(): Promise<void> {
 		if (this.host.busy || this.operations.busy || !await this.connection.ensureConfigured()) { return; }
 		const selected = await this.selectDiagramModel(this.connection.config!);
-		if (selected && this.exploration && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.chat(); }
+		if (selected && this.exploration && !this._diagramExploration?.phase && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) { await this.chat(); }
+		else if (selected) { this.host.changed(); }
 	}
 
 	private async selectDiagramModel(configured: CliConfig): Promise<string | undefined> {
@@ -471,19 +597,46 @@ export class AdeAiDiagrams extends Disposable {
 	get diagramReview(): AdeDiagramReview | undefined { return this._diagramReview; }
 	get diagramProgress(): CodeDiagramProgress | undefined { return this._diagramProgress; }
 	get diagramExploration(): CodeDiagramExploration | undefined { return this._diagramExploration; }
+	get diagramActivity(): readonly AdeDiagramActivity[] | undefined { return this.exploration?.root === this.code.context?.sourceRoot ? this.exploration?.activity : undefined; }
+	get diagramExplorationIssue(): string | undefined { return this._diagramExplorationIssue; }
+	get diagramClarification(): string | undefined {
+		const state = this._diagramExploration;
+		if (!state || this.exploration?.root !== this.code.context?.sourceRoot) { return undefined; }
+		const clarification = this.exploration?.clarification;
+		if (clarification && clarification.checkpoint === checkpoint(state)) { return clarification.answer ? undefined : clarification.question; }
+		return state.tasks.find(task => task.id === state.nextTaskId && task.status === 'waitingUser')?.gaps.find(gap => gap.trim());
+	}
+	stopDiagramExploration(): void { this.explorationRun.value?.cancel(); }
+	async clarifyDiagramExploration(): Promise<void> {
+		const session = this.exploration, state = this._diagramExploration, question = this.diagramClarification;
+		if (!session || !state || !question || this.host.busy || this.operations.busy) { return; }
+		const answer = await this.quick.input({
+			title: localize('ade.explore.clarification', "Clarification Needed"),
+			prompt: question,
+			ignoreFocusLost: true,
+			validateInput: async value => value.trim().length > 2000 ? localize('ade.explore.answerLength', "Enter an Answer of 2,000 Characters or Fewer.") : undefined
+		});
+		if (!answer?.trim() || answer.trim().length > 2000 || this.exploration !== session || this._diagramExploration !== state || this.diagramClarification !== question) { return; }
+		session.clarification = { checkpoint: checkpoint(state), question, answer: answer.trim() };
+		this.persistExploration();
+		this.host.changed();
+		await this.runFeatureExploration();
+	}
 	beginGeneration(): void { this.diagramError?.close(); this.diagramError = undefined; }
 	failGeneration(error: unknown): void { this.diagramError = this.notifications.notify({ severity: Severity.Error, message: adeErrorNotification(error, 'ai', this.project.model) }); }
 	finishOperation(): void { this.diagramRunning = false; }
 	resetProject(): void {
+		this.stopDiagramExploration();
 		void this.aiDialog.close().catch(error => { if (!isCancellationError(error)) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); } });
 		this.conversation = undefined; this.conversationWatch.clear();
 		this.explorationTools.clear(); this.explorationBinding = undefined;
-		this._diagramExploration = undefined; this._diagramReview = undefined;
+		this._diagramExploration = undefined; this._diagramExplorationIssue = undefined; this._diagramReview = undefined;
 	}
 	followCodeContext(): void {
 		const context = this.code.context;
+		if (this.explorationRun.value && (context?.sourceRoot !== this.exploration?.root || context?.snapshot !== this.exploration?.snapshot)) { this.stopDiagramExploration(); }
 		if (this.conversation && context && this.conversation.root !== context.sourceRoot) { void this.aiDialog.close().catch(error => { if (!isCancellationError(error)) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); } }); this.conversation = undefined; this.conversationWatch.clear(); this.host.activityStatus = undefined; this.host.changed(); }
-		if (this.exploration && context && this.exploration.root !== context.sourceRoot) { this.explorationTools.clear(); this.explorationBinding = undefined; this._diagramExploration = undefined; }
+		if (this.exploration && context && this.exploration.root !== context.sourceRoot) { this.explorationTools.clear(); this.explorationBinding = undefined; this._diagramExploration = undefined; this._diagramExplorationIssue = undefined; }
 		if (this._diagramProgress && context && this._diagramProgress.sourceRoot !== context.sourceRoot) { this._diagramProgress = undefined; this.host.changed(); }
 		const session = this.exploration;
 		if (session && context?.sourceRoot === session.root && !this._diagramExploration && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false) {
@@ -495,5 +648,10 @@ export class AdeAiDiagrams extends Disposable {
 			}).finally(() => { if (this.restoringExploration === key) { this.restoringExploration = undefined; } });
 		}
 
+	}
+
+	override dispose(): void {
+		this.stopDiagramExploration();
+		super.dispose();
 	}
 }

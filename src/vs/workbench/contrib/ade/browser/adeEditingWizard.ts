@@ -15,6 +15,8 @@ import { renderAdeErrorNotice } from './adeErrorNotice.js';
 
 type Answer = { kind: 'input'; value: string } | { kind: 'pick'; indices: number[] };
 interface WizardStep { title: string; answer: Answer; summary: string }
+type WizardPickOptions<T extends IQuickPickItem> = IPickOptions<T> & { requireSelection?: boolean };
+type WizardInputOptions = IInputOptions & { multiline?: boolean; summarize?(value: string): string };
 export interface AdeWizardReviewLabels { heading: string; help: string; confirm: string }
 export class WizardBack extends Error { constructor(readonly index: number, readonly review = false) { super('back'); } }
 export class WizardCanceled extends Error { }
@@ -169,13 +171,14 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 		});
 	}
 
-	pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: IPickOptions<T> & { canPickMany: true }): Promise<T[] | undefined>;
-	pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: IPickOptions<T> & { canPickMany: false }): Promise<T | undefined>;
-	pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: Omit<IPickOptions<T>, 'canPickMany'>): Promise<T | undefined>;
-	async pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: IPickOptions<T>): Promise<T | T[] | undefined> {
+	pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: WizardPickOptions<T> & { canPickMany: true }): Promise<T[] | undefined>;
+	pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: WizardPickOptions<T> & { canPickMany: false }): Promise<T | undefined>;
+	pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: Omit<WizardPickOptions<T>, 'canPickMany'>): Promise<T | undefined>;
+	async pick<T extends IQuickPickItem>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: WizardPickOptions<T>): Promise<T | T[] | undefined> {
 		const items = (await picks).filter((item): item is T => item.type !== 'separator');
 		const active = await options?.activeItem;
 		const create = items.findIndex(item => item.label === localize('ade.blueprint.new', "Create New"));
+		const selectionRequired = !options?.canPickMany || options.requireSelection === true;
 		const selected = options?.canPickMany ? items.flatMap((item, index) => item.picked ? [index] : []) : active ? [items.indexOf(active)] : create >= 0 ? [create] : [];
 		const title = options?.title ?? localize('ade.blueprint.wizard.select', "Choose an Option");
 		const answer = await this.step(title, options?.prompt ?? options?.placeHolder ?? (options?.canPickMany ? localize('ade.blueprint.wizard.many', "Select the items to include, then choose Next. You can leave all items unchecked.") : localize('ade.blueprint.wizard.one', "Select an option, then choose Next. Use Back to revisit a previous choice.")), { kind: 'pick', indices: selected }, (form, answer) => {
@@ -203,28 +206,28 @@ export class AdeEditingWizard extends Disposable implements Pick<IQuickInputServ
 			return {
 				read: () => ({ kind: 'pick', indices: inputs.flatMap((input, index) => input.checked ? [index] : []) }),
 				summary: answer => answer.kind === 'pick' ? answer.indices.map(index => items[index].label).join(', ') || localize('ade.blueprint.wizard.none', "None") : '',
-				validate: async answer => !options?.canPickMany && answer.kind === 'pick' && !answer.indices.length ? localize('ade.blueprint.wizard.selectionRequired', "Choose an option to continue.") : undefined,
-				empty: !items.length && !options?.canPickMany
+				validate: async answer => selectionRequired && answer.kind === 'pick' && !answer.indices.length ? localize('ade.blueprint.wizard.selectionRequired', "Choose an option to continue.") : undefined,
+				empty: !items.length && selectionRequired
 			};
-		}, async answer => answer.kind !== 'pick' || !options?.canPickMany && !answer.indices.length || answer.indices.some(index => index < 0 || index >= items.length) ? localize('ade.blueprint.wizard.selectionRequired', "Choose an option to continue.") : undefined);
+		}, async answer => answer.kind !== 'pick' || selectionRequired && !answer.indices.length || answer.indices.some(index => index < 0 || index >= items.length) ? localize('ade.blueprint.wizard.selectionRequired', "Choose an option to continue.") : undefined);
 		if (answer.kind !== 'pick') { return; }
 		return options?.canPickMany ? answer.indices.map(index => items[index]) : items[answer.indices[0]];
 	}
 
-	async input(options?: IInputOptions): Promise<string | undefined> {
+	async input(options?: WizardInputOptions): Promise<string | undefined> {
 		const validate = async (answer: Answer) => {
 			const error = answer.kind === 'input' ? await options?.validateInput?.(answer.value) : undefined;
 			return typeof error === 'string' ? error : error?.content;
 		};
 		const answer = await this.step(options?.title ?? localize('ade.blueprint.wizard.value', "Enter a Value"), options?.prompt ?? localize('ade.blueprint.wizard.inputHelp', "Complete this field, then choose Next. Your changes will be applied after the review."), { kind: 'input', value: options?.value ?? '' }, (form, answer) => {
 			const label = dom.append(form, dom.$('label.ade-blueprint-field')); label.textContent = options?.title ?? '';
-			const input = dom.append(label, dom.$<HTMLInputElement>('input', { type: options?.password ? 'password' : 'text' }));
+			const input = options?.multiline && !options.password ? dom.append(label, dom.$<HTMLTextAreaElement>('textarea', { rows: '5' })) : dom.append(label, dom.$<HTMLInputElement>('input', { type: options?.password ? 'password' : 'text' }));
 			input.value = answer.kind === 'input' ? answer.value : ''; input.placeholder = options?.placeHolder ?? '';
 			input.focus(); input.select();
 			return {
 				control: input,
 				read: () => ({ kind: 'input', value: input.value }),
-				summary: answer => options?.password ? '••••' : answer.kind === 'input' ? answer.value || localize('ade.blueprint.wizard.emptyValue', "Empty") : '',
+				summary: answer => options?.password ? '••••' : answer.kind === 'input' ? options?.summarize?.(answer.value) ?? (answer.value || localize('ade.blueprint.wizard.emptyValue', "Empty")) : '',
 				validate: async answer => {
 					const error = await validate(answer);
 					input.setAttribute('aria-invalid', String(!!error));

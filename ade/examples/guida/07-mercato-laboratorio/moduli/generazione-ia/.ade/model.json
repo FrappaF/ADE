@@ -1,0 +1,116 @@
+{
+  "version": 4,
+  "id": "mercato-generazione-ia",
+  "name": "Mercato · Acquisto e Resi",
+  "semantics": {
+    "elements": [
+      {
+        "id": "acquisto",
+        "kind": "feature",
+        "name": "Acquisto",
+        "description": "Calcola il totale in centesimi e produce un Ordine soltanto quando l'approvazione simulata è positiva.",
+        "behavior": {
+          "id": "contratto-acquisto",
+          "inputs": [
+            { "id": "acquisto-order-id", "name": "orderId", "type": "string", "required": true },
+            { "id": "acquisto-price", "name": "unitPriceCents", "type": "integer", "required": true },
+            { "id": "acquisto-quantity", "name": "quantity", "type": "integer", "required": true },
+            { "id": "acquisto-approved", "name": "approved", "type": "boolean", "required": true }
+          ],
+          "outputs": [
+            { "id": "acquisto-status", "name": "status", "type": "string", "required": true },
+            { "id": "acquisto-order", "name": "order", "type": "Ordine", "required": false }
+          ],
+          "preconditions": ["orderId è una stringa non vuota, quantity un intero da 1 a 10 e unitPriceCents un intero sicuro non negativo. approved è booleano. Anche il prodotto deve essere un intero sicuro."],
+          "postconditions": ["Un input invalido produce soltanto status=invalid-input.", "Un input valido con approved=false produce soltanto status=declined.", "Un input valido con approved=true produce status=confirmed e order={id: orderId, totalCents: unitPriceCents * quantity}. Il campo order usa il contratto condiviso Ordine."],
+          "errors": [],
+          "permissions": [],
+          "acceptanceCriteria": [
+            { "id": "acquisto-confermato", "given": "Un ordine con prezzo e quantità validi", "when": "L'approvazione simulata è positiva", "then": "L'esito è confirmed e include l'Ordine con lo stesso ID e il totale in centesimi." },
+            { "id": "acquisto-rifiutato", "given": "Un ordine con prezzo e quantità validi", "when": "L'approvazione simulata è negativa", "then": "L'esito è declined, senza Ordine." },
+            { "id": "acquisto-quantita-invalida", "given": "Una quantità superiore a 10", "when": "Viene richiesto l'acquisto", "then": "L'esito è invalid-input, senza Ordine." }
+          ]
+        }
+      },
+      {
+        "id": "resi",
+        "kind": "feature",
+        "name": "Resi",
+        "description": "Valuta un reso usando il record Ordine prodotto da Acquisto. La finestra didattica è di 30 giorni inclusi.",
+        "behavior": {
+          "id": "contratto-resi",
+          "inputs": [
+            { "id": "resi-order", "name": "order", "type": "Ordine oppure null", "required": true },
+            { "id": "resi-elapsed", "name": "daysSincePurchase", "type": "integer", "required": true }
+          ],
+          "outputs": [
+            { "id": "resi-status", "name": "status", "type": "string", "required": true },
+            { "id": "resi-order-id", "name": "orderId", "type": "string", "required": false },
+            { "id": "resi-refund", "name": "refundCents", "type": "integer", "required": false }
+          ],
+          "preconditions": ["daysSincePurchase è un intero sicuro non negativo. order contiene un record Ordine valido con id non vuoto e totalCents intero sicuro non negativo, oppure null."],
+          "postconditions": ["Un input invalido produce soltanto status=invalid-input.", "Un input valido con order=null produce soltanto status=unknown-order.", "Un Ordine valido oltre 30 giorni produce soltanto status=outside-window.", "Un Ordine valido entro 30 giorni inclusi produce status=accepted, orderId=order.id e refundCents=order.totalCents."],
+          "errors": [],
+          "permissions": [],
+          "acceptanceCriteria": [
+            { "id": "resi-finestra", "given": "Un Ordine prodotto da Acquisto", "when": "Il reso è richiesto al trentesimo giorno", "then": "L'esito è accepted con ID e totale dello stesso Ordine." },
+            { "id": "resi-scaduto", "given": "Un Ordine valido", "when": "Il reso è richiesto al trentunesimo giorno", "then": "L'esito è outside-window." },
+            { "id": "resi-ordine-assente", "given": "Un ordine assente", "when": "Il reso è richiesto nell'intervallo previsto", "then": "L'esito è unknown-order." }
+          ]
+        }
+      },
+      { "id": "checkout", "kind": "component", "name": "Checkout", "description": "Calcola il totale, verifica la decisione simulata e compone l'Ordine." },
+      { "id": "gestione-resi", "kind": "component", "name": "Gestione resi", "description": "Valuta la richiesta e riusa il record Ordine così come restituito da Acquisto." },
+      { "id": "ordine", "kind": "resource", "name": "Ordine", "description": "Record JSON condiviso con id (stringa non vuota) e totalCents (intero sicuro non negativo)." }
+    ],
+    "relations": [
+      { "id": "checkout-ordine", "kind": "write", "from": "checkout", "to": "ordine", "name": "compone l'ordine confermato", "condition": "approvazione simulata positiva" },
+      { "id": "resi-ordine", "kind": "read", "from": "gestione-resi", "to": "ordine", "name": "legge l'ordine confermato" },
+      { "id": "resi-dipende-acquisto", "kind": "dependency", "from": "resi", "to": "acquisto", "name": "riusa il contratto Ordine" }
+    ]
+  },
+  "views": [
+    {
+      "id": "vista-acquisto",
+      "featureId": "acquisto",
+      "name": "Acquisto · Struttura",
+      "kind": "structure",
+      "nodes": [{ "elementId": "checkout", "x": 40, "y": 70 }, { "elementId": "ordine", "x": 390, "y": 70 }],
+      "relationIds": ["checkout-ordine"]
+    },
+    {
+      "id": "vista-resi",
+      "featureId": "resi",
+      "name": "Resi · Struttura",
+      "kind": "structure",
+      "nodes": [{ "elementId": "gestione-resi", "x": 40, "y": 70 }, { "elementId": "ordine", "x": 390, "y": 70 }],
+      "relationIds": ["resi-ordine"]
+    },
+    {
+      "id": "vista-dipendenze",
+      "name": "Mercato · Dipendenze",
+      "kind": "structure",
+      "nodes": [{ "elementId": "resi", "x": 40, "y": 70 }, { "elementId": "acquisto", "x": 390, "y": 70 }],
+      "relationIds": ["resi-dipende-acquisto"]
+    }
+  ],
+  "codeMappings": [],
+  "verifications": [],
+  "foundation": {
+    "ownership": [],
+    "memberships": [
+      { "id": "acquisto-checkout", "elementId": "checkout", "featureId": "acquisto" },
+      { "id": "acquisto-ordine", "elementId": "ordine", "featureId": "acquisto" },
+      { "id": "resi-gestione", "elementId": "gestione-resi", "featureId": "resi" },
+      { "id": "resi-ordine", "elementId": "ordine", "featureId": "resi" }
+    ],
+    "integrations": [],
+    "types": [],
+    "occurrences": [],
+    "frames": [],
+    "interactions": [],
+    "assertions": [],
+    "platform": { "bindings": [] },
+    "decisions": []
+  }
+}

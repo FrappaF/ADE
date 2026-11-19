@@ -698,7 +698,7 @@
 
 .ade-form-dialog :is(button, input, textarea, select):focus-visible,
 .ade-blueprint-wizard button:focus-visible,
-.ade-blueprint-wizard input:focus-visible {
+.ade-blueprint-wizard :is(input, textarea):focus-visible {
 	outline: 2px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
 }
@@ -786,6 +786,7 @@
 }
 
 .ade-form-dialog :is(input[type="text"], textarea, select),
+.ade-blueprint-wizard textarea,
 .ade-blueprint-wizard input[type="text"],
 .ade-blueprint-wizard input[type="password"],
 .ade-blueprint-wizard input[type="search"] {
@@ -830,7 +831,8 @@
 	min-width: 0;
 }
 
-.ade-form-dialog textarea {
+.ade-form-dialog textarea,
+.ade-blueprint-wizard textarea {
 	resize: vertical;
 	min-height: 6em;
 }

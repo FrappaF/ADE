@@ -11,13 +11,15 @@ import { readProviderConfig } from './contracts.ts';
 import { readBoundedText } from './io.ts';
 import { diagramSessionInstruction } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
 import { type CodeAiProgress } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
+import { diagramCheckpointInstruction } from './diagramCheckpoint.ts';
 
 /** Each call is ephemeral; the modal supplies its in-memory transcript and ADE supplies project tools. */
-export async function runDiagramChat(root: string, configValue: object, messages: { role: 'user' | 'assistant'; text: string }[], mcp?: { command: string; args: string[] }, signal?: AbortSignal, runner = runProcess, durationMs?: number, progress?: (event: Omit<CodeAiProgress, 'requestId'>) => void, context?: object): Promise<{ text: string }> {
+export async function runDiagramChat(root: string, configValue: object, messages: { role: 'user' | 'assistant'; text: string }[], mcp?: { command: string; args: string[] }, signal?: AbortSignal, runner = runProcess, durationMs?: number, progress?: (event: Omit<CodeAiProgress, 'requestId'>) => void, context?: object, checkpoint = false): Promise<{ text: string }> {
 	const config = readProviderConfig(configValue);
 	if (!config.maxCalls) { throw new Error('AI requests are disabled. Enable requests in AI Settings.'); }
 	if (!messages.length || messages.length > 60 || messages.some(message => !['user', 'assistant'].includes(message.role) || typeof message.text !== 'string')) { throw new Error('Invalid assistant conversation'); }
-	const prompt = (mcp ? diagramSessionInstruction : 'Help the user with this project and its ADE model. Read the current model before changing it. Preserve semantic IDs and valid model references. Only change files when the user asks for a change. For diagram-only requests, inspect relevant source and validate the ADE diagrams; do not run application test suites, linters or builds unless requested.') + (context ? '\nSaved project state (resume this plan; repair its blockers):\n' + JSON.stringify(context) : '') + '\nConversation:\n' + JSON.stringify(messages);
+	if (checkpoint && (!mcp || messages.length !== 1 || messages[0].role !== 'user')) { throw new Error('A diagram checkpoint requires one task request and ADE tools.'); }
+	const prompt = (mcp ? diagramSessionInstruction : 'Help the user with this project and its ADE model. Read the current model before changing it. Preserve semantic IDs and valid model references. Only change files when the user asks for a change. For diagram-only requests, inspect relevant source and validate the ADE diagrams; do not run application test suites, linters or builds unless requested.') + (checkpoint ? '\n\n' + diagramCheckpointInstruction : '') + (context ? '\nSaved project state (resume this plan; repair its blockers):\n' + JSON.stringify(context) : '') + (checkpoint ? '\nTask request:\n' : '\nConversation:\n') + JSON.stringify(messages);
 	if (Buffer.byteLength(prompt) > config.maxContextBytes) { throw new Error('This conversation exceeds the context budget. Close the assistant and open a new conversation; prepared diagrams are retained.'); }
 	const directory = await mkdtemp(join(tmpdir(), 'ade-chat-'));
 	try {
@@ -34,10 +36,10 @@ export async function runDiagramChat(root: string, configValue: object, messages
 				if (event?.type === 'error') { progress({ kind: 'waiting' }); }
 				if (['thread.started', 'turn.started'].includes(event?.type ?? '')) { progress({ kind: 'thinking' }); }
 				if (event?.item?.type === 'mcp_tool_call') { progress({ kind: 'tool', tool: event.item.tool ?? event.item.name }); }
-				if (event?.item?.type === 'agent_message' && typeof event.item.text === 'string') { progress({ kind: 'message', itemId: event.item.id ?? 'response', text: event.item.text.slice(0, 65536) }); }
+				if (event?.item?.type === 'agent_message' && typeof event.item.text === 'string') { progress({ kind: 'message', itemId: event.item.id ?? 'response', text: event.item.text.slice(0, checkpoint ? 4096 : 65536) }); }
 				if (event?.type === 'assistant' && event.message?.content) {
 					const content = event.message.content.filter(item => item.type === 'text').map(item => item.text ?? '').join('\n');
-					if (content) { progress({ kind: 'message', itemId: event.message.id ?? 'response', text: content.slice(0, 65536) }); }
+					if (content) { progress({ kind: 'message', itemId: event.message.id ?? 'response', text: content.slice(0, checkpoint ? 4096 : 65536) }); }
 				}
 			}
 		};
@@ -55,17 +57,20 @@ export async function runDiagramChat(root: string, configValue: object, messages
 			throw error;
 		}
 		if (result.code !== 0) {
-			if (/mcp.{0,100}(fail|error|timed out)|(fail|error).{0,100}mcp|registerHooks|ERR_MODULE_NOT_FOUND/is.test(result.stderr + '\n' + result.stdout)) { throw new Error('The ADE project tools could not start. Rebuild ADE and start it with Node 24.22.1, then retry. Prepared drafts are retained.'); }
-			if (/rate.?limit|quota|\b429\b/i.test(result.stderr)) { throw new Error('The assistant reached the provider quota or rate limit. Check the account limits and retry later. Prepared drafts are retained.'); }
+			const failure = result.stderr + '\n' + result.stdout;
+			if (/unauthorized|unauthenticated|not logged in|authentication.*(required|failed)|\b401\b/i.test(failure)) { throw new Error('The provider did not authorize this request. Refresh the CLI account in AI Settings and resume from the saved checkpoint.'); }
+			if (/mcp.{0,100}(fail|error|timed out)|(fail|error).{0,100}mcp|registerHooks|ERR_MODULE_NOT_FOUND/is.test(failure)) { throw new Error('The ADE project tools could not start. Rebuild ADE and start it with Node 24.22.1, then retry. Prepared drafts are retained.'); }
+			if (/rate.?limit|quota|\b429\b/i.test(failure)) { throw new Error('The assistant reached the provider quota or rate limit. Check the account limits and retry later. Prepared drafts are retained.'); }
 			throw new Error(`The assistant stopped (exit ${result.code}). Check the account and selected model in AI Settings. Prepared drafts are retained.`);
 		}
 		if (config.provider === 'codex') {
 			const events: { type?: string }[] = result.stdout.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
 			if (events.some(event => event.type === 'turn.failed') || !events.some(event => event.type === 'turn.completed')) { throw new Error('The assistant did not complete its response. Prepared drafts are retained.'); }
-			return { text: await readBoundedText(output, 2 * 1024 * 1024) };
+			const text = await readBoundedText(output, 2 * 1024 * 1024);
+			return { text: checkpoint ? text.slice(0, 4096) : text };
 		}
 		const response: { result?: string; is_error?: boolean; subtype?: string } = JSON.parse(result.stdout);
 		if (response.is_error || response.subtype !== 'success' || typeof response.result !== 'string') { throw new Error('The assistant did not complete its response. Prepared drafts are retained.'); }
-		return { text: response.result };
+		return { text: checkpoint ? response.result.slice(0, 4096) : response.result };
 	} finally { await rm(directory, { recursive: true, force: true }); }
 }

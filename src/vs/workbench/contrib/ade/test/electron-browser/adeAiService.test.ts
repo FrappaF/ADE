@@ -7,6 +7,7 @@ import assert from 'assert';
 import sinon from 'sinon';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { mock } from '../../../../../base/test/common/mock.js';
@@ -45,6 +46,7 @@ import { stateFixture, stateCriteriaFixture } from '../common/stateFixture.js';
 import { nodeOrdersFixture } from '../common/nodeOrdersFixture.js';
 import { diagramToolDefinitions } from '../../common/diagramTools.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
+import { featureCodeProfiles, type FeatureCodeGenerationRun } from '../../common/featureCodeGeneration.js';
 
 interface Choice { description?: string; value?: unknown; label?: string; id?: string; provider?: string; maxCalls?: number; picked?: boolean; send?: boolean; generate?: boolean; propose?: boolean }
 const config = { version: 1, provider: 'codex', connection: 'cli', executable: 'codex', model: 'native-model', timeoutMs: 10000, maxContextBytes: 65536, maxCalls: 2 };
@@ -74,7 +76,7 @@ suite('A.D.E native AI orchestration', () => {
 		let resolveExecutable: (executable: string) => Promise<string | undefined> = async executable => executable;
 		const opened: CodeContext[] = [];
 		let projectContext = Promise.resolve(true);
-		const code = { changed: false, ensureProjectContext: async () => projectContext, openContext: async (value: CodeContext) => { opened.push(value); }, context, onDidChange: changed.event, onDidAiProgress: aiProgress.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest) => execute(JSON.stringify(request)), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
+		const code = { changed: false, ensureProjectContext: async () => projectContext, openContext: async (value: CodeContext) => { opened.push(value); }, context, onDidChange: changed.event, onDidAiProgress: aiProgress.event, executeCollaboration: async (input: string) => execute(input), executeReconciliation: async (request: CodeRequest, token?: CancellationToken) => execute(JSON.stringify(request), token), resolveCli: (executable: string) => resolveExecutable(executable), checkCliAccount: async () => accountState };
 		const picks: ((items: readonly Choice[]) => Choice | Choice[] | undefined)[] = [];
 		const inputs: string[] = [];
 		const inputOptions: IInputOptions[] = [];
@@ -93,6 +95,8 @@ suite('A.D.E native AI orchestration', () => {
 		let exploratoryDraft: CodeDiagramExploration['proposals'][number] | undefined, exploratoryApplied = false;
 		const explorationActions: string[] = [];
 		let projectWorkflow = false;
+		let featureState: Partial<CodeDiagramExploration> | undefined;
+		let onCheckpoint: ((request: Extract<CodeRequest, { operation: 'diagramChat' }>, token: CancellationToken) => Promise<string>) | undefined;
 		let explorationBudget = { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 }, explorationBudgetStarted = Date.now();
 		const explorationBudgetRequests: typeof explorationBudget[] = [];
 		const explorationSessionIds: (string | undefined)[] = [];
@@ -141,6 +145,7 @@ suite('A.D.E native AI orchestration', () => {
 			readFile: async (resource: URI) => ({ value: VSBuffer.fromString(resource?.path.endsWith('/review-fixture.json') ? '{"changes":[{"before":null,"after":{"name":"Reviewed responsibility"}}]}' : stateData ?? '') }) });
 		stub(IFilesConfigurationService, { updateReadonly: async (resources: URI | URI[]) => { readonlyResources.push(...(Array.isArray(resources) ? resources : [resources]).map(resource => resource.toString())); } });
 		stub(IEditorService, { editors: [], onDidVisibleEditorsChange: Event.None, openEditor: async (input: object) => { editorInputs.push(input); return undefined; } });
+		stub(ITextModelService, {});
 		stub(ITerminalService, { createTerminal: async (options: { config: object }) => { if (terminalError) { throw terminalError; } terminals.push({ config: options.config }); return { focusWhenReady: async () => { await focusRequested.complete(); await terminalFocus; }, onExit: terminalExit.event }; }, setActiveInstance: () => {} });
 		stub(ITerminalGroupService, { showPanel: async () => {}, hidePanel: () => { hiddenPanels++; } });
 		stub(IChatWidgetService, { openSession: async (resource: URI) => {  const chat = { resource: resource.toString(), attachments: [] as string[], focused: false }; chats.push(chat); return { input: { setCurrentLanguageModel: (model: { identifier: string }) => selectedChatModels.push(model.identifier) }, attachmentModel: { get fileAttachments() { return attachmentFiles.get(resource.toString()) ?? []; }, delete: (id: string) => { deletedAttachments.push(id); attachmentFiles.set(resource.toString(), (attachmentFiles.get(resource.toString()) ?? []).filter(uri => uri.toString() !== id)); }, addFile: async (uri: URI) => { chat.attachments.push(uri.toString()); attachmentFiles.set(resource.toString(), [...(attachmentFiles.get(resource.toString()) ?? []), uri]); }, updateContext: (_deleted: string[], entries: { value: string }[]) => { diagramContexts.push(entries[0].value); } }, setInput: (value: string) => { chatPrompts.push(value); }, setInputPlaceholder: () => {}, focusInput: () => { chat.focused = true; } }; } });
@@ -152,11 +157,19 @@ suite('A.D.E native AI orchestration', () => {
 		stub(IWorkspaceTrustRequestService, { requestWorkspaceTrust: async () => trust ?? true });
 		const session = { id: '11111111-1111-4111-8111-111111111111', root, worktree: root + '/.ade/worktrees/fixture', reviewId: 'changes', status: 'staged', generated: { summary: 'Payment refusal', files: [{ file: 'checkout.mjs', content: 'export const result = false;' }] }, before: [{ file: 'checkout.mjs', content: 'export const result = true;' }], usage: { inputTokens: 10, outputTokens: 20 }, cost: null };
 		const pure = { observed: [{ file: '.ade/model.json', value: { content: JSON.stringify(nodeOrdersFixture), mode: 420 } }], next: { model: nodeOrdersFixture }, id: '22222222-2222-4222-8222-222222222222', root, reviewId: 'pure-review', status: 'staged', mutations: [{ file: 'src/predicate.mjs', before: null, after: { content: 'pure', mode: 420 } }], coverage: { forward: 'pure-v1' }, criteria: { cases: [{ id: 'independent' }] }, packets: [{ packet: { bytes: '{"seal":"pure"}' } }], calls: 0 };
+		const featureIds = ['purchase', 'refund'];
+		let featureRun: FeatureCodeGenerationRun = { id: 'feature-review', root, mode: 'create', profileId: 'node.esm', status: 'prepared', featureIds, tasks: featureIds.map(id => ({ id, name: id, status: 'pending', gaps: [] })), files: [] };
 		let pureAligned = false;
-		const execute = async (inputText: string) => {
+		const execute = async (inputText: string, token = CancellationToken.None) => {
 				const request: { operation: string } = JSON.parse(inputText); requests.push(request.operation);
 				switch (request.operation) {
-					case 'diagramChat': { chatRequests.push(JSON.parse(inputText)); const request = JSON.parse(inputText) as { requestId: string }; aiProgress.fire({ requestId: request.requestId, kind: 'message', itemId: 'reply', text: 'Diagrams prepared' }); return JSON.stringify({ text: 'Diagrams prepared' }); }
+					case 'diagramChat': {
+						const chat = JSON.parse(inputText) as Extract<CodeRequest, { operation: 'diagramChat' }>;
+						chatRequests.push(chat);
+						const text = chat.checkpoint && onCheckpoint ? await onCheckpoint(chat, token) : 'Diagrams prepared';
+						aiProgress.fire({ requestId: chat.requestId!, kind: 'message', itemId: 'reply', text });
+						return JSON.stringify({ text });
+					}
 					case 'exploration': {
 						const input = JSON.parse((JSON.parse(inputText) as { request: string }).request);
 						explorationActions.push(input.tool ?? input.action);
@@ -169,7 +182,7 @@ suite('A.D.E native AI orchestration', () => {
 						if (input.action === 'review') { return JSON.stringify({ sessionId: explorationId, data: { reviewId: 'whole-project-review', proposal: { id: 'whole-project-review', status: 'ready', diagnostics: [], views: checkoutModel.views.slice(0, 2) }, reviewFile: root + '/.ade/exploration/review-fixture.json', images: checkoutModel.views.slice(0, 2).map(view => ({ viewId: view.id, path: root + '/.ade/exploration/' + view.id + '.svg' })) }, diagnostics: [] }); }
 						if (input.action === 'publish' || input.action === 'publishAll') { exploratoryApplied = true; return JSON.stringify({ sessionId: explorationId, data: { snapshot: root + '/.ade/imports/published' }, diagnostics: [] }); }
 						if (input.action === 'tool') { return JSON.stringify({ sessionId: explorationId, data: input.tool === 'ade_view_preview' ? { reviewFile: root + '/.ade/exploration/review-fixture.json', images: [{ path: root + '/.ade/exploration/preview.svg', viewId: 'overview' }] } : { files: [] }, diagnostics: [] }); }
-						return JSON.stringify({ sessionId: explorationId, data: { sessionId: explorationId, model: 'chat-selected', ...(projectWorkflow ? { workflow: 'project', batch: { blockers: [] } } : {}), budget: explorationBudget, budgetWindow: { started: explorationBudgetStarted, measuredAt: Date.now(), elapsedMs: Date.now() - explorationBudgetStarted, remainingMs: Math.max(0, explorationBudget.maxDurationMs - (Date.now() - explorationBudgetStarted)) }, usage: { toolCalls: 0, readBytes: 0, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, tasks: [], proposals: exploratoryDraft ? [{ ...exploratoryDraft, status: exploratoryApplied ? 'applied' : exploratoryDraft.status }] : [], mcp: { command: 'node', args: ['adeDiagramMcp.js', root] } }, diagnostics: [] });
+						return JSON.stringify({ sessionId: explorationId, data: { sessionId: explorationId, model: featureState ? input.model ?? 'native-model' : 'chat-selected', ...(projectWorkflow ? { workflow: 'project', batch: { blockers: [] } } : {}), budget: explorationBudget, budgetWindow: { started: explorationBudgetStarted, measuredAt: Date.now(), elapsedMs: Date.now() - explorationBudgetStarted, remainingMs: Math.max(0, explorationBudget.maxDurationMs - (Date.now() - explorationBudgetStarted)) }, usage: { toolCalls: 0, readBytes: 0, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, tasks: [], proposals: exploratoryDraft ? [{ ...exploratoryDraft, status: exploratoryApplied ? 'applied' : exploratoryDraft.status }] : [], ...featureState, mcp: { command: 'node', args: ['adeDiagramMcp.js', root] } }, diagnostics: [] });
 					}
 					case 'inspect': return JSON.stringify({ ...context, snapshot: root + '/.ade/imports/published', diagramState: 'diagrams' });
 					case 'structuralPrepare': return JSON.stringify(pureAligned ? { status: 'aligned', calls: 0 } : { status: 'staged', calls: 0, session: pure });
@@ -178,6 +191,17 @@ suite('A.D.E native AI orchestration', () => {
 					case 'structuralUndo': return JSON.stringify({ ...pure, status: 'undone' });
 					case 'structuralSession': return JSON.stringify(pure);
 					case 'structuralRecover': return JSON.stringify({ ...pure, status: 'rolledBack' });
+					case 'featureImplementationInspect': return JSON.stringify({ mode: 'create', profiles: featureCodeProfiles, defaultProfileId: 'node.esm' });
+					case 'featureImplementationPrepare': case 'featureImplementationSession': return JSON.stringify(featureRun);
+					case 'featureImplementationStep': {
+						const task = featureRun.tasks.find(task => task.status === 'pending')!;
+						task.status = 'ready';
+						if (featureRun.tasks.every(task => task.status === 'ready')) { featureRun = { ...featureRun, status: 'ready', reviewId: 'sealed', files: [{ file: 'src/features/purchase.mjs', kind: 'create' }] }; }
+						return JSON.stringify(featureRun);
+					}
+					case 'featureImplementationVerify': featureRun = { ...featureRun, status: 'verified', verification: { passed: true } }; return JSON.stringify(featureRun);
+					case 'featureImplementationApply': featureRun = { ...featureRun, status: 'applied' }; return JSON.stringify(featureRun);
+					case 'featureImplementationUndo': featureRun = { ...featureRun, status: 'undone' }; return JSON.stringify(featureRun);
 					case 'prepare': return JSON.stringify({ reviewId: 'context', request: { snapshot: context.snapshot }, context: { sources: [{ file: 'checkout.mjs' }] } });
 					case 'plan': return JSON.stringify({ planId: 'plan', plan: { summary: 'Payment refusal', questions: [], steps: [{ description: 'Implement refusal' }], changes: [{ file: 'checkout.mjs', kind: 'modify', reason: 'Handle refused payments' }], tests: [{ description: 'Assert the refused-payment boundary' }], limitations: ['No behavior has been executed yet'] } });
 					case 'stage': return JSON.stringify(session);
@@ -201,6 +225,8 @@ suite('A.D.E native AI orchestration', () => {
 		const service = store.add(instantiation.createInstance(AdeAiService));
 		return { explorationBudgetRequests, setExplorationBudget: (budget: typeof explorationBudget, elapsedMs = 0) => { explorationBudget = structuredClone(budget); explorationBudgetStarted = Date.now() - elapsedMs; }, setCriteria: (value: unknown) => { stateData = JSON.stringify(value); }, pickerOptions, readonlyResources, setPureRoot: (value: string) => { pure.root = value; }, setProjectRoot: (value: URI) => { Object.assign(projectService, { projectRoot: value }); }, savedModel, contextFiles, chatRequests, prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			diagramPrepares, failDiagramPrepare: (error: Error) => { diagramPrepareError = error; },
+			setFeatureState: (state: Partial<CodeDiagramExploration>) => { incremental = true; projectWorkflow = true; featureState = state; storage.store('ade.ai.diagramModel.codex', 'native-model', StorageScope.PROFILE, StorageTarget.MACHINE); },
+			handleCheckpoint: (handler: typeof onCheckpoint) => { onCheckpoint = handler; },
 			holdProjectContext: (pending: Promise<boolean>) => { projectContext = pending; }, holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -914,6 +940,61 @@ suite('A.D.E native AI orchestration', () => {
 		await f.service.resumeDiagrams();
 		assert.deepStrictEqual([f.chats[0].resource, f.diagramTools.size], [f.chats[1].resource, diagramToolDefinitions.length]);
 	});
+	test('features run from an approved source scope with a fresh provider request at every checkpoint', async () => {
+		const f = fixture();
+		f.setFeatureState({ phase: 'discovery' });
+		f.setConfirmed(false);
+		await f.service.buildDiagrams();
+		assert.strictEqual(f.chatRequests.length, 0);
+		f.setConfirmed(true);
+		const planItems = [
+			{ id: 'checkout-view', name: 'Checkout', viewKind: 'structure' as const, intent: 'Expose checkout', rationale: 'Show checkout responsibilities', dependsOn: [], featureId: 'checkout' },
+			{ id: 'refund-view', name: 'Refund', viewKind: 'structure' as const, intent: 'Expose refund', rationale: 'Show refund responsibilities', dependsOn: ['checkout-view'], featureId: 'refund' }
+		];
+		const states: Partial<CodeDiagramExploration>[] = [
+			{ phase: 'planning', nextFeatureId: 'checkout' },
+			{ phase: 'diagrams', nextFeatureId: 'checkout', nextTaskId: 'checkout-view' },
+			{ phase: 'planning', nextFeatureId: 'refund' },
+			{ phase: 'diagrams', nextFeatureId: 'refund', nextTaskId: 'refund-view' },
+			{ phase: 'review', plan: { revision: 'ready', items: planItems }, tasks: planItems.map(item => ({ id: item.id, status: 'ready', intent: item.intent, gaps: [] })), proposals: [{ id: 'diagram-drafts', status: 'ready', diagnostics: [], views: checkoutModel.views }] }
+		];
+		f.handleCheckpoint(async () => { f.setFeatureState(states.shift()!); return 'Checkpoint recorded'; });
+		await f.service.resumeDiagrams();
+		assert.deepStrictEqual([states.length, f.chatRequests.length, f.dialogs.length, f.service.diagramExploration?.phase, f.service.diagramActivity?.length], [0, 5, 0, 'review', 5]);
+		assert.ok(f.chatRequests.every(request => request.checkpoint && request.messages.length === 1 && !request.messages[0].text.includes('Checkpoint recorded')));
+		assert.ok(f.dialogDetails.at(-1)?.includes('Imported source scope · Included 1 · Excluded 0'));
+		assert.equal(f.explorationActions.includes('publishAll'), false);
+	});
+
+	test('the inline Stop action cancels only the active request and a clarification can resume the checkpoint', async () => {
+		const f = fixture(), started = new DeferredPromise<void>();
+		f.setFeatureState({ phase: 'discovery' });
+		let cancelled = false;
+		f.handleCheckpoint(async (_request, token) => new Promise<string>(resolve => {
+			store.add(token.onCancellationRequested(() => { cancelled = true; resolve('Stopped'); }));
+			void started.complete();
+		}));
+		const generating = f.service.buildDiagrams();
+		await started.p;
+		assert.equal(f.service.generatingDiagrams, true);
+		f.service.stopDiagramExploration();
+		await generating;
+		assert.deepStrictEqual([cancelled, f.service.generatingDiagrams, f.chatRequests.length, f.dialogs.length], [true, false, 1, 0]);
+		assert.match(f.service.diagramExplorationIssue!, /Saved Step/);
+		f.handleCheckpoint(async () => 'CLARIFICATION: Are refunds supported?');
+		await f.service.resumeDiagrams();
+		assert.equal(f.service.diagramClarification, 'Are refunds supported?');
+		f.inputs.push('Refunds are supported.');
+		f.handleCheckpoint(async request => {
+			assert.ok(request.messages[0].text.includes('Refunds are supported.'));
+			f.setFeatureState({ phase: 'review' });
+			return 'Accepted';
+		});
+		await f.service.clarifyDiagramExploration();
+		assert.equal(f.service.diagramClarification, undefined);
+		assert.deepStrictEqual([f.dialogDetails.length, f.chatRequests.length], [1, 3]);
+	});
+
 	test('adding exploration budget preserves unused capacity, remaining time and consumption without starting a provider', async () => {
 		const f = fixture(true, 'codex', 0); f.prepareProjectReview();
 		f.setExplorationBudget({ maxToolCalls: 400, maxReadBytes: 8388608, maxDurationMs: 5400000, maxModelTurns: 32 }, 600000);
@@ -1106,6 +1187,21 @@ suite('A.D.E native AI orchestration', () => {
 		await f.service.chat();
 		assert.equal(f.dialogs.at(-1)!.prompt, '');
 		assert.equal(f.service.diagramExploration?.proposals[0].status, 'applied');
+	});
+
+	test('diagram-to-code orchestration stages serial features before independent verification and review apply', async () => {
+		const f = fixture();
+		const setup = await f.service.inspectCodeGeneration();
+		assert.strictEqual(setup?.mode, 'create');
+		await f.service.prepareCodeGeneration({ profileId: 'node.esm', featureIds: ['purchase', 'refund'] });
+		assert.deepStrictEqual(f.service.codeGeneration?.tasks.map(task => [task.id, task.status]), [['purchase', 'ready'], ['refund', 'ready']]);
+		await f.service.applyCodeGeneration();
+		assert.strictEqual(f.service.codeGeneration?.status, 'ready');
+		await f.service.verifyCodeGeneration();
+		await f.service.applyCodeGeneration();
+		assert.strictEqual(f.service.codeGeneration?.status, 'applied');
+		await f.service.undoCodeGeneration();
+		assert.deepStrictEqual([f.service.codeGeneration?.status, f.requests.filter(request => request.startsWith('featureImplementation')), f.errors], ['undone', ['featureImplementationInspect', 'featureImplementationPrepare', 'featureImplementationStep', 'featureImplementationStep', 'featureImplementationVerify', 'featureImplementationApply', 'featureImplementationUndo'], []]);
 	});
 
 	for (const native of [false, true]) {

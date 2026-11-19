@@ -7,6 +7,7 @@ import { readSemanticModel, validateSemanticModel } from './modelValidation.js';
 import { type CodeMapping, type EvidenceRecord, type Knowledge, type ModelAssertion, type ModelDiagnostic, type ModelFrame, type ModelInteraction, type ModelOccurrence, type ModelView, type SemanticElement, type SemanticModelV4, type SemanticRelation } from './modelTypes.js';
 import { canonicalJson, modelDigest, semanticContent } from './modelSerialization.js';
 import { arrangeExplorationView, inspectDiagramQuality } from './diagramPreview.js';
+import { diagramIdentityDiagnostics } from './diagramIdentity.js';
 
 /** Temporary references start with @ and are resolved only inside one transaction. */
 export type DiagramCommand =
@@ -90,6 +91,20 @@ function entryRevision(collection: Collection, entry: Entry): string {
 }
 export function diagramModelRevision(model: SemanticModelV4): Promise<string> { return modelDigest(canonicalJson(semanticContent(model))); }
 
+function identityDiagnostics(model: SemanticModelV4, candidate: SemanticModelV4, patch: ModelPatch[], checkUnanchored: boolean): ModelDiagnostic[] {
+	const elements = new Set<string>(), relations = new Set<string>();
+	for (const change of patch) {
+		if (change.collection === 'elements') { elements.add(change.id); }
+		else if (change.collection === 'relations') { relations.add(change.id); }
+		else if (change.collection === 'ownership' && change.value) { elements.add((change.value as SemanticModelV4['foundation']['ownership'][number]).elementId); }
+		else if (change.collection === 'assertions' && change.value) {
+			const assertion = change.value as ModelAssertion;
+			if (assertion.subject.kind === 'element' && (assertion.field === '/name' || assertion.field === '/kind')) { elements.add(assertion.subject.id); }
+		}
+	}
+	return diagramIdentityDiagnostics(model, candidate, { elements, relations, checkUnanchored });
+}
+
 /** Resolve stable IDs once and validate the whole candidate before offering a preview. */
 export async function proposeDiagramModel(model: SemanticModelV4, request: DiagramProposalRequest, evidence: EvidenceRecord[], allocate: () => string = () => globalThis.crypto.randomUUID(), reserved?: DiagramProposal): Promise<DiagramProposal> {
 	if (model.version !== 5 || await diagramModelRevision(model) !== request.baseSemanticRevision) { throw new Error('staleSemanticRevision'); }
@@ -172,6 +187,7 @@ export async function proposeDiagramModel(model: SemanticModelV4, request: Diagr
 		if (!found) { throw new Error('unknownReadObject:' + id); }
 	}
 	const diagnostics = validateSemanticModel(candidate);
+	if (!diagnostics.some(diagnostic => diagnostic.severity === 'error')) { diagnostics.push(...identityDiagnostics(model, candidate, patch, true)); }
 	if (!diagnostics.some(diagnostic => diagnostic.severity === 'error')) { for (const view of candidate.views.filter(view => patch.some(patch => patch.collection === 'views' && patch.id === view.id))) { for (const quality of inspectDiagramQuality(candidate, view)) { diagnostics.push({ code: 'contract', severity: quality.severity, path: '/views/' + view.id, args: [quality.level, quality.code, quality.objectId] }); } } }
 	return { version: 2, id: request.proposalId, fingerprint: await modelDigest(canonicalJson(request)), baseSemanticRevision: request.baseSemanticRevision, aliases, redirects, readSet, readEvidenceIds: [...usedEvidence], queryIds: [...request.queryIds], patch, diagnostics, status: diagnostics.some(entry => entry.severity === 'error') ? 'invalid' : 'ready' };
 }
@@ -194,5 +210,8 @@ export function applyDiagramProposal(model: SemanticModelV4, proposal: DiagramPr
 		}
 		replace(candidate, patch.collection, value);
 	}
-	return readSemanticModel(candidate) as SemanticModelV4;
+	const validated = readSemanticModel(candidate) as SemanticModelV4;
+	const duplicate = identityDiagnostics(model, validated, proposal.patch, false)[0];
+	if (duplicate) { throw new Error(duplicate.args.join(':')); }
+	return validated;
 }

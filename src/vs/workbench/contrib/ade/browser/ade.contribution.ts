@@ -165,6 +165,17 @@ registerAction2(class extends Action2 {
 CommandsRegistry.registerCommandAlias('ade.returnToDiagram', 'ade.showDiagram');
 
 registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.ai.prepareReviewedCode', title: localize2('ade.featureCode.command', "A.D.E: Prepare Reviewed Code from Diagrams"), f1: true }); }
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const project = accessor.get(IAdeProjectService);
+		const editorService = accessor.get(IEditorService);
+		await project.restore();
+		const pane = await editorService.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
+		if (pane instanceof AdeEditor) { await pane.prepareReviewedCodeFromDiagrams(); }
+	}
+});
+
+registerAction2(class extends Action2 {
 	constructor() { super({ id: 'ade.openModel', title: localize2('ade.openModel', "A.D.E: Open Model"), f1: true }); }
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const project = accessor.get(IAdeProjectService);

@@ -6,7 +6,8 @@
 Dependencies: python3 -m pip install Markdown reportlab
 Fonts: Liberation Sans and Liberation Mono (or pass --font-dir).
 Run from any directory; only the generated files in --guide-dir are replaced.
-The original snapshots and example archive are never changed by this script.
+Use --rebuild-examples to package the repository's guide fixtures before exporting.
+The original snapshots are never changed by this script.
 """
 
 import argparse
@@ -130,7 +131,7 @@ def build_html(guide_dir, root, headings, description, edition, revision):
 		'DESCRIPTION': html.escape(description),
 		'TOC': ''.join(toc),
 		'CONTENT': '\n'.join(content),
-		'FOOTER': html.escape(f'Edizione {edition}. Riferimento software: main {revision}. '
+		'FOOTER': html.escape(f'Edizione {edition}. Software di riferimento · {revision}. '
 			'Procedure e limiti delle verifiche sono descritti nel rapporto di revisione.'),
 	}
 	for key, value in values.items():
@@ -225,7 +226,7 @@ def build_pdf(guide_dir, root, headings, description, edition, revision, font_di
 		Paragraph('Guida completa', styles['GuideH1']),
 		Paragraph('Tour di Bottega Ordini<br/>Laboratorio Mercato da zero<br/>Atlante dei 16 diagrammi', styles['GuideH3']),
 		Spacer(1, 28), Paragraph(f'Edizione {html.escape(edition)}', styles['GuideBody']),
-		Paragraph(f'Riferimento software: main {html.escape(revision)}.', styles['GuideBody']),
+		Paragraph(f'Software di riferimento · {html.escape(revision)}.', styles['GuideBody']),
 		Paragraph('Progettazione, contratti, simulazioni e review locali. '
 			'Prerequisiti e limiti delle verifiche accompagnano il percorso.', styles['GuideBody']), PageBreak(),
 		Paragraph('Indice', styles['GuideH2'])]
@@ -307,21 +308,44 @@ def build_pdf(guide_dir, root, headings, description, edition, revision, font_di
 	doc.multiBuild(story)
 
 
+def write_archive(destination, source, files, prefix):
+	with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+		for path in files:
+			archive.write(path, prefix + path.relative_to(source).as_posix())
+	with zipfile.ZipFile(destination) as archive:
+		if archive.testzip() is not None:
+			raise RuntimeError(f'Archive CRC check failed: {destination}')
+		for path in files:
+			if archive.read(prefix + path.relative_to(source).as_posix()) != path.read_bytes():
+				raise RuntimeError(f'Archive differs from source: {path}')
+
+
+def build_examples(guide_dir):
+	source = ROOT / 'ade/examples/guida'
+	project_files = {'model.json', 'criteria.json', 'feature-code-cases.json'}
+	files = []
+	for path in sorted(source.rglob('*')):
+		if not path.is_file() or path.is_symlink():
+			continue
+		parts = path.relative_to(source).parts
+		hidden = [part for part in parts if part.startswith('.')]
+		if 'node_modules' in parts:
+			continue
+		if not hidden or hidden == ['.gitignore'] or (
+			hidden == ['.ade'] and parts[-2] == '.ade' and path.name in project_files
+		):
+			files.append(path)
+	write_archive(guide_dir / 'progetti-esempio.zip', source, files, 'ADE-Progetti-Esempio/')
+	print(f'Examples verified: {len(files)} files.')
+
+
 def build_kit(guide_dir):
 	files = [guide_dir / name for name in ['INIZIA-QUI.txt', 'README.md', 'Guida-ADE.html',
 		'Guida-ADE.pdf', 'progetti-esempio.zip', 'VERIFICA-LABORATORIO.md']]
 	for pattern in ['RAPPORTO*.md', 'REVISIONE*.md']:
 		files.extend(path for path in sorted(guide_dir.glob(pattern)) if path not in files)
 	files.extend(sorted((guide_dir / 'immagini').glob('*.png')))
-	with zipfile.ZipFile(guide_dir / 'ADE-kit-utente.zip', 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-		for path in files:
-			archive.write(path, 'ADE-Guida/' + path.relative_to(guide_dir).as_posix())
-	with zipfile.ZipFile(guide_dir / 'ADE-kit-utente.zip') as archive:
-		if archive.testzip() is not None:
-			raise RuntimeError('Kit CRC check failed')
-		for path in files:
-			if archive.read('ADE-Guida/' + path.relative_to(guide_dir).as_posix()) != path.read_bytes():
-				raise RuntimeError(f'Kit differs from source: {path}')
+	write_archive(guide_dir / 'ADE-kit-utente.zip', guide_dir, files, 'ADE-Guida/')
 	print(f'Kit verified: {len(files)} files; original snapshots excluded.')
 
 
@@ -329,15 +353,18 @@ def main():
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument('--guide-dir', type=Path, default=ROOT / 'ade/docs/guida-utente')
 	parser.add_argument('--edition', default='17 novembre 2026')
-	parser.add_argument('--revision', required=True, help='Exact reference software revision, not the generated-document commit.')
+	parser.add_argument('--revision', required=True, help='Version or revision of the software described in the guide.')
 	parser.add_argument('--font-dir', type=Path, default=next((path for path in
 		[Path('/usr/share/fonts/truetype/liberation2'), Path('/usr/share/fonts/truetype/liberation')]
 		if path.is_dir()), Path('/usr/share/fonts/truetype/liberation2')))
 	parser.add_argument('--kit-only', action='store_true', help='Refresh the kit after editing the review report, without exporting again.')
+	parser.add_argument('--rebuild-examples', action='store_true', help='Package the guide fixtures from ade/examples/guida.')
 	args = parser.parse_args()
+	if args.rebuild_examples:
+		build_examples(args.guide_dir)
 	if not args.kit_only:
 		root, headings = read_source(args.guide_dir)
-		description = f'Guida utente ADE; riferimento main {args.revision}; revisione {args.edition}.'
+		description = f'Guida utente ADE. Software di riferimento · {args.revision}. Revisione {args.edition}.'
 		# HTML embeds images, so build PDF first while its input still has local image paths.
 		build_pdf(args.guide_dir, root, headings, description, args.edition, args.revision, args.font_dir)
 		build_html(args.guide_dir, root, headings, description, args.edition, args.revision)
