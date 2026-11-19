@@ -203,6 +203,67 @@ export function notationNodeSize(element: SemanticElement): { width: number; hei
 	return { width, height: Math.max(96, 60 + Math.ceil(element.name.length / columns) * 20 + lines.reduce((rows, line) => rows + Math.ceil(line.length / columns), 0) * 22) };
 }
 
+export function diagramBoxesOverlap(a: DiagramBox, b: DiagramBox, clearance = 0): boolean {
+	return a.x < b.x + b.width + clearance && b.x < a.x + a.width + clearance
+		&& a.y < b.y + b.height + clearance && b.y < a.y + a.height + clearance;
+}
+
+/** Advance past occupied boxes on one axis, retaining the other coordinate. */
+export function findUnoccupiedDiagramPosition(preferred: DiagramPoint, size: NodeSize, boxes: readonly DiagramBox[], { axis = 'x', direction = 1, clearance = 24 }: { axis?: 'x' | 'y'; direction?: 1 | -1; clearance?: number } = {}): DiagramPoint {
+	const point = { x: preferred.x, y: preferred.y };
+	const extent = axis === 'x' ? 'width' : 'height';
+	for (;;) {
+		const collision = boxes.find(box => diagramBoxesOverlap({ ...point, ...size }, box, clearance));
+		if (!collision) { return point; }
+		point[axis] = direction === 1 ? collision[axis] + collision[extent] + clearance * 2 : collision[axis] - size[extent] - clearance * 2;
+	}
+}
+
+/** Retain the current layout and fit only added nodes around its actual geometry. */
+export function placeDiagramAdditions(model: SemanticModel, view: ModelView, retained: ReadonlyMap<string, ModelView['nodes'][number]>): ModelView['nodes'] {
+	if (!retained.size || view.nodes.every(node => retained.has(node.elementId)) || view.kind === 'sequence' || view.kind === 'activity' && view.interactionId) {
+		return view.nodes.map(node => retained.get(node.elementId) ?? node);
+	}
+	const elements = new Map(model.semantics.elements.map(element => [element.id, element]));
+	const enclosures = notationBoundaries(model, view);
+	const groups = new Map(enclosures.map(boundary => [boundary.elementId, notationGroupMembers(model, view, boundary.elementId)]));
+	const positioned = [...retained.values()];
+	const boxes = positioned.filter(node => !groups.has(node.elementId)).map(node => ({ ...node, ...notationNodeSize(elements.get(node.elementId)!) }));
+	return view.nodes.map(node => {
+		const previous = retained.get(node.elementId);
+		if (previous) { return previous; }
+		if (groups.has(node.elementId)) { positioned.push(node); return node; }
+		const size = notationNodeSize(elements.get(node.elementId)!);
+		const containsNode = (id: string) => groups.get(id)?.has(node.elementId);
+		const currentBoundaries = groups.size ? notationBoundaries(model, { ...view, nodes: positioned }) : [];
+		const foreignBoundaries = currentBoundaries.filter(boundary => !containsNode(boundary.elementId));
+		const obstacles = [...boxes, ...foreignBoundaries];
+		const enclosed = [...groups.keys()].some(containsNode);
+		const clearance = enclosed ? boundaryPadding.top : undefined;
+		const positions = [findUnoccupiedDiagramPosition(node, size, obstacles, { clearance }), findUnoccupiedDiagramPosition(node, size, obstacles, { clearance, axis: 'y' })];
+		if (enclosed) {
+			// Try the existing interior as well. Growing an enclosure across an external card is also a collision.
+			const origins = currentBoundaries.filter(boundary => containsNode(boundary.elementId)).map(boundary => ({ x: boundary.x + boundaryPadding.inline, y: boundary.y + boundaryPadding.top }));
+			for (const origin of [node, ...origins]) {
+				for (const axis of ['x', 'y'] as const) {
+					positions.push(findUnoccupiedDiagramPosition(origin, size, obstacles, { clearance, axis, direction: -1 }));
+					if (origin !== node) { positions.push(findUnoccupiedDiagramPosition(origin, size, obstacles, { clearance, axis })); }
+				}
+			}
+		}
+		const distance = (point: DiagramPoint) => Math.abs(point.x - node.x) + Math.abs(point.y - node.y);
+		positions.sort((a, b) => distance(a) - distance(b));
+		const position = (enclosed && positions.find(point => {
+			const expanded = notationBoundaries(model, { ...view, nodes: [...positioned, { elementId: node.elementId, ...point }] });
+			return expanded.every(boundary => !containsNode(boundary.elementId) || !boxes.some(box => !groups.get(boundary.elementId)!.has(box.elementId) && diagramBoxesOverlap(boundary, box)));
+		})) || positions[0];
+		const placed = { ...node, ...position };
+		positioned.push(placed);
+		boxes.push({ ...placed, ...size });
+		return placed;
+	});
+}
+
 function encloseBoundary(boxes: readonly DiagramBox[]): DiagramBox {
 	const x = Math.min(...boxes.map(box => box.x)) - boundaryPadding.inline;
 	const y = Math.min(...boxes.map(box => box.y)) - boundaryPadding.top;

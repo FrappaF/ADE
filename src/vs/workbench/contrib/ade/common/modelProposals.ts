@@ -7,6 +7,7 @@ import { readSemanticModel, validateSemanticModel } from './modelValidation.js';
 import { type CodeMapping, type EvidenceRecord, type Knowledge, type ModelAssertion, type ModelDiagnostic, type ModelFrame, type ModelInteraction, type ModelOccurrence, type ModelView, type SemanticElement, type SemanticModelV4, type SemanticRelation } from './modelTypes.js';
 import { canonicalJson, modelDigest, semanticContent } from './modelSerialization.js';
 import { arrangeExplorationView, inspectDiagramQuality } from './diagramPreview.js';
+import { placeDiagramAdditions } from './diagramLayout.js';
 import { diagramIdentityDiagnostics } from './diagramIdentity.js';
 
 /** Temporary references start with @ and are resolved only inside one transaction. */
@@ -164,8 +165,9 @@ export async function proposeDiagramModel(model: SemanticModelV4, request: Diagr
 			if (command.viewKind === 'activity' && view.relationIds.length) { throw new Error('activityOrderMustComeFromScenario'); }
 			if (view.nodes.some(node => !candidate.semantics.elements.some(element => element.id === node.elementId))) { throw new Error('missingViewElement'); }
 			replace(candidate, 'views', view);
+			const retained = new Map(previous?.nodes.filter(node => nodes.includes(node.elementId)).map(node => [node.elementId, node]));
 			const arranged = arrangeExplorationView(candidate, view);
-			view.nodes = arranged.map(node => previous?.nodes.find(old => old.elementId === node.elementId) ?? node);
+			view.nodes = placeDiagramAdditions(candidate, { ...view, nodes: arranged }, retained);
 		}
 	}
 	for (const id of usedEvidence) {
@@ -205,7 +207,12 @@ export function applyDiagramProposal(model: SemanticModelV4, proposal: DiagramPr
 		if (patch.collection === 'views' && previous) {
 			const view = value as ModelView, live = previous as ModelView;
 			const redirect = (id: string): string => { for (let count = 0; proposal.redirects?.[id] && count < 48; count++) { id = proposal.redirects[id]; } return id; };
-			view.nodes = view.nodes.map(node => live.nodes.find(old => old.elementId === node.elementId) ?? (() => { const source = live.nodes.find(old => redirect(old.elementId) === node.elementId); return source ? { ...source, elementId: node.elementId } : node; })());
+			const retained = new Map<string, ModelView['nodes'][number]>();
+			for (const { elementId } of view.nodes) {
+				const source = live.nodes.find(old => old.elementId === elementId) ?? live.nodes.find(old => redirect(old.elementId) === elementId);
+				if (source) { retained.set(elementId, { ...source, elementId }); }
+			}
+			view.nodes = placeDiagramAdditions(candidate, view, retained);
 			if (view.spec && live.spec) { view.spec.layoutRevision = live.spec.layoutRevision; view.spec.manualIds = [...new Set([...view.spec.manualIds, ...live.spec.manualIds.map(redirect)])].filter(id => view.nodes.some(node => node.elementId === id)); }
 		}
 		replace(candidate, patch.collection, value);

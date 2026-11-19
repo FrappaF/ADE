@@ -7,7 +7,7 @@ import { projectDescriptiveActivity } from './descriptiveActivity.js';
 import { notationRelationLabel } from './modelNotation.js';
 import { scenarioUnorderedOccurrences } from './modelScenario.js';
 import { type ModelView, type SemanticElement, type SemanticModelV4 } from './modelTypes.js';
-import { arrangeDiagram, notationLines, notationBoundaries, notationGroupMembers, notationNodeSize, wrapDiagramText } from './diagramLayout.js';
+import { arrangeDiagram, diagramBoxesOverlap, notationLines, notationBoundaries, notationGroupMembers, notationNodeSize, wrapDiagramText } from './diagramLayout.js';
 import { describeModelInteraction } from './modelInteractions.js';
 import { deploymentBoundaryHeader, routeDiagramConnections, placeConnectionLabel, type DiagramBox } from './diagramRouting.js';
 
@@ -48,12 +48,11 @@ export function inspectDiagramQuality(model: SemanticModelV4, view: ModelView): 
 	}
 	const diagnostics: DiagramQualityDiagnostic[] = [], boundaries = notationBoundaries(model, view), boundaryIds = new Set(boundaries.map(boundary => boundary.elementId));
 	const boxes = view.nodes.filter(node => !boundaryIds.has(node.elementId)).map(node => ({ ...node, ...notationNodeSize(model.semantics.elements.find(element => element.id === node.elementId)!) }));
-	const overlaps = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 	if (view.kind !== 'sequence') {
-		for (const [index, box] of boxes.entries()) { for (const other of boxes.slice(index + 1)) { if (overlaps(box, other)) { diagnostics.push({ level: 'readability', code: 'nodeOverlap', objectId: box.elementId, severity: 'warning' }); } } }
+		for (const [index, box] of boxes.entries()) { for (const other of boxes.slice(index + 1)) { if (diagramBoxesOverlap(box, other)) { diagnostics.push({ level: 'readability', code: 'nodeOverlap', objectId: box.elementId, severity: 'warning' }); } } }
 		for (const boundary of boundaries) {
 			const members = notationGroupMembers(model, view, boundary.elementId);
-			for (const box of boxes.filter(box => !members.has(box.elementId))) { if (overlaps(boundary, box)) { diagnostics.push({ level: 'readability', code: 'foreignElementInsideBoundary', objectId: box.elementId, severity: 'error' }); } }
+			for (const box of boxes.filter(box => !members.has(box.elementId))) { if (diagramBoxesOverlap(boundary, box)) { diagnostics.push({ level: 'readability', code: 'foreignElementInsideBoundary', objectId: box.elementId, severity: 'error' }); } }
 		}
 		const routingBoxes = view.nodes.map(node => {
 			const boundary = boundaries.find(boundary => boundary.elementId === node.elementId);

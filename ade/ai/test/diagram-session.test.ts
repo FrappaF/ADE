@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { defaultProjectDiagramExplorationBudget, getProjectDiagramExplorationBudget, isDiagramExplorationBudget, maximumDiagramExplorationBudget, minimumDiagramExplorationBudget, projectDiagramBudgetPresets, type DiagramExplorationBudget } from '../../../src/vs/workbench/contrib/ade/common/diagramExplorationBudget.ts';
+import type { SemanticModelV4 } from '../../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 const { executeDiagramExploration, readExplorationSession } = await import('../diagramSession.ts');
 const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
 const { active, managed, atomicJson } = await import('../../runtime/projectStore.ts');
@@ -294,6 +295,31 @@ test('C4 preview keeps an external system outside the owned container boundary',
 	assert.deepEqual(inspectDiagramQuality(candidate, candidate.views[0]), []);
 });
 
+test('adding a container to an existing C4 view keeps the retained external system outside the boundary', async () => {
+	const model: SemanticModelV4 = {
+		version: 5, id: 'c4-update', name: 'C4 update', codeMappings: [], verifications: [],
+		foundation: { ...emptyFoundation(), ownership: [
+			{ id: 'owns-web', ownerId: 'system', elementId: 'web', role: 'architecture' },
+			{ id: 'owns-worker', ownerId: 'system', elementId: 'worker', role: 'architecture' },
+		] },
+		semantics: {
+			elements: [
+				{ id: 'system', kind: 'system', name: 'Service', scope: 'governed' }, { id: 'web', kind: 'container', name: 'Web' },
+				{ id: 'worker', kind: 'container', name: 'Worker' }, { id: 'external', kind: 'system', name: 'External', scope: 'external' },
+			],
+			relations: [{ id: 'queues-work', kind: 'dependency', from: 'web', to: 'worker', name: 'Queues work' }],
+		},
+		views: [{ id: 'containers', name: 'Containers', kind: 'c4Container', subjectId: 'system', contextIds: ['external'], nodes: [{ elementId: 'system', x: 0, y: 0 }, { elementId: 'web', x: 0, y: 0 }, { elementId: 'external', x: 280, y: 0 }], relationIds: [] }],
+	};
+	const proposal = await proposeDiagramModel(model, {
+		proposalId: 'include-worker', baseSemanticRevision: await diagramModelRevision(model), readEvidenceIds: [], readObjectIds: [], queryIds: [],
+		commands: [{ kind: 'view', ref: 'containers', name: 'Containers', viewKind: 'c4Container', intent: 'Include the worker', elementIds: ['system', 'web', 'external', 'worker'], relationIds: ['queues-work'] }],
+	}, []);
+	assert.deepEqual(proposal.diagnostics, []);
+	const updated = applyDiagramProposal(model, proposal), view = updated.views[0];
+	assert.deepEqual([view.nodes.filter(node => node.elementId !== 'worker'), inspectDiagramQuality(updated, view)], [model.views[0].nodes, []]);
+});
+
 
 test('a layout edit made during review survives applying a changed view specification', async t => {
 	const f = await fixture(t), read = await readSource(f), request = proposalRequest(read.semanticRevision, read.data.evidence.id);
@@ -307,6 +333,33 @@ test('a layout edit made during review survives applying a changed view specific
 	const applied = await executeDiagramExploration(snapshot.directory, { action: 'publish', sessionId: f.opened.sessionId, proposalId: change.data.proposalId });
 	const result = await readSnapshot(applied.data.snapshot);
 	assert.deepEqual([result.model.views[0].name, result.model.views[0].nodes[0].x, result.model.views[0].spec.layoutRevision], ['Revised overview', 1777, 'manual-after-review']);
+});
+
+test('adding a node to an existing view keeps retained positions clear in the draft and on replay', async () => {
+	const model: SemanticModelV4 = {
+		version: 5, id: 'shop', name: 'Shop', codeMappings: [], verifications: [], foundation: emptyFoundation(),
+		semantics: {
+			elements: [{ id: 'api', kind: 'component', name: 'API' }, { id: 'store', kind: 'resource', name: 'Storage' }, { id: 'client', kind: 'actor', name: 'HTTP Client' }],
+			relations: [{ id: 'uses-api', kind: 'dependency', from: 'client', to: 'api', name: 'Uses the API' }],
+		},
+		views: [{ id: 'overview', name: 'Responsibilities', kind: 'structure', nodes: [{ elementId: 'api', x: 528, y: 0 }, { elementId: 'store', x: 0, y: 0 }], relationIds: [], spec: { revision: 'initial', intent: 'API and storage', projectionRevision: 'initial', layoutRevision: 'initial', manualIds: ['api'] } }],
+	};
+	const proposal = await proposeDiagramModel(model, {
+		proposalId: 'include-client', baseSemanticRevision: await diagramModelRevision(model), readEvidenceIds: [], readObjectIds: [], queryIds: [],
+		commands: [{ kind: 'view', ref: 'overview', name: 'Responsibilities', viewKind: 'structure', intent: 'Include the HTTP client', elementIds: ['client', 'api', 'store'], relationIds: ['uses-api'] }],
+	}, []);
+	assert.deepEqual(proposal.diagnostics, []);
+	const draft = applyDiagramProposal(model, proposal), draftView = draft.views[0];
+	const retained = (view: typeof draftView) => view.nodes.filter(node => node.elementId !== 'client');
+	assert.deepEqual(retained(draftView), model.views[0].nodes);
+
+	const live = structuredClone(model), liveView = live.views[0];
+	const client = draftView.nodes.find(node => node.elementId === 'client')!;
+	liveView.nodes[1] = { elementId: 'store', x: client.x, y: client.y };
+	liveView.spec!.layoutRevision = 'manual-after-review';
+	liveView.spec!.manualIds.push('store');
+	const replayed = applyDiagramProposal(live, proposal), replayedView = replayed.views[0];
+	assert.deepEqual([retained(replayedView), replayedView.spec!.layoutRevision, inspectDiagramQuality(replayed, replayedView)], [liveView.nodes, 'manual-after-review', []]);
 });
 
 test('a changed source invalidates resolved coverage without blocking a fresh independent proposal', async t => {

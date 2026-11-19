@@ -6,7 +6,7 @@
 import { readSemanticDraft, readSemanticModel } from './modelValidation.js';
 import { type ModelView, type SemanticModel } from './modelTypes.js';
 import { acceptsNotationRelation } from './modelNotation.js';
-import { notationNodeSize } from './diagramLayout.js';
+import { findUnoccupiedDiagramPosition, notationNodeSize } from './diagramLayout.js';
 import { getDiagramGroups } from './visualNavigation.js';
 
 export function upgradeVisualModel(model: SemanticModel): SemanticModel {
@@ -65,17 +65,12 @@ export function getAvailableDiagramRelations(model: SemanticModel, view: ModelVi
 export function includeElement(view: ModelView, id: string, model?: SemanticModel): void {
 	if (!view.nodes.some(node => node.elementId === id)) {
 		const index = view.nodes.length;
-		const point = { x: view.kind === 'sequence' ? index * 260 : (index % 3) * 260, y: view.kind === 'sequence' ? 0 : Math.floor(index / 3) * 180 };
+		let point = { x: view.kind === 'sequence' ? index * 260 : (index % 3) * 260, y: view.kind === 'sequence' ? 0 : Math.floor(index / 3) * 180 };
 		const element = model?.semantics.elements.find(element => element.id === id);
 		if (model && element && view.kind !== 'sequence') {
 			const size = notationNodeSize(element);
 			const boxes = view.nodes.flatMap(node => { const element = model.semantics.elements.find(element => element.id === node.elementId); return element ? [{ ...node, ...notationNodeSize(element) }] : []; });
-			// Move only the new card past collisions; authored positions stay unchanged.
-			while (true) {
-				const collision = boxes.find(box => point.x < box.x + box.width + 24 && point.x + size.width + 24 > box.x && point.y < box.y + box.height + 24 && point.y + size.height + 24 > box.y);
-				if (!collision) { break; }
-				point.x = collision.x + collision.width + 48;
-			}
+			point = findUnoccupiedDiagramPosition(point, size, boxes);
 		}
 		view.nodes.push({ elementId: id, ...point });
 	}
