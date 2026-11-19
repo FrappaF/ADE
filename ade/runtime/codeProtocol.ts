@@ -3,12 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { adeCodeProtocolVersion, type CodeBridgeProtocol, type CodeRequest } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
+import { adeCodeProtocolVersion, maxDiagramCheckpointTimeoutMinutes, type CodeBridgeProtocol, type CodeRequest } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 
 const nonempty = { type: 'string', minLength: 1 };
 
 const requestSchemas = [
-	{ type: 'object', additionalProperties: false, required: ['operation', 'root', 'config', 'messages'], dependentRequired: { snapshot: ['sessionId'], sessionId: ['snapshot'], checkpoint: ['snapshot', 'sessionId'] }, properties: { operation: { const: 'diagramChat' }, requestId: nonempty, root: nonempty, snapshot: nonempty, sessionId: nonempty, checkpoint: { const: true }, config: nonempty, messages: { type: 'array', minItems: 1, maxItems: 60, items: { type: 'object', additionalProperties: false, required: ['role', 'text'], properties: { role: { enum: ['user', 'assistant'] }, text: nonempty } } } } },
+	{
+		type: 'object', additionalProperties: false, required: ['operation', 'root', 'config', 'messages'],
+		dependentRequired: { snapshot: ['sessionId'], sessionId: ['snapshot'], checkpoint: ['snapshot', 'sessionId'], checkpointTimeoutMinutes: ['checkpoint'] },
+		properties: {
+			operation: { const: 'diagramChat' }, requestId: nonempty, root: nonempty, snapshot: nonempty, sessionId: nonempty,
+			checkpoint: { const: true }, checkpointTimeoutMinutes: { type: 'integer', minimum: 1, maximum: maxDiagramCheckpointTimeoutMinutes }, config: nonempty,
+			messages: { type: 'array', minItems: 1, maxItems: 60, items: { type: 'object', additionalProperties: false, required: ['role', 'text'], properties: { role: { enum: ['user', 'assistant'] }, text: nonempty } } }
+		}
+	},
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'request'], properties: { operation: { const: 'exploration' }, snapshot: nonempty, request: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'root'], properties: { operation: { const: 'import' }, root: nonempty, modelFile: nonempty, scope: { type: 'object' }, syntaxOnly: { type: 'boolean' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot'], properties: { operation: { enum: ['inspect', 'preview', 'history'] }, snapshot: nonempty, inventoryOnly: { type: 'boolean' }, scope: { type: 'object' }, renames: { type: 'array' }, resolutions: { type: 'array', maxItems: 1000, items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },

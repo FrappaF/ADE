@@ -6,7 +6,9 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 13;
+export const adeCodeProtocolVersion = 14;
+export const defaultDiagramCheckpointTimeoutMinutes = 20;
+export const maxDiagramCheckpointTimeoutMinutes = 90;
 export interface CodeAiProgress { requestId: string; kind: 'connecting' | 'thinking' | 'waiting' | 'tool' | 'message'; itemId?: string; text?: string; tool?: string }
 export type CodeDiagramCheckpointResult = { text: string; timeout?: never } | { timeout: 'startup' | 'idle' | 'deadline'; text?: never };
 export interface CodeBridgeProtocol { version: number; operations: string[] }
@@ -23,7 +25,9 @@ export interface CodeResolution { path: string; choice: 'model' | 'code' }
 export type CodeRequest =
 	| { operation: 'collaboration'; request: string }
 	| { operation: 'exploration'; snapshot: string; request: string }
-	| { operation: 'diagramChat'; requestId?: string; root: string; snapshot?: string; sessionId?: string; checkpoint?: true; config: string; messages: { role: 'user' | 'assistant'; text: string }[] }
+	| ({ operation: 'diagramChat'; requestId?: string; root: string; config: string; messages: { role: 'user' | 'assistant'; text: string }[] } & (
+		{ snapshot?: string; sessionId?: string; checkpoint?: never; checkpointTimeoutMinutes?: never }
+		| { snapshot: string; sessionId: string; checkpoint: true; checkpointTimeoutMinutes?: number }))
 	| { operation: 'import'; root: string; modelFile?: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
 	| { operation: 'inspect' | 'preview' | 'history'; snapshot: string; inventoryOnly?: boolean; scope?: CodeScope; renames?: CodeRename[]; resolutions?: CodeResolution[]; bundles?: string[] }
 	| { operation: 'undoSync' | 'recoverSync'; snapshot: string; id: string }

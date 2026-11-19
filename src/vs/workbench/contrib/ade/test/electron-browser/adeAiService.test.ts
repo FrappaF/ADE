@@ -20,7 +20,7 @@ import { IProgressService } from '../../../../../platform/progress/common/progre
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { FileOperationError, FileOperationResult, IFileService } from '../../../../../platform/files/common/files.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { InMemoryStorageService, IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IWorkspaceTrustRequestService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { IAgentHostService } from '../../../../../platform/agentHost/common/agentService.js';
@@ -40,6 +40,7 @@ import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { IAdeOperationService, AdeOperationService } from '../../browser/adeOperationService.js';
 import { CliAccountState, CodeContext, CodeDiagramProgress, CodeDiagramExploration, CodePreview, CodeRequest, type CodeDiagramCheckpointResult } from '../../common/codeBridge.js';
+import { diagramCheckpointTimeoutSetting } from '../../common/diagramExplorationSettings.js';
 import { AdeAiService } from '../../electron-browser/adeAiService.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { stateFixture, stateCriteriaFixture } from '../common/stateFixture.js';
@@ -80,6 +81,8 @@ suite('A.D.E native AI orchestration', () => {
 		const picks: ((items: readonly Choice[]) => Choice | Choice[] | undefined)[] = [];
 		const inputs: string[] = [];
 		const inputOptions: IInputOptions[] = [];
+		const configurationValues = new Map<string, unknown>();
+		const configurationEdits: { key: string; value: unknown; target: ConfigurationTarget }[] = [];
 		const chats: { resource: string; attachments: string[]; focused: boolean }[] = [];
 		const chatPrompts: string[] = [];
 		const pickerTitles: string[] = [];
@@ -154,7 +157,13 @@ suite('A.D.E native AI orchestration', () => {
 		stub(ICodexAccountService, { account, onDidChangeAccount: accountChanged.event, signIn: () => signIns++ });
 		stub(IAgentSdkSetupService, { setups, requestReload: () => {} });
 		stub(IAgentHostService, { rootState: { value: { agents: [{ provider: 'codex', models: [{ id: '@provider=openai:native-model', name: 'Native Account', provider: 'codex' }, { id: '@provider=vscode-proxy:proxy-model', name: 'Other Account', provider: 'codex' }] }] } } });
-		stub(IConfigurationService, { getValue: (key: string) => key === 'chat.disableAIFeatures' ? disabled : key === 'ade.diagramImport.incremental' ? incremental : undefined, updateValue: async () => {} });
+		stub(IConfigurationService, {
+			getValue: (key: string) => key === 'chat.disableAIFeatures' ? disabled : key === 'ade.diagramImport.incremental' ? incremental : configurationValues.get(key),
+			updateValue: async (key: string, value: unknown, target: ConfigurationTarget) => {
+				configurationValues.set(key, value);
+				configurationEdits.push({ key, value, target });
+			}
+		});
 		stub(IWorkspaceTrustRequestService, { requestWorkspaceTrust: async () => trust ?? true });
 		const session = { id: '11111111-1111-4111-8111-111111111111', root, worktree: root + '/.ade/worktrees/fixture', reviewId: 'changes', status: 'staged', generated: { summary: 'Payment refusal', files: [{ file: 'checkout.mjs', content: 'export const result = false;' }] }, before: [{ file: 'checkout.mjs', content: 'export const result = true;' }], usage: { inputTokens: 10, outputTokens: 20 }, cost: null };
 		const pure = { observed: [{ file: '.ade/model.json', value: { content: JSON.stringify(nodeOrdersFixture), mode: 420 } }], next: { model: nodeOrdersFixture }, id: '22222222-2222-4222-8222-222222222222', root, reviewId: 'pure-review', status: 'staged', mutations: [{ file: 'src/predicate.mjs', before: null, after: { content: 'pure', mode: 420 } }], coverage: { forward: 'pure-v1' }, criteria: { cases: [{ id: 'independent' }] }, packets: [{ packet: { bytes: '{"seal":"pure"}' } }], calls: 0 };
@@ -229,7 +238,7 @@ suite('A.D.E native AI orchestration', () => {
 		};
 		const service = store.add(instantiation.createInstance(AdeAiService));
 		return { explorationBudgetRequests, setExplorationBudget: (budget: typeof explorationBudget, elapsedMs = 0) => { explorationBudget = structuredClone(budget); explorationBudgetStarted = Date.now() - elapsedMs; }, setCriteria: (value: unknown) => { stateData = JSON.stringify(value); }, pickerOptions, readonlyResources, setPureRoot: (value: string) => { pure.root = value; }, setProjectRoot: (value: URI) => { Object.assign(projectService, { projectRoot: value }); }, savedModel, contextFiles, chatRequests, prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
-			diagramPrepares, failDiagramPrepare: (error: Error) => { diagramPrepareError = error; },
+			configurationValues, configurationEdits, diagramPrepares, failDiagramPrepare: (error: Error) => { diagramPrepareError = error; },
 			setFeatureState: (state: Partial<CodeDiagramExploration>) => { incremental = true; projectWorkflow = true; featureState = state; storage.store('ade.ai.diagramModel.codex', 'native-model', StorageScope.PROFILE, StorageTarget.MACHINE); },
 			handleCheckpoint: (handler: typeof onCheckpoint) => { onCheckpoint = handler; },
 			handleExplorationStatus: (handler: typeof onExplorationStatus) => { onExplorationStatus = handler; },
@@ -972,6 +981,39 @@ suite('A.D.E native AI orchestration', () => {
 		assert.equal(f.explorationActions.includes('publishAll'), false);
 	});
 
+	test('configuring the diagram attempt duration validates and persists whole minutes without an exploration session', async () => {
+		const f = fixture();
+		await f.service.configureDiagramCheckpointTimeout();
+		const input = f.inputOptions.at(-1)!;
+		assert.deepStrictEqual([input.title, input.value, input.showConfirmButton], ['Diagram Attempt Time Limit', '20', true]);
+		for (const value of ['', '0', '1.5', '91', 'invalid']) {
+			assert.ok(await input.validateInput?.(value), value);
+		}
+		for (const value of ['1', '35', '90']) {
+			assert.ok(!await input.validateInput?.(value), value);
+		}
+		assert.deepStrictEqual(f.configurationEdits, []);
+		f.inputs.push('91');
+		await f.service.configureDiagramCheckpointTimeout();
+		assert.deepStrictEqual(f.configurationEdits, []);
+		f.inputs.push('35');
+		await f.service.configureDiagramCheckpointTimeout();
+		assert.deepStrictEqual(f.configurationEdits, [{ key: diagramCheckpointTimeoutSetting, value: 35, target: ConfigurationTarget.USER }]);
+		await f.service.configureDiagramCheckpointTimeout();
+		assert.equal(f.inputOptions.at(-1)?.value, '35');
+		assert.equal(f.configurationEdits.length, 1);
+		assert.deepStrictEqual(f.requests, []);
+		assert.equal(f.service.diagramExploration, undefined);
+
+		f.setFeatureState({ phase: 'discovery' });
+		f.handleCheckpoint(async () => {
+			f.setFeatureState({ phase: 'review' });
+			return 'Checkpoint recorded';
+		});
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual(f.chatRequests.map(request => request.checkpointTimeoutMinutes), [35]);
+	});
+
 	test('a timed-out diagram checkpoint resumes from the saved draft and retries it once', async () => {
 		const f = fixture();
 		const checkpoint = { phase: 'diagrams' as const, nextFeatureId: 'checkout', nextTaskId: 'checkout-structure' };
@@ -979,9 +1021,12 @@ suite('A.D.E native AI orchestration', () => {
 		f.setFeatureState(checkpoint);
 		f.handleCheckpoint(async request => {
 			if (f.chatRequests.length === 1) {
+				assert.equal(request.checkpointTimeoutMinutes, 20);
+				f.configurationValues.set(diagramCheckpointTimeoutSetting, 35);
 				f.setFeatureState({ ...checkpoint, proposals: [draft] });
 				return { timeout: 'deadline' };
 			}
+			assert.equal(request.checkpointTimeoutMinutes, 35);
 			assert.equal(f.service.diagramExploration?.proposals[0]?.id, draft.id);
 			assert.equal(f.service.diagramLiveProgress?.retrying, true);
 			assert.match(request.messages[0].text, /ade_project_inspect to recover the saved task and draft/);
@@ -1284,6 +1329,7 @@ suite('A.D.E native AI orchestration', () => {
 		assert.deepStrictEqual([f.requests, f.terminals.length], [['exploration'], 0]);
 		const response = await f.dialogs[0].send!([{ role: 'user', text: 'Prepare every planned diagram' }], CancellationToken.None);
 		assert.deepStrictEqual([response, f.requests, f.service.busy, f.liveUpdates.map(event => event.text)], ['Diagrams prepared', ['exploration', 'diagramChat', 'exploration'], false, ['Diagrams prepared']]);
+		assert.equal(Object.hasOwn(f.chatRequests[0], 'checkpointTimeoutMinutes'), false);
 	});
 
 	test('sending from a blocked review refreshes its existing decision surface after the response', async () => {

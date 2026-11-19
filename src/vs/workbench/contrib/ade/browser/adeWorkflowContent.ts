@@ -24,6 +24,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { type ThemeIcon } from '../../../../base/common/themables.js';
 import { AdeActionMenu } from './adeActionMenu.js';
 import { AdeCodebaseExploration } from './adeCodebaseExploration.js';
+import { diagramCheckpointTimeoutSetting, getDiagramCheckpointTimeoutMinutes } from '../common/diagramExplorationSettings.js';
 
 interface AdeWorkflowContentHost {
 	paragraph(parent: HTMLElement, content: string): void;
@@ -56,7 +57,13 @@ export class AdeWorkflowContent {
 		const requests = this.group(parent, localize('ade.ai.requestSettings', "AI Requests"), this.ai.requestStatus);
 		this.host.button(requests, localize('ade.ai.requestBudget', "Configure AI Request Budget"), () => this.ai.configureRequestBudget().catch(error => this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)))).disabled = this.ai.busy || this.code.busy;
 		this.host.paragraph(requests, localize('ade.ai.requestBudgetHint', "Changing This Budget Sends No Request. Project Exploration Has a Separate Budget."));
-		const budget = this.group(parent, localize('ade.ai.generationSettings', "Diagram Generation"), localize('ade.ai.generationSettingsHint', "Control How Much Source the Assistant Can Explore While Preparing Diagrams."));
+		const incremental = this.configurationService.getValue<boolean>('ade.diagramImport.incremental') !== false;
+		const minutes = getDiagramCheckpointTimeoutMinutes(this.configurationService.getValue(diagramCheckpointTimeoutSetting));
+		const limit = minutes === 1 ? localize('ade.diagram.attemptOneMinute', "1 minute per attempt") : localize('ade.diagram.attemptMinutes', "{0} minutes per attempt", minutes);
+		const budget = this.group(parent, localize('ade.ai.generationSettings', "Diagram Generation"), incremental ? limit : localize('ade.ai.generationSettingsHint', "Control How Much Source the Assistant Can Explore While Preparing Diagrams."));
+		if (incremental) {
+			this.host.button(budget, localize('ade.diagram.setAttemptLimit', "Set Diagram Attempt Time Limit"), () => this.ai.configureDiagramCheckpointTimeout().catch(error => this.notifications.error(adeErrorNotification(error, 'ai', this.project.model))), 'diagram-attempt-time-limit');
+		}
 		this.host.button(budget, localize('ade.explore.adjustBudget', "Add Exploration Budget"), () => this.ai.configureDiagramBudget()).disabled = this.ai.busy || !this.ai.diagramExploration;
 		if (!this.ai.diagramExploration) { this.host.paragraph(budget, localize('ade.explore.initializeBudget', "Open Architecture Exploration to Initialize a Project Budget. No AI Request Is Sent Until You Send a Message.")); }
 		const advanced = this.controls.details(parent, localize('ade.ai.advancedSettings', "Advanced · Model Benchmarks"), 'ai-benchmarks');

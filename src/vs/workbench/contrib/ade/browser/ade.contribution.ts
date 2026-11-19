@@ -8,7 +8,7 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
@@ -38,6 +38,8 @@ import { IWorkingCopyIdentifier, NO_TYPE_ID } from '../../../services/workingCop
 import { AdeDiagramLayout } from './adeDiagramLayout.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
+import { defaultDiagramCheckpointTimeoutMinutes, maxDiagramCheckpointTimeoutMinutes } from '../common/codeBridge.js';
+import { diagramCheckpointTimeoutSetting } from '../common/diagramExplorationSettings.js';
 
 class AdeWorkingCopyEditor extends Disposable {
 	static readonly ID = 'workbench.contrib.adeWorkingCopyEditor';
@@ -240,6 +242,14 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	id: 'ade', title: 'A.D.E', type: 'object', properties: {
 		'ade.focusDiagrams': { type: 'boolean', default: true, description: localize('ade.focusDiagrams', "Keep diagram work focused. IDE tools return when you open another editor or choose Show IDE.") },
 		'ade.codeUpdates.suggestAfterSave': { type: 'boolean', default: true, description: localize('ade.codeUpdates.suggestAfterSave', "Offer a codebase update after saving significant diagram changes. Disable in Workspace Settings to save without this prompt. Update Codebase from Diagrams remains available manually.") },
-		'ade.diagramImport.incremental': { type: 'boolean', default: true, description: localize('ade.incremental.setting', "Explore architecture in a persistent Codex conversation with local tools and independent diagram drafts. Disable to use the legacy import pipeline.") }
+		'ade.diagramImport.incremental': { type: 'boolean', default: true, description: localize('ade.incremental.setting', "Explore architecture in a persistent Codex conversation with local tools and independent diagram drafts. Disable to use the legacy import pipeline.") },
+		[diagramCheckpointTimeoutSetting]: {
+			type: 'integer',
+			minimum: 1,
+			maximum: maxDiagramCheckpointTimeoutMinutes,
+			default: defaultDiagramCheckpointTimeoutMinutes,
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('ade.diagram.attemptMinutesSetting', "Maximum minutes for each attempt at a step in automatic diagram generation. The remaining exploration budget can end the attempt sooner.")
+		}
 	}
 });

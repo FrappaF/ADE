@@ -11,10 +11,11 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import type { StdioClientTransport as McpTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import type { CodeAiProgress, CodeDiagramCheckpointResult } from '../../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
+import type { CodeAiProgress, CodeDiagramCheckpointResult, CodeDiagramExploration } from '../../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 import type { DiagramExplorationResult, ExplorationRequest } from '../diagramSession.ts';
 
 const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
+const { validateCodeRequest } = await import('../../runtime/codeProtocol.ts');
 const { executeDiagramExploration, readExplorationSession } = await import('../diagramSession.ts');
 
 interface FakeTask {
@@ -74,6 +75,20 @@ async function fakeProvider(Client: typeof McpClient, StdioClientTransport: type
 	} finally { await client.close(); }
 }
 
+test('only checkpoint requests accept whole-minute attempt limits from 1 through 90', () => {
+	const chat = { operation: 'diagramChat', root: '/unused', snapshot: '/unused', sessionId: 'checkpoint-session', config: '{}', messages: [{ role: 'user', text: 'Resume' }] };
+	for (const checkpointTimeoutMinutes of [undefined, 1, 90]) {
+		const request = { ...chat, checkpoint: true, ...(checkpointTimeoutMinutes === undefined ? {} : { checkpointTimeoutMinutes }) };
+		assert.doesNotThrow(() => validateCodeRequest(request));
+	}
+	for (const checkpointTimeoutMinutes of [-1, 0, 91, 2.5, '20', null]) {
+		assert.throws(() => validateCodeRequest({ ...chat, checkpoint: true, checkpointTimeoutMinutes }), /diagramChat.*checkpointTimeoutMinutes/);
+	}
+	assert.throws(() => validateCodeRequest({ ...chat, checkpointTimeoutMinutes: 20 }), /diagramChat.*checkpoint/);
+	assert.throws(() => validateCodeRequest({ ...chat, checkpoint: false, checkpointTimeoutMinutes: 20 }), /diagramChat.*checkpoint/);
+	assert.throws(() => validateCodeRequest({ operation: 'exploration', snapshot: '/unused', request: '{}', checkpointTimeoutMinutes: 20 }), /exploration.*additional properties/);
+});
+
 test('Mercato overview resumes its saved preview after a provider deadline', { timeout: 30_000, skip: process.platform === 'win32' }, async t => {
 	const directory = await mkdtemp(join(tmpdir(), 'ade-mercato-timeout-'));
 	t.after(() => rm(directory, { recursive: true, force: true }));
@@ -116,26 +131,36 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 			relation('@storage', 'dependency', '@server', '@orders', 'Condivide l’archivio', server), show(overview, ['@server', '@orders'], ['@storage'])],
 	};
 	const progress: CodeAiProgress[] = [];
-	const checkpointLimitMs = 300_000;
-	const run = async (requestId: string, task: FakeTask, onProgress?: (event: CodeAiProgress) => void, signal?: AbortSignal): Promise<CodeDiagramCheckpointResult> => JSON.parse(await engine.execute(JSON.stringify({
-		operation: 'diagramChat', checkpoint: true, root, snapshot, sessionId, requestId,
-		config: JSON.stringify({ version: 1, provider: 'codex', connection: 'cli', executable, model: 'fixture-local', timeoutMs: checkpointLimitMs, maxContextBytes: 262144, maxCalls: 1 }),
+	const run = async (requestId: string, task: FakeTask, checkpointTimeoutMinutes?: number, onProgress?: (event: CodeAiProgress) => void, signal?: AbortSignal): Promise<CodeDiagramCheckpointResult> => JSON.parse(await engine.execute(JSON.stringify({
+		operation: 'diagramChat', checkpoint: true, checkpointTimeoutMinutes, root, snapshot, sessionId, requestId,
+		config: JSON.stringify({ version: 1, provider: 'codex', connection: 'cli', executable, model: 'fixture-local', timeoutMs: 300_000, maxContextBytes: 262144, maxCalls: 1 }),
 		messages: [{ role: 'user', text: JSON.stringify(task) }],
 	}), signal, event => { progress.push(event); onProgress?.(event); }));
+	const observeTimers = async (action: () => Promise<CodeDiagramCheckpointResult>) => {
+		const timers = t.mock.method(globalThis, 'setTimeout');
+		try { return { result: await action(), delays: timers.mock.calls.map(call => call.arguments[1]) }; }
+		finally { timers.mock.restore(); }
+	};
 	const previewed = Promise.withResolvers<void>();
-	const safetyDeadline = AbortSignal.timeout(15_000);
+	const abort = new AbortController();
+	const safetyDeadline = AbortSignal.any([abort.signal, AbortSignal.timeout(15_000)]);
+	const timers = t.mock.method(globalThis, 'setTimeout');
+	const stalled = run('system-stalled', { ...overviewTask, stall: true }, undefined, event => {
+		if (event.kind === 'tool' && event.tool === 'ade_view_preview') { previewed.resolve(); }
+	}, safetyDeadline);
 	let interrupted: CodeDiagramCheckpointResult;
-	t.mock.timers.enable({ apis: ['setTimeout'] });
 	try {
-		const stalled = run('system-stalled', { ...overviewTask, stall: true }, event => {
-			// Give the last tool output a later idle deadline while keeping the fixed total deadline.
-			if (event.kind === 'thinking') { t.mock.timers.tick(1); }
-			if (event.kind === 'tool' && event.tool === 'ade_view_preview') { previewed.resolve(); }
-		}, safetyDeadline);
 		await Promise.race([previewed.promise, stalled.then(() => assert.fail('Expected an overview preview before the provider deadline'))]);
-		t.mock.timers.tick(checkpointLimitMs - 1);
+		// Trigger the scheduled total deadline directly, without also expiring the shorter idle timer.
+		const deadline = timers.mock.calls.find(call => call.arguments[1] === 20 * 60_000);
+		assert.ok(deadline, 'Expected a 20-minute checkpoint deadline');
+		deadline.arguments[0]();
 		interrupted = await stalled;
-	} finally { t.mock.timers.reset(); }
+	} finally {
+		abort.abort();
+		await stalled.catch(() => {});
+		timers.mock.restore();
+	}
 	const saved = await readExplorationSession(root, sessionId);
 	const orderId = saved.proposals[0]?.aliases['@orders'];
 	assert.ok(orderId);
@@ -148,8 +173,9 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 		['ade_project_inspect', 'ade_task_update', 'ade_model_propose', 'ade_view_preview'],
 		[[overview.id, 'running', overviewTask.proposalId, overviewTask.proposalId]],
 	]);
-	const resumed = await run('system-resumed', { id: overview.id, intent: overview.intent, proposalId: overviewTask.proposalId, resume: true });
-	const resumedState = await call<{ phase: string; nextFeatureId: string }>('status');
+	const { result: resumed, delays: resumedDelays } = await observeTimers(() => run('system-resumed', { id: overview.id, intent: overview.intent, proposalId: overviewTask.proposalId, resume: true }, 7));
+	assert.ok(resumedDelays.includes(7 * 60_000), 'Expected the configured seven-minute deadline');
+	const resumedState = await call<CodeDiagramExploration>('status');
 	assert.deepEqual([
 		resumed.text, resumedState.data.phase, resumedState.data.nextFeatureId,
 		progress.filter(event => event.requestId === 'system-resumed' && event.kind === 'tool').map(event => event.tool),
@@ -160,13 +186,21 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 		const [evidence] = feature.evidenceIds;
 		const { candidates } = await tool<{ candidates: { id: string }[] }>('ade_model_query', { collection: 'elements', match: { kind: 'resource', name: 'Archivio ordini', evidenceIds: [orders] } });
 		assert.deepEqual(candidates.map(candidate => candidate.id), [orderId]);
-		const completed = await run(`${feature.id}-ready`, {
+		const task = {
 			id: plan.id, intent: plan.intent, proposalId: `${feature.id}-proposal`, evidenceIds: [evidence, orders], readObjectIds: [orderId], commands: [
 				element('@feature', 'feature', feature.name, evidence), element('@action', 'action', feature.description, evidence),
 				relation('@access', kind, '@action', orderId, accessName, evidence), show(plan, ['@action', orderId], ['@access'], '@feature'),
 			],
-		});
-		assert.equal(completed.text, 'Checkpoint completed.');
+		};
+		if (feature === returns) {
+			const maxDurationMs = 2 * 60_000;
+			await call('budget', { budget: { ...resumedState.data.budget, maxDurationMs } });
+			const { result, delays } = await observeTimers(() => run(`${feature.id}-ready`, task, 90));
+			assert.ok(delays.some(delay => delay !== undefined && delay > maxDurationMs - 20_000 && delay < maxDurationMs), 'Expected the deadline to use the remaining project budget');
+			assert.equal(result.text, 'Checkpoint completed.');
+		} else {
+			assert.equal((await run(`${feature.id}-ready`, task)).text, 'Checkpoint completed.');
+		}
 	}
 	const review = await call<{ proposal: { status: string; views: { name: string; nodes: { elementId: string }[] }[] } }>('review');
 	assert.deepEqual([

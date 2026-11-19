@@ -70,6 +70,7 @@ export interface IAdeAiService {
 	closeDiagramReview(): void;
 	inspectDiagramReview(): Promise<void>;
 	configureDiagramBudget(): Promise<void>;
+	configureDiagramCheckpointTimeout(): Promise<void>;
 	chat(): Promise<void>;
 	chooseDiagramModel(): Promise<void>;
 	buildDiagrams(): Promise<void>;
@@ -132,6 +133,7 @@ class UnavailableAiService implements IAdeAiService {
 	closeDiagramReview(): void { }
 	async inspectDiagramReview(): Promise<void> { }
 	async configureDiagramBudget(): Promise<void> { }
+	async configureDiagramCheckpointTimeout(): Promise<void> { }
 	async chat(): Promise<void> { }
 	async chooseDiagramModel(): Promise<void> { }
 	readonly requestStatus = '';

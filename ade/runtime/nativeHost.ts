@@ -7,7 +7,7 @@ import { readFile, realpath, readdir, stat } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
-import { type CodeContext, type CodeDiagramCheckpointResult, type CodePreview, type CodeResponse, type CodeEngine } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
+import { defaultDiagramCheckpointTimeoutMinutes, type CodeContext, type CodeDiagramCheckpointResult, type CodePreview, type CodeResponse, type CodeEngine } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 import { importCode, type CodeImport } from '../code-import/importCode.ts';
 import { bindReconciliationIdentities, verifyReconciliationStructure } from '../code-import/reconciliationIdentity.ts';
 import { readSnapshot, writeSnapshot, type ImportSnapshot } from '../code-import/snapshot.ts';
@@ -34,7 +34,6 @@ export { codeBridgeProtocol } from './codeProtocol.ts';
 
 interface Preview { inventoryOnly?: boolean; previous: ImportSnapshot; next: CodeImport; result: Reconciliation; prepared?: PreparedReconciliation; calls?: number; active?: string; created: number; bindings?: ReconciliationProposal['bindings']; ai?: CodePreview['ai'] }
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
-const diagramCheckpointDeadlineMs = 5 * 60_000;
 async function json(path: string): Promise<unknown> {
 	if ((await stat(path)).size > 64 * 1024 * 1024) { throw new Error('Artifact exceeds 64 MiB'); }
 	return JSON.parse(await readFile(path, 'utf8'));
@@ -133,7 +132,7 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 						checkpoint: { phase: state.phase, nextFeatureId: state.nextFeatureId, nextTaskId: state.nextTaskId, toolCalls: state.usage.toolCalls, readBytes: state.usage.readBytes },
 						turnId: request.requestId ?? randomUUID()
 					} : undefined;
-					if (invocation) { durationMs = Math.min(durationMs, diagramCheckpointDeadlineMs); }
+					if (invocation) { durationMs = Math.min(durationMs, (request.checkpointTimeoutMinutes ?? defaultDiagramCheckpointTimeoutMinutes) * 60_000); }
 					mcp = await diagramMcp(root, request.sessionId, invocation);
 				}
 				const { runDiagramChat } = await import('../ai/diagramChat.ts');

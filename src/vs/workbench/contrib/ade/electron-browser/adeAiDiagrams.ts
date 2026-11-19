@@ -40,8 +40,9 @@ import { viewLabels } from '../browser/adeLabels.js';
 import { ThrottledDelayer } from '../../../../base/common/async.js';
 import { equals } from '../../../../base/common/objects.js';
 import { canonicalJson, semanticContent } from '../common/modelSerialization.js';
-import { CodeDiagramProgress, CodeDiagramExploration, type CodeAiProgress, type CodeDiagramCheckpointResult } from '../common/codeBridge.js';
+import { CodeDiagramProgress, CodeDiagramExploration, maxDiagramCheckpointTimeoutMinutes, type CodeAiProgress, type CodeDiagramCheckpointResult } from '../common/codeBridge.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
+import { diagramCheckpointTimeoutSetting, getDiagramCheckpointTimeoutMinutes, isDiagramCheckpointTimeoutMinutes } from '../common/diagramExplorationSettings.js';
 import { type CliConfig, type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
 import { AdeAiConnection } from './adeAiConnection.js';
 
@@ -456,7 +457,8 @@ export class AdeAiDiagrams extends Disposable {
 					});
 					let result: CodeDiagramCheckpointResult;
 					try {
-						result = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', checkpoint: true, requestId, root: session.root, snapshot, sessionId: session.id, config: JSON.stringify(config), messages }, token));
+						const checkpointTimeoutMinutes = getDiagramCheckpointTimeoutMinutes(this.configuration.getValue(diagramCheckpointTimeoutSetting));
+						result = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', checkpoint: true, checkpointTimeoutMinutes, requestId, root: session.root, snapshot, sessionId: session.id, config: JSON.stringify(config), messages }, token));
 					} finally { progress.dispose(); }
 					if (!current() || token.isCancellationRequested) { break; }
 					if (result.text && !session.activity?.some(item => item.requestId === requestId && item.kind === 'message') && this.recordDiagramActivity(session, { requestId, kind: 'message', text: result.text })) { this.host.changed(); }
@@ -503,6 +505,22 @@ export class AdeAiDiagrams extends Disposable {
 			}
 		}, { kind: 'diagram', inline: true });
 		if (this._diagramReview && this.exploration === session && getDiagramExplorationPhase(this._diagramExploration) === 'review') { await this.reviewDiagramProposal(); }
+	}
+
+	async configureDiagramCheckpointTimeout(): Promise<void> {
+		const parseMinutes = (input: string) => /^\d+$/.test(input.trim()) ? Number(input) : undefined;
+		const input = await this.quick.input({
+			title: localize('ade.diagram.attemptLimitTitle', "Diagram Attempt Time Limit"),
+			value: String(getDiagramCheckpointTimeoutMinutes(this.configuration.getValue(diagramCheckpointTimeoutSetting))),
+			prompt: localize('ade.diagram.attemptLimitPrompt', "Enter minutes per attempt. The new limit applies when the next attempt starts."),
+			showConfirmButton: true,
+			validateInput: async value => isDiagramCheckpointTimeoutMinutes(parseMinutes(value)) ? undefined : localize('ade.diagram.attemptLimitRange', "Enter a whole number from 1 to {0}.", maxDiagramCheckpointTimeoutMinutes)
+		});
+		if (input === undefined) { return; }
+		const minutes = parseMinutes(input);
+		if (isDiagramCheckpointTimeoutMinutes(minutes)) {
+			await this.configuration.updateValue(diagramCheckpointTimeoutSetting, minutes, ConfigurationTarget.USER);
+		}
 	}
 
 	async configureDiagramBudget(): Promise<void> {

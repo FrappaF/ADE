@@ -16,6 +16,7 @@ import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { type IEditorGroup } from '../../../../services/editor/common/editorGroupsService.js';
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { type ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { ConfigurationTarget } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { mock } from '../../../../../base/test/common/mock.js';
@@ -24,6 +25,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { type SemanticModel } from '../../common/modelTypes.js';
 import { canonicalJson, semanticContent } from '../../common/modelSerialization.js';
 import type { CodeContext, CodeDiagramExploration } from '../../common/codeBridge.js';
+import { diagramCheckpointTimeoutSetting } from '../../common/diagramExplorationSettings.js';
 
 suite('A.D.E imported diagram review', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -179,9 +181,10 @@ suite('A.D.E imported diagram review', () => {
 	});
 
 	for (const projectWorkflow of [false, true]) {
-	test(`${projectWorkflow ? 'Review All Changes' : 'Review Draft'} opens an actionable review from the imported project Home and returns to exploration`, () => {
+	test(`${projectWorkflow ? 'Review All Changes' : 'Review Draft'} opens an actionable review from the imported project Home and returns to exploration`, async () => {
 		const f = fixture();
-		const instantiation = workbenchInstantiationService(undefined, store);
+		const configuration = new TestConfigurationService();
+		const instantiation = workbenchInstantiationService({ configurationService: () => configuration }, store);
 		const changed = store.add(new Emitter<void>());
 		const model: SemanticModel = { version: 3, id: 'code:imported', name: 'Imported Project', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
 		if (projectWorkflow) {
@@ -191,9 +194,12 @@ suite('A.D.E imported diagram review', () => {
 		}
 		f.review.semanticRevision = canonicalJson(semanticContent(model));
 		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.parse(f.review.modelUri), section: 'home', selectedId: '', diagnostics: [], onDidChange: Event.None, restore: async () => {} });
+		const exploration: CodeDiagramExploration = { ...(projectWorkflow ? { workflow: 'project' as const, batch: { blockers: [] } } : {}), sessionId: 'session', model: 'test', proposals: [f.review.proposal], plan: f.review.plan, tasks: f.review.tasks ?? [], usage: { toolCalls: 1, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, budget: { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 } };
+		let timeoutSettingsOpened = 0;
 		const ai = Object.assign(new (mock<IAdeAiService>())(), {
 			available: true, onDidChange: changed.event, diagramReview: undefined as AdeDiagramReview | undefined,
-			diagramExploration: { ...(projectWorkflow ? { workflow: 'project' as const, batch: { blockers: [] } } : {}), sessionId: 'session', model: 'test', proposals: [f.review.proposal], plan: f.review.plan, tasks: f.review.tasks ?? [], usage: { toolCalls: 1, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, budget: { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 } } as CodeDiagramExploration,
+			diagramExploration: exploration as CodeDiagramExploration | undefined,
+			configureDiagramCheckpointTimeout: async () => { timeoutSettingsOpened++; },
 			refreshConnection: async () => {},
 			reviewDiagramProposal: async () => { ai.diagramReview = f.review; changed.fire(); },
 			applyDiagramReview: async () => { f.called.push('apply'); },
@@ -225,6 +231,22 @@ suite('A.D.E imported diagram review', () => {
 		button('AI Settings').click();
 		assert.deepStrictEqual([...root.querySelectorAll('.ade-action-group h2')].map(node => node.textContent), ['Account and Model', 'AI Requests', 'Diagram Generation']);
 		assert.ok(button('Configure AI Request Budget'));
+		ai.diagramExploration = undefined; changed.fire();
+		const timeoutSettings = button('Set Diagram Attempt Time Limit');
+		const generationSettings = timeoutSettings.closest('.ade-action-group');
+		assert.deepStrictEqual([generationSettings?.querySelector('h2')?.textContent, timeoutSettings.disabled, generationSettings?.textContent?.includes('20 minutes per attempt')], ['Diagram Generation', false, true]);
+		timeoutSettings.click();
+		assert.equal(timeoutSettingsOpened, 1);
+		await configuration.setUserConfiguration(diagramCheckpointTimeoutSetting, 35);
+		configuration.onDidChangeConfigurationEmitter.fire({
+			source: ConfigurationTarget.USER,
+			affectedKeys: new Set([diagramCheckpointTimeoutSetting]),
+			change: { keys: [diagramCheckpointTimeoutSetting], overrides: [] },
+			affectsConfiguration: key => key === diagramCheckpointTimeoutSetting
+		});
+		const updatedText = button('Set Diagram Attempt Time Limit').closest('.ade-action-group')?.textContent ?? '';
+		assert.deepStrictEqual([updatedText.includes('35 minutes per attempt'), updatedText.includes('20 minutes per attempt')], [true, false]);
+		ai.diagramExploration = exploration; changed.fire();
 		editor.showWorkspace();
 		assert.ok(button(reviewLabel), 'returning to the workspace preserves the saved review');
 
@@ -235,7 +257,6 @@ suite('A.D.E imported diagram review', () => {
 		model.views.push(view);
 		Object.assign(project, { section: 'diagram', activeView: view });
 		code.context.diagramState = 'diagrams';
-		const exploration = ai.diagramExploration;
 		const apply = () => { for (const proposal of exploration.proposals) { proposal.status = 'applied'; } for (const task of exploration.tasks) { task.status = 'applied'; } };
 		apply(); changed.fire();
 		const assertAppliedCanvas = () => {
