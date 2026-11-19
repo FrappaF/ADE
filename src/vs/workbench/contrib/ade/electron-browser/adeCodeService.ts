@@ -104,7 +104,13 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 		return (await this.getChannel()).call<string>('collaborate', { request, runtime: await this.cliRuntime() }, token);
 	}
 	async executeReconciliation(request: CodeRequest, token = CancellationToken.None): Promise<string> {
-		return (await this.getChannel()).call<string>('reconcile', { request: JSON.stringify(request), runtime: await this.cliRuntime() }, token);
+		const channel = await this.getChannel();
+		const input = JSON.stringify(request);
+		// Read-only status can inspect the journal while the active request owns the CLI environment.
+		if (request.operation === 'exploration' && JSON.parse(request.request)?.action === 'status') {
+			return channel.call<string>('execute', input, token);
+		}
+		return channel.call<string>('reconcile', { request: input, runtime: await this.cliRuntime() }, token);
 	}
 	private async cliRuntime(): Promise<CliRuntimeEnvironment> {
 		const env = await this.shellEnvironment.getShellEnv();

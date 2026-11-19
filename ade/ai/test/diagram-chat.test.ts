@@ -7,6 +7,7 @@ import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFile, stat } from 'node:fs/promises';
+import { ProcessTimeoutError } from '../process.ts';
 const { runDiagramChat } = await import('../diagramChat.ts');
 
 const config = { version: 1, provider: 'codex', connection: 'cli', executable: 'codex', model: 'test-model', timeoutMs: 300000, maxContextBytes: 262144, maxCalls: 1 };
@@ -77,7 +78,14 @@ test('active chat is not cut off at the five-minute silence limit and session de
 });
 
 test('a total deadline explains how to continue while cancellation remains distinct', async () => {
-	await assert.rejects(runDiagramChat('/project', config, [{ role: 'user', text: 'Update' }], undefined, undefined, async () => { throw new Error('Operation timed out'); }), /time limit.*drafts are retained.*follow-up/i);
+	await assert.rejects(runDiagramChat('/project', config, [{ role: 'user', text: 'Update' }], undefined, undefined, async () => { throw new ProcessTimeoutError('deadline'); }), /time limit.*drafts are retained.*follow-up/i);
 	const cancelled = new Error('Operation cancelled');
 	await assert.rejects(runDiagramChat('/project', config, [{ role: 'user', text: 'Update' }], undefined, undefined, async () => { throw cancelled; }), error => error === cancelled);
+});
+
+test('checkpoint chat preserves structured provider timeout reasons for native recovery', async () => {
+	for (const reason of ['startup', 'idle', 'deadline'] as const) {
+		const failure = new ProcessTimeoutError(reason);
+		await assert.rejects(runDiagramChat('/project', config, [{ role: 'user', text: 'Continue the saved diagram' }], { command: 'node', args: [] }, undefined, async () => { throw failure; }, 300000, undefined, undefined, true), error => error === failure);
+	}
 });

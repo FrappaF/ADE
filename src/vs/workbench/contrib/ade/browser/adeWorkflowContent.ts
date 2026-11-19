@@ -17,13 +17,13 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { viewLabels } from './adeLabels.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
-import { type CodeDiagramExploration } from '../common/codeBridge.js';
 import { renderAdeCodeActions } from './adeCodeActions.js';
 import { type AdeFeatureCodeGeneration, hasFeatureCodeReview } from './adeFeatureCodeGeneration.js';
 import { assertPureProject } from '../common/modelProject.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { type ThemeIcon } from '../../../../base/common/themables.js';
 import { AdeActionMenu } from './adeActionMenu.js';
+import { AdeCodebaseExploration } from './adeCodebaseExploration.js';
 
 interface AdeWorkflowContentHost {
 	paragraph(parent: HTMLElement, content: string): void;
@@ -40,67 +40,6 @@ export class AdeWorkflowContent {
 		dom.append(section, dom.$('h2')).textContent = title;
 		if (description) { this.host.paragraph(section, description); }
 		return dom.append(section, dom.$('div.ade-action-list'));
-	}
-
-	private renderExplorationDiagnostics(parent: HTMLElement, proposal: CodeDiagramExploration['proposals'][number]): void {
-		const inferredOrder = (diagnostic: typeof proposal.diagnostics[number]) => diagnostic.code === 'contract' && diagnostic.args[0] === 'fidelity' && diagnostic.args[1] === 'inferredOrder';
-		const inferred = proposal.diagnostics.filter(inferredOrder).length;
-		if (inferred) { this.host.paragraph(parent, localize('ade.explore.inferredOrder', "Inferred Ordering Constraints: {0}. Review the Source Evidence; Runtime Behavior Has Not Been Verified.", inferred)); }
-		for (const diagnostic of proposal.diagnostics.filter(diagnostic => !inferredOrder(diagnostic))) { this.host.paragraph(parent, `${diagnostic.code} · ${diagnostic.path} · ${diagnostic.args.join(' · ')}`); }
-		if (inferred) {
-			const technical = this.controls.details(parent, localize('ade.explore.diagnosticDetails', "Diagnostic Details ({0})", proposal.diagnostics.length), `proposal-diagnostics:${proposal.id}`);
-			for (const diagnostic of proposal.diagnostics) { this.host.paragraph(technical, `${diagnostic.code} · ${diagnostic.path} · ${diagnostic.args.join(' · ')}`); }
-		}
-	}
-
-	private explorationStatus(exploration: CodeDiagramExploration): string {
-		const active = this.ai.busy || this.ai.generatingDiagrams;
-		const feature = exploration.featureCatalog?.features.find(feature => feature.id === exploration.nextFeatureId);
-		const scope = feature?.name ?? localize('ade.explore.systemScope', "System Overview");
-		switch (exploration.phase) {
-			case 'discovery': return active ? localize('ade.explore.discoveryActive', "Identifying Features from Source Evidence…") : localize('ade.explore.discoveryNext', "Next: Identify Features from Source Evidence");
-			case 'planning': return active ? localize('ade.explore.featurePlanningActive', "Planning Diagrams · {0}…", scope) : localize('ade.explore.featurePlanningNext', "Next: Plan Diagrams · {0}", scope);
-			case 'diagrams': {
-				const diagram = exploration.plan?.items.find(item => item.id === exploration.nextTaskId);
-				if (!diagram) { return active ? localize('ade.explore.featureDraftsActive', "Preparing Diagrams · {0}…", scope) : localize('ade.explore.featureDraftsNext', "Next: Prepare Diagrams · {0}", scope); }
-				return active ? localize('ade.explore.featureDraftActive', "Preparing {0} · {1}…", diagram.name, scope) : localize('ade.explore.featureDraftNext', "Next: Prepare {0} · {1}", diagram.name, scope);
-			}
-			case 'review': return exploration.batch?.blockers.length ? localize('ade.explore.reviewNeedsAttention', "Project Diagram Review Needs Attention") : localize('ade.explore.reviewReady', "Project Diagram Review Ready");
-			default: return localize('ade.explore.saved', "Plan and Generate the Project Diagrams, Then Review All Changes");
-		}
-	}
-
-	private renderDiagramPlanItems(parent: HTMLElement, exploration: CodeDiagramExploration, items: NonNullable<CodeDiagramExploration['plan']>['items']): void {
-		if (!items.length) { return; }
-		const list = dom.append(parent, dom.$('ol'));
-		for (const item of items) {
-			const task = exploration.tasks.find(task => task.id === item.id);
-			const status = task?.status === 'ready' ? localize('ade.explore.generated', "Draft Prepared") : task?.status === 'applied' ? localize('ade.explore.applied', "Applied") : task?.status === 'cancelled' ? localize('ade.explore.excluded', "Excluded") : task?.status === 'running' ? localize('ade.explore.running', "Generating") : localize('ade.explore.pending', "Pending");
-			const row = dom.append(list, dom.$('li'));
-			row.textContent = localize('ade.explore.planRow', "{0} · {1} · {2}", item.name, viewLabels[item.viewKind], status);
-			const parentItem = exploration.plan?.items.find(candidate => candidate.id === item.parentId);
-			if (parentItem) { dom.append(row, dom.$('p.ade-supporting-text')).textContent = localize('ade.explore.planParent', "Detail of {0}", parentItem.name); }
-			if (task?.gaps.length) { dom.append(row, dom.$('p.ade-supporting-text')).textContent = localize('ade.explore.notesSummary', "Coverage Notes: {0}. Open Exploration Goals and Gaps for Details.", task.gaps.length); }
-			const proposal = exploration.proposals.find(proposal => proposal.id === task?.proposalId);
-			if (proposal) { this.renderExplorationDiagnostics(row, proposal); }
-		}
-	}
-
-	private renderFeaturePlan(parent: HTMLElement, exploration: CodeDiagramExploration): void {
-		const plan = this.controls.details(parent, localize('ade.explore.featurePlan', "Features and Diagram Plan"), 'exploration-feature-plan');
-		const features = exploration.featureCatalog?.features ?? [];
-		const items = exploration.plan?.items ?? [];
-		const groups = [{ name: localize('ade.explore.systemScope', "System Overview"), description: '', id: undefined }, ...features];
-		for (const group of groups) {
-			const groupPlan = exploration.featurePlans?.find(featurePlan => featurePlan.featureId === group.id);
-			const groupItems = items.filter(item => item.featureId === group.id);
-			if (!group.id && !groupPlan && !groupItems.length) { continue; }
-			dom.append(plan, dom.$('h3')).textContent = group.name;
-			if (group.description) { this.host.paragraph(plan, group.description); }
-			this.renderDiagramPlanItems(plan, exploration, groupItems);
-			for (const gap of groupPlan?.gaps ?? []) { this.host.paragraph(plan, gap); }
-			if (!groupPlan && !groupItems.length) { this.host.paragraph(plan, localize('ade.explore.featurePlanPending', "Diagram Plan Pending")); }
-		}
 	}
 
 	renderAiSettings(parent: HTMLElement): void {
@@ -128,90 +67,35 @@ export class AdeWorkflowContent {
 		] as const) { this.host.button(advanced, label, () => action().catch(error => this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)))).disabled = this.ai.busy || this.code.busy; }
 	}
 
-	renderWorkflow(parent: HTMLElement, history = false): void {
+	renderWorkflow(parent: HTMLElement, surface: 'workspace' | 'history' | 'import' = 'workspace'): void {
+		const history = surface === 'history', landing = surface === 'import';
 		if (this.ai.structuralProblem) {
 			const issue = dom.append(parent, dom.$('section.ade-structural-review')); issue.setAttribute('role', 'alert');
 			this.host.paragraph(issue, localize('ade.review.resolve', "Model and Code Need Review Before Applying")); this.host.paragraph(issue, this.ai.structuralProblem);
 			this.host.button(issue, localize('ade.review.revise', "Review Specification and Constraints"), () => this.commandService.executeCommand('ade.blueprint'));
 			this.host.button(issue, localize('ade.task.edit', "Tasks and Clarifications"), () => this.commandService.executeCommand('ade.taskIntent'));
 		}
-		if (!this.code.context || !this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
+		const enabled = this.ai.available && this.configurationService.getValue<boolean>('chat.disableAIFeatures') !== true;
 		const exploration = this.ai.diagramExploration;
-		if (this.configurationService.getValue<boolean>('ade.diagramImport.incremental') !== false && (exploration || this.code.context.diagramState === 'index')) {
-			const phase = getDiagramExplorationPhase(exploration);
-			if (phase === 'applied' && !history) { return; }
-			const panel = dom.append(parent, dom.$('section.ade-workflow'));
-			panel.setAttribute('aria-label', localize('ade.explore.title', "Architecture Exploration"));
-			dom.append(panel, dom.$('h2')).textContent = localize('ade.explore.title', "Architecture Exploration");
-			const running = !!exploration?.phase && this.ai.generatingDiagrams;
-			const clarification = this.ai.diagramClarification;
-			const status = dom.append(panel, dom.$('p', { role: 'status' }));
-			status.textContent = phase === 'applied' ? localize('ade.explore.allApplied', "All Diagram Changes Applied. Your Diagrams Are Ready to Explore.") : exploration ? this.explorationStatus(exploration) : localize('ade.explore.inventoryReady', "Source Inventory Ready · Identify Features and Prepare Their Diagrams");
-			if (this.ai.diagramExplorationIssue) { this.host.paragraph(panel, this.ai.diagramExplorationIssue); }
-			if (running && this.ai.stopDiagramExploration) {
-				this.host.button(panel, localize('ade.explore.stop', "Stop Generation"), () => this.ai.stopDiagramExploration?.(), 'exploration-action');
-			} else if (clarification && this.ai.clarifyDiagramExploration) {
-				dom.append(panel, dom.$('h3')).textContent = localize('ade.explore.clarification', "Clarification Needed");
-				this.host.paragraph(panel, clarification);
-				const action = this.host.button(panel, localize('ade.explore.continueWithAnswer', "Answer and Continue"), () => this.ai.clarifyDiagramExploration?.(), 'exploration-action');
-				action.classList.add('ade-primary-action'); action.disabled = this.ai.busy || this.code.busy;
-			} else if (exploration?.phase && phase === 'review') {
-				const review = this.host.button(panel, localize('ade.explore.reviewAll', "Review All Changes"), () => this.ai.reviewDiagramProposal(), 'exploration-action');
-				review.classList.add('ade-primary-action'); review.disabled = this.ai.busy || this.code.busy;
-			} else if (phase !== 'applied' && phase !== 'review') {
-				const resume = this.host.button(panel, exploration ? exploration.workflow === 'project' ? localize('ade.explore.continueProject', "Continue Generation") : localize('ade.explore.continue', "Continue Exploration") : localize('ade.explore.start', "Explore Architecture"), () => this.ai.resumeDiagrams(), 'exploration-action');
-				resume.disabled = this.ai.busy || this.code.busy; resume.classList.add('ade-primary-action');
-			}
-			if (exploration) {
-				if (exploration.invalidation?.viewIds.length) { this.host.paragraph(panel, localize('ade.explore.staleViews', "{0} Diagrams Have Changed Source Evidence · Review the Affected Scenarios", exploration.invalidation.viewIds.length)); }
-				const activity = exploration.phase ? this.controls.details(panel, localize('ade.explore.activityDetails', "Activity Details"), 'exploration-activity') : panel;
-				if (exploration.phase) {
-					const prepared = exploration.tasks.filter(task => task.status === 'ready' || task.status === 'applied').length;
-					if (prepared && phase === 'incomplete') { this.host.paragraph(panel, localize('ade.explore.preparedCount', "Diagrams Prepared: {0}", prepared)); }
-					for (const item of this.ai.diagramActivity ?? []) {
-						this.host.paragraph(activity, item.kind === 'tool' ? localize('ade.explore.activityTool', "Tool · {0}", item.text) : localize('ade.explore.activityMessage', "Assistant · {0}", item.text));
-					}
-				}
-				const usage = this.controls.details(activity, localize('ade.explore.usageDetails', "Exploration Usage"), 'exploration-usage');
-				this.host.paragraph(usage, localize('ade.explore.usage', "{0}/{1} Local Tool Calls · {2}/{3} KiB Retrieved", exploration.usage.toolCalls, exploration.budget.maxToolCalls, Math.ceil(exploration.usage.readBytes / 1024), Math.ceil(exploration.budget.maxReadBytes / 1024)));
-				if (exploration.budgetWindow) {
-					const time = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
-					this.host.paragraph(usage, localize('ade.explore.budgetTime', "Current Budget Window (min:sec): {0} Used · {1} Remaining at Last Refresh", time(exploration.budgetWindow.elapsedMs), time(exploration.budgetWindow.remainingMs)));
-				} else { this.host.paragraph(usage, localize('ade.explore.budgetTimeUnknown', "Budget Time Is Not Available from This Engine.")); }
-				this.host.paragraph(usage, exploration.usage.turnsObservable ? localize('ade.explore.reportedTurns', "Reported Request Turns: {0}/{1}. Internal Turns and Tokens Are Not Reported.", exploration.usage.modelTurns.length, exploration.budget.maxModelTurns) : localize('ade.explore.unreportedUsage', "Provider Turns and Token Usage Are Not Reported by This Connection."));
-				if (exploration.workflow === 'project') {
-					if (phase !== 'applied' && (!exploration.phase || phase !== 'review' && exploration.phase === 'review')) {
-						const review = this.host.button(panel, localize('ade.explore.reviewAll', "Review All Changes"), () => this.ai.reviewDiagramProposal(), 'project-review');
-						review.disabled = this.ai.busy || this.code.busy || !exploration.proposals.some(proposal => proposal.status !== 'applied');
-						review.classList.toggle('ade-primary-action', phase === 'review');
-					}
-					if (exploration.featureCatalog) {
-						this.renderFeaturePlan(panel, exploration);
-					} else if (exploration.plan) {
-						const plan = phase === 'applied' ? this.controls.details(panel, localize('ade.explore.plan', "Diagram Plan"), 'exploration-plan') : panel;
-						if (phase !== 'applied') { dom.append(plan, dom.$('h3')).textContent = localize('ade.explore.plan', "Diagram Plan"); }
-						this.renderDiagramPlanItems(plan, exploration, exploration.plan.items);
-					} else if (!exploration.phase) { this.host.paragraph(panel, localize('ade.explore.planning', "The Agent Will Plan the Relevant Diagram Types Before Preparing the Drafts.")); }
-					if (exploration.batch?.blockers.length && (!exploration.phase || exploration.phase === 'review')) { this.host.paragraph(panel, localize('ade.explore.incomplete', "Generation Is Incomplete. Continue to Resolve Pending Diagrams or Record Explicit Exclusions Before Applying All Changes.")); }
-				}
-				const plannedProposals = new Set(exploration.tasks.map(task => task.proposalId).filter(Boolean));
-				for (const proposal of exploration.proposals.filter(entry => entry.status !== 'applied' && (exploration.workflow !== 'project' || !plannedProposals.has(entry.id)))) {
-					const details = dom.append(activity, dom.$('section.ade-proposal-summary'));
-					dom.append(details, dom.$('h3')).textContent = proposal.views.map(view => view.name).join(', ') || localize('ade.explore.untitledDraft', "Diagram Draft");
-					this.host.paragraph(details, proposal.status === 'ready' ? localize('ade.explore.draftReady', "Draft Ready for Review") : localize('ade.explore.draftBlocked', "Draft Needs Correction · Other Diagrams Remain Available"));
-					this.renderExplorationDiagnostics(details, proposal);
-					if (exploration.workflow !== 'project') { const review = this.host.button(details, localize('ade.explore.reviewDraft', "Review Draft"), () => this.ai.reviewDiagramProposal(proposal.id), `proposal-review:${proposal.id}`); review.disabled = this.ai.busy || this.code.busy; review.classList.toggle('ade-primary-action', phase === 'review'); }
-				}
-				const tasks = this.controls.details(activity, localize('ade.explore.goals', "Exploration Goals and Gaps"), 'exploration-goals');
-				for (const task of exploration.tasks) { this.host.paragraph(tasks, task.intent); for (const gap of task.gaps) { this.host.paragraph(tasks, gap); } }
-				this.host.button(tasks, localize('ade.explore.adjustBudget', "Add Exploration Budget"), () => this.ai.configureDiagramBudget());
-				this.host.paragraph(tasks, localize('ade.explore.coverage', "Inventory, Analyzer Coverage and Explored Responsibilities Are Separate. An Unexplored Area Is Not a Verified Absence."));
-			}
+		const context = this.code.context;
+		const view = new AdeCodebaseExploration(this.controls, this.ai, this.code);
+		if (context && enabled && this.configurationService.getValue<boolean>('ade.diagramImport.incremental') !== false && (exploration || context.diagramState === 'index')) {
+			if (history || getDiagramExplorationPhase(exploration) !== 'applied') { view.render(parent, exploration, landing); }
 			return;
 		}
+		if (landing) {
+			const panel = dom.append(parent, dom.$('section.ade-explore'));
+			view.renderHeader(panel);
+			if (!context) {
+				dom.append(panel, dom.$('p', { role: 'status' })).textContent = localize('ade.import.readingEvidence', "Preparing source evidence…");
+			} else if (!enabled) {
+				dom.append(panel, dom.$('p')).textContent = localize('ade.import.aiRequired', "Enable AI features to interpret the source into diagrams. The technical index stays available as code evidence.");
+			}
+		}
+		if (!context || !enabled) { return; }
 		const progress = this.ai.diagramProgress;
 		const pending = progress && progress.status !== 'complete';
-		if (this.code.context.diagramState === 'index' || pending) {
+		if (context.diagramState === 'index' || pending) {
 			const banner = dom.append(parent, dom.$('section.ade-workflow'));
 			banner.setAttribute('aria-label', localize('ade.diagramImport', "Build Diagrams"));
 			const active = !!pending && this.ai.generatingDiagrams;
@@ -306,7 +190,7 @@ export class AdeWorkflowContent {
 			] : undefined,
 			recovery, settings, reviewActions
 		});
-		this.renderWorkflow(parent, true);
+		this.renderWorkflow(parent, 'history');
 	}
 
 	renderProjectActions(parent: HTMLElement): void {

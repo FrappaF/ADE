@@ -6,8 +6,9 @@
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 12;
+export const adeCodeProtocolVersion = 13;
 export interface CodeAiProgress { requestId: string; kind: 'connecting' | 'thinking' | 'waiting' | 'tool' | 'message'; itemId?: string; text?: string; tool?: string }
+export type CodeDiagramCheckpointResult = { text: string; timeout?: never } | { timeout: 'startup' | 'idle' | 'deadline'; text?: never };
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
 export interface CliRuntimeEnvironment { path?: string; pathExt?: string; codexHome?: string }
@@ -76,6 +77,7 @@ export interface CodeDiagramExploration {
 	invalidation?: { evidenceIds: string[]; objectIds: string[]; viewIds: string[]; queryIds: string[] };
 	budget: { maxToolCalls: number; maxReadBytes: number; maxDurationMs: number; maxModelTurns: number };
 	usage: { toolCalls: number; readBytes: number; modelTurns: string[]; turnsObservable: boolean; inputTokens: null; outputTokens: null };
+	toolActivity?: { id: string; tool: string; turnId?: string; state: 'running' | 'complete' | 'failed' | 'interrupted' }[];
 	tasks: { id: string; intent: string; status: string; gaps: string[]; proposalId?: string }[];
 	proposals: { id: string; status: 'invalid' | 'ready' | 'applied'; diagnostics: { code: string; path: string; args: string[] }[]; views: import('./semanticModel.js').ModelView[] }[];
 }

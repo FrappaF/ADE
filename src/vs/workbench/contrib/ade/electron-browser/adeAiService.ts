@@ -65,6 +65,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	get diagramExploration(): CodeDiagramExploration | undefined { return this.diagrams.diagramExploration; }
 	get diagramActivity() { return this.diagrams.diagramActivity; }
+	get diagramLiveProgress() { return this.diagrams.diagramLiveProgress; }
 	get diagramExplorationIssue(): string | undefined { return this.diagrams.diagramExplorationIssue; }
 	get diagramClarification(): string | undefined { return this.diagrams.diagramClarification; }
 	stopDiagramExploration(): void { this.diagrams.stopDiagramExploration(); }

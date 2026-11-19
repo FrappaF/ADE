@@ -204,6 +204,9 @@ export function describeAdeError(error: unknown, context: AdeErrorContext = 'edi
 	if (/unauthorized|not authenticated|not signed in|sign.in failed|authentication (?:failed|required)|\b401\b/i.test(message)) {
 		return info(localize('ade.error.auth.cause', "The AI account is not authenticated or its sign-in has expired."), localize('ade.error.auth.fix', "Sign in again in AI Settings, then choose Refresh Account and Models before retrying."));
 	}
+	if (context === 'ai' && /The assistant reached the time limit for this request|The provider (?:CLI did not start responding|stopped responding before completing the request)/i.test(message)) {
+		return info(localize('ade.error.providerTimeout.cause', "The AI provider did not finish before the request timed out."), localize('ade.error.providerTimeout.fix', "Choose Continue Generation to resume diagram exploration from the saved step. If it happens again, check the AI connection and selected model in AI Settings."));
+	}
 	if (['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT'].includes(code) || /\b(?:ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT)\b|fetch failed|network error/i.test(message)) {
 		return info(localize('ade.error.network.cause', "The remote service could not be reached or the connection was interrupted."), localize('ade.error.network.fix', "Check your network connection and any proxy settings, then retry the request."));
 	}

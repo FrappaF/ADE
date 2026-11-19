@@ -367,9 +367,18 @@ test('live progress reads leave the session and in-flight tool receipts untouche
 	const f = await fixture(t);
 	const path = join(f.root, '.ade', 'exploration', f.opened.sessionId + '.json');
 	const session = JSON.parse(await readFile(path, 'utf8'));
-	session.calls.push({ id: 'active-call', fingerprint: 'test', tool: 'ade_project_inspect', status: 'running', inputBytes: 2, outputBytes: 0 });
+	session.calls.push(
+		{ id: 'complete-call', fingerprint: 'test', tool: 'ade_source_search', turnId: 'diagram-turn', status: 'complete', inputBytes: 2, outputBytes: 10 },
+		{ id: 'failed-call', fingerprint: 'test', tool: 'ade_source_read', turnId: 'diagram-turn', status: 'complete', inputBytes: 2, outputBytes: 10, diagnostics: ['staleEvidenceRevision'] },
+		{ id: 'active-call', fingerprint: 'test', tool: 'ade_project_inspect', turnId: 'diagram-turn', status: 'running', inputBytes: 2, outputBytes: 0 }
+	);
 	await writeFile(path, JSON.stringify(session));
 	const before = await stat(path), contents = await readFile(path, 'utf8');
 	const result = await executeDiagramExploration(f.context.snapshot, { action: 'status', sessionId: f.opened.sessionId });
 	assert.deepEqual([result.data.sessionId, await readFile(path, 'utf8'), (await stat(path)).mtimeMs], [f.opened.sessionId, contents, before.mtimeMs]);
+	assert.deepEqual(result.data.toolActivity, [
+		{ id: 'complete-call', tool: 'ade_source_search', turnId: 'diagram-turn', state: 'complete' },
+		{ id: 'failed-call', tool: 'ade_source_read', turnId: 'diagram-turn', state: 'failed' },
+		{ id: 'active-call', tool: 'ade_project_inspect', turnId: 'diagram-turn', state: 'running' }
+	]);
 });

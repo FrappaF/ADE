@@ -1,0 +1,464 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.ade-explore {
+	box-sizing: border-box;
+	inline-size: 100%;
+	max-inline-size: 58rem;
+	margin-inline: auto;
+	padding-block: var(--vscode-spacing-size240);
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+	min-inline-size: 0;
+	overflow-wrap: anywhere;
+}
+
+.ade-explore .ade-explore-header,
+.ade-explore .ade-explore-identity,
+.ade-explore .ade-explore-stage,
+.ade-explore .ade-explore-stage-main,
+.ade-explore .ade-explore-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size160);
+	min-width: 0;
+}
+
+.ade-explore .ade-explore-header,
+.ade-explore .ade-explore-stage {
+	justify-content: space-between;
+	flex-wrap: wrap;
+}
+
+.ade-explore .ade-explore-header,
+.ade-explore .ade-explore-title {
+	margin-block: 0 var(--vscode-spacing-size120);
+}
+
+.ade-explore .ade-explore-project-icon,
+.ade-explore .ade-explore-stage-icon {
+	display: grid;
+	place-items: center;
+	flex: none;
+	inline-size: var(--vscode-spacing-size400);
+	block-size: var(--vscode-spacing-size400);
+	border-radius: var(--vscode-cornerRadius-medium);
+	color: var(--vscode-textLink-foreground);
+	background: color-mix(in srgb, currentColor 11%, transparent);
+	border: var(--vscode-strokeThickness) solid color-mix(in srgb, currentColor 24%, transparent);
+}
+
+.ade-explore .ade-explore-stage-icon {
+	color: var(--vscode-textLink-foreground);
+}
+
+.ade-explore .ade-explore-stage-icon > .codicon,
+.ade-explore .ade-explore-project-icon > .codicon {
+	font-size: var(--vscode-spacing-size200);
+}
+
+.ade-explore .ade-explore-heading h1,
+.ade-explore .ade-explore-live h2,
+.ade-explore .ade-explore-live h3 {
+	margin: 0;
+}
+
+.ade-explore .ade-explore-live h3 {
+	font-size: var(--vscode-fontSize-heading2);
+}
+
+.ade-explore p {
+	margin: 0;
+	line-height: 1.5;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-explore .ade-explore-heading p,
+.ade-explore .ade-explore-live p {
+	margin-block-start: var(--vscode-spacing-size40);
+}
+
+.ade-explore .ade-explore-card {
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-large);
+	background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+}
+
+.ade-explore .ade-explore-steps {
+	margin: 0;
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: var(--vscode-spacing-size80);
+	list-style: none;
+	border-block-end: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+}
+
+.ade-explore .ade-explore-steps > li {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	min-width: 0;
+	border: var(--vscode-strokeThickness) solid transparent;
+	border-radius: var(--vscode-cornerRadius-small);
+	padding: var(--vscode-spacing-size60) var(--vscode-spacing-size80);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-explore .ade-explore-step-label {
+	font-size: var(--vscode-fontSize-body1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-explore .ade-explore-step-icon {
+	display: grid;
+	place-items: center;
+	flex: none;
+	inline-size: var(--vscode-spacing-size240);
+	block-size: var(--vscode-spacing-size240);
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-circle);
+}
+
+.ade-explore .ade-explore-steps > li[data-state="complete"] {
+	color: var(--vscode-editor-foreground);
+}
+
+.ade-explore .ade-explore-steps > li[data-state="complete"] .ade-explore-step-icon {
+	color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+	background: color-mix(in srgb, currentColor 12%, transparent);
+	border-color: color-mix(in srgb, currentColor 32%, transparent);
+}
+
+.ade-explore .ade-explore-steps > li[aria-current="step"] {
+	color: var(--vscode-editor-foreground);
+	border-color: color-mix(in srgb, var(--vscode-progressBar-background) 48%, var(--vscode-editorWidget-border, var(--vscode-panel-border)));
+	background: color-mix(in srgb, var(--vscode-progressBar-background) 12%, transparent);
+}
+
+.ade-explore .ade-explore-steps > li[aria-current="step"] .ade-explore-step-icon {
+	color: var(--vscode-textLink-foreground);
+	border-color: transparent;
+}
+
+.ade-explore .ade-explore-stage {
+	padding: var(--vscode-spacing-size240);
+}
+
+.ade-explore .ade-explore-stage-main {
+	align-items: flex-start;
+	flex: 1 1 19rem;
+}
+
+.ade-explore .ade-explore-stage-copy {
+	min-inline-size: 0;
+}
+
+.ade-shell .ade-explore .ade-explore-button {
+	display: inline-flex;
+	gap: var(--vscode-spacing-size60);
+	align-items: center;
+	min-height: var(--vscode-spacing-size320);
+	margin: 0;
+}
+
+.ade-shell .ade-explore .ade-explore-button.ade-primary-action {
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ade-shell .ade-explore .ade-explore-button:not(.ade-primary-action) {
+	border-color: var(--vscode-contrastBorder, var(--vscode-editorWidget-border, var(--vscode-panel-border)));
+}
+
+.ade-explore .ade-explore-actions {
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-explore .ade-explore-actions:empty {
+	display: none;
+}
+
+.ade-explore .ade-explore-stage-icon-running {
+	animation: ade-explore-pulse 2.5s ease-in-out infinite;
+}
+
+.ade-explore .ade-explore-now {
+	display: flex;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size60);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-explore .ade-explore-now > .codicon {
+	color: var(--vscode-textLink-foreground);
+	font-size: var(--vscode-codiconFontSize-compact);
+}
+
+.ade-explore .ade-explore-progress {
+	display: block;
+	appearance: none;
+	box-sizing: border-box;
+	inline-size: calc(100% - 2 * var(--vscode-spacing-size240));
+	block-size: var(--vscode-spacing-size40);
+	border: 0;
+	border-radius: var(--vscode-cornerRadius-circle);
+	margin: 0 var(--vscode-spacing-size240) var(--vscode-spacing-size160);
+	overflow: hidden;
+	background: color-mix(in srgb, var(--vscode-progressBar-background) 16%, var(--vscode-editorWidget-border, var(--vscode-panel-border)));
+}
+
+.ade-explore .ade-explore-progress::-webkit-progress-bar {
+	background: transparent;
+}
+
+.ade-explore .ade-explore-progress::-webkit-progress-value {
+	background: var(--vscode-progressBar-background);
+	border-radius: inherit;
+}
+
+.ade-explore .ade-explore-progress:indeterminate {
+	background-image: linear-gradient(90deg, transparent, var(--vscode-progressBar-background), transparent);
+	background-size: 44% 100%;
+	background-position: 50% 0;
+	background-repeat: no-repeat;
+	animation: ade-explore-activity 2.5s ease-in-out infinite alternate;
+}
+
+.ade-explore .ade-explore-progress-label {
+	margin: calc(-1 * var(--vscode-spacing-size80)) var(--vscode-spacing-size240) var(--vscode-spacing-size120);
+	font-size: var(--vscode-fontSize-body2);
+	font-variant-numeric: tabular-nums;
+}
+
+.ade-explore .ade-explore-details {
+	overflow: visible;
+	margin: 0;
+	min-inline-size: 0;
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.ade-shell .ade-explore .ade-explore-details > summary {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	inline-size: 100%;
+	min-height: var(--vscode-spacing-size400);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size160);
+	margin: 0;
+	background: transparent;
+	color: var(--vscode-editor-foreground);
+	list-style: none;
+}
+
+.ade-shell .ade-explore .ade-explore-details > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ade-shell .ade-explore .ade-explore-details > summary:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.ade-explore .ade-explore-details > summary > .codicon {
+	flex: none;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-explore .ade-explore-details[open] > summary > .codicon-chevron-right {
+	transform: rotate(90deg);
+}
+
+.ade-explore .ade-explore-detail-label {
+	flex: 1;
+	min-width: 0;
+}
+
+.ade-explore .ade-explore-detail-meta {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}
+
+.ade-shell .ade-explore .ade-explore-details[open] > .ade-options-content {
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+	background: transparent;
+	border-block-start: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	max-height: none;
+	overflow: visible;
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+}
+
+.ade-explore .ade-explore-button {
+	justify-self: start;
+}
+
+.ade-explore .ade-explore-log,
+.ade-explore .ade-explore-views {
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+	min-inline-size: 0;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.ade-explore .ade-explore-log > li {
+	display: flex;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	background: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.ade-explore .ade-explore-log {
+	max-block-size: 14rem;
+	overflow-y: auto;
+}
+
+.ade-explore .ade-explore-log:focus-visible {
+	outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+	outline-offset: var(--vscode-strokeThickness);
+}
+
+.ade-explore .ade-explore-log strong,
+.ade-explore .ade-explore-log code {
+	display: block;
+}
+
+.ade-explore .ade-explore-log code,
+.ade-explore .ade-explore-log .codicon {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ade-explore .ade-explore-log code {
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-explore .ade-explore-usage {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+	gap: var(--vscode-spacing-size80);
+	margin: 0;
+}
+
+.ade-explore .ade-explore-usage > div,
+.ade-explore .ade-explore-views > li {
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+}
+
+.ade-explore .ade-explore-usage dt {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-explore .ade-explore-usage dd {
+	font-size: var(--vscode-fontSize-heading2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	font-variant-numeric: tabular-nums;
+	margin: var(--vscode-spacing-size40) 0 0;
+}
+
+.ade-explore .ade-explore-plan-group {
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ade-explore .ade-explore-plan-group h3 {
+	margin: 0;
+}
+
+.ade-explore .ade-explore-view {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+	min-inline-size: 0;
+}
+
+.ade-explore .ade-explore-view > small {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-explore .ade-explore-tag {
+	color: var(--vscode-descriptionForeground);
+	background: color-mix(in srgb, currentColor 11%, transparent);
+	border-radius: var(--vscode-cornerRadius-small);
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size60);
+	margin-inline-start: auto;
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ade-explore .ade-explore-tag[data-tone="active"] {
+	color: var(--vscode-textLink-foreground);
+}
+
+.ade-explore [data-tone="attention"] > .ade-explore-stage-main .ade-explore-stage-icon,
+.ade-explore .ade-explore-tag[data-tone="attention"] {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.ade-explore [data-tone="success"] > .ade-explore-stage-main .ade-explore-stage-icon,
+.ade-explore .ade-explore-tag[data-tone="success"] {
+	color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+}
+
+.ade-explore .ade-explore-notice {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.ade-explore .ade-explore-stage-copy > .ade-explore-notice {
+	margin-block-start: var(--vscode-spacing-size80);
+}
+
+@keyframes ade-explore-activity {
+	from { background-position: -65% 0; }
+	to { background-position: 165% 0; }
+}
+
+@keyframes ade-explore-pulse {
+	50% { box-shadow: 0 0 0 var(--vscode-spacing-size40) color-mix(in srgb, currentColor 14%, transparent); }
+}
+
+@container (max-width: 560px) {
+	.ade-explore {
+		padding-block: 0;
+	}
+
+	.ade-explore .ade-explore-steps {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.ade-explore .ade-explore-stage {
+		padding: var(--vscode-spacing-size160);
+	}
+
+	.ade-explore .ade-explore-stage-main {
+		flex-basis: 100%;
+	}
+
+	.ade-explore .ade-explore-progress {
+		inline-size: calc(100% - 2 * var(--vscode-spacing-size160));
+		margin-inline: var(--vscode-spacing-size160);
+	}
+
+	.ade-explore .ade-explore-progress-label {
+		margin-inline: var(--vscode-spacing-size160);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ade-explore .ade-explore-stage-icon-running,
+	.ade-explore .ade-explore-progress:indeterminate {
+		animation: none;
+	}
+}

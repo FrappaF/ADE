@@ -255,14 +255,7 @@ export class AdeEditor extends EditorPane {
 				if ((this.project.model.version === 4 || this.project.model.version === 5) && this.project.editable) { this.button(content, localize('ade.blueprint.edit', "Edit Blueprint"), () => this.commandService.executeCommand('ade.blueprint')); }
 				this.button(content, localize('ade.openModelSource', "Edit Model Specification"), () => this.commandService.executeCommand('ade.openModelSource'));
 			} else if (sourceEvidence && !this.project.loading && !this.project.error) {
-				dom.append(content, dom.$('h1')).textContent = localize('ade.import.interpretTitle', "Explore Your Codebase");
-				this.paragraph(content, localize('ade.import.interpretDescription', "Your local source inventory is ready. Plan and generate the project diagrams with AI, then review and apply them together."));
-				if (this.code.context) {
-					this.button(content, localize('ade.code.inspect', "Inspect Code Evidence"), () => this.code.inspect(), 'inventory-evidence');
-					this.workflow.renderWorkflow(content);
-				}
-				else { this.paragraph(content, localize('ade.import.readingEvidence', "Preparing source evidence…")); }
-				if (!this.ai.available || this.configurationService.getValue<boolean>('chat.disableAIFeatures') === true) { this.paragraph(content, localize('ade.import.aiRequired', "Enable AI features to interpret the source into diagrams. The technical index stays available as code evidence.")); }
+				this.workflow.renderWorkflow(content, 'import');
 			} else if (this.project.section === 'home' && !this.project.error && !this.project.loading) {
 				this.renderHome(content);
 			} else if (this.project.loading || this.project.error) {
@@ -425,7 +418,14 @@ export class AdeEditor extends EditorPane {
 				current: this.project.modelUri?.toString() === diagramReview.modelUri && canonicalJson(semanticContent(this.project.model)) === diagramReview.semanticRevision,
 				apply: () => this.ai.applyDiagramReview(), refresh: () => this.ai.reviewDiagramProposal(diagramReview.id),
 				continue: () => this.ai.resumeDiagrams(),
-				close: () => { this.ai.closeDiagramReview(); this.controls.focusTarget(diagramReview.featureCatalog ? 'exploration-action' : diagramReview.projectReviewId ? 'project-review' : `proposal-review:${diagramReview.id}`); },
+				close: () => {
+					this.ai.closeDiagramReview();
+					if (diagramReview.projectReviewId) {
+						if (!this.controls.focusTarget('project-review')) { this.controls.focusTarget('exploration-action'); }
+					} else {
+						this.controls.focusTarget(`proposal-review:${diagramReview.id}`);
+					}
+				},
 				technical: () => this.ai.inspectDiagramReview()
 			});
 			return;

@@ -7,7 +7,7 @@ import assert from 'assert';
 import * as dom from '../../../../../base/browser/dom.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { AdeControls } from '../../browser/adeControls.js';
-import { IAdeAiService, type AdeDiagramReview } from '../../browser/adeAiService.js';
+import { IAdeAiService, type AdeDiagramLiveProgress, type AdeDiagramReview } from '../../browser/adeAiService.js';
 import { renderAdeDiagramReview } from '../../browser/adeDiagramReview.js';
 import { AdeEditor } from '../../browser/adeEditor.js';
 import { AdeWorkflowContent } from '../../browser/adeWorkflowContent.js';
@@ -23,7 +23,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { type SemanticModel } from '../../common/modelTypes.js';
 import { canonicalJson, semanticContent } from '../../common/modelSerialization.js';
-import type { CodeDiagramExploration } from '../../common/codeBridge.js';
+import type { CodeContext, CodeDiagramExploration } from '../../common/codeBridge.js';
 
 suite('A.D.E imported diagram review', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -49,15 +49,30 @@ suite('A.D.E imported diagram review', () => {
 		assert.deepStrictEqual(f.called, ['apply']);
 	});
 
-	test('serial exploration shows the current feature and keeps its full diagram plan in a disclosure', () => {
+	test('the import journey keeps four stable steps, a single next action and secondary details', () => {
 		const exploration: CodeDiagramExploration = {
 			sessionId: 'session', model: 'test', workflow: 'project', phase: 'discovery', tasks: [], proposals: [],
 			budget: { maxToolCalls: 10, maxReadBytes: 1000, maxDurationMs: 1000, maxModelTurns: 10 },
 			usage: { toolCalls: 2, readBytes: 100, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }
 		};
-		let stops = 0;
-		const ai = Object.assign(new (mock<IAdeAiService>())(), { available: true, busy: true, generatingDiagrams: true, stopDiagramExploration: () => stops++, diagramExploration: exploration, diagramActivity: [{ requestId: 'turn', kind: 'message' as const, text: 'Found the checkout module.' }] });
-		const code = Object.assign(new (mock<IAdeCodeService>())(), { context: { diagramState: 'index' } });
+		const calls: string[] = [];
+		const ai = Object.assign(new (mock<IAdeAiService>())(), {
+			available: true, busy: false, generatingDiagrams: false, diagramExploration: undefined as CodeDiagramExploration | undefined,
+			diagramLiveProgress: { state: 'tool', startedAt: 1, updatedAt: 2, activeTool: 'ade_source_read' } as AdeDiagramLiveProgress,
+			diagramActivity: [{ requestId: 'turn', kind: 'message' as const, text: 'Found the checkout module.' }],
+			resumeDiagrams: async () => { calls.push('start'); }, stopDiagramExploration: () => { calls.push('stop'); },
+			reviewDiagramProposal: async () => { calls.push('review'); }
+		});
+		const context: CodeContext = {
+			diagramState: 'index', snapshot: 'snapshot', model: '/project/model.json', sourceRoot: '/project', revision: 'revision',
+			scope: { include: [], exclude: [], excludedDirectories: [], respectGitignore: true, languageOverrides: {} },
+			files: [{ path: 'src/checkout.mjs', language: 'JavaScript', status: 'parsed', diagnostics: [] }],
+			declarations: [{ id: 'checkout', sourceId: 'checkout-source', name: 'checkout', kind: 'function', evidence: { file: 'src/checkout.mjs', revision: 'revision', start: 0, end: 24, line: 1, endLine: 1 } }],
+			dependencies: [], providers: [], diagnostics: []
+		};
+		const code = Object.assign(new (mock<IAdeCodeService>())(), { context, inspect: async () => { calls.push('inspect'); } });
+		const model: SemanticModel = { version: 3, id: 'code:imported', name: 'Imported Project', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
+		const project = Object.assign(new (mock<AdeProjectService>())(), { model, modelUri: URI.file(context.model) });
 		const controls = store.add(new AdeControls());
 		const workflow = new AdeWorkflowContent({
 			root,
@@ -65,24 +80,86 @@ suite('A.D.E imported diagram review', () => {
 			button: (parent, label, action, id) => controls.button(parent, label, action, id),
 			documentStatus: () => '',
 			showReview: () => {}
-		}, controls, new (mock<AdeProjectService>())(), ai, new TestConfigurationService(), new TestNotificationService(), code, new (mock<ICommandService>())());
-		const draw = () => controls.render(root, () => { dom.clearNode(root); workflow.renderWorkflow(root); });
+		}, controls, project, ai, new TestConfigurationService(), new TestNotificationService(), code, new (mock<ICommandService>())());
+		const draw = () => controls.render(root, () => { dom.clearNode(root); workflow.renderWorkflow(root, 'import'); });
+		const journey = () => root.querySelector<HTMLElement>('.ade-explore')!;
+		const steps = () => [...journey().querySelectorAll('.ade-explore-steps li')];
+		const stepNames = () => steps().map(step => ['Inventory', 'Features', 'Diagrams', 'Review'].find(name => step.textContent?.trim().startsWith(name)));
+		const currentStep = () => steps().findIndex(step => step.getAttribute('aria-current') === 'step');
+		const mainActions = () => [...journey().querySelectorAll<HTMLButtonElement>('.ade-primary-action')];
+		const button = (name: string) => [...journey().querySelectorAll('button')].find(button => button.textContent === name)!;
+		const disclosure = (name: string) => [...journey().querySelectorAll('details')].find(details => details.querySelector('summary .ade-explore-detail-label')?.textContent === name)!;
 		draw();
-		assert.equal(root.querySelector('[role="status"]')?.textContent, 'Identifying Features from Source Evidence…');
-		const activity = Array.from(root.querySelectorAll('details')).find(detail => detail.querySelector('summary')?.textContent === 'Activity Details');
-		assert.deepStrictEqual([activity?.open, activity?.querySelector('p')?.textContent, stops], [false, 'Assistant · Found the checkout module.', 0]);
-		activity!.open = true;
-		activity!.open = false;
-		assert.equal(stops, 0);
-		[...root.querySelectorAll('button')].find(button => button.textContent === 'Stop Generation')!.click();
-		assert.equal(stops, 1);
+		assert.deepStrictEqual([...root.querySelectorAll('h1')].map(heading => heading.textContent), ['Explore Your Codebase']);
+		assert.match(journey().querySelector('.ade-explore-heading p')?.textContent ?? '', /1 indexed declaration$/);
+		assert.deepStrictEqual(stepNames(), ['Inventory', 'Features', 'Diagrams', 'Review']);
+		assert.deepStrictEqual(steps().map(step => step.getAttribute('data-state')), ['complete', 'current', 'pending', 'pending']);
+		assert.deepStrictEqual(mainActions().map(action => action.textContent), ['Explore Architecture']);
+		button('Inspect Code Evidence').click();
+		button('Explore Architecture').click();
+
+		ai.diagramExploration = exploration; ai.busy = true; ai.generatingDiagrams = true;
+		draw();
+		assert.equal(currentStep(), 1);
+		const announcement = journey().querySelector('.ade-explore-live[role="status"]')?.textContent ?? '';
+		assert.match(announcement, /identif.*features/i);
+		assert.ok(announcement.includes('Read source evidence') && !announcement.includes('Found the checkout module.'));
+		const progress = journey().querySelector('progress.ade-explore-progress');
+		assert.ok(progress && !progress.hasAttribute('value'));
+		const activity = disclosure('Activity Details');
+		assert.ok(activity.textContent?.includes('Found the checkout module.'));
+		assert.equal(activity.open, false);
+		const log = activity.querySelector<HTMLOListElement>('ol.ade-explore-log')!;
+		assert.deepStrictEqual([log.tabIndex, log.getAttribute('aria-label')], [0, 'Recent activity']);
+		activity.open = true;
+		activity.querySelector('summary')!.focus();
+		draw();
+		assert.equal(disclosure('Activity Details').open, true);
+		assert.equal(document.activeElement, disclosure('Activity Details').querySelector('summary'));
+		disclosure('Activity Details').querySelector('summary')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		assert.equal(disclosure('Activity Details').open, false);
+		assert.deepStrictEqual(calls, ['inspect', 'start']);
+		assert.ok(mainActions().length <= 1);
+		ai.diagramLiveProgress = { ...ai.diagramLiveProgress, retrying: true };
+		draw();
+		assert.ok(journey().querySelector('.ade-explore-live')?.textContent?.includes('Resuming the saved step after the AI provider timed out.'));
+		button('Stop Generation').click();
+		ai.diagramLiveProgress = { ...ai.diagramLiveProgress, state: 'stopping', activeTool: undefined };
+		draw();
+		assert.ok(button('Stopping…').disabled);
+		assert.ok(journey().querySelector('.ade-explore-live')?.textContent?.includes('Keeping the progress already saved.'));
 
 		exploration.featureCatalog = { revision: 'catalog', features: [{ id: 'purchase', name: 'Checkout', description: 'Confirm an order', evidenceIds: ['evidence'], dependsOn: [] }] };
-		exploration.plan = { revision: 'plan', items: [{ id: 'activity', name: 'Order Flow', viewKind: 'activity', intent: 'Steps', rationale: 'Explains checkout', featureId: 'purchase', dependsOn: [] }] };
+		exploration.plan = { revision: 'plan', items: [
+			{ id: 'overview', name: 'Order Overview', viewKind: 'structure', intent: 'Responsibilities', rationale: 'Sets boundaries', featureId: 'purchase', dependsOn: [] },
+			{ id: 'activity', name: 'Order Flow', viewKind: 'activity', intent: 'Steps', rationale: 'Explains checkout', featureId: 'purchase', dependsOn: ['overview'] }
+		] };
+		exploration.featurePlans = [{ gaps: [] }, { featureId: 'purchase', gaps: [] }];
+		exploration.tasks = [{ id: 'overview', status: 'ready', intent: 'Responsibilities', gaps: [] }, { id: 'activity', status: 'running', intent: 'Steps', gaps: [] }];
 		exploration.nextFeatureId = 'purchase'; exploration.nextTaskId = 'activity'; exploration.phase = 'diagrams';
+		ai.diagramLiveProgress = { ...ai.diagramLiveProgress, state: 'tool', retrying: false, activeTool: 'ade_model_propose' };
+		root.style.width = '460px'; root.classList.add('ade-narrow', 'ade-compact');
 		draw();
-		const plan = Array.from(root.querySelectorAll('details')).find(detail => detail.querySelector('summary')?.textContent === 'Features and Diagram Plan');
-		assert.deepStrictEqual([root.querySelector('[role="status"]')?.textContent, plan?.open, plan?.querySelector('h3')?.textContent, plan?.querySelector('li')?.textContent], ['Preparing Order Flow · Checkout…', false, 'Checkout', 'Order Flow · Activity · Pending']);
+		assert.equal(currentStep(), 2);
+		const stage = journey().querySelector('.ade-explore-stage')!;
+		assert.ok(stage.textContent?.includes('Checkout') && stage.textContent.includes('Order Flow'));
+		const measured = journey().querySelector<HTMLProgressElement>('progress.ade-explore-progress')!;
+		assert.deepStrictEqual([measured.value, measured.max], [1, 2]);
+		const plan = disclosure('Features and Diagram Plan');
+		assert.equal(plan.open, false);
+		plan.open = true;
+		assert.ok(plan.textContent?.includes('Checkout') && plan.textContent.includes('Order Flow'));
+		assert.ok(root.scrollWidth <= root.clientWidth, `journey overflows at narrow width: ${root.scrollWidth}/${root.clientWidth}`);
+
+		ai.busy = false; ai.generatingDiagrams = false;
+		exploration.phase = 'review'; exploration.nextTaskId = undefined;
+		for (const task of exploration.tasks) { task.status = 'ready'; task.proposalId = task.id; }
+		exploration.proposals = exploration.plan.items.map(item => ({ id: item.id, status: 'ready', diagnostics: [], views: [{ id: item.id, name: item.name, kind: item.viewKind, nodes: [], relationIds: [] }] }));
+		draw();
+		assert.equal(currentStep(), 3);
+		assert.deepStrictEqual(mainActions().map(action => action.textContent), ['Review All Changes']);
+		button('Review All Changes').click();
+		assert.deepStrictEqual(calls, ['inspect', 'start', 'stop', 'review']);
 	});
 
 	test('the project review groups previews by canonical feature ID and retains feature exclusions', () => {
@@ -163,7 +240,7 @@ suite('A.D.E imported diagram review', () => {
 		apply(); changed.fire();
 		const assertAppliedCanvas = () => {
 			assert.ok(root.querySelector('.ade-canvas-mode .ade-node'), 'the applied diagram remains on the canvas');
-			assert.equal(root.querySelector('.ade-workflow, .ade-floating-workflow'), null, 'generation history never overlays the diagram');
+			assert.equal(root.querySelector('.ade-workflow, .ade-floating-workflow, .ade-explore'), null, 'generation history never overlays the diagram');
 			assert.equal(root.querySelector('.ade-floating-menu .ade-primary-action'), null, 'applied work does not request more generation');
 			assert.equal(button('Continue Exploration'), undefined); assert.equal(button('Continue Generation'), undefined);
 			assert.ok(button('Code'), 'code workflows have their own destination');
@@ -173,9 +250,9 @@ suite('A.D.E imported diagram review', () => {
 		assert.ok(root.textContent?.includes('All Diagram Changes Applied'));
 		assert.equal(button('Review All Changes'), undefined, 'a completed review does not leave a disabled review action');
 		if (projectWorkflow) {
-			const plan = [...root.querySelectorAll('details')].find(details => details.querySelector('summary')?.textContent === 'Diagram Plan')!;
+			const plan = [...root.querySelectorAll('details')].find(details => details.querySelector('summary .ade-explore-detail-label')?.textContent === 'Diagram Plan')!;
 			assert.equal(plan.open, false); plan.open = true;
-			assert.ok(plan.textContent?.includes('Overview · Structure · Applied'));
+			assert.deepStrictEqual([...plan.querySelector('.ade-explore-view')!.children].map(element => element.textContent).filter(Boolean), ['Overview', 'Structure', 'Applied']);
 		}
 		editor.showWorkspace(); assertAppliedCanvas();
 		Object.assign(code, { changed: true }); changed.fire(); button('Code').click();
@@ -185,7 +262,7 @@ suite('A.D.E imported diagram review', () => {
 		if (projectWorkflow) { exploration.batch!.blockers = ['invalidDraft:draft']; exploration.tasks[0].status = 'running'; }
 		changed.fire();
 		assert.ok(button(projectWorkflow ? 'Continue Generation' : 'Continue Exploration').classList.contains('ade-primary-action'));
-		editor.showWorkspace(); assert.equal(root.querySelector('.ade-workflow'), null, 'unfinished work also keeps the canvas clear');
+		editor.showWorkspace(); assert.equal(root.querySelector('.ade-workflow, .ade-explore'), null, 'unfinished work also keeps the canvas clear');
 		exploration.proposals[0].status = 'ready';
 		if (projectWorkflow) { exploration.batch!.blockers = []; exploration.tasks[0].status = 'ready'; }
 		changed.fire(); button('Code').click();

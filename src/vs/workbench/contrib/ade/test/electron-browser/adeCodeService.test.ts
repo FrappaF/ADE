@@ -74,7 +74,7 @@ suite('A.D.E native code bridge compatibility', () => {
 		stub(IFilesConfigurationService, { updateReadonly: async (resource: URI) => { readonlyReports.push(resource.path); } });
 		const editors = stub(IEditorService, { openEditor: async (input: object) => { editorInputs.push(input); } });
 		const aligned: (string | undefined)[] = [];
-		stub(IAdeProjectWorkspaceService, { align: async () => { aligned.push(project.modelUri?.toString()); } }); stub(IConfigurationService);
+		stub(IAdeProjectWorkspaceService, { align: async () => { aligned.push(project.modelUri?.toString()); } }); stub(IConfigurationService, { getValue: () => undefined });
 		stub(ICommandService, { executeCommand: async (command: string) => { commands.push(command); } });
 		const service = store.add(instantiation.createInstance(AdeCodeService));
 		return { service, errors, projectChanged, failInspect: (value: boolean) => { failInspect = value; }, calls, commands, model, context, project, requests, pickers, opened, editorInputs, reportWrites, readonlyReports, setPreview: (value: CodePreview) => { previewResult = value; }, setImportResponse: (value: typeof importResponse) => { importResponse = value; }, quick, fileDialogs, progress, operations, editors, aligned, setChoice: (value: typeof choose) => { choose = value; }, stats: () => ({ created, disposed }), setProtocol: (value: CodeBridgeProtocol) => { protocol = value; } };
@@ -85,6 +85,14 @@ suite('A.D.E native code bridge compatibility', () => {
 		f.setChoice(items => items[0]);
 		return f;
 	}
+	test('live exploration status reads use the local worker channel while opening uses the CLI runtime channel', async () => {
+		const f = fixture(compatible);
+		const status = { operation: 'exploration' as const, snapshot: f.context.snapshot, request: JSON.stringify({ action: 'status', sessionId: 'existing' }) };
+		await f.service.executeReconciliation(status);
+		await f.service.executeReconciliation({ ...status, request: JSON.stringify({ action: 'open' }) });
+		assert.deepStrictEqual(f.calls, ['protocol', 'execute', 'reconcile']);
+		assert.deepStrictEqual(f.requests, [status]);
+	});
 	test('a successful import aligns its canonical source even when the selected path is an alias', async () => {
 		const f = importFixture('/tmp/project');
 		Object.assign(f.context, { sourceRoot: '/private/tmp/project', snapshot: '/private/tmp/project/.ade/imports/index', model: '/private/tmp/project/.ade/imports/index/model.ade.json' });

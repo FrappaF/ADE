@@ -225,7 +225,13 @@ test('one provider checkpoint cannot read or advance the next feature phase', as
 	const plan = { phase: 'planning', toolCalls: current.usage.toolCalls, readBytes: current.usage.readBytes };
 	const inspected = await call('ade_project_inspect', {}, plan, 'planning-turn');
 	assert.deepEqual([inspected.diagnostics, inspected.data.exploration.phase, inspected.data.exploration.features.map(feature => feature.id), inspected.data.exploration.tasks], [[], 'planning', ['purchase', 'returns'], undefined]);
-	assert.deepEqual((await f.request({ action: 'status' })).data.usage.modelTurns, ['discovery-turn', 'planning-turn']);
+	assert.deepEqual(inspected.data.exploration.reusableObjects, { elements: 0, relations: 0 });
+	const status = (await f.request({ action: 'status' })).data;
+	assert.deepEqual(status.usage.modelTurns, ['discovery-turn', 'planning-turn']);
+	assert.deepEqual(status.toolActivity.slice(-2).map(({ tool, turnId, state }) => [tool, turnId, state]), [
+		['ade_feature_catalog', 'discovery-turn', 'complete'],
+		['ade_project_inspect', 'planning-turn', 'complete']
+	]);
 });
 
 test('feature catalog orders dependencies, enforces one previewed diagram at a time and shares stable model IDs', async t => {

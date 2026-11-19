@@ -6,7 +6,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runProcess } from './process.ts';
+import { ProcessTimeoutError, runProcess } from './process.ts';
 import { readProviderConfig } from './contracts.ts';
 import { readBoundedText } from './io.ts';
 import { diagramSessionInstruction } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
@@ -53,7 +53,7 @@ export async function runDiagramChat(root: string, configValue: object, messages
 		try {
 			result = await runner(config.executable, args, root, { input: prompt, signal, env, onOutput, startupTimeoutMs: 45000, idleTimeoutMs: config.timeoutMs, timeoutMs: Math.min(durationMs ?? 1800000, 5400000), maxBytes: 32 * 1024 * 1024, gracefulShutdownMs: 2000 });
 		} catch (error) {
-			if (error instanceof Error && error.message === 'Operation timed out') { throw new Error('The assistant reached the time limit for this request. Completed drafts are retained. Send a follow-up to continue.'); }
+			if (!checkpoint && error instanceof ProcessTimeoutError && error.reason === 'deadline') { throw new Error('The assistant reached the time limit for this request. Completed drafts are retained. Send a follow-up to continue.'); }
 			throw error;
 		}
 		if (result.code !== 0) {

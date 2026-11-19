@@ -6,6 +6,21 @@
 import { spawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 
+const timeoutMessages = {
+	startup: 'The provider CLI did not start responding. Check the connection and selected model in AI Settings, then retry.',
+	idle: 'The provider stopped responding before completing the request. Check the connection and retry; completed drafts are retained.',
+	deadline: 'Operation timed out'
+};
+
+export class ProcessTimeoutError extends Error {
+	readonly reason: keyof typeof timeoutMessages;
+
+	constructor(reason: keyof typeof timeoutMessages) {
+		super(timeoutMessages[reason]);
+		this.reason = reason;
+	}
+}
+
 /** A parent node:test worker marker must not suppress a separately reviewed test run. */
 export function nodeTestEnvironment(): NodeJS.ProcessEnv {
 	const environment: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
@@ -26,24 +41,24 @@ export async function runProcess(executable: string, args: string[], cwd: string
 		let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
 		let idleTimer: ReturnType<typeof setTimeout> | undefined;
 		const kill = () => { try { if (ownGroup && child.pid) { process.kill(-child.pid, 'SIGKILL'); } else { child.kill('SIGKILL'); } } catch { /* already exited */ } };
-		const stop = (message: string) => {
-			failure ??= new Error(message);
+		const stop = (error: Error) => {
+			failure ??= error;
 			if (shutdownTimer) { return; }
 			if (options.gracefulShutdownMs) { child.kill('SIGTERM'); shutdownTimer = setTimeout(kill, options.gracefulShutdownMs); }
 			else { kill(); }
 		};
-		const cancel = () => stop('Operation cancelled');
-		const timer = setTimeout(() => stop('Operation timed out'), options.timeoutMs ?? 120000);
-		const startup = options.startupTimeoutMs ? setTimeout(() => stop('The provider CLI did not start responding. Check the connection and selected model in AI Settings, then retry.'), options.startupTimeoutMs) : undefined;
+		const cancel = () => stop(new Error('Operation cancelled'));
+		const timer = setTimeout(() => stop(new ProcessTimeoutError('deadline')), options.timeoutMs ?? 120000);
+		const startup = options.startupTimeoutMs ? setTimeout(() => stop(new ProcessTimeoutError('startup')), options.startupTimeoutMs) : undefined;
 		const resetIdle = () => {
 			if (idleTimer) { clearTimeout(idleTimer); }
-			if (options.idleTimeoutMs && !failure) { idleTimer = setTimeout(() => stop('The provider stopped responding before completing the request. Check the connection and retry; completed drafts are retained.'), options.idleTimeoutMs); }
+			if (options.idleTimeoutMs && !failure) { idleTimer = setTimeout(() => stop(new ProcessTimeoutError('idle')), options.idleTimeoutMs); }
 		};
 		if (!startup) { resetIdle(); }
 		options.signal?.addEventListener('abort', cancel, { once: true });
 		const append = (chunk: Buffer, target: 'stdout' | 'stderr') => {
 			bytes += chunk.length;
-			if (bytes > (options.maxBytes ?? 2 * 1024 * 1024)) { stop('Process output exceeds limit'); return; }
+			if (bytes > (options.maxBytes ?? 2 * 1024 * 1024)) { stop(new Error('Process output exceeds limit')); return; }
 			const text = decoders[target].write(chunk);
 			if (target === 'stdout') { if (startup) { clearTimeout(startup); } if (text) { resetIdle(); } stdout += text; } else { stderr += text; }
 			options.onOutput?.(text, target);

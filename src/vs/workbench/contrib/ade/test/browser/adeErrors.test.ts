@@ -98,6 +98,12 @@ suite('A.D.E error explanations', () => {
 		});
 	});
 
+	test('explains how to resume when the diagram assistant reaches its time limit', () => {
+		const info = describeAdeError(new Error('The assistant reached the time limit for this request. Completed drafts are retained. Send a follow-up to continue.'), 'ai');
+		assert.equal(info.cause, 'The AI provider did not finish before the request timed out.');
+		assert.match(info.resolution, /Continue Generation.*saved step/);
+	});
+
 	test('explains how to recover a missing source selection for Connect', () => {
 		const info = describeAdeError(new Error('No source element selected'), 'edit', model);
 		assert.deepStrictEqual([info.cause, info.resolution], ['No source element is selected for the new relationship.', 'Select the source element in the diagram, choose Connect, then select a compatible target element.']);

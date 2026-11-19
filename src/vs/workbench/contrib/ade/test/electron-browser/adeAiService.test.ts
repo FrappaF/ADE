@@ -39,7 +39,7 @@ import { ITerminalService, ITerminalGroupService } from '../../../terminal/brows
 import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { IAdeOperationService, AdeOperationService } from '../../browser/adeOperationService.js';
-import { CliAccountState, CodeContext, CodeDiagramProgress, CodeDiagramExploration, CodePreview, CodeRequest } from '../../common/codeBridge.js';
+import { CliAccountState, CodeContext, CodeDiagramProgress, CodeDiagramExploration, CodePreview, CodeRequest, type CodeDiagramCheckpointResult } from '../../common/codeBridge.js';
 import { AdeAiService } from '../../electron-browser/adeAiService.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { stateFixture, stateCriteriaFixture } from '../common/stateFixture.js';
@@ -96,7 +96,8 @@ suite('A.D.E native AI orchestration', () => {
 		const explorationActions: string[] = [];
 		let projectWorkflow = false;
 		let featureState: Partial<CodeDiagramExploration> | undefined;
-		let onCheckpoint: ((request: Extract<CodeRequest, { operation: 'diagramChat' }>, token: CancellationToken) => Promise<string>) | undefined;
+		let onCheckpoint: ((request: Extract<CodeRequest, { operation: 'diagramChat' }>, token: CancellationToken) => Promise<string | CodeDiagramCheckpointResult>) | undefined;
+		let onExplorationStatus: ((response: string) => Promise<string>) | undefined;
 		let explorationBudget = { maxToolCalls: 80, maxReadBytes: 1048576, maxDurationMs: 1800000, maxModelTurns: 8 }, explorationBudgetStarted = Date.now();
 		const explorationBudgetRequests: typeof explorationBudget[] = [];
 		const explorationSessionIds: (string | undefined)[] = [];
@@ -166,9 +167,12 @@ suite('A.D.E native AI orchestration', () => {
 					case 'diagramChat': {
 						const chat = JSON.parse(inputText) as Extract<CodeRequest, { operation: 'diagramChat' }>;
 						chatRequests.push(chat);
-						const text = chat.checkpoint && onCheckpoint ? await onCheckpoint(chat, token) : 'Diagrams prepared';
-						aiProgress.fire({ requestId: chat.requestId!, kind: 'message', itemId: 'reply', text });
-						return JSON.stringify({ text });
+						const value = chat.checkpoint && onCheckpoint ? await onCheckpoint(chat, token) : 'Diagrams prepared';
+						if (typeof value === 'string') {
+							aiProgress.fire({ requestId: chat.requestId!, kind: 'message', itemId: 'reply', text: value });
+							return JSON.stringify({ text: value });
+						}
+						return JSON.stringify(value);
 					}
 					case 'exploration': {
 						const input = JSON.parse((JSON.parse(inputText) as { request: string }).request);
@@ -182,7 +186,8 @@ suite('A.D.E native AI orchestration', () => {
 						if (input.action === 'review') { return JSON.stringify({ sessionId: explorationId, data: { reviewId: 'whole-project-review', proposal: { id: 'whole-project-review', status: 'ready', diagnostics: [], views: checkoutModel.views.slice(0, 2) }, reviewFile: root + '/.ade/exploration/review-fixture.json', images: checkoutModel.views.slice(0, 2).map(view => ({ viewId: view.id, path: root + '/.ade/exploration/' + view.id + '.svg' })) }, diagnostics: [] }); }
 						if (input.action === 'publish' || input.action === 'publishAll') { exploratoryApplied = true; return JSON.stringify({ sessionId: explorationId, data: { snapshot: root + '/.ade/imports/published' }, diagnostics: [] }); }
 						if (input.action === 'tool') { return JSON.stringify({ sessionId: explorationId, data: input.tool === 'ade_view_preview' ? { reviewFile: root + '/.ade/exploration/review-fixture.json', images: [{ path: root + '/.ade/exploration/preview.svg', viewId: 'overview' }] } : { files: [] }, diagnostics: [] }); }
-						return JSON.stringify({ sessionId: explorationId, data: { sessionId: explorationId, model: featureState ? input.model ?? 'native-model' : 'chat-selected', ...(projectWorkflow ? { workflow: 'project', batch: { blockers: [] } } : {}), budget: explorationBudget, budgetWindow: { started: explorationBudgetStarted, measuredAt: Date.now(), elapsedMs: Date.now() - explorationBudgetStarted, remainingMs: Math.max(0, explorationBudget.maxDurationMs - (Date.now() - explorationBudgetStarted)) }, usage: { toolCalls: 0, readBytes: 0, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, tasks: [], proposals: exploratoryDraft ? [{ ...exploratoryDraft, status: exploratoryApplied ? 'applied' : exploratoryDraft.status }] : [], ...featureState, mcp: { command: 'node', args: ['adeDiagramMcp.js', root] } }, diagnostics: [] });
+						const response = JSON.stringify({ sessionId: explorationId, data: { sessionId: explorationId, model: featureState ? input.model ?? 'native-model' : 'chat-selected', ...(projectWorkflow ? { workflow: 'project', batch: { blockers: [] } } : {}), budget: explorationBudget, budgetWindow: { started: explorationBudgetStarted, measuredAt: Date.now(), elapsedMs: Date.now() - explorationBudgetStarted, remainingMs: Math.max(0, explorationBudget.maxDurationMs - (Date.now() - explorationBudgetStarted)) }, usage: { toolCalls: 0, readBytes: 0, modelTurns: [], turnsObservable: false, inputTokens: null, outputTokens: null }, tasks: [], proposals: exploratoryDraft ? [{ ...exploratoryDraft, status: exploratoryApplied ? 'applied' : exploratoryDraft.status }] : [], ...featureState, mcp: { command: 'node', args: ['adeDiagramMcp.js', root] } }, diagnostics: [] });
+						return input.action === 'status' && onExplorationStatus ? onExplorationStatus(response) : response;
 					}
 					case 'inspect': return JSON.stringify({ ...context, snapshot: root + '/.ade/imports/published', diagramState: 'diagrams' });
 					case 'structuralPrepare': return JSON.stringify(pureAligned ? { status: 'aligned', calls: 0 } : { status: 'staged', calls: 0, session: pure });
@@ -227,6 +232,7 @@ suite('A.D.E native AI orchestration', () => {
 			diagramPrepares, failDiagramPrepare: (error: Error) => { diagramPrepareError = error; },
 			setFeatureState: (state: Partial<CodeDiagramExploration>) => { incremental = true; projectWorkflow = true; featureState = state; storage.store('ade.ai.diagramModel.codex', 'native-model', StorageScope.PROFILE, StorageTarget.MACHINE); },
 			handleCheckpoint: (handler: typeof onCheckpoint) => { onCheckpoint = handler; },
+			handleExplorationStatus: (handler: typeof onExplorationStatus) => { onExplorationStatus = handler; },
 			holdProjectContext: (pending: Promise<boolean>) => { projectContext = pending; }, holdTerminalFocus: (pending: Promise<void>) => { terminalFocus = pending; }, focusRequested: focusRequested.p, exitTerminal: () => terminalExit.fire(0),
 			publishAccount: (value: ICodexAccountViewInfo) => { Object.assign(account, { authUrl: undefined }, value); accountChanged.fire(account); }, failTerminal: (error: Error) => { terminalError = error; },
 			setCliResolver: (resolver: typeof resolveExecutable) => { resolveExecutable = resolver; } };
@@ -966,20 +972,194 @@ suite('A.D.E native AI orchestration', () => {
 		assert.equal(f.explorationActions.includes('publishAll'), false);
 	});
 
+	test('a timed-out diagram checkpoint resumes from the saved draft and retries it once', async () => {
+		const f = fixture();
+		const checkpoint = { phase: 'diagrams' as const, nextFeatureId: 'checkout', nextTaskId: 'checkout-structure' };
+		const draft = { id: 'saved-structure', status: 'ready' as const, diagnostics: [], views: [] };
+		f.setFeatureState(checkpoint);
+		f.handleCheckpoint(async request => {
+			if (f.chatRequests.length === 1) {
+				f.setFeatureState({ ...checkpoint, proposals: [draft] });
+				return { timeout: 'deadline' };
+			}
+			assert.equal(f.service.diagramExploration?.proposals[0]?.id, draft.id);
+			assert.equal(f.service.diagramLiveProgress?.retrying, true);
+			assert.match(request.messages[0].text, /ade_project_inspect to recover the saved task and draft/);
+			return { timeout: 'deadline' };
+		});
+		await f.service.buildDiagrams();
+		assert.equal(f.chatRequests.length, 2);
+		assert.notEqual(f.chatRequests[0].requestId, f.chatRequests[1].requestId);
+		assert.deepStrictEqual(f.chatRequests.map(request => [request.sessionId, request.snapshot]), Array(2).fill([f.chatRequests[0].sessionId, f.chatRequests[0].snapshot]));
+		assert.equal(f.dialogDetails.length, 1);
+		assert.equal(f.service.diagramExploration?.proposals[0]?.id, draft.id);
+		assert.match(f.service.diagramExplorationIssue!, /reached the time limit.*Choose Continue Generation/);
+	});
+
+	test('a timeout after a checkpoint is saved proceeds to the next diagram without retrying completed work', async () => {
+		const f = fixture();
+		const first = { phase: 'diagrams' as const, nextFeatureId: 'checkout', nextTaskId: 'checkout-structure' };
+		const second = { phase: 'diagrams' as const, nextFeatureId: 'checkout', nextTaskId: 'checkout-interaction' };
+		f.setFeatureState(first);
+		f.handleCheckpoint(async () => {
+			if (f.chatRequests.length === 1) {
+				f.setFeatureState({ ...second, tasks: [{ id: first.nextTaskId, intent: 'Structure', status: 'ready', gaps: [] }] });
+				return { timeout: 'deadline' };
+			}
+			assert.equal(f.service.diagramExploration?.nextTaskId, second.nextTaskId);
+			assert.equal(f.service.diagramLiveProgress?.retrying, false);
+			f.setFeatureState({ phase: 'review' });
+			return 'Checkpoint recorded';
+		});
+		await f.service.buildDiagrams();
+		assert.deepStrictEqual([f.chatRequests.length, f.service.diagramExploration?.phase, f.service.diagramExplorationIssue], [2, 'review', undefined]);
+	});
+
+	test('timeout recovery honors the saved exploration budget and a saved clarification', async () => {
+		for (const stopFor of ['budget', 'clarification'] as const) {
+			const f = fixture();
+			const checkpoint = { phase: 'diagrams' as const, nextFeatureId: 'checkout', nextTaskId: 'checkout-structure' };
+			f.setFeatureState(checkpoint);
+			f.handleCheckpoint(async () => {
+				f.setFeatureState({
+					...checkpoint,
+					...(stopFor === 'budget'
+						? { budgetStatus: { exhausted: ['duration'] } }
+						: { tasks: [{ id: checkpoint.nextTaskId, intent: 'Structure', status: 'waitingUser', gaps: ['Where are orders stored?'] }] })
+				});
+				return { timeout: 'deadline' };
+			});
+			await f.service.buildDiagrams();
+			assert.equal(f.chatRequests.length, 1);
+			assert.equal(f.service.diagramExplorationIssue, undefined);
+			if (stopFor === 'budget') { assert.deepStrictEqual(f.service.diagramExploration?.budgetStatus?.exhausted, ['duration']); }
+			else { assert.equal(f.service.diagramClarification, 'Where are orders stored?'); }
+		}
+	});
+
+	test('automatic recovery requires a structured timeout and the same project scope', async () => {
+		for (const failure of ['other error', 'changed scope'] as const) {
+			const f = fixture();
+			f.setFeatureState({ phase: 'discovery' });
+			f.handleCheckpoint(async () => {
+				if (failure === 'other error') { throw new Error('Operation timed out'); }
+				f.code.context.snapshot = f.root + '/.ade/imports/another-snapshot';
+				return { timeout: 'deadline' };
+			});
+			await f.service.buildDiagrams();
+			assert.equal(f.chatRequests.length, 1);
+		}
+	});
+
+	test('inline exploration shows persisted work and counters while the provider is still running', async () => {
+		const f = fixture(), started = new DeferredPromise<Extract<CodeRequest, { operation: 'diagramChat' }>>(), provider = new DeferredPromise<string>();
+		f.setFeatureState({ phase: 'discovery' });
+		f.handleCheckpoint(request => { void started.complete(request); return provider.p; });
+		const generating = f.service.buildDiagrams();
+		const request = await started.p;
+		const requestId = request.requestId!;
+		const clock = sinon.useFakeTimers({ now: Date.now() });
+		try {
+			const startTime = f.service.diagramLiveProgress!.startedAt;
+			assert.equal(f.service.diagramLiveProgress?.state, 'connecting');
+			f.aiProgress.fire({ requestId: 'another-request', kind: 'waiting' });
+			assert.equal(f.service.diagramLiveProgress?.state, 'connecting');
+			f.aiProgress.fire({ requestId, kind: 'thinking' });
+			assert.equal(f.service.diagramLiveProgress?.state, 'working');
+			const receipt = { id: 'inspection', turnId: requestId, tool: 'ade_project_inspect' };
+			const usage = { ...f.service.diagramExploration!.usage, toolCalls: 1 };
+			f.setFeatureState({ phase: 'discovery', usage, toolActivity: [{ ...receipt, state: 'running' }] });
+			const changedJournal = () => f.fileChanges.fire({ contains: resource => resource.path.endsWith(`/${request.sessionId}.json`) });
+			changedJournal();
+			f.aiProgress.fire({ requestId, kind: 'tool', itemId: 'provider-inspection', tool: receipt.tool });
+			await clock.tickAsync(150);
+			assert.deepStrictEqual([f.service.diagramLiveProgress?.state, f.service.diagramLiveProgress?.activeTool, f.service.diagramExploration?.usage.toolCalls], ['tool', receipt.tool, 1]);
+
+			const completed = { ...receipt, state: 'complete' as const };
+			f.setFeatureState({ phase: 'planning', usage: { ...usage, readBytes: 100 }, toolActivity: [completed] });
+			changedJournal();
+			f.aiProgress.fire({ requestId, kind: 'tool', itemId: 'provider-inspection', tool: receipt.tool });
+			await clock.tickAsync(150);
+			assert.deepStrictEqual([f.service.diagramLiveProgress?.state, f.service.diagramLiveProgress?.activeTool, f.service.diagramLiveProgress?.lastCompletedTool], ['waiting', undefined, receipt.tool]);
+			assert.deepStrictEqual([f.service.diagramExploration?.phase, f.service.diagramExploration?.usage.readBytes, f.chatRequests.length], ['planning', 100, 1]);
+			assert.equal(f.service.diagramLiveProgress?.startedAt, startTime);
+			assert.deepStrictEqual(f.service.diagramActivity, [{ requestId, itemId: receipt.id, kind: 'tool', text: receipt.tool }]);
+			const updatedAt = f.service.diagramLiveProgress?.updatedAt;
+			changedJournal();
+			await clock.tickAsync(150);
+			assert.equal(f.service.diagramLiveProgress?.updatedAt, updatedAt);
+			assert.equal(f.service.diagramActivity?.length, 1);
+			f.setFeatureState({ phase: 'review', usage, toolActivity: [completed] });
+		} finally {
+			await provider.complete('Checkpoint recorded');
+			await generating;
+			clock.restore();
+		}
+		assert.equal(f.service.diagramLiveProgress, undefined);
+	});
+
+	test('a delayed live read cannot replace a newer checkpoint and its budget counters', async () => {
+		const f = fixture();
+		const started = new DeferredPromise<void>(), provider = new DeferredPromise<string>();
+		const statusStarted = new DeferredPromise<void>(), slowStatus = new DeferredPromise<void>();
+		f.setFeatureState({ phase: 'discovery' });
+		f.handleCheckpoint(() => { void started.complete(); return provider.p; });
+		f.handleExplorationStatus(async response => {
+			if (!statusStarted.isSettled) { void statusStarted.complete(); await slowStatus.p; }
+			return response;
+		});
+		const generating = f.service.buildDiagrams();
+		await started.p;
+		const clock = sinon.useFakeTimers();
+		try {
+			f.fileChanges.fire({ contains: () => true });
+			await clock.tickAsync(150);
+			assert.equal(statusStarted.isSettled, true);
+			f.setFeatureState({
+				phase: 'review',
+				usage: { ...f.service.diagramExploration!.usage, toolCalls: 2 },
+				budgetStatus: { exhausted: ['calls'] }
+			});
+			await provider.complete('Checkpoint recorded');
+			await generating;
+			await slowStatus.complete();
+			await clock.tickAsync(0);
+			assert.deepStrictEqual([f.service.diagramExploration?.phase, f.service.diagramExploration?.usage.toolCalls, f.service.diagramExploration?.budgetStatus?.exhausted], ['review', 2, ['calls']]);
+		} finally {
+			if (!provider.isSettled) { await provider.complete('Checkpoint recorded'); }
+			if (!slowStatus.isSettled) { await slowStatus.complete(); }
+			await generating;
+			clock.restore();
+		}
+	});
+
 	test('the inline Stop action cancels only the active request and a clarification can resume the checkpoint', async () => {
 		const f = fixture(), started = new DeferredPromise<void>();
 		f.setFeatureState({ phase: 'discovery' });
 		let cancelled = false;
-		f.handleCheckpoint(async (_request, token) => new Promise<string>(resolve => {
-			store.add(token.onCancellationRequested(() => { cancelled = true; resolve('Stopped'); }));
+		f.handleCheckpoint(async (request, token) => new Promise<CodeDiagramCheckpointResult>(resolve => {
+			store.add(token.onCancellationRequested(() => {
+				cancelled = true;
+				f.setFeatureState({ phase: 'discovery', toolActivity: [{ id: 'saved-discovery', tool: 'ade_project_inspect', turnId: request.requestId, state: 'complete' }] });
+				f.aiProgress.fire({ requestId: request.requestId!, kind: 'thinking' });
+				resolve({ timeout: 'deadline' });
+			}));
 			void started.complete();
 		}));
 		const generating = f.service.buildDiagrams();
 		await started.p;
 		assert.equal(f.service.generatingDiagrams, true);
+		const stoppingStates: NonNullable<typeof f.service.diagramLiveProgress>['state'][] = [];
+		store.add(f.service.onDidChange(() => {
+			if (f.service.diagramLiveProgress) { stoppingStates.push(f.service.diagramLiveProgress.state); }
+		}));
 		f.service.stopDiagramExploration();
+		assert.equal(f.service.diagramLiveProgress?.state, 'stopping');
 		await generating;
 		assert.deepStrictEqual([cancelled, f.service.generatingDiagrams, f.chatRequests.length, f.dialogs.length], [true, false, 1, 0]);
+		assert.ok(stoppingStates.length && stoppingStates.every(state => state === 'stopping'));
+		assert.equal(f.service.diagramLiveProgress, undefined);
+		assert.equal(f.service.diagramActivity?.at(-1)?.text, 'ade_project_inspect');
 		assert.match(f.service.diagramExplorationIssue!, /Saved Step/);
 		f.handleCheckpoint(async () => 'CLARIFICATION: Are refunds supported?');
 		await f.service.resumeDiagrams();

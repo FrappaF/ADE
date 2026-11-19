@@ -34,7 +34,7 @@ const defaultProjectBudget: ExplorationBudget = { maxToolCalls: 400, maxReadByte
 const defaultExplorationBudget: ExplorationBudget = { maxToolCalls: 80, maxReadBytes: 1024 * 1024, maxDurationMs: 30 * 60 * 1000, maxModelTurns: 8 };
 type TaskState = 'queued' | 'running' | 'waitingContext' | 'waitingUser' | 'blocked' | 'ready' | 'applied' | 'cancelled';
 interface ExplorationTask { id: string; intent: string; status: TaskState; gaps: string[]; proposalId?: string; previewedProposalId?: string }
-interface ToolReceipt { id: string; fingerprint: string; tool: string; status: 'running' | 'complete' | 'interrupted'; inputBytes: number; outputBytes: number; durationMs?: number; diagnostics?: string[] }
+interface ToolReceipt { id: string; fingerprint: string; tool: string; turnId?: string; status: 'running' | 'complete' | 'interrupted'; inputBytes: number; outputBytes: number; durationMs?: number; diagnostics?: string[] }
 export interface DiagramExplorationSession {
 	version: 2; id: string; root: string; projectId: string; created: number; model: string; workflow?: 'project'; plan?: DiagramPlan; runs?: { id: string; model: string; started: number }[];
 	featureWorkflow?: true; featureCatalog?: DiagramFeatureCatalog; featurePlans?: DiagramFeaturePlan[]; catalogNeedsRefresh?: true;
@@ -98,11 +98,11 @@ function projectBlockers(session: DiagramExplorationSession): string[] {
 
 function sessionSummary(session: DiagramExplorationSession, blockers: string[]) {
 	const measuredAt = Date.now(), elapsedMs = Math.max(0, measuredAt - session.created);
-	return { sessionId: session.id, model: session.model, workflow: session.workflow, ...featureSessionSummary(session), plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...blockers, ...projectBlockers(session)] } : undefined, budget: session.budget, budgetWindow: { started: session.created, measuredAt, elapsedMs, remainingMs: Math.max(0, session.budget.maxDurationMs - elapsedMs) }, usage: session.usage, budgetStatus: { exhausted: [session.usage.toolCalls >= session.budget.maxToolCalls ? 'calls' : '', session.usage.readBytes >= session.budget.maxReadBytes ? 'bytes' : '', elapsedMs > session.budget.maxDurationMs ? 'duration' : '', session.usage.turnsObservable && session.usage.modelTurns.length >= session.budget.maxModelTurns ? 'turns' : ''].filter(Boolean) }, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan && !proposal.discardedReason).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views' && patch.value !== null).map(patch => patch.value) })), instruction: diagramSessionInstruction };
+	return { sessionId: session.id, model: session.model, workflow: session.workflow, ...featureSessionSummary(session), plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...blockers, ...projectBlockers(session)] } : undefined, budget: session.budget, budgetWindow: { started: session.created, measuredAt, elapsedMs, remainingMs: Math.max(0, session.budget.maxDurationMs - elapsedMs) }, usage: session.usage, budgetStatus: { exhausted: [session.usage.toolCalls >= session.budget.maxToolCalls ? 'calls' : '', session.usage.readBytes >= session.budget.maxReadBytes ? 'bytes' : '', elapsedMs >= session.budget.maxDurationMs ? 'duration' : '', session.usage.turnsObservable && session.usage.modelTurns.length >= session.budget.maxModelTurns ? 'turns' : ''].filter(Boolean) }, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan && !proposal.discardedReason).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views' && patch.value !== null).map(patch => patch.value) })), instruction: diagramSessionInstruction };
 }
 
 /** A fresh provider turn sees the active plan and compact canonical references to earlier work. */
-function checkpointInspection(session: DiagramExplorationSession, summary: ReturnType<typeof sessionSummary>) {
+function checkpointInspection(session: DiagramExplorationSession, summary: ReturnType<typeof sessionSummary>, model: SemanticModelV4) {
 	const stage = featureStage(session);
 	const currentFeature = session.featureCatalog?.features.find(feature => feature.id === stage.nextFeatureId);
 	const task = session.tasks.find(task => task.id === stage.nextTaskId);
@@ -111,6 +111,7 @@ function checkpointInspection(session: DiagramExplorationSession, summary: Retur
 		features: session.featureCatalog?.features.map(({ id, name, dependsOn, elementId }) => ({ id, name, dependsOn, elementId })),
 		plan: session.plan?.items.map(item => item.id === stage.nextTaskId ? item : { id: item.id, name: item.name, viewKind: item.viewKind, featureId: item.featureId }),
 		task, draft: task?.proposalId ? summary.proposals.find(proposal => proposal.id === task.proposalId) : undefined,
+		reusableObjects: { elements: model.semantics.elements.length, relations: model.semantics.relations.length },
 		blockers: summary.batch?.blockers.slice(0, 12), budgetStatus: summary.budgetStatus
 	};
 }
@@ -276,7 +277,8 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		const session = await readExplorationSession(root, request.sessionId);
 		if (session.projectId !== initial.state.projectId) { throw new Error('sessionProjectMismatch'); }
 		const staged = session.workflow === 'project' ? stageDiagramProject(architecture(initial), session.proposals) : { model: architecture(initial), blockers: [] };
-		return { version: 2, sessionId: session.id, sourceRevision: initial.state.revision, indexRevision: initial.state.revision, semanticRevision: await diagramModelRevision(staged.model), capabilities: explorationCapabilities(initial.state), data: sessionSummary(session, staged.blockers), diagnostics: [] };
+		const toolActivity = session.calls.slice(-30).map(call => ({ id: call.id, tool: call.tool, turnId: call.turnId, state: call.diagnostics?.length && call.status === 'complete' ? 'failed' : call.status }));
+		return { version: 2, sessionId: session.id, sourceRevision: initial.state.revision, indexRevision: initial.state.revision, semanticRevision: await diagramModelRevision(staged.model), capabilities: explorationCapabilities(initial.state), data: { ...sessionSummary(session, staged.blockers), toolActivity }, diagnostics: [] };
 	}
 
 	return explorationLock(root, async () => {
@@ -397,9 +399,9 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 			if (session.usage.modelTurns.length >= session.budget.maxModelTurns) { return envelope({}, [{ code: 'modelTurnBudgetExhausted', recoverable: true }]); }
 			session.usage.modelTurns.push(request.turnId); session.usage.turnsObservable = true;
 		}
-		if (session.usage.toolCalls >= session.budget.maxToolCalls || session.usage.readBytes >= session.budget.maxReadBytes || Date.now() - session.created > session.budget.maxDurationMs) { return envelope({}, [{ code: 'sessionBudgetExhausted', recoverable: true }]); }
+		if (session.usage.toolCalls >= session.budget.maxToolCalls || session.usage.readBytes >= session.budget.maxReadBytes || Date.now() - session.created >= session.budget.maxDurationMs) { return envelope({}, [{ code: 'sessionBudgetExhausted', recoverable: true }]); }
 		const checkpoint = { evidence: [...session.evidence], queries: [...session.queries], proposals: session.proposals.map(proposal => ({ ...proposal })), tasks: structuredClone(session.tasks), plan: session.plan, featureCatalog: session.featureCatalog, featurePlans: session.featurePlans?.slice(), catalogNeedsRefresh: session.catalogNeedsRefresh };
-		const call: ToolReceipt = { id: callId, fingerprint, tool, status: 'running', inputBytes: Buffer.byteLength(JSON.stringify(args)), outputBytes: 0 }, started = Date.now();
+		const call: ToolReceipt = { id: callId, fingerprint, tool, turnId: request.turnId, status: 'running', inputBytes: Buffer.byteLength(JSON.stringify(args)), outputBytes: 0 }, started = Date.now();
 		session.calls.push(call); session.usage.toolCalls++; await save(session);
 		let result: DiagramExplorationResult;
 		try {
@@ -435,7 +437,7 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 		const entrypoints = state.files.filter(file => sourceRole(file.file) === 'runtime' && /(^|\/)(main|index|app|server|cli|__main__)([.\/]|$)/i.test(file.file)).slice(0, 20).map(file => ({ file: file.file, revision: file.revision ?? null, classification: 'candidate' }));
 		const map = [...new Set(state.files.filter(file => file.status !== 'excluded').map(file => file.file.includes('/') ? file.file.split('/')[0] : '.'))].map(directory => ({ directory, files: state.files.filter(file => directory === '.' ? !file.file.includes('/') : file.file.startsWith(directory + '/')).length })).sort((a, b) => b.files - a.files).slice(0, 20);
 		const resume = sessionSummary(session, []);
-		const exploration = bounded ? checkpointInspection(session, resume) : { ...featureSessionSummary(session), plan: resume.plan, tasks: resume.tasks, blockers: resume.batch?.blockers ?? [], budgetStatus: resume.budgetStatus, drafts: resume.proposals.map(proposal => ({ ...proposal, views: proposal.views.map(view => { const value = view as ModelView; return { id: value.id, name: value.name, kind: value.kind, featureId: value.featureId }; }) })) };
+		const exploration = bounded ? checkpointInspection(session, resume, model) : { ...featureSessionSummary(session), plan: resume.plan, tasks: resume.tasks, blockers: resume.batch?.blockers ?? [], budgetStatus: resume.budgetStatus, drafts: resume.proposals.map(proposal => ({ ...proposal, views: proposal.views.map(view => { const value = view as ModelView; return { id: value.id, name: value.name, kind: value.kind, featureId: value.featureId }; }) })) };
 		return { exploration, projectId: state.projectId, proposalGuide: { example: diagramProposalExample, commandKinds: [...commandValidators.keys()] }, viewCapabilities: { catalog: diagramViewCatalog, behavior: ['sequence', 'activity'], descriptiveStates: 'unsupported', viewsPerProposal: 1 }, entrypoints, map, files: explorationPage(files, state.revision, {}, input.cursor, input.limit ?? (bounded ? 15 : undefined)), coverage: { inventory: { total: files.length, excluded: files.filter(file => file.status === 'excluded').length }, analyzer: explorationCapabilities(state), understanding: { exploredEvidence: session.evidence.length, unexploredFiles: files.filter(file => !session.evidence.some(entry => entry.file === file.path)).length, complete: false } }, views: explorationPage(model.views.map(({ id, name, kind, featureId }) => ({ id, name, kind, ...(featureId ? { featureId } : {}) })), contentHash(canonicalJson(model.views)), { collection: 'views', id: null, relatedTo: null }, undefined, 20), budget: session.budget, usage: session.usage };
 	}
 	if (tool === 'ade_source_search') {

@@ -20,6 +20,15 @@ export interface AdeDiagramActivity {
 	text: string;
 }
 
+export interface AdeDiagramLiveProgress {
+	readonly state: 'connecting' | 'working' | 'tool' | 'waiting' | 'stopping';
+	readonly startedAt: number;
+	readonly updatedAt: number;
+	readonly retrying?: boolean;
+	readonly activeTool?: string;
+	readonly lastCompletedTool?: string;
+}
+
 /** A detached, human-readable review; the exploration service remains the publication authority. */
 export interface AdeDiagramReview {
 	id: string; sessionId: string; root: string; modelUri: string; semanticRevision: string;
@@ -50,6 +59,7 @@ export interface IAdeAiService {
 	readonly diagramProgress: CodeDiagramProgress | undefined;
 	readonly diagramExploration: CodeDiagramExploration | undefined;
 	readonly diagramActivity?: readonly AdeDiagramActivity[];
+	readonly diagramLiveProgress?: AdeDiagramLiveProgress;
 	readonly diagramExplorationIssue?: string;
 	readonly diagramClarification?: string;
 	stopDiagramExploration?(): void;
