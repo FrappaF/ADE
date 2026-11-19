@@ -42,6 +42,7 @@ Estrai [i progetti di esempio](progetti-esempio.zip) in una cartella tua. Copia 
 | `07-mercato-laboratorio/codice` | Piccolo modulo JavaScript da eseguire e importare |
 | `07-mercato-laboratorio/codice-ia` | Sorgenti e test per ricavare i diagrammi di Acquisto e Resi in L17 |
 | `07-mercato-laboratorio/moduli/generazione-ia` | Modello e casi indipendenti per generare i primi sorgenti in L18 |
+| `08-mercato-codebase` | Progetto autonomo di soli sorgenti e test, da aprire con **Import Codebase** |
 | `02` fino a `06` | Le stesse basi dei laboratori avanzati, disponibili anche separatamente |
 
 I nomi inglesi in grassetto riprendono i controlli dell’interfaccia. **Progetto > Project Settings** significa aprire il menu con il nome del progetto. **Palette** significa `F1`, oppure `Cmd+Shift+P` su macOS e `Ctrl+Shift+P` su Windows/Linux. La ricerca nella palette è anche un’alternativa ai menu. Nella versione HTML l’indice e la ricerca raggiungono i capitoli; clicca le immagini per ingrandirle.
@@ -1011,6 +1012,8 @@ Quando compare almeno una bozza completata, prova **Stop Generation**. Annota la
 4. Quando la proposta riflette il codice, scegli **Apply All Changes** e conferma. Le bozze entrano insieme nel modello locale. Apri le viste dal selettore per controllare il risultato. Se il modello o le evidenze sono cambiati, aggiorna la review prima di applicare.
 
 **Controllo L17**. Dal menu del progetto scegli **Open Project** e riapri la copia `codice-ia` e cerca Ordine nelle due viste pertinenti. Verifica che entrambe puntino alla stessa identità. Conserva l’esito dei cinque test, una fonte per ciascuna feature e l’esito della prova di ripresa. Se hai completato il solo inventario, annota quel risultato.
+
+Per ripetere l’importazione su un progetto autonomo simile a Mercato, copia `08-mercato-codebase` e scegli **Import Codebase** su quella cartella. Parti dai sorgenti di Acquisto e Resi, dall’archivio ordini condiviso e dagli eventi locali. Il `LEGGIMI.md` indica le evidenze da cercare e come eseguire i test.
 
 
 ### L18. Genera il primo codice dai diagrammi

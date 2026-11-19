@@ -141,3 +141,9 @@ Il tentativo con Codex sul campione sintetico è stato bloccato all’avvio da u
 Integrato l’aggiornamento del laboratorio di `20028af9`. Sulla revisione integrata sono passati il controllo TypeScript del workbench, 111 test dei servizi, 29 test Chromium e la prova dell’adapter MCP nel pacchetto.
 
 Il PDF rigenerato contiene 88 pagine, 57 segnalibri, 132 collegamenti e 38 immagini. L17 inizia a pagina 43, L18 a pagina 45. Controllati testo, destinazioni e limiti delle pagine, con ispezione visuale delle sezioni aggiornate. L’HTML contiene 52 capitoli e 38 immagini decodificate. In Chromium sono passati il controllo delle destinazioni interne, la ricerca del comando di generazione, la chiusura con Escape, l’ingrandimento con restituzione del focus e il controllo di larghezza a 390, 768, 1024 e 1440 pixel. Verificati CRC e corrispondenza dei 62 file dei progetti di esempio e dei 45 file del kit.
+
+## Codebase Mercato da importare · 19 novembre 2026
+
+`08-mercato-codebase` è un progetto autonomo con sette moduli JavaScript, un manifest, un file di test e le istruzioni di avvio e importazione. Tutti gli otto test passano su Node.js 24.22.1. La prova con `npm start` ha attraversato checkout, lettura dell’ordine, reso ed eventi HTTP sul loopback.
+
+L’importazione semantica su una copia pulita, con il motore ADE distribuito, ha rilevato 18 dichiarazioni e 33 dipendenze statiche, comprese le otto relazioni attese tra moduli. La discovery parte da un modello architetturale vuoto. L’importazione e la consultazione delle evidenze sono state verificate in locale, con i dieci file originali invariati. Il riferimento all’esempio compare in L17 e nelle istruzioni iniziali. Il PDF aggiornato ha 89 pagine, con L17 a pagina 43 e L18 a pagina 46.

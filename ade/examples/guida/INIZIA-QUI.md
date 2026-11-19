@@ -6,6 +6,8 @@ Nella Parte II costruisci Mercato: `07-mercato-laboratorio/inizio` è vuota per 
 
 Per i nuovi laboratori IA apri `07-mercato-laboratorio/codice-ia` con **Import Codebase** per L17 e `07-mercato-laboratorio/moduli/generazione-ia` con **Open Project** per L18. Acquisto e Resi condividono il contratto Ordine in entrambi gli esercizi. Ogni laboratorio parte da una copia della propria cartella.
 
+Per provare l’importazione su un progetto autonomo di soli sorgenti, estrai una copia di `08-mercato-codebase` e selezionala con **Import Codebase**. L’archivio ordini condiviso e gli eventi locali offrono evidenze da seguire tra Acquisto e Resi. [Istruzioni e test](08-mercato-codebase/LEGGIMI.md)
+
 Copia le cartelle intere, inclusi i dati nascosti del modello. Non occorre aprire o modificare JSON. Non aprire 07-mercato-laboratorio come se fosse una singola root ADE: scegli il sottoprogetto della lezione. I checkpoint sono salvataggi reali della costruzione fino a L3 e L5, senza contenuti delle lezioni successive.
 
 I laboratori locali non richiedono un account IA. Le varianti eseguibili usano il runtime Node indicato nella guida. I materiali non contengono Git personali, credenziali, sessioni IA o cache di importazione. Gli esempi sono sintetici; deployment, rete e schema DB sono progettati e non rappresentano servizi distribuiti attivi.

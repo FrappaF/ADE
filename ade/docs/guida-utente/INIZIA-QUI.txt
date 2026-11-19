@@ -13,6 +13,7 @@ Edizione del 19 novembre 2026 · ADE desktop con l’aggiornamento del laborator
 9. Premi Structural Blueprint nella testata e segui L3 per compilare, rivedere e applicare le configurazioni del modello.
 10. Per ricavare i diagrammi di Acquisto e Resi dai sorgenti usa 07-mercato-laboratorio/codice-ia con L17.
 11. Per generare il primo codice da un modello già pronto usa 07-mercato-laboratorio/moduli/generazione-ia con L18.
+12. Per provare l’importazione da zero, scegli Import Codebase e seleziona una copia di 08-mercato-codebase. La cartella contiene sorgenti e test. Segui il suo LEGGIMI.md per risalire alle evidenze.
 
 Il materiale comprende tre parti e appendici operative, 52 capitoli e 38 immagini dell’interfaccia. Bottega ha due feature e otto viste. Mercato include 18 viste, due checkpoint, moduli eseguibili e codice di esempio. Ogni sottoprogetto ADE va aperto sulla propria root.
 
