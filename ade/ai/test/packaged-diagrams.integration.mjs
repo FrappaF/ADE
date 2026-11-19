@@ -73,6 +73,30 @@ test('packaged MCP generates feature diagrams in order and reuses staged identit
 	}
 	assert.equal(await readFile(join(root, 'checkout.mjs'), 'utf8'), source);
 	assert.equal(await readFile(context.model, 'utf8'), publishedModel);
+	const id = { sessionId: opened.sessionId };
+	const { data: { phase, usage: { toolCalls, readBytes } } } = await call({ operation: 'exploration', snapshot: context.snapshot, request: JSON.stringify({ action: 'status', ...id }) });
+	assert.equal(phase, 'audit');
+	const auditor = new Client({ name: 'ade-packaged-auditor', version: '1' });
+	t.after(() => auditor.close());
+	const invocation = { checkpoint: { phase, toolCalls, readBytes }, turnId: 'packaged-audit' };
+	await auditor.connect(new StdioClientTransport({ command: mcp.command, args: [...mcp.args, JSON.stringify(invocation)] }));
+	assert.ok((await auditor.listTools()).tools.some(tool => tool.name === 'ade_audit_submit'));
+	const audit = async (name, args = {}) => {
+		const response = await auditor.callTool({ name, arguments: args });
+		assert.deepEqual(response.structuredContent.diagnostics, [], name);
+		return response.structuredContent.data;
+	};
+	const inspect = async (name, args = {}) => {
+		let cursor;
+		do {
+			({ objects: { nextCursor: cursor } } = await audit(name, { ...args, ...(cursor ? { cursor } : {}) }));
+		} while (cursor);
+	};
+	const audited = await audit('ade_audit_inventory');
+	for (const { id: viewId } of audited.views) { await inspect('ade_audit_diagram', { viewId }); }
+	await audit('ade_source_read', { file: file.path, revision: file.revision });
+	await inspect('ade_audit_reuse');
+	await audit('ade_audit_submit', { summary: 'Verified the shared orders store in the checkout and refund views.', findings: [] });
 	const review = await call({ operation: 'exploration', snapshot: context.snapshot, request: JSON.stringify({ action: 'review', sessionId: opened.sessionId }) });
 	assert.deepEqual([review.data.proposal.status, review.data.images.length, review.data.plan.items.length], ['ready', 2, 2]);
 	assert.ok(review.data.proposal.views.every(view => view.nodes.some(node => node.elementId === storeId)));

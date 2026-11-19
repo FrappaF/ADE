@@ -41,6 +41,25 @@ test('Claude conversations disable persistence and expose only the ADE server', 
 	assert.deepEqual(result, { text: 'Ready' });
 });
 
+test('automatic Codex checkpoints use a scoped reasoning effort with an inheritance option', async () => {
+	for (const [provider, checkpoint, effort, expected] of [
+		['codex', 'discovery', undefined, 'medium'],
+		['codex', 'diagrams', 'low', 'low'],
+		['codex', 'audit', 'high', 'high'],
+		['codex', 'repair', 'inherit', undefined],
+		['codex', false, 'low', undefined],
+		['claude', 'diagrams', 'low', undefined],
+	] as const) {
+		await runDiagramChat('/project', { ...config, provider, executable: provider }, [{ role: 'user', text: 'Prepare diagrams' }], { command: 'node', args: ['adapter'] }, undefined, async (_executable, args) => {
+			assert.deepEqual(args.filter(arg => arg.startsWith('model_reasoning_effort=')), expected ? [`model_reasoning_effort="${expected}"`] : []);
+			assert.equal(args.includes('--effort'), false);
+			if (provider === 'claude') { return { code: 0, stdout: '{"subtype":"success","result":"Ready"}', stderr: '' }; }
+			await writeFile(args[args.indexOf('--output-last-message') + 1], 'Ready');
+			return { code: 0, stdout: '{"type":"turn.completed"}\n', stderr: '' };
+		}, undefined, undefined, undefined, checkpoint, effort);
+	}
+});
+
 test('disabled requests or oversized conversations do not start a provider process', async () => {
 	const runner = async () => { assert.fail('provider must not start'); };
 	await assert.rejects(runDiagramChat('/project', { ...config, maxCalls: 0 }, [{ role: 'user', text: 'Generate' }], undefined, undefined, runner), /disabled/);

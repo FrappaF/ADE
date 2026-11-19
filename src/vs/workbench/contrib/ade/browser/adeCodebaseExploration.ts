@@ -34,13 +34,20 @@ function toolLabel(tool: string): string | undefined {
 		case 'ade_source_search': return localize('ade.explore.tool.search', "Search source code");
 		case 'ade_source_read': return localize('ade.explore.tool.read', "Read source evidence");
 		case 'ade_code_references': return localize('ade.explore.tool.references', "Check code references");
-		case 'ade_model_query': return localize('ade.explore.tool.model', "Check existing architecture elements");
+		case 'ade_model_query':
+		case 'ade_model_query_batch': return localize('ade.explore.tool.model', "Check existing architecture elements");
 		case 'ade_feature_catalog': return localize('ade.explore.tool.features', "Save the feature catalog");
 		case 'ade_diagram_plan': return localize('ade.explore.tool.plan', "Save the diagram plan");
 		case 'ade_model_propose': return localize('ade.explore.tool.propose', "Save a diagram draft");
 		case 'ade_view_preview': return localize('ade.explore.tool.preview', "Validate a diagram preview");
 		case 'ade_proposal_discard': return localize('ade.explore.tool.archive', "Archive an invalid draft");
 		case 'ade_task_update': return localize('ade.explore.tool.checkpoint', "Save diagram progress");
+		case 'ade_audit_inventory': return localize('ade.explore.tool.auditInventory', "Compare code and diagram coverage");
+		case 'ade_audit_diagram': return localize('ade.explore.tool.auditDiagram', "Inspect a generated diagram");
+		case 'ade_audit_reuse': return localize('ade.explore.tool.auditReuse', "Check shared diagram elements");
+		case 'ade_audit_submit': return localize('ade.explore.tool.auditSubmit', "Save the codebase audit report");
+		case 'ade_audit_report': return localize('ade.explore.tool.auditReport', "Read the codebase audit finding");
+		case 'ade_audit_repair': return localize('ade.explore.tool.auditRepair', "Apply a correction to the draft set");
 	}
 	return undefined;
 }
@@ -94,7 +101,8 @@ export class AdeCodebaseExploration {
 		const items = exploration?.plan?.items ?? [];
 		const tasks = new Map(exploration?.tasks.map(task => [task.id, task]));
 		const prepared = items.filter(item => draftReady(tasks.get(item.id))).length;
-		const currentStep = phase === 'applied' ? steps.length : phase === 'review' || exploration?.phase === 'review' ? 3 : exploration?.phase === 'planning' || exploration?.phase === 'diagrams' || items.length ? 2 : 1;
+		const preparingDiagrams = items.length > 0 || !!exploration?.phase && exploration.phase !== 'discovery';
+		const currentStep = phase === 'applied' ? steps.length : phase === 'review' || exploration?.phase === 'review' ? 3 : preparingDiagrams ? 2 : 1;
 
 		const card = dom.append(panel, dom.$('div.ade-explore-card'));
 		this.renderSteps(card, currentStep);
@@ -177,6 +185,8 @@ export class AdeCodebaseExploration {
 			switch (exploration?.phase) {
 				case 'planning': return { title: localize('ade.explore.stage.planning', "Planning diagrams"), description: scope, icon: Codicon.listTree, tone: 'active' };
 				case 'diagrams': return { title: localize('ade.explore.stage.generating', "Generating diagrams"), description: scopeLabel, icon: Codicon.typeHierarchy, tone: 'active' };
+				case 'audit': return { title: localize('ade.explore.stage.audit', "Checking diagrams against the codebase"), description: localize('ade.explore.stage.auditDetail', "The audit checks coverage, source evidence and shared model elements."), icon: Codicon.inspect, tone: 'active' };
+				case 'repair': return { title: localize('ade.explore.stage.repair', "Correcting diagrams from the audit"), description: exploration.auditReport?.findings.find(finding => finding.id === exploration.nextFindingId)?.summary, icon: Codicon.tools, tone: 'active' };
 				case 'review': return { title: localize('ade.explore.stage.modelCheck', "Checking the diagram set"), icon: Codicon.inspect, tone: 'active' };
 				default: return { title: localize('ade.explore.stage.discovery', "Identifying project features"), icon: Codicon.search, tone: 'active' };
 			}
@@ -185,6 +195,12 @@ export class AdeCodebaseExploration {
 		if (issue) { return { title: localize('ade.explore.generationPaused', "Generation paused"), description: issue, icon: Codicon.warning, tone: 'attention' }; }
 		if (exploration?.phase === 'review' || (!exploration?.phase && exploration?.batch?.blockers.length)) {
 			return { title: localize('ade.explore.reviewNeedsAttention', "Diagram review needs attention"), description: localize('ade.explore.reviewResolve', "Continue generation to resolve pending diagrams before applying the set."), icon: Codicon.warning, tone: 'attention' };
+		}
+		if (exploration?.phase === 'audit' || exploration?.phase === 'repair') {
+			return {
+				title: exploration.phase === 'audit' ? localize('ade.explore.auditPaused', "Diagram audit paused") : localize('ade.explore.repairPaused', "Diagram corrections paused"),
+				description: localize('ade.explore.auditResume', "Continue generation to resume this step."), icon: Codicon.history, tone: 'ready'
+			};
 		}
 		if (exploration?.phase === 'planning' || exploration?.phase === 'diagrams') {
 			return {

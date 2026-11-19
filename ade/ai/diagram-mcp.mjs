@@ -12,8 +12,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 const { active } = await import('../runtime/projectStore.ts');
 const { executeDiagramExploration } = await import('./diagramSession.ts');
-const { checkpointToolAllowed, diagramCheckpointInstruction } = await import('./diagramCheckpoint.ts');
-const { diagramToolDefinitions, diagramSessionInstruction } = await import('../../src/vs/workbench/contrib/ade/common/diagramTools.ts');
+const { checkpointToolAllowed, diagramCheckpointInstruction, specializedDiagramCheckpointInstruction } = await import('./diagramCheckpoint.ts');
+const { diagramAuditToolDefinitions, diagramToolDefinitions, diagramSessionInstruction } = await import('../../src/vs/workbench/contrib/ade/common/diagramTools.ts');
 
 /** One stdio process is pinned to one project; no project switching, model token or global config. */
 export async function createDiagramMcpServer(root, sessionId, options = {}) {
@@ -25,9 +25,9 @@ export async function createDiagramMcpServer(root, sessionId, options = {}) {
 	const opened = await executeDiagramExploration(snapshot, { action: 'open', ...(sessionId ? { sessionId } : { workflow: 'project', featureWorkflow: true }), ...openOptions });
 	sessionId = opened.sessionId;
 	const instance = randomUUID();
-	const instruction = checkpoint ? `${diagramSessionInstruction}\n\n${diagramCheckpointInstruction}` : diagramSessionInstruction;
+	const instruction = specializedDiagramCheckpointInstruction(checkpoint?.phase) ?? (checkpoint ? `${diagramSessionInstruction}\n\n${diagramCheckpointInstruction}` : diagramSessionInstruction);
 	const server = new Server({ name: 'ade-diagrams', version: '2.0.0' }, { capabilities: { tools: {} }, instructions: instruction });
-	const tools = checkpoint ? diagramToolDefinitions.filter(tool => checkpointToolAllowed(checkpoint, tool.name)) : diagramToolDefinitions;
+	const tools = checkpoint ? [...diagramToolDefinitions, ...diagramAuditToolDefinitions].filter(tool => checkpointToolAllowed(checkpoint, tool.name)) : diagramToolDefinitions;
 	server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: tools.map(tool => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, annotations: { readOnlyHint: tool.readOnly, destructiveHint: false, idempotentHint: tool.readOnly, openWorldHint: false } })) }));
 	server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 		const result = await executeDiagramExploration(snapshot, { action: 'tool', sessionId, tool: request.params.name, arguments: request.params.arguments ?? {}, callId: `${instance}:${extra.requestId}`, ...(checkpoint ? { checkpoint, turnId } : {}) }, extra.signal);

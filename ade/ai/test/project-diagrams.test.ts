@@ -234,8 +234,15 @@ test('one provider checkpoint cannot read or advance the next feature phase', as
 	]);
 });
 
-test('feature catalog orders dependencies, enforces one previewed diagram at a time and shares stable model IDs', async t => {
+test('feature diagrams share stable identities and all audit findings are repaired before publication', async t => {
 	const f = await featureFixture(t);
+	const initial = await active(f.root);
+	const checkpointTools = async (turnId: string) => {
+		const { data } = await f.request({ action: 'status' });
+		const { phase, nextFeatureId, nextTaskId, nextFindingId, usage: { toolCalls, readBytes } } = data;
+		const checkpoint = { phase, nextFeatureId, nextTaskId, nextFindingId, toolCalls, readBytes };
+		return (tool: string, args: object = {}) => f.request({ action: 'tool', tool, arguments: args, checkpoint, turnId });
+	};
 	assert.equal(f.opened.data.phase, 'discovery');
 	const badEvidence = await f.call('ade_feature_catalog', { features: [{ ...f.purchase, evidenceIds: ['fabricated'] }] });
 	assert.equal(badEvidence.diagnostics[0].code, 'missingEvidence');
@@ -256,27 +263,153 @@ test('feature catalog orders dependencies, enforces one previewed diagram at a t
 	await f.tool('ade_task_update', f.update(purchase.id, 'ready', first.proposalId));
 	const reopened = await f.request({ action: 'open' });
 	assert.deepEqual([reopened.data.nextTaskId, reopened.data.featureCatalog.features[0].elementId], [stock.id, proposal.aliases['@feature']]);
-	const lookup = await f.tool('ade_model_query', { collection: 'elements', match: { name: 'Inventory', kind: 'resource', evidenceIds: f.purchase.evidenceIds } });
-	assert.equal(lookup.candidates[0].id, proposal.aliases['@store']);
+	const queries = [
+		{ collection: 'elements', match: { name: 'Inventory', kind: 'resource', evidenceIds: f.purchase.evidenceIds } },
+		{ collection: 'views', id: proposal.aliases['@view'] },
+		{ collection: 'tasks', limit: 1 },
+		{ collection: 'evidence', id: f.purchase.evidenceIds[0] }
+	];
+	const separate = [];
+	for (const query of queries) { separate.push(await f.tool('ade_model_query', query)); }
+	assert.equal(separate[0].candidates[0].id, proposal.aliases['@store']);
+	const afterSeparate = (await f.request({ action: 'status' })).data;
+	const lookupBatch = await checkpointTools('batch-lookup');
+	const batch = await lookupBatch('ade_model_query_batch', { queries });
+	const afterBatch = (await f.request({ action: 'status' })).data;
+	assert.deepEqual([batch.diagnostics, batch.data.results], [[], separate]);
+	assert.deepEqual([afterSeparate.usage.toolCalls - reopened.data.usage.toolCalls, afterBatch.usage.toolCalls - afterSeparate.usage.toolCalls, afterBatch.toolActivity.at(-1).tool], [4, 1, 'ade_model_query_batch']);
+	assert.equal((await lookupBatch('ade_model_query_batch', { queries: [] })).diagnostics[0].code, 'modelQueryBatchEmpty');
+	assert.equal((await lookupBatch('ade_model_query_batch', { queries: Array(9).fill(queries[0]) })).diagnostics[0].code, 'invalidToolArguments');
 	await f.tool('ade_model_propose', first);
 	assert.equal((await f.request({ action: 'status' })).data.nextTaskId, stock.id);
 	await f.tool('ade_task_update', f.update(stock.id, 'running'));
-	await f.tool('ade_model_propose', f.proposal(stock.id, 'stock-first', f.commands(stock, f.purchase, proposal.aliases['@feature'], proposal.aliases['@store']), f.purchase.evidenceIds));
+	const stockProposal = await f.tool('ade_model_propose', f.proposal(stock.id, 'stock-first', f.commands(stock, f.purchase, proposal.aliases['@feature'], proposal.aliases['@store']), f.purchase.evidenceIds));
 	await f.tool('ade_view_preview', { proposalId: 'stock-first' });
 	await f.tool('ade_task_update', f.update(stock.id, 'ready', 'stock-first'));
 	await f.tool('ade_diagram_plan', { featureId: 'returns', items: [returns] });
+	assert.equal((await (await checkpointTools('generate-returns'))('ade_audit_submit', { summary: 'Nothing to improve', findings: [] })).diagnostics[0].code, 'toolOutsideDiagramCheckpoint');
 	await f.tool('ade_task_update', f.update(returns.id, 'running'));
 	const wrong = f.proposal(returns.id, 'returns-wrong', f.commands(returns, f.returns, proposal.aliases['@feature'], proposal.aliases['@store']), f.returns.evidenceIds);
 	assert.equal((await f.call('ade_model_propose', wrong)).diagnostics[0].code, 'featureElementMismatch:returns');
-	await f.tool('ade_model_propose', f.proposal(returns.id, 'returns-first', f.commands(returns, f.returns, '@feature', proposal.aliases['@store']), f.returns.evidenceIds));
+	const returnProposal = await f.tool('ade_model_propose', f.proposal(returns.id, 'returns-first', f.commands(returns, f.returns, '@feature', proposal.aliases['@store']), f.returns.evidenceIds));
 	await f.tool('ade_view_preview', { proposalId: 'returns-first' });
 	await f.tool('ade_task_update', f.update(returns.id, 'ready', 'returns-first'));
+	const pending = await f.request({ action: 'review' });
+	assert.deepEqual([pending.data.phase, pending.data.proposal.status], ['audit', 'invalid']);
+	await assert.rejects(f.request({ action: 'publishAll', reviewId: pending.data.reviewId }), /projectNotReady/);
+
+	const storeId = proposal.aliases['@store'], purchaseViewId = proposal.aliases['@view'], stockViewId = stockProposal.aliases['@view'], returnsViewId = returnProposal.aliases['@view'];
+	const firstAuditor = await checkpointTools('independent-audit');
+	assert.equal((await firstAuditor('ade_model_propose', first)).diagnostics[0].code, 'toolOutsideDiagramCheckpoint');
+	assert.equal((await firstAuditor('ade_model_query_batch', { queries })).diagnostics[0].code, 'toolOutsideDiagramCheckpoint');
+	assert.equal((await firstAuditor('ade_audit_submit', { summary: 'No issues found.', findings: [] })).diagnostics[0].code, 'diagramAuditInspectionIncomplete');
+	assert.equal((await f.request({ action: 'status' })).data.phase, 'audit');
+	const firstPage = await firstAuditor('ade_audit_diagram', { viewId: purchaseViewId, limit: 1 });
+	assert.deepEqual(firstPage.diagnostics, []);
+	assert.ok(firstPage.data.objects.nextCursor);
+	const audit = await checkpointTools('resume-audit');
+	const lastPageCursor = firstPage.data.objects.nextCursor.replace(/:\d+$/, ':' + (firstPage.data.objects.total - 1));
+	assert.notEqual(lastPageCursor, firstPage.data.objects.nextCursor);
+	const skippedPage = await audit('ade_audit_diagram', { viewId: purchaseViewId, cursor: lastPageCursor, limit: 1 });
+	assert.equal(skippedPage.data.objects.nextCursor, null);
+	const inspectDiagram = async (viewId: string, name: string, cursor: string | null = null) => {
+		do {
+			const diagram = await audit('ade_audit_diagram', { viewId, ...(cursor ? { cursor } : {}) });
+			assert.deepEqual([diagram.diagnostics, diagram.data.view.id, diagram.data.view.name], [[], viewId, name]);
+			cursor = diagram.data.objects.nextCursor;
+		} while (cursor);
+	};
+	const inventory = await audit('ade_audit_inventory');
+	assert.deepEqual(inventory.diagnostics, []);
+	assert.deepEqual(inventory.data.views.map(view => view.id).sort(), [purchaseViewId, stockViewId, returnsViewId].sort());
+	assert.deepEqual(inventory.data.inspection.remainingViewIds.sort(), [purchaseViewId, stockViewId, returnsViewId].sort());
+	await inspectDiagram(purchaseViewId, purchase.name, firstPage.data.objects.nextCursor);
+	assert.deepEqual((await audit('ade_audit_inventory')).data.inspection.remainingViewIds.sort(), [stockViewId, returnsViewId].sort());
+	for (const { id: viewId, name } of inventory.data.views.filter(view => view.id !== purchaseViewId)) {
+		await inspectDiagram(viewId, name);
+	}
+	for (const { file, revision } of inventory.data.files.items) {
+		assert.deepEqual((await audit('ade_source_read', { file, revision })).diagnostics, []);
+	}
+	let reusePage = await audit('ade_audit_reuse', { limit: 1 });
+	assert.deepEqual(reusePage.diagnostics, []);
+	assert.ok(reusePage.data.objects.nextCursor);
+	assert.equal((await audit('ade_audit_inventory')).data.inspection.reuseInspected, false);
+	const identities = [...reusePage.data.objects.items];
+	while (reusePage.data.objects.nextCursor) {
+		reusePage = await audit('ade_audit_reuse', { cursor: reusePage.data.objects.nextCursor });
+		assert.deepEqual(reusePage.diagnostics, []);
+		identities.push(...reusePage.data.objects.items);
+	}
+	assert.deepEqual(identities.find(object => object.id === storeId).viewIds.sort(), [purchaseViewId, stockViewId, returnsViewId].sort());
+
+	const summary = 'The diagrams share the store. Its scope and the lifecycle across features need to be made explicit.';
+	const findings = [
+		{ id: 'shared-store', category: 'improvement', summary: 'The store label omits its shared role.', recommendation: 'Name the existing store Shared Inventory.', viewIds: [purchaseViewId, returnsViewId], evidenceIds: [...f.purchase.evidenceIds, ...f.returns.evidenceIds] },
+		{ id: 'shared-lifecycle', category: 'missing', summary: 'There is no shared view for the two inventory operations.', recommendation: 'Add a view connecting reserving and releasing through the existing inventory.', viewIds: [purchaseViewId, returnsViewId], evidenceIds: [...f.purchase.evidenceIds, ...f.returns.evidenceIds] },
+	];
+	assert.equal((await audit('ade_audit_submit', { summary, findings: [{ ...findings[0], evidenceIds: ['fabricated'] }] })).diagnostics[0].code, 'missingEvidence');
+	const audited = await audit('ade_audit_submit', { summary, findings });
+	assert.deepEqual(audited.diagnostics, []);
+	const reopenedAudit = await f.request({ action: 'open' });
+	assert.deepEqual([reopenedAudit.data.phase, reopenedAudit.data.nextFindingId, reopenedAudit.data.auditReport.summary], ['repair', findings[0].id, summary]);
+	const repairStore = await checkpointTools('repair-store');
+	const invalidRepair = await repairStore('ade_audit_repair', {
+		findingId: findings[0].id, resolution: 'Rename the store.', proposals: [{ proposalId: 'audit-invalid', baseSemanticRevision: reopenedAudit.semanticRevision, readEvidenceIds: [], queryIds: [], commands: [
+			{ kind: 'element', ref: storeId, evidenceIds: findings[0].evidenceIds },
+		] }],
+	});
+	assert.deepEqual(invalidRepair.diagnostics.map(diagnostic => {
+		const { field, keyword, details } = diagnostic as { field: string; keyword: string; details: object };
+		return { field, keyword, details };
+	}), [{ field: '/proposals/0/commands/0', keyword: 'required', details: { missingProperty: 'element' } }]);
+	const unrelatedRepair = await repairStore('ade_audit_repair', {
+		findingId: findings[0].id, resolution: 'Changed the stock diagram intent.', proposals: [{ proposalId: 'audit-unrelated-stock', baseSemanticRevision: reopenedAudit.semanticRevision, readEvidenceIds: findings[0].evidenceIds, queryIds: [], commands: [
+			{ kind: 'view', ref: stockViewId, name: stock.name, viewKind: stock.viewKind, intent: 'Describe available stock', elementIds: [storeId], relationIds: [] },
+		] }],
+	});
+	assert.equal(unrelatedRepair.diagnostics[0].code, 'diagramAuditCorrectionUnrelated');
+	const storeRepair = (name: string) => repairStore('ade_audit_repair', {
+		findingId: findings[0].id, resolution: 'Renamed the existing store while retaining its identity.', proposals: [{ proposalId: 'audit-shared-store', baseSemanticRevision: reopenedAudit.semanticRevision, readEvidenceIds: findings[0].evidenceIds, queryIds: [], commands: [
+			{ kind: 'element', ref: storeId, element: { kind: 'resource', name }, evidenceIds: findings[0].evidenceIds },
+		] }],
+	});
+	assert.equal((await storeRepair('Inventory')).diagnostics[0].code, 'diagramAuditCorrectionRequired');
+	const firstRepair = await storeRepair('Shared Inventory');
+	assert.deepEqual(firstRepair.diagnostics, []);
+	const partial = await f.request({ action: 'review' });
+	assert.deepEqual([partial.data.phase, partial.data.nextFindingId, partial.data.proposal.status], ['repair', findings[1].id, 'invalid']);
+	await assert.rejects(f.request({ action: 'publishAll', reviewId: partial.data.reviewId }), /projectNotReady/);
+	assert.equal(await active(f.root), initial);
+
+	const lifecycle = 'Shared Inventory Lifecycle';
+	const secondRepair = await (await checkpointTools('repair-lifecycle'))('ade_audit_repair', {
+		findingId: findings[1].id, resolution: 'Added the shared inventory lifecycle view.', proposals: [{ proposalId: 'audit-shared-lifecycle', baseSemanticRevision: firstRepair.semanticRevision, readEvidenceIds: findings[1].evidenceIds, queryIds: [], commands: [
+			{ kind: 'view', ref: '@lifecycle', name: lifecycle, viewKind: 'structure', intent: 'See where items are reserved and released.', elementIds: [storeId, proposal.aliases['@feature'], returnProposal.aliases['@feature']], relationIds: [] },
+		] }],
+	});
+	assert.deepEqual(secondRepair.diagnostics, []);
 	const review = await f.request({ action: 'review' });
-	assert.deepEqual([review.data.phase, review.data.proposal.status, review.data.images.length], ['review', 'ready', 3]);
+	assert.deepEqual([review.data.phase, review.data.proposal.status, review.data.images.length], ['review', 'ready', 4]);
+	assert.equal(review.data.auditReport.summary, summary);
+	assert.deepEqual(review.data.auditReport.findings.map(finding => [finding.id, Boolean(finding.resolution)]), findings.map(finding => [finding.id, true]));
+	const sessionFile = join(f.root, '.ade', 'exploration', f.opened.sessionId + '.json');
+	const auditedSession = await readFile(sessionFile, 'utf8');
+	const changedSession = JSON.parse(auditedSession);
+	changedSession.proposals.find(proposal => proposal.id === 'stock-first').patch.find(patch => patch.id === stockViewId).value.spec.intent = 'Changed scope of the staged stock view';
+	try {
+		await writeFile(sessionFile, JSON.stringify(changedSession));
+		const staleReview = await f.request({ action: 'review' });
+		assert.deepEqual([staleReview.data.phase, staleReview.data.proposal.status, staleReview.data.auditReport], ['audit', 'invalid', undefined]);
+		await assert.rejects(f.request({ action: 'publishAll', reviewId: review.data.reviewId }), /projectReviewChanged/);
+	} finally {
+		await writeFile(sessionFile, auditedSession);
+	}
 	const published = await f.request({ action: 'publishAll', reviewId: review.data.reviewId });
 	const model = JSON.parse(await readFile(join(published.data.snapshot, 'model.ade.json'), 'utf8'));
-	assert.deepEqual(model.semantics.elements.map(element => element.name).sort(), ['Inventory', 'Purchase', 'Returns']);
-	assert.deepEqual(model.views.map(view => view.nodes[0].elementId), Array(3).fill(proposal.aliases['@store']));
+	assert.deepEqual(model.semantics.elements.map(element => element.name).sort(), ['Purchase', 'Returns', 'Shared Inventory']);
+	assert.ok(model.views.every(view => view.nodes.some(node => node.elementId === storeId)));
+	assert.deepEqual(model.views.map(view => view.name).sort(), [purchase.name, stock.name, returns.name, lifecycle].sort());
 });
 
 test('stale earlier evidence pauses a later running feature and repair preserves canonical IDs', async t => {

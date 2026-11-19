@@ -38,8 +38,8 @@ import { IWorkingCopyIdentifier, NO_TYPE_ID } from '../../../services/workingCop
 import { AdeDiagramLayout } from './adeDiagramLayout.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
-import { defaultDiagramCheckpointTimeoutMinutes, maxDiagramCheckpointTimeoutMinutes } from '../common/codeBridge.js';
-import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../common/diagramExplorationSettings.js';
+import { defaultDiagramCheckpointTimeoutMinutes, diagramCheckpointReasoningEfforts, maxDiagramCheckpointTimeoutMinutes } from '../common/codeBridge.js';
+import { defaultDiagramCheckpointReasoningEffort, diagramCheckpointReasoningEffortSetting, diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../common/diagramExplorationSettings.js';
 import { defaultProjectDiagramExplorationBudget, maximumDiagramExplorationBudget, minimumDiagramExplorationBudget } from '../common/diagramExplorationBudget.js';
 
 class AdeWorkingCopyEditor extends Disposable {
@@ -251,6 +251,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: defaultDiagramCheckpointTimeoutMinutes,
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('ade.diagram.attemptMinutesSetting', "Maximum minutes for each attempt at a step in automatic diagram generation. The remaining exploration budget can end the attempt sooner.")
+		},
+		[diagramCheckpointReasoningEffortSetting]: {
+			type: 'string',
+			enum: [...diagramCheckpointReasoningEfforts],
+			default: defaultDiagramCheckpointReasoningEffort,
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('ade.diagram.reasoningEffortSetting', "Reasoning effort for automatic Codex diagram generation, audit, and corrections. Choose inherit to use the Codex CLI configuration.")
 		},
 		[diagramExplorationBudgetSetting]: {
 			type: 'object',

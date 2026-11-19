@@ -8,9 +8,11 @@ import type { DiagramExplorationBudget } from './diagramExplorationBudget.js';
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 15;
+export const adeCodeProtocolVersion = 16;
 export const defaultDiagramCheckpointTimeoutMinutes = 20;
 export const maxDiagramCheckpointTimeoutMinutes = 90;
+export const diagramCheckpointReasoningEfforts = ['inherit', 'low', 'medium', 'high'] as const;
+export type DiagramCheckpointReasoningEffort = typeof diagramCheckpointReasoningEfforts[number];
 export interface CodeAiProgress { requestId: string; kind: 'connecting' | 'thinking' | 'waiting' | 'tool' | 'message'; itemId?: string; text?: string; tool?: string }
 export type CodeDiagramCheckpointResult = { text: string; timeout?: never } | { timeout: 'startup' | 'idle' | 'deadline'; text?: never };
 export interface CodeBridgeProtocol { version: number; operations: string[] }
@@ -28,8 +30,8 @@ export type CodeRequest =
 	| { operation: 'collaboration'; request: string }
 	| { operation: 'exploration'; snapshot: string; request: string }
 	| ({ operation: 'diagramChat'; requestId?: string; root: string; config: string; messages: { role: 'user' | 'assistant'; text: string }[] } & (
-		{ snapshot?: string; sessionId?: string; checkpoint?: never; checkpointTimeoutMinutes?: never }
-		| { snapshot: string; sessionId: string; checkpoint: true; checkpointTimeoutMinutes?: number }))
+		{ snapshot?: string; sessionId?: string; checkpoint?: never; checkpointTimeoutMinutes?: never; checkpointReasoningEffort?: never }
+		| { snapshot: string; sessionId: string; checkpoint: true; checkpointTimeoutMinutes?: number; checkpointReasoningEffort?: DiagramCheckpointReasoningEffort }))
 	| { operation: 'import'; root: string; modelFile?: string; scope?: CodeScope; syntaxOnly?: boolean; bundles?: string[] }
 	| { operation: 'inspect' | 'preview' | 'history'; snapshot: string; inventoryOnly?: boolean; scope?: CodeScope; renames?: CodeRename[]; resolutions?: CodeResolution[]; bundles?: string[] }
 	| { operation: 'undoSync' | 'recoverSync'; snapshot: string; id: string }
@@ -67,13 +69,30 @@ export interface CodeHistory { snapshots: { directory: string; revision: string;
 export type CodeResponse = CodeContext | CodePreview | CodeSource | CodeHistory | CodeReconciliationContext | CodeDiagramProgress;
 export interface CodeEngine { execute(request: string, signal?: AbortSignal, progress?: (event: CodeAiProgress) => void): Promise<string> }
 
+export interface CodeDiagramAuditFinding {
+	id: string;
+	category: 'missing' | 'inconsistent' | 'duplicate' | 'improvement';
+	summary: string;
+	recommendation: string;
+	viewIds: string[];
+	evidenceIds: string[];
+	resolution?: string;
+}
+
+export interface CodeDiagramAuditReport {
+	summary: string;
+	findings: CodeDiagramAuditFinding[];
+}
+
 /** Compact product state; detailed receipts and proposals stay in the project journal. */
 export interface CodeDiagramExploration {
 	sessionId: string; model: string;
 	workflow?: 'project';
-	phase?: 'discovery' | 'planning' | 'diagrams' | 'review';
+	phase?: 'discovery' | 'planning' | 'diagrams' | 'audit' | 'repair' | 'review';
 	nextFeatureId?: string;
 	nextTaskId?: string;
+	nextFindingId?: string;
+	auditReport?: CodeDiagramAuditReport;
 	featureCatalog?: { revision: string; features: { id: string; name: string; description: string; evidenceIds: string[]; dependsOn: string[]; elementId?: string }[] };
 	featurePlans?: { featureId?: string; gaps: string[] }[];
 	plan?: { revision: string; items: { id: string; name: string; viewKind: import('./modelTypes.js').ModelView['kind']; intent: string; rationale: string; parentId?: string; featureId?: string; dependsOn: string[] }[] };

@@ -16,13 +16,13 @@ const { readSnapshot } = await import('../code-import/snapshot.ts');
 
 const implementationFiles = [
 	'./test-diagram-exploration-live.mjs', './test-diagram-feature-workflow.mjs', './diagram-feature-rubric.mjs',
-	'../runtime/nativeHost.ts', '../ai/diagramSession.ts', '../ai/diagramProject.ts', '../ai/diagramChat.ts', '../ai/diagram-mcp.mjs', '../code-import/explorationIndex.ts',
+	'../runtime/nativeHost.ts', '../ai/diagramSession.ts', '../ai/diagramProject.ts', '../ai/diagramAudit.ts', '../ai/diagramCheckpoint.ts', '../ai/diagramChat.ts', '../ai/diagram-mcp.mjs', '../code-import/explorationIndex.ts',
 	'../../src/vs/workbench/contrib/ade/common/diagramTools.ts', '../../src/vs/workbench/contrib/ade/common/diagramIdentity.ts',
 	'../../src/vs/workbench/contrib/ade/common/modelProposals.ts', '../../src/vs/workbench/contrib/ade/common/diagramPreview.ts'
 ];
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const json = async (file, value) => writeFile(file, JSON.stringify(value, null, '\t') + '\n', { mode: 0o600 });
-const checkpointOf = state => ({ phase: state.phase ?? null, featureId: state.nextFeatureId ?? null, taskId: state.nextTaskId ?? null });
+const checkpointOf = state => ({ phase: state.phase ?? null, featureId: state.nextFeatureId ?? null, taskId: state.nextTaskId ?? null, findingId: state.nextFindingId ?? null });
 
 async function checkWorkspace(root, context, baseline, originalModel) {
 	const id = 'workspace-preserved';

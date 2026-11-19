@@ -62,6 +62,24 @@ test('Mercato feature rubric checks grounded views and rejects split order ident
 	const lookup = await tool('ade_model_query', { collection: 'elements', match: { name: 'Archivio ordini', kind: 'resource', evidenceIds: [orders] } });
 	assert.equal(lookup.candidates[0].id, purchase['@order']);
 	await stage(features[1], lookup.candidates[0].id, 'read');
+	const { data: { phase, usage: { toolCalls, readBytes } } } = await call('status');
+	assert.equal(phase, 'audit');
+	const audit = async (tool, arguments_ = {}) => {
+		const response = await call('tool', { tool, arguments: arguments_, checkpoint: { phase, toolCalls, readBytes }, turnId: 'mercato-rubric-audit' });
+		assert.deepEqual(response.diagnostics, [], tool);
+		return response.data;
+	};
+	const inspect = async (tool, args = {}) => {
+		let cursor;
+		do {
+			({ objects: { nextCursor: cursor } } = await audit(tool, { ...args, ...(cursor ? { cursor } : {}) }));
+		} while (cursor);
+	};
+	const inventory = await audit('ade_audit_inventory');
+	for (const { id: viewId } of inventory.views) { await inspect('ade_audit_diagram', { viewId }); }
+	await audit('ade_source_search', { query: 'createOrderStore', mode: 'symbol', filePrefix: 'src/orders.mjs' });
+	await inspect('ade_audit_reuse');
+	await audit('ade_audit_submit', { summary: 'Both feature diagrams use the same evidenced order store.', findings: [] });
 	const review = await call('review');
 	const artifact = JSON.parse(await readFile(review.data.reviewFile, 'utf8'));
 	const session = await readExplorationSession(root, sessionId);

@@ -14,7 +14,7 @@ import { importCode, type CodeImport } from '../code-import/importCode.ts';
 import { contentHash, sourceFile } from '../runtime/sourceChanges.ts';
 import { applyReconciliation, assertNoInterruptedOperation, operationHistory, recoverReconciliation } from '../code-import/reconciliationJournal.ts';
 import { ExplorationSourceRangeError, explorationCapabilities, explorationPage, refreshExplorationAnalysis, indexScopeRevision, readExplorationSource, searchExplorationSource, sourceRole, type ExplorationCapabilities, type IndexQuery } from '../code-import/explorationIndex.ts';
-import { diagramProposalExample, diagramSessionInstruction, diagramToolDefinitions, diagramViewCatalog } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
+import { diagramAuditToolDefinitions, diagramProposalExample, diagramSessionInstruction, diagramToolDefinitions, diagramViewCatalog } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
 import { defaultProjectDiagramExplorationBudget, getDiagramBudgetExtensionCapacity, isDiagramExplorationBudget, maximumDiagramExplorationBudget, type DiagramExplorationBudget } from '../../src/vs/workbench/contrib/ade/common/diagramExplorationBudget.ts';
 import { applyDiagramProposal, diagramModelRevision, proposeDiagramModel, type DiagramProposal, type DiagramProposalRequest } from '../../src/vs/workbench/contrib/ade/common/modelProposals.ts';
 import { migrateSemanticModelToV5 } from '../../src/vs/workbench/contrib/ade/common/modelMigration.ts';
@@ -29,15 +29,19 @@ import { isDisclosableSource } from '../code-import/paths.ts';
 import { diagramFeatureCatalog, diagramFeatureStage, diagramProjectBlockers, diagramProjectProposal, projectDrafts, stageDiagramProject, validateDiagramPlan, type DiagramFeature, type DiagramFeatureCatalog, type DiagramFeaturePlan, type DiagramPlan, type DiagramPlanItem } from './diagramProject.ts';
 import { notationNodeSize } from '../../src/vs/workbench/contrib/ade/common/diagramLayout.ts';
 import { checkpointToolAllowed, diagramCheckpointSchema, sameDiagramCheckpoint, type DiagramCheckpoint } from './diagramCheckpoint.ts';
+import { auditCorrectionContent, auditDiagram, auditDraftRevision, auditInventory, auditReuse, auditTouchesViews } from './diagramAudit.ts';
+import type { CodeDiagramAuditReport } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 
 export type ExplorationBudget = DiagramExplorationBudget;
 const defaultExplorationBudget: ExplorationBudget = { maxToolCalls: 80, maxReadBytes: 1024 * 1024, maxDurationMs: 30 * 60 * 1000, maxModelTurns: 8 };
 type TaskState = 'queued' | 'running' | 'waitingContext' | 'waitingUser' | 'blocked' | 'ready' | 'applied' | 'cancelled';
 interface ExplorationTask { id: string; intent: string; status: TaskState; gaps: string[]; proposalId?: string; previewedProposalId?: string }
-interface ToolReceipt { id: string; fingerprint: string; tool: string; turnId?: string; status: 'running' | 'complete' | 'interrupted'; inputBytes: number; outputBytes: number; durationMs?: number; diagnostics?: string[] }
+interface ToolReceipt { id: string; fingerprint: string; tool: string; turnId?: string; status: 'running' | 'complete' | 'interrupted'; inputBytes: number; outputBytes: number; durationMs?: number; diagnostics?: string[]; audit?: { revision: string; viewId?: string; nextCursor?: string | null } }
+interface DiagramAudit { sourceRevision: string; draftRevision: string; report: CodeDiagramAuditReport; proposals: DiagramProposal[] }
 export interface DiagramExplorationSession {
 	version: 2; id: string; root: string; projectId: string; created: number; model: string; workflow?: 'project'; plan?: DiagramPlan; runs?: { id: string; model: string; started: number }[];
 	featureWorkflow?: true; featureCatalog?: DiagramFeatureCatalog; featurePlans?: DiagramFeaturePlan[]; catalogNeedsRefresh?: true;
+	audit?: DiagramAudit;
 	budget: ExplorationBudget; usage: { toolCalls: number; readBytes: number; modelTurns: string[]; inputTokens: null; outputTokens: null; turnsObservable: boolean };
 	evidence: EvidenceRecord[]; queries: IndexQuery[]; proposals: DiagramProposal[]; tasks: ExplorationTask[]; calls: ToolReceipt[];
 	publication?: { proposalIds?: string[]; proposalId: string; destination: string; status: 'publishing' | 'applied' | 'rolledBack' };
@@ -57,7 +61,7 @@ const requestValidator = new Ajv2020().compile({ type: 'object', additionalPrope
 	workflow: { const: 'project' }, featureWorkflow: { const: true }, checkpoint: diagramCheckpointSchema, reviewId: { type: 'string', maxLength: 100 }, action: { enum: ['open', 'status', 'tool', 'publish', 'budget', 'review', 'publishAll'] }, sessionId: { type: 'string', maxLength: 100 }, model: { type: 'string', minLength: 1, maxLength: 200 }, budget: { type: 'object' }, budgetIncrease: { type: 'object' }, tool: { type: 'string', maxLength: 120 }, arguments: { type: 'object' }, callId: { type: 'string', maxLength: 300 }, turnId: { type: 'string', maxLength: 300 }, proposalId: { type: 'string', maxLength: 100 }
 } });
 const toolValidator = new Ajv2020({ strict: false, allErrors: true });
-const validators = new Map(diagramToolDefinitions.map(tool => [tool.name, toolValidator.compile(tool.inputSchema)]));
+const validators = new Map([...diagramToolDefinitions, ...diagramAuditToolDefinitions].map(tool => [tool.name, toolValidator.compile(tool.inputSchema)]));
 const commandValidators = new Map(diagramToolDefinitions.find(tool => tool.name === 'ade_model_propose')!.inputSchema.properties!.commands.items!.oneOf!.map(schema => [String(schema.properties!.kind.const), { schema, validate: toolValidator.compile(schema) }]));
 const projectQueues = new Map<string, Promise<void>>();
 
@@ -72,8 +76,37 @@ async function explorationLock<T>(root: string, task: () => Promise<T>): Promise
 	finally { release(); if (projectQueues.get(root) === current) { projectQueues.delete(root); } }
 }
 
-function featureStage(session: DiagramExplorationSession) {
-	return diagramFeatureStage(session.catalogNeedsRefresh ? undefined : session.featureCatalog, session.featurePlans ?? [], session.plan, session.tasks);
+function featureStage(session: DiagramExplorationSession): { phase: DiagramCheckpoint['phase'] | 'review'; nextFeatureId?: string; nextTaskId?: string; nextFindingId?: string } {
+	const stage = diagramFeatureStage(session.catalogNeedsRefresh ? undefined : session.featureCatalog, session.featurePlans ?? [], session.plan, session.tasks);
+	if (stage.phase !== 'review' || !session.featureWorkflow || session.publication?.status === 'applied') { return stage; }
+	if (!session.audit) { return { phase: 'audit' }; }
+	const finding = session.audit.report.findings.find(finding => !finding.resolution);
+	return finding ? { phase: 'repair', nextFindingId: finding.id } : stage;
+}
+
+/** Audit repairs are replayed after the original plan, leaving its task assignments intact. */
+function allProposals(session: DiagramExplorationSession): DiagramProposal[] {
+	return [...session.proposals, ...session.audit?.proposals ?? []];
+}
+
+/** Resume a partially inspected draft set only while the source and diagram revisions match. */
+function auditProgress(session: DiagramExplorationSession, revision: string) {
+	const inspections = session.calls.filter(call => call.status === 'complete' && call.audit?.revision === revision);
+	const inspected = new Set(inspections.filter(call => call.audit?.nextCursor === null).map(call => call.audit?.viewId));
+	const waiting = new Set(projectDrafts(session.proposals).flatMap(proposal => proposal.patch.filter(patch => patch.collection === 'views' && patch.value && !inspected.has(patch.id)).map(patch => patch.id)));
+	const cursors = new Map(inspections.filter(call => call.audit?.nextCursor).map(call => [call.audit?.viewId, call.audit?.nextCursor]));
+	const reuseInspected = inspections.some(call => call.tool === 'ade_audit_reuse' && call.audit?.nextCursor === null);
+	return { remainingViewIds: [...waiting], partialViews: [...waiting].flatMap(viewId => cursors.has(viewId) ? [{ viewId, cursor: cursors.get(viewId) }] : []), sourceInspected: inspections.some(call => call.tool === 'ade_source_read' || call.tool === 'ade_source_search'), reuseInspected, reuseCursor: reuseInspected ? undefined : cursors.get(undefined) };
+}
+
+/** Count a page only if the reviewer has obtained every preceding page in this revision. */
+function auditReceipt(session: DiagramExplorationSession, revision: string, tool: string, args: object, data: object): ToolReceipt['audit'] {
+	if (tool === 'ade_source_read' || tool === 'ade_source_search' && (data as { page?: { items: object[] } }).page?.items.length) { return { revision }; }
+	if (tool !== 'ade_audit_diagram' && tool !== 'ade_audit_reuse') { return undefined; }
+	const { cursor, viewId } = args as { cursor?: string; viewId?: string };
+	if (cursor && !session.calls.some(call => call.status === 'complete' && call.tool === tool && call.audit?.revision === revision && call.audit.viewId === viewId && call.audit.nextCursor === cursor)) { return undefined; }
+	const { nextCursor } = (data as { objects: { nextCursor: string | null } }).objects;
+	return { revision, ...(viewId ? { viewId } : {}), nextCursor };
 }
 
 function stageTaskModel(base: SemanticModelV4, session: DiagramExplorationSession, beforeId?: string) {
@@ -84,7 +117,7 @@ function stageTaskModel(base: SemanticModelV4, session: DiagramExplorationSessio
 }
 
 function featureSessionSummary(session: DiagramExplorationSession) {
-	return session.featureWorkflow ? { featureWorkflow: true as const, ...(session.featureCatalog ? { featureCatalog: session.featureCatalog } : {}), featurePlans: session.featurePlans ?? [], ...featureStage(session) } : undefined;
+	return session.featureWorkflow ? { featureWorkflow: true as const, ...(session.featureCatalog ? { featureCatalog: session.featureCatalog } : {}), featurePlans: session.featurePlans ?? [], ...featureStage(session), ...(session.audit ? { auditReport: session.audit.report } : {}) } : undefined;
 }
 
 function projectBlockers(session: DiagramExplorationSession): string[] {
@@ -93,13 +126,15 @@ function projectBlockers(session: DiagramExplorationSession): string[] {
 		const stage = featureStage(session);
 		if (stage.phase === 'discovery') { blockers.unshift('featureCatalogRequired'); }
 		else if (stage.phase === 'planning') { blockers.unshift('featureDiagramPlanRequired:' + (stage.nextFeatureId ?? 'system')); }
+		else if (stage.phase === 'audit') { blockers.unshift('diagramAuditRequired'); }
+		else if (stage.phase === 'repair') { blockers.unshift('diagramAuditRepairRequired:' + stage.nextFindingId); }
 	}
 	return blockers;
 }
 
 function sessionSummary(session: DiagramExplorationSession, blockers: string[]) {
 	const measuredAt = Date.now(), elapsedMs = Math.max(0, measuredAt - session.created);
-	return { sessionId: session.id, model: session.model, workflow: session.workflow, ...featureSessionSummary(session), plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...blockers, ...projectBlockers(session)] } : undefined, budget: session.budget, budgetWindow: { started: session.created, measuredAt, elapsedMs, remainingMs: Math.max(0, session.budget.maxDurationMs - elapsedMs) }, usage: session.usage, budgetStatus: { exhausted: [session.usage.toolCalls >= session.budget.maxToolCalls ? 'calls' : '', session.usage.readBytes >= session.budget.maxReadBytes ? 'bytes' : '', elapsedMs >= session.budget.maxDurationMs ? 'duration' : '', session.usage.turnsObservable && session.usage.modelTurns.length >= session.budget.maxModelTurns ? 'turns' : ''].filter(Boolean) }, tasks: session.tasks, proposals: session.proposals.filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan && !proposal.discardedReason).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views' && patch.value !== null).map(patch => patch.value) })), instruction: diagramSessionInstruction };
+	return { sessionId: session.id, model: session.model, workflow: session.workflow, ...featureSessionSummary(session), plan: session.plan, batch: session.workflow === 'project' ? { blockers: [...blockers, ...projectBlockers(session)] } : undefined, budget: session.budget, budgetWindow: { started: session.created, measuredAt, elapsedMs, remainingMs: Math.max(0, session.budget.maxDurationMs - elapsedMs) }, usage: session.usage, budgetStatus: { exhausted: [session.usage.toolCalls >= session.budget.maxToolCalls ? 'calls' : '', session.usage.readBytes >= session.budget.maxReadBytes ? 'bytes' : '', elapsedMs >= session.budget.maxDurationMs ? 'duration' : '', session.usage.turnsObservable && session.usage.modelTurns.length >= session.budget.maxModelTurns ? 'turns' : ''].filter(Boolean) }, tasks: session.tasks, proposals: allProposals(session).filter(proposal => !proposal.supersededBy && !proposal.excludedByPlan && !proposal.discardedReason).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: proposal.patch.filter(patch => patch.collection === 'views' && patch.value !== null).map(patch => patch.value) })), instruction: diagramSessionInstruction };
 }
 
 /** A fresh provider turn sees the active plan and compact canonical references to earlier work. */
@@ -123,13 +158,19 @@ function argumentDiagnostics(tool: string, args: object): object[] {
 	if (!validate) { return [{ code: 'unsupportedTool', recoverable: true }]; }
 	if (validate(args)) { return []; }
 	const diagnostic = (error: ErrorObject, prefix = '') => ({ code: 'invalidToolArguments', field: prefix + error.instancePath, requirement: error.message ?? '', keyword: error.keyword, details: error.params, recoverable: true });
-	if (tool !== 'ade_model_propose' || !Array.isArray((args as { commands?: unknown }).commands)) { return (validate.errors ?? []).slice(0, 8).map(error => diagnostic(error)); }
-	const result: object[] = (validate.errors ?? []).filter(error => !/^\/commands\/\d+(\/|$)/.test(error.instancePath)).map(error => diagnostic(error));
-	for (const [index, command] of ((args as { commands: unknown[] }).commands).entries()) {
-		const kind = command && typeof command === 'object' && Object.hasOwn(command, 'kind') ? (command as { kind: unknown }).kind : undefined;
-		const branch = typeof kind === 'string' ? commandValidators.get(kind) : undefined;
-		if (!branch) { result.push({ code: 'invalidToolArguments', field: `/commands/${index}/kind`, requirement: 'Choose a command kind and use its nested shape.', allowedValues: [...commandValidators.keys()], example: diagramProposalExample.commands[0], recoverable: true }); }
-		else if (!branch.validate(command)) { result.push(...(branch.validate.errors ?? []).slice(0, 4).map((error, indexInCommand) => ({ ...diagnostic(error, `/commands/${index}`), ...(indexInCommand === 0 ? { expected: branch.schema } : {}) }))); }
+	const { commands, proposals } = args as { commands?: unknown; proposals?: ({ commands?: unknown } | null)[] };
+	const commandLists = tool === 'ade_model_propose' ? [{ path: '/commands', commands }] : tool === 'ade_audit_repair' && Array.isArray(proposals) ? proposals.map((proposal, index) => ({ path: `/proposals/${index}/commands`, commands: proposal?.commands })) : [];
+	const nestedCommand = /^(?:\/proposals\/\d+)?\/commands\/\d+(\/|$)/;
+	const result: object[] = (validate.errors ?? []).filter(error => !commandLists.length || !nestedCommand.test(error.instancePath)).map(error => diagnostic(error));
+	for (const list of commandLists) {
+		if (!Array.isArray(list.commands)) { continue; }
+		for (const [index, command] of list.commands.entries()) {
+			const path = `${list.path}/${index}`;
+			const kind = command && typeof command === 'object' && Object.hasOwn(command, 'kind') ? (command as { kind: unknown }).kind : undefined;
+			const branch = typeof kind === 'string' ? commandValidators.get(kind) : undefined;
+			if (!branch) { result.push({ code: 'invalidToolArguments', field: path + '/kind', requirement: 'Choose a command kind and use its nested shape.', allowedValues: [...commandValidators.keys()], example: diagramProposalExample.commands[0], recoverable: true }); }
+			else if (!branch.validate(command)) { result.push(...(branch.validate.errors ?? []).slice(0, 4).map((error, indexInCommand) => ({ ...diagnostic(error, path), ...(indexInCommand === 0 ? { expected: branch.schema } : {}) }))); }
+		}
 	}
 	return result.slice(0, 8);
 }
@@ -297,7 +338,7 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		if (!request.sessionId) { throw new Error('sessionRequired'); }
 		const session = await readExplorationSession(root, request.sessionId);
 		if (session.projectId !== initial.state.projectId) { throw new Error('sessionProjectMismatch'); }
-		const staged = session.workflow === 'project' ? stageDiagramProject(architecture(initial), session.proposals) : { model: architecture(initial), blockers: [] };
+		const staged = session.workflow === 'project' ? stageDiagramProject(architecture(initial), allProposals(session)) : { model: architecture(initial), blockers: [] };
 		const toolActivity = session.calls.slice(-30).map(call => ({ id: call.id, tool: call.tool, turnId: call.turnId, state: call.diagnostics?.length && call.status === 'complete' ? 'failed' : call.status }));
 		return { version: 2, sessionId: session.id, sourceRevision: initial.state.revision, indexRevision: initial.state.revision, semanticRevision: await diagramModelRevision(staged.model), capabilities: explorationCapabilities(initial.state), data: { ...sessionSummary(session, staged.blockers), toolActivity }, diagnostics: [] };
 	}
@@ -322,14 +363,13 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 			for (const operation of await operationHistory(root)) { if (operation.to === session.publication.destination && operation.status === 'reconciling') { await recoverReconciliation(root, operation.id); } }
 			const applied = await active(root) === basename(session.publication.destination);
 			session.publication.status = applied ? 'applied' : 'rolledBack';
-			if (applied) { for (const task of session.tasks.filter(task => (session.publication!.proposalIds ?? [session.publication!.proposalId]).includes(task.proposalId ?? ''))) { task.status = 'applied'; } for (const proposal of session.proposals.filter(entry => (session.publication!.proposalIds ?? [session.publication!.proposalId]).includes(entry.id))) { proposal.status = 'applied'; } }
+			if (applied) { for (const task of session.tasks.filter(task => (session.publication!.proposalIds ?? [session.publication!.proposalId]).includes(task.proposalId ?? ''))) { task.status = 'applied'; } for (const proposal of allProposals(session).filter(entry => (session.publication!.proposalIds ?? [session.publication!.proposalId]).includes(entry.id))) { proposal.status = 'applied'; } }
 		}
 		for (const call of session.calls.filter(call => call.status === 'running')) { call.status = 'interrupted'; }
 		if (request.model && request.model !== session.model) { session.runs ??= []; session.runs.push({ id: randomUUID(), model: request.model, started: Date.now() }); session.model = request.model; }
 		const publishedModel = architecture(snapshot);
-		const staged = session.workflow === 'project' ? stageDiagramProject(publishedModel, session.proposals) : { model: publishedModel, blockers: [], blockedProposalIds: [] };
-		const model = staged.model, semanticRevision = await diagramModelRevision(model);
-		for (const evidence of model.foundation.evidence ?? []) { if (!session.evidence.some(entry => entry.id === evidence.id)) { session.evidence.push(evidence); } }
+		const generated = session.workflow === 'project' ? stageDiagramProject(publishedModel, session.proposals) : { model: publishedModel, blockers: [], blockedProposalIds: [] };
+		const generatedRevision = await diagramModelRevision(generated.model);
 		const state = await refreshExplorationAnalysis(await importCode(root, snapshot.state.projectId, { previous: snapshot.state, signal }), snapshot.state, signal);
 		// A partial semantic index is declared, not upgraded into fabricated calls after a source change.
 		state.analysis.syntaxOnly = snapshot.state.analysis.syntaxOnly ?? false;
@@ -338,7 +378,12 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 			try { const source = await sourceFile(root, file.file); if (!source.content.includes('\0')) { file.revision = contentHash(source.content); } } catch { /* Unavailable files remain explicitly unversioned. */ }
 		}
 		queryState.revision = contentHash(state.revision + indexScopeRevision(queryState));
-		reopenAffectedTasks(queryState, session, staged.blockedProposalIds);
+		reopenAffectedTasks(queryState, session, generated.blockedProposalIds);
+		if (session.audit && session.publication?.status !== 'applied' && (session.audit.sourceRevision !== queryState.revision || session.audit.draftRevision !== auditDraftRevision(generated.model) || generated.blockers.length || diagramProjectBlockers(session.plan, session.tasks, session.proposals).length)) { delete session.audit; }
+		const corrected = session.audit?.proposals.length ? stageDiagramProject(generated.model, session.audit.proposals) : generated;
+		const model = corrected.model, semanticRevision = corrected === generated ? generatedRevision : await diagramModelRevision(model);
+		const stagingBlockers = corrected === generated ? generated.blockers : [...generated.blockers, ...corrected.blockers];
+		for (const evidence of model.foundation.evidence ?? []) { if (!session.evidence.some(entry => entry.id === evidence.id)) { session.evidence.push(evidence); } }
 		const capabilities = explorationCapabilities(state);
 		const envelope = (data: object, diagnostics: object[] = []): DiagramExplorationResult => ({ version: 2, sessionId: session.id, sourceRevision: state.revision, indexRevision: queryState.revision, semanticRevision, capabilities, data, diagnostics });
 		const staleEvidence = new Set((model.foundation.evidence ?? []).filter(evidence => queryState.files.find(file => file.file === evidence.file)?.revision !== evidence.revision).map(evidence => evidence.id));
@@ -346,7 +391,7 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		for (const occurrence of model.foundation.occurrences) { if (occurrence.evidenceIds?.some(id => staleEvidence.has(id))) { affected.add(occurrence.id); } }
 		for (const scenario of model.foundation.interactions) { if (scenario.description?.evidenceIds.some(id => staleEvidence.has(id)) || scenario.occurrenceIds.some(id => affected.has(id))) { affected.add(scenario.id); } }
 		const invalidation = { evidenceIds: [...staleEvidence], objectIds: [...affected], viewIds: model.views.filter(view => view.nodes.some(node => affected.has(node.elementId)) || view.relationIds.some(id => affected.has(id)) || affected.has(view.interactionId ?? '')).map(view => view.id), queryIds: session.queries.filter(query => query.revision !== indexScopeRevision(queryState, query.filePrefix)).map(query => query.id) };
-		const summary = () => ({ ...sessionSummary(session, staged.blockers), invalidation, sourceChanged: state.revision !== snapshot.state.revision });
+		const summary = () => ({ ...sessionSummary(session, stagingBlockers), invalidation, sourceChanged: state.revision !== snapshot.state.revision });
 		if (request.action === 'budget') {
 			if (request.budgetIncrease) { extendBudget(session, request.budgetIncrease, Date.now()); }
 			else if (request.budget) { session.budget = budget(request.budget); session.created = Date.now(); }
@@ -357,16 +402,19 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		if (request.action === 'review' || request.action === 'publishAll') {
 			if (session.workflow !== 'project') { throw new Error('projectWorkflowRequired'); }
 			if (request.action === 'publishAll' && session.publication?.status === 'applied' && session.publication.proposalId === request.reviewId) { return envelope({ applied: true, snapshot: snapshot.directory }); }
-			const drafts = projectDrafts(session.proposals);
-			const blockers = [...staged.blockers, ...projectBlockers(session)];
+			const proposals = allProposals(session), drafts = projectDrafts(proposals);
+			const blockers = [...stagingBlockers, ...projectBlockers(session)];
 			if (!drafts.length) { blockers.push('noDiagramDrafts'); }
 			for (const draft of drafts) { try { await verifyProposal(queryState, session, draft); } catch (error) { blockers.push(error instanceof Error ? error.message : String(error)); } }
 			const catalogEvidence = [...new Set(session.featureCatalog?.features.flatMap(feature => feature.evidenceIds) ?? [])];
+			const auditEvidence = [...new Set(session.audit?.report.findings.flatMap(finding => finding.evidenceIds) ?? [])];
 			try { await verifyKnownEvidence(queryState, session, catalogEvidence); } catch (error) { blockers.push('featureCatalogEvidence:' + (error instanceof Error ? error.message : 'invalidEvidence')); }
+			try { await verifyKnownEvidence(queryState, session, auditEvidence); } catch (error) { blockers.push('diagramAuditEvidence:' + (error instanceof Error ? error.message : 'invalidEvidence')); }
 			if (state.analysis.semanticInvalidated) { blockers.push('semanticIndexRefreshRequired'); }
 			for (const view of model.views.filter(view => drafts.some(draft => draft.patch.some(patch => patch.collection === 'views' && patch.id === view.id)))) { if (inspectDiagramQuality(model, view).some(diagnostic => diagnostic.severity === 'error')) { blockers.push('diagramGeometryInvalid:' + view.id); } }
 			const featureState = featureSessionSummary(session);
-			const proposal = diagramProjectProposal(await diagramModelRevision(publishedModel), session.plan, session.tasks, session.proposals, blockers, featureState);
+			const proposal = diagramProjectProposal(await diagramModelRevision(publishedModel), session.plan, session.tasks, proposals, blockers, session.audit ? { ...featureState, auditSourceRevision: session.audit.sourceRevision, auditDraftRevision: session.audit.draftRevision } : featureState);
+			proposal.readEvidenceIds = [...new Set([...proposal.readEvidenceIds, ...auditEvidence])];
 			if (request.action === 'review') {
 				const preview = await previewDiagramProposal(queryState, model, session, proposal, {});
 				return envelope({ ...preview, ...featureState, reviewId: proposal.id, plan: session.plan, tasks: session.tasks, proposal: { id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics, views: model.views.filter(view => proposal.patch.some(patch => patch.collection === 'views' && patch.id === view.id)) } });
@@ -378,6 +426,7 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 			session.publication = { proposalId: proposal.id, proposalIds: drafts.map(draft => draft.id), destination, status: 'publishing' }; await save(session);
 			await applyReconciliation(snapshot, destination, 'model', [], async () => {
 				await verifyKnownEvidence(queryState, session, catalogEvidence);
+				await verifyKnownEvidence(queryState, session, auditEvidence);
 				for (const draft of drafts) { await verifyProposal(queryState, session, draft); }
 				await writeSnapshot(destination, state, model, undefined, snapshot, signal, true);
 			}, signal);
@@ -407,13 +456,15 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 			await save(session); return envelope({ applied: true, snapshot: destination, proposalId: proposal.id });
 		}
 		const tool = request.tool ?? '', args = request.arguments ?? {};
-		const scope = request.checkpoint;
+		const scope = request.checkpoint, currentStage = featureStage(session);
+		const auditing = currentStage.phase === 'audit' || currentStage.phase === 'repair';
+		if (!scope && (tool.startsWith('ade_audit_') || auditing && !diagramToolDefinitions.find(definition => definition.name === tool)?.readOnly)) { return envelope(currentStage, [{ code: 'diagramAuditCheckpointRequired', recoverable: false }]); }
 		if (scope) {
-			const stage = featureStage(session);
-			if (!session.featureWorkflow || !sameDiagramCheckpoint(stage, scope)) { return envelope(stage, [{ code: 'diagramCheckpointChanged', recoverable: false }]); }
-			if (!checkpointToolAllowed(scope, tool) || tool === 'ade_task_update' && (args as { id?: string }).id !== scope.nextTaskId) { return envelope(stage, [{ code: 'toolOutsideDiagramCheckpoint', recoverable: true }]); }
+			if (!session.featureWorkflow || !sameDiagramCheckpoint(currentStage, scope)) { return envelope(currentStage, [{ code: 'diagramCheckpointChanged', recoverable: false }]); }
+			if (!checkpointToolAllowed(scope, tool) || tool === 'ade_task_update' && (args as { id?: string }).id !== scope.nextTaskId) { return envelope(currentStage, [{ code: 'toolOutsideDiagramCheckpoint', recoverable: true }]); }
+			if (auditing && (stagingBlockers.length || diagramProjectBlockers(session.plan, session.tasks, session.proposals).length || state.analysis.semanticInvalidated)) { return envelope(currentStage, [{ code: 'diagramAuditDraftsNotReady', recoverable: true }]); }
 			const checkpointCalls = session.usage.toolCalls - scope.toolCalls, checkpointBytes = session.usage.readBytes - scope.readBytes;
-			if (checkpointCalls < 0 || checkpointBytes < 0 || checkpointCalls >= 40 || checkpointBytes >= 512 * 1024) { return envelope(stage, [{ code: 'diagramCheckpointBudgetExhausted', recoverable: false }]); }
+			if (checkpointCalls < 0 || checkpointBytes < 0 || !auditing && (checkpointCalls >= 40 || checkpointBytes >= 512 * 1024)) { return envelope(currentStage, [{ code: 'diagramCheckpointBudgetExhausted', recoverable: false }]); }
 		}
 		const callId = request.callId ?? randomUUID(), fingerprint = contentHash(canonicalJson({ tool, args }));
 		const previousCall = session.calls.find(call => call.id === callId);
@@ -423,24 +474,30 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 			session.usage.modelTurns.push(request.turnId); session.usage.turnsObservable = true;
 		}
 		if (session.usage.toolCalls >= session.budget.maxToolCalls || session.usage.readBytes >= session.budget.maxReadBytes || Date.now() - session.created >= session.budget.maxDurationMs) { return envelope({}, [{ code: 'sessionBudgetExhausted', recoverable: true }]); }
-		const checkpoint = { evidence: [...session.evidence], queries: [...session.queries], proposals: session.proposals.map(proposal => ({ ...proposal })), tasks: structuredClone(session.tasks), plan: session.plan, featureCatalog: session.featureCatalog, featurePlans: session.featurePlans?.slice(), catalogNeedsRefresh: session.catalogNeedsRefresh };
+		const checkpoint = { evidence: [...session.evidence], queries: [...session.queries], proposals: session.proposals.map(proposal => ({ ...proposal })), tasks: structuredClone(session.tasks), plan: session.plan, featureCatalog: session.featureCatalog, featurePlans: session.featurePlans?.slice(), catalogNeedsRefresh: session.catalogNeedsRefresh, audit: session.audit };
+		const auditRevision = scope?.phase === 'audit' ? contentHash(queryState.revision + auditDraftRevision(model)) : undefined;
 		const call: ToolReceipt = { id: callId, fingerprint, tool, turnId: request.turnId, status: 'running', inputBytes: Buffer.byteLength(JSON.stringify(args)), outputBytes: 0 }, started = Date.now();
 		session.calls.push(call); session.usage.toolCalls++; await save(session);
 		let result: DiagramExplorationResult;
 		try {
 			const diagnostics = argumentDiagnostics(tool, args);
+			const auditCoverage = auditRevision && (tool === 'ade_audit_submit' || tool === 'ade_audit_inventory') ? auditProgress(session, auditRevision) : undefined;
+			if (!diagnostics.length && tool === 'ade_audit_submit' && auditCoverage && (auditCoverage.remainingViewIds.length || !auditCoverage.sourceInspected || !auditCoverage.reuseInspected)) { throw new Error('diagramAuditInspectionIncomplete'); }
 			const beforeId = session.workflow === 'project' ? tool === 'ade_model_propose' ? (args as DiagramProposalRequest).supersedes : tool === 'ade_view_preview' ? (args as { proposalId: string }).proposalId : undefined : undefined;
-			const taskModel = session.featureWorkflow ? stageTaskModel(publishedModel, session) : model;
+			const taskModel = session.featureWorkflow && !auditing ? stageTaskModel(publishedModel, session) : model;
 			const toolModel = beforeId ? stageTaskModel(publishedModel, session, beforeId) : taskModel;
 			if (beforeId && tool === 'ade_model_propose' && (args as DiagramProposalRequest).baseSemanticRevision !== await diagramModelRevision(taskModel)) { throw new Error('staleSemanticRevision'); }
 			let data = diagnostics.length ? {} : await dispatchTool(tool, args, queryState, toolModel, session, signal, !!scope);
 			signal?.throwIfAborted();
+			const inspection = auditRevision && !diagnostics.length ? auditReceipt(session, auditRevision, tool, args, data) : undefined;
+			if (auditCoverage && tool === 'ade_audit_inventory' && !diagnostics.length) { data = { ...data, inspection: auditCoverage }; }
 			const stage = scope && featureStage(session);
 			if (scope && stage && !sameDiagramCheckpoint(stage, scope)) { data = { checkpointComplete: true, ...stage }; }
 			result = structuredClone(envelope(data, diagnostics));
-			if (session.workflow === 'project') { result.semanticRevision = await diagramModelRevision(stageTaskModel(publishedModel, session)); }
+			if (session.workflow === 'project') { result.semanticRevision = await diagramModelRevision(auditing ? stageDiagramProject(generated.model, session.audit?.proposals ?? []).model : stageTaskModel(publishedModel, session)); }
 			const bytes = Buffer.byteLength(JSON.stringify(result));
-			if (bytes > 128 * 1024 || session.usage.readBytes + bytes > session.budget.maxReadBytes || scope && session.usage.readBytes + bytes - scope.readBytes > 512 * 1024) { throw new Error('responseByteBudgetExhausted'); }
+			if (bytes > 128 * 1024 || session.usage.readBytes + bytes > session.budget.maxReadBytes || scope && !auditing && session.usage.readBytes + bytes - scope.readBytes > 512 * 1024) { throw new Error('responseByteBudgetExhausted'); }
+			if (inspection) { call.audit = inspection; }
 			call.status = 'complete';
 		} catch (error) {
 			Object.assign(session, checkpoint);
@@ -454,7 +511,86 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 	});
 }
 
+/** Seal the independent report to the exact source and draft set reviewed. */
+async function submitAudit(state: CodeImport, model: SemanticModelV4, session: DiagramExplorationSession, report: CodeDiagramAuditReport) {
+	const { summary, findings } = report;
+	if (!summary.trim() || new Set(findings.map(finding => finding.id)).size !== findings.length || findings.some(finding => !finding.id.trim() || !finding.summary.trim() || !finding.recommendation.trim() || !finding.evidenceIds.length)) { throw new Error('invalidDiagramAudit'); }
+	const views = new Set(model.views.map(view => view.id));
+	if (findings.some(finding => finding.viewIds.some(id => !views.has(id)))) { throw new Error('unknownAuditView'); }
+	await verifyKnownEvidence(state, session, [...new Set(findings.flatMap(finding => finding.evidenceIds))]);
+	session.audit = { sourceRevision: state.revision, draftRevision: auditDraftRevision(model), report, proposals: [] };
+	return { auditReport: report };
+}
+
+interface AuditRepairRequest {
+	findingId: string;
+	resolution: string;
+	proposals: (Omit<DiagramProposalRequest, 'readObjectIds'> & { readObjectIds?: string[] })[];
+}
+
+/** Apply one finding's entire correction to the staged model, or retain the original drafts. */
+async function repairAudit(state: CodeImport, model: SemanticModelV4, session: DiagramExplorationSession, input: AuditRepairRequest) {
+	const audit = session.audit;
+	if (!audit || input.findingId !== featureStage(session).nextFindingId) { throw new Error('diagramAuditFindingNotActive'); }
+	if (!input.resolution.trim() || !input.proposals.length) { throw new Error('diagramAuditCorrectionRequired'); }
+	const baseRevision = await diagramModelRevision(model);
+	const usedIds = new Set(allProposals(session).map(proposal => proposal.id));
+	const finding = audit.report.findings.find(finding => finding.id === input.findingId)!;
+	const proposals: DiagramProposal[] = [];
+	let candidate = model;
+	for (const request of input.proposals) {
+		if (request.baseSemanticRevision !== baseRevision) { throw new Error('staleSemanticRevision'); }
+		if (usedIds.has(request.proposalId)) { throw new Error('proposalIdContentConflict'); }
+		usedIds.add(request.proposalId);
+		const proposal = await proposeDiagramModel(candidate, { ...request, baseSemanticRevision: await diagramModelRevision(candidate), readObjectIds: request.readObjectIds ?? [], readEvidenceIds: [...new Set([...request.readEvidenceIds, ...finding.evidenceIds])] }, session.evidence);
+		if (proposal.status !== 'ready') { throw new Error('diagramAuditCorrectionInvalid:' + proposal.diagnostics.filter(diagnostic => diagnostic.severity === 'error').slice(0, 5).map(diagnostic => [diagnostic.path, ...diagnostic.args].join(':')).join(' · ')); }
+		await verifyProposal(state, session, proposal);
+		candidate = applyDiagramProposal(candidate, proposal);
+		proposals.push(proposal);
+	}
+	if (auditCorrectionContent(candidate) === auditCorrectionContent(model)) { throw new Error('diagramAuditCorrectionRequired'); }
+	const patches = proposals.flatMap(proposal => proposal.patch);
+	const addsMissingView = finding.category === 'missing' && patches.some(patch => patch.collection === 'views' && patch.before === null && patch.value);
+	if (finding.viewIds.length && !addsMissingView && !auditTouchesViews(model, patches, finding.viewIds)) { throw new Error('diagramAuditCorrectionUnrelated'); }
+	for (const view of candidate.views) {
+		if (inspectDiagramQuality(candidate, view).some(diagnostic => diagnostic.severity === 'error')) { throw new Error('diagramGeometryInvalid:' + view.id); }
+	}
+	const report = { ...audit.report, findings: audit.report.findings.map(entry => entry === finding ? { ...entry, resolution: input.resolution.trim() } : entry) };
+	session.audit = { ...audit, report, proposals: [...audit.proposals, ...proposals] };
+	return { findingId: finding.id, proposalIds: proposals.map(proposal => proposal.id) };
+}
+
+interface DiagramModelQuery {
+	collection: string;
+	id?: string;
+	relatedTo?: string;
+	match?: DiagramElementLookup;
+	cursor?: string;
+	limit?: number;
+}
+
+/** Single and batched lookups share the same scope, evidence checks and page format. */
+async function queryDiagramModel(state: CodeImport, model: SemanticModelV4, session: DiagramExplorationSession, input: DiagramModelQuery, defaultLimit?: number) {
+	if (input.match) {
+		if (input.collection !== 'elements' || input.id || input.relatedTo || input.cursor || input.limit !== undefined) { throw new Error('invalidElementLookup'); }
+		await verifyKnownEvidence(state, session, input.match.evidenceIds ?? []);
+		return lookupDiagramElements(model, input.match, session.evidence);
+	}
+	const all: { id: string }[] = input.collection === 'elements' ? model.semantics.elements : input.collection === 'relations' ? model.semantics.relations : input.collection === 'views' ? model.views : input.collection === 'scenarios' ? model.foundation.interactions : input.collection === 'ownership' ? model.foundation.ownership : input.collection === 'memberships' ? model.foundation.memberships : input.collection === 'assertions' ? model.foundation.assertions : input.collection === 'evidence' ? session.evidence : input.collection === 'tasks' ? session.tasks : session.proposals.map(entry => ({ id: entry.id, status: entry.status, aliases: entry.aliases, supersededBy: entry.supersededBy ?? null, excludedByPlan: entry.excludedByPlan ?? null, discardedReason: entry.discardedReason ?? null, diagnostics: entry.diagnostics }));
+	const items = all.filter(entry => (!input.id || entry.id === input.id) && (!input.relatedTo || JSON.stringify(entry).includes(JSON.stringify(input.relatedTo))));
+	return explorationPage(items, contentHash(canonicalJson(all)), { collection: input.collection, id: input.id ?? null, relatedTo: input.relatedTo ?? null }, input.cursor, input.limit ?? defaultLimit);
+}
+
 async function dispatchTool(tool: string, value: object, state: CodeImport, model: SemanticModelV4, session: DiagramExplorationSession, signal?: AbortSignal, bounded = false): Promise<object> {
+	if (tool === 'ade_audit_inventory') {
+		const exclusions = session.tasks.filter(task => task.status === 'cancelled').map(({ id, intent, gaps }) => ({ id, intent, gaps }));
+		return { ...auditInventory(state, model, value), exclusions, planGaps: session.featurePlans?.filter(plan => plan.gaps.length) ?? [] };
+	}
+	if (tool === 'ade_audit_diagram') { return auditDiagram(model, value as Parameters<typeof auditDiagram>[1]); }
+	if (tool === 'ade_audit_reuse') { return auditReuse(model, value); }
+	if (tool === 'ade_audit_submit') { return submitAudit(state, model, session, value as CodeDiagramAuditReport); }
+	if (tool === 'ade_audit_report') { return { auditReport: session.audit?.report, nextFindingId: featureStage(session).nextFindingId }; }
+	if (tool === 'ade_audit_repair') { return repairAudit(state, model, session, value as AuditRepairRequest); }
 	if (tool === 'ade_project_inspect') {
 		const input = value as { cursor?: string; limit?: number }, files = state.files.map(file => ({ path: file.file, revision: file.revision ?? null, language: file.language ?? 'text', role: sourceRole(file.file), status: file.status, symbols: file.declarations.length, exclusions: file.diagnostics.map(item => item.code) }));
 		const entrypoints = state.files.filter(file => sourceRole(file.file) === 'runtime' && /(^|\/)(main|index|app|server|cli|__main__)([.\/]|$)/i.test(file.file)).slice(0, 20).map(file => ({ file: file.file, revision: file.revision ?? null, classification: 'candidate' }));
@@ -485,16 +621,16 @@ async function dispatchTool(tool: string, value: object, state: CodeImport, mode
 		if (!session.queries.some(entry => entry.id === query.id)) { session.queries.push(query); }
 		return { availability: 'partial', kind: 'references', calls: 'unsupported', query, coverage: { indexedFiles: state.semantic.indexedFiles.length, totalFiles: state.files.length }, page };
 	}
-	if (tool === 'ade_model_query') {
-		const input = value as { collection: string; id?: string; relatedTo?: string; match?: DiagramElementLookup; cursor?: string; limit?: number };
-		if (input.match) {
-			if (input.collection !== 'elements' || input.id || input.relatedTo || input.cursor || input.limit !== undefined) { throw new Error('invalidElementLookup'); }
-			await verifyKnownEvidence(state, session, input.match.evidenceIds ?? []);
-			return lookupDiagramElements(model, input.match, session.evidence);
+	if (tool === 'ade_model_query') { return queryDiagramModel(state, model, session, value as DiagramModelQuery); }
+	if (tool === 'ade_model_query_batch') {
+		const { queries } = value as { queries: DiagramModelQuery[] };
+		if (!queries.length) { throw new Error('modelQueryBatchEmpty'); }
+		const results = [];
+		for (const query of queries) {
+			signal?.throwIfAborted();
+			results.push(await queryDiagramModel(state, model, session, query, 8));
 		}
-		const all: { id: string }[] = input.collection === 'elements' ? model.semantics.elements : input.collection === 'relations' ? model.semantics.relations : input.collection === 'views' ? model.views : input.collection === 'scenarios' ? model.foundation.interactions : input.collection === 'ownership' ? model.foundation.ownership : input.collection === 'memberships' ? model.foundation.memberships : input.collection === 'assertions' ? model.foundation.assertions : input.collection === 'evidence' ? session.evidence : input.collection === 'tasks' ? session.tasks : session.proposals.map(entry => ({ id: entry.id, status: entry.status, aliases: entry.aliases, supersededBy: entry.supersededBy ?? null, excludedByPlan: entry.excludedByPlan ?? null, discardedReason: entry.discardedReason ?? null, diagnostics: entry.diagnostics }));
-		const items = all.filter(entry => (!input.id || entry.id === input.id) && (!input.relatedTo || JSON.stringify(entry).includes(JSON.stringify(input.relatedTo))));
-		return explorationPage(items, contentHash(canonicalJson(all)), { collection: input.collection, id: input.id ?? null, relatedTo: input.relatedTo ?? null }, input.cursor, input.limit);
+		return { results };
 	}
 	if (tool === 'ade_model_propose') {
 		if (session.workflow === 'project' && !session.plan) { throw new Error('diagramPlanRequired'); }
@@ -596,7 +732,7 @@ async function previewDiagramProposal(state: CodeImport, candidate: SemanticMode
 			images.push({ path, viewId: view.id });
 		}
 		const changes = proposal.patch.map(patch => ({ collection: patch.collection, id: patch.id, before: patch.before === null ? null : JSON.parse(patch.before), after: patch.collection === 'views' ? candidate.views.find(view => view.id === patch.id) ?? null : patch.value }));
-		const review = { ...(session.workflow === 'project' ? { plan: session.plan ?? null, tasks: session.tasks, proposalIds: projectDrafts(session.proposals).map(proposal => proposal.id) } : {}), proposalId: proposal.id, baseSemanticRevision: proposal.baseSemanticRevision, readSet: proposal.readSet, queryIds: proposal.queryIds, changes, sourceAnchors: proposal.readEvidenceIds.map(id => session.evidence.find(entry => entry.id === id)), diagnostics: proposal.diagnostics, views: selectedViews.map(view => ({ view, quality: inspectDiagramQuality(candidate, view) })), images };
+		const review = { ...(session.workflow === 'project' ? { plan: session.plan ?? null, tasks: session.tasks, proposalIds: projectDrafts(allProposals(session)).map(proposal => proposal.id) } : {}), ...(session.audit ? { auditReport: session.audit.report } : {}), proposalId: proposal.id, baseSemanticRevision: proposal.baseSemanticRevision, readSet: proposal.readSet, queryIds: proposal.queryIds, changes, sourceAnchors: proposal.readEvidenceIds.map(id => session.evidence.find(entry => entry.id === id)), diagnostics: proposal.diagnostics, views: selectedViews.map(view => ({ view, quality: inspectDiagramQuality(candidate, view) })), images };
 		if (Buffer.byteLength(JSON.stringify(review)) > (session.workflow === 'project' ? 8 : 1) * 1024 * 1024) { throw new Error('reviewArtifactLimit'); }
 		const reviewFile = join(await managed(state.sourceRoot, 'exploration'), 'review-' + contentHash(canonicalJson(review)) + '.json');
 		await atomicJson(reviewFile, review);

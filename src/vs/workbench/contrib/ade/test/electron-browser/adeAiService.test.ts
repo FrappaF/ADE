@@ -40,7 +40,7 @@ import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { IAdeOperationService, AdeOperationService } from '../../browser/adeOperationService.js';
 import { CliAccountState, CodeContext, CodeDiagramProgress, CodeDiagramExploration, CodePreview, CodeRequest, type CodeDiagramCheckpointResult } from '../../common/codeBridge.js';
-import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../../common/diagramExplorationSettings.js';
+import { diagramCheckpointReasoningEffortSetting, diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../../common/diagramExplorationSettings.js';
 import { AdeAiService } from '../../electron-browser/adeAiService.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { stateFixture, stateCriteriaFixture } from '../common/stateFixture.js';
@@ -1008,12 +1008,19 @@ suite('A.D.E native AI orchestration', () => {
 			{ phase: 'diagrams', nextFeatureId: 'checkout', nextTaskId: 'checkout-view' },
 			{ phase: 'planning', nextFeatureId: 'refund' },
 			{ phase: 'diagrams', nextFeatureId: 'refund', nextTaskId: 'refund-view' },
+			{ phase: 'audit' },
+			{ phase: 'repair', nextFindingId: 'shared-orders' },
+			{ phase: 'repair', nextFindingId: 'refund-limits' },
 			{ phase: 'review', plan: { revision: 'ready', items: planItems }, tasks: planItems.map(item => ({ id: item.id, status: 'ready', intent: item.intent, gaps: [] })), proposals: [{ id: 'diagram-drafts', status: 'ready', diagnostics: [], views: checkoutModel.views }] }
 		];
 		f.handleCheckpoint(async () => { f.setFeatureState(states.shift()!); return 'Checkpoint recorded'; });
 		await f.service.resumeDiagrams();
-		assert.deepStrictEqual([states.length, f.chatRequests.length, f.dialogs.length, f.service.diagramExploration?.phase, f.service.diagramActivity?.length], [0, 5, 0, 'review', 5]);
+		assert.deepStrictEqual([states.length, f.chatRequests.length, f.dialogs.length, f.service.diagramExploration?.phase, f.service.diagramActivity?.length], [0, 8, 0, 'review', 8]);
 		assert.ok(f.chatRequests.every(request => request.checkpoint && request.messages.length === 1 && !request.messages[0].text.includes('Checkpoint recorded')));
+		assert.ok(f.chatRequests.every(request => request.checkpointReasoningEffort === 'medium'));
+		assert.equal(new Set(f.chatRequests.map(request => request.requestId)).size, 8);
+		assert.match(f.chatRequests[5].messages[0].text, /Audit the complete staged diagram set/);
+		assert.ok(f.chatRequests.slice(6).every(request => request.messages[0].text.startsWith('Resolve the active audit finding')));
 		assert.ok(f.dialogDetails.at(-1)?.includes('Imported source scope · Included 1 · Excluded 0'));
 		assert.equal(f.explorationActions.includes('publishAll'), false);
 	});
@@ -1058,12 +1065,13 @@ suite('A.D.E native AI orchestration', () => {
 		f.setFeatureState(checkpoint);
 		f.handleCheckpoint(async request => {
 			if (f.chatRequests.length === 1) {
-				assert.equal(request.checkpointTimeoutMinutes, 20);
+				assert.deepStrictEqual([request.checkpointTimeoutMinutes, request.checkpointReasoningEffort], [20, 'medium']);
 				f.configurationValues.set(diagramCheckpointTimeoutSetting, 35);
+				f.configurationValues.set(diagramCheckpointReasoningEffortSetting, 'inherit');
 				f.setFeatureState({ ...checkpoint, proposals: [draft] });
 				return { timeout: 'deadline' };
 			}
-			assert.equal(request.checkpointTimeoutMinutes, 35);
+			assert.deepStrictEqual([request.checkpointTimeoutMinutes, request.checkpointReasoningEffort], [35, 'inherit']);
 			assert.equal(f.service.diagramExploration?.proposals[0]?.id, draft.id);
 			assert.equal(f.service.diagramLiveProgress?.retrying, true);
 			assert.match(request.messages[0].text, /ade_project_inspect to recover the saved task and draft/);
@@ -1437,6 +1445,7 @@ suite('A.D.E native AI orchestration', () => {
 		const response = await f.dialogs[0].send!([{ role: 'user', text: 'Prepare every planned diagram' }], CancellationToken.None);
 		assert.deepStrictEqual([response, f.requests, f.service.busy, f.liveUpdates.map(event => event.text)], ['Diagrams prepared', ['exploration', 'diagramChat', 'exploration'], false, ['Diagrams prepared']]);
 		assert.equal(Object.hasOwn(f.chatRequests[0], 'checkpointTimeoutMinutes'), false);
+		assert.equal(Object.hasOwn(f.chatRequests[0], 'checkpointReasoningEffort'), false);
 	});
 
 	test('sending from a blocked review refreshes its existing decision surface after the response', async () => {

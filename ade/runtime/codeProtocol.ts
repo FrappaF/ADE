@@ -3,17 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { adeCodeProtocolVersion, maxDiagramCheckpointTimeoutMinutes, type CodeBridgeProtocol, type CodeRequest } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
+import { adeCodeProtocolVersion, diagramCheckpointReasoningEfforts, maxDiagramCheckpointTimeoutMinutes, type CodeBridgeProtocol, type CodeRequest } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 
 const nonempty = { type: 'string', minLength: 1 };
 
 const requestSchemas = [
 	{
 		type: 'object', additionalProperties: false, required: ['operation', 'root', 'config', 'messages'],
-		dependentRequired: { snapshot: ['sessionId'], sessionId: ['snapshot'], checkpoint: ['snapshot', 'sessionId'], checkpointTimeoutMinutes: ['checkpoint'] },
+		dependentRequired: { snapshot: ['sessionId'], sessionId: ['snapshot'], checkpoint: ['snapshot', 'sessionId'], checkpointTimeoutMinutes: ['checkpoint'], checkpointReasoningEffort: ['checkpoint'] },
 		properties: {
 			operation: { const: 'diagramChat' }, requestId: nonempty, root: nonempty, snapshot: nonempty, sessionId: nonempty,
-			checkpoint: { const: true }, checkpointTimeoutMinutes: { type: 'integer', minimum: 1, maximum: maxDiagramCheckpointTimeoutMinutes }, config: nonempty,
+			checkpoint: { const: true }, checkpointTimeoutMinutes: { type: 'integer', minimum: 1, maximum: maxDiagramCheckpointTimeoutMinutes }, checkpointReasoningEffort: { enum: diagramCheckpointReasoningEfforts }, config: nonempty,
 			messages: { type: 'array', minItems: 1, maxItems: 60, items: { type: 'object', additionalProperties: false, required: ['role', 'text'], properties: { role: { enum: ['user', 'assistant'] }, text: nonempty } } }
 		}
 	},

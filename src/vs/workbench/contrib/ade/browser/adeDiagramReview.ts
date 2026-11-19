@@ -34,6 +34,8 @@ function blockedReasons(review: AdeDiagramReview, actions: DiagramReviewActions)
 			case 'invalidDraft': return localize('ade.review.invalidDraft', "A Diagram Draft Needs Correction. Continue Generation to Resolve Its Validation Errors.");
 			case 'unplannedDraft': return localize('ade.review.unplanned', "A Draft Is Not Linked to the Diagram Plan. Continue Generation to Reconcile the Plan.");
 			case 'duplicatePlannedProposal': return localize('ade.review.duplicate', "Multiple Planned Diagrams Refer to the Same Draft. Continue Generation to Correct Their Assignments.");
+			case 'diagramAuditRequired': return localize('ade.review.auditRequired', "Continue Generation to Check the Drafts Against the Codebase.");
+			case 'diagramAuditRepairRequired': return localize('ade.review.auditRepairRequired', "Continue Generation to Address the Remaining Audit Findings.");
 			case 'staleEvidence': case 'staleQuery': case 'staleEvidenceRevision': case 'staleSource': case 'staleSourceRevision': return localize('ade.review.staleSources', "Source Files Changed After Analysis. Continue Generation to Refresh Their Evidence, Then Refresh This Review.");
 			case 'projectReviewChanged': case 'staleRead': case 'staleModel': case 'staleSemanticRevision': case 'staleProjectReview': return localize('ade.review.staleModel', "The Project or Its Drafts Changed. Refresh This Review Before Applying.");
 			case 'diagramGeometryInvalid': return localize('ade.review.geometry', "{0} Has Overlapping or Invalid Diagram Geometry. Continue Generation to Repair Its Layout.", name);
@@ -54,7 +56,36 @@ function blockedReasons(review: AdeDiagramReview, actions: DiagramReviewActions)
 	return [...new Set(reasons)];
 }
 
-/** Diagrams lead; model edits, evidence and diagnostics are a secondary disclosure below them. */
+function renderAuditReport(parent: HTMLElement, review: AdeDiagramReview, controls: AdeControls): void {
+	const report = review.auditReport;
+	if (!report) { return; }
+	const section = dom.append(parent, dom.$('section.ade-review-coverage'));
+	dom.append(section, dom.$('h3')).textContent = localize('ade.review.auditReport', "Codebase Audit Report");
+	dom.append(section, dom.$('p')).textContent = report.summary;
+	if (!report.findings.length) { return; }
+	const details = controls.details(section, localize('ade.review.auditFindings', "Audit Findings ({0})", report.findings.length), 'diagram-review-audit-findings');
+	const list = dom.append(details, dom.$('ul'));
+	const categories = {
+		missing: localize('ade.review.auditMissing', "Missing Coverage"),
+		inconsistent: localize('ade.review.auditInconsistent', "Inconsistency"),
+		duplicate: localize('ade.review.auditDuplicate', "Duplicate Identity"),
+		improvement: localize('ade.review.auditImprovement', "Improvement")
+	};
+	const sourcesById = new Map(review.sources.map(source => [source.id, source.file]));
+	const viewNames = new Map(review.proposal.views.map(view => [view.id, view.name]));
+	for (const finding of report.findings) {
+		const row = dom.append(list, dom.$('li'));
+		dom.append(row, dom.$('strong')).textContent = localize('ade.review.auditFinding', "{0} · {1}", categories[finding.category], finding.summary);
+		dom.append(row, dom.$('p')).textContent = finding.recommendation;
+		dom.append(row, dom.$('p')).textContent = finding.resolution ? localize('ade.review.auditResolution', "Draft correction · {0}", finding.resolution) : localize('ade.review.auditPending', "Correction pending");
+		const views = finding.viewIds.flatMap(id => viewNames.get(id) ?? []);
+		const files = [...new Set(finding.evidenceIds.flatMap(id => sourcesById.get(id) ?? []))];
+		if (views.length) { dom.append(row, dom.$('p.ade-supporting-text')).textContent = localize('ade.review.auditViews', "Diagrams · {0}", views.join(', ')); }
+		if (files.length) { dom.append(row, dom.$('p.ade-supporting-text')).textContent = localize('ade.review.auditSources', "Sources · {0}", files.join(', ')); }
+	}
+}
+
+/** Show the audit and diagram previews alongside the explicit publication decision. */
 export function renderAdeDiagramReview(parent: HTMLElement, review: AdeDiagramReview, controls: AdeControls, actions: DiagramReviewActions): HTMLElement {
 	const section = dom.append(parent, dom.$('section.ade-structural-review.ade-diagram-review'));
 	section.setAttribute('aria-label', localize('ade.explore.review', "Review Diagram Draft"));
@@ -80,6 +111,7 @@ export function renderAdeDiagramReview(parent: HTMLElement, review: AdeDiagramRe
 		if (!ready && actions.continue) { controls.button(blocked, localize('ade.explore.continueProject', "Continue Generation"), actions.continue, 'diagram-review-continue').disabled = actions.busy; }
 	}
 	const body = dom.append(section, dom.$('div.ade-review-body'));
+	renderAuditReport(body, review, controls);
 	const featureSections = new Map<string | undefined, HTMLElement>();
 	const features = review.featureCatalog?.features ?? [];
 	if (features.length) {

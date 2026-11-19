@@ -26,10 +26,21 @@ export function diagramFeatureChecks(session, review) {
 		const task = tasks.get(item.id);
 		return task?.status === 'ready' && task.proposalId && task.previewedProposalId === task.proposalId || task?.status === 'cancelled' && task.gaps.some(gap => gap.trim());
 	});
+	const readyProposals = new Set(ready.map(item => tasks.get(item.id).proposalId));
+	const expectedViews = new Set();
+	for (const proposal of [...session.proposals.filter(proposal => readyProposals.has(proposal.id)), ...session.audit?.proposals ?? []]) {
+		for (const patch of proposal.patch.filter(patch => patch.collection === 'views')) {
+			if (patch.value === null) { expectedViews.delete(patch.id); }
+			else { expectedViews.add(patch.id); }
+		}
+	}
+	const reviewedViews = new Set(review?.data.proposal?.views.map(view => view.id));
+	const findings = review?.data.auditReport?.findings;
 	return [
 		{ id: 'feature-catalog', passed: session.featureWorkflow === true && !!session.featureCatalog?.features.length, observed: session.featureCatalog?.features.length ?? 0 },
 		{ id: 'planned-and-previewed', passed: ready.length > 0 && completedPlan, observed: { planned: planned.length, ready: ready.length } },
-		{ id: 'aggregate-review', passed: review?.data.phase === 'review' && review?.data.proposal?.status === 'ready' && review.data.proposal.views.length === ready.length, observed: { phase: review?.data.phase ?? null, status: review?.data.proposal?.status ?? null, views: review?.data.proposal?.views.length ?? 0 } },
+		{ id: 'audit-completed', passed: !session.auditRequired || findings?.every(finding => !!finding.resolution) === true, observed: { required: !!session.auditRequired, total: findings?.length ?? null, repaired: findings?.filter(finding => !!finding.resolution).length ?? null } },
+		{ id: 'aggregate-review', passed: review?.data.phase === 'review' && review?.data.proposal?.status === 'ready' && reviewedViews.size === expectedViews.size && [...expectedViews].every(id => reviewedViews.has(id)), observed: { phase: review?.data.phase ?? null, status: review?.data.proposal?.status ?? null, views: reviewedViews.size, expected: expectedViews.size } },
 		{ id: 'unpublished', passed: !session.publication, observed: session.publication?.status ?? null }
 	];
 }

@@ -34,10 +34,11 @@ export interface AdeDiagramReview {
 	id: string; sessionId: string; root: string; modelUri: string; semanticRevision: string;
 	proposal: CodeDiagramExploration['proposals'][number];
 	changes: { collection: string; id: string; before: { name?: string } | null; after: { name?: string } | null }[];
-	sources: { file: string; revision: string; start: number; end: number }[];
+	sources: { id?: string; file: string; revision: string; start: number; end: number }[];
 	images: { path: string; viewId: string }[];
 	contents: string; problem?: string; projectReviewId?: string; plan?: CodeDiagramExploration['plan']; tasks?: CodeDiagramExploration['tasks'];
 	featureCatalog?: CodeDiagramExploration['featureCatalog']; featurePlans?: CodeDiagramExploration['featurePlans'];
+	auditReport?: CodeDiagramExploration['auditReport'];
 }
 
 export interface IAdeAiService {

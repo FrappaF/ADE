@@ -153,10 +153,21 @@ suite('A.D.E imported diagram review', () => {
 		assert.ok(plan.textContent?.includes('Checkout') && plan.textContent.includes('Order Flow'));
 		assert.ok(root.scrollWidth <= root.clientWidth, `journey overflows at narrow width: ${root.scrollWidth}/${root.clientWidth}`);
 
-		ai.busy = false; ai.generatingDiagrams = false;
-		exploration.phase = 'review'; exploration.nextTaskId = undefined;
+		exploration.nextTaskId = undefined;
 		for (const task of exploration.tasks) { task.status = 'ready'; task.proposalId = task.id; }
 		exploration.proposals = exploration.plan.items.map(item => ({ id: item.id, status: 'ready', diagnostics: [], views: [{ id: item.id, name: item.name, kind: item.viewKind, nodes: [], relationIds: [] }] }));
+		for (const [phase, title, tool] of [
+			['audit', 'Checking diagrams against the codebase', 'ade_audit_inventory'],
+			['repair', 'Correcting diagrams from the audit', 'ade_audit_repair']
+		] as const) {
+			exploration.phase = phase;
+			ai.diagramLiveProgress = { ...ai.diagramLiveProgress, activeTool: tool };
+			draw();
+			assert.deepStrictEqual([currentStep(), journey().querySelector('.ade-explore-live h2')?.textContent, button('Review All Changes')], [2, title, undefined]);
+		}
+
+		ai.busy = false; ai.generatingDiagrams = false;
+		exploration.phase = 'review';
 		draw();
 		assert.equal(currentStep(), 3);
 		assert.deepStrictEqual(mainActions().map(action => action.textContent), ['Review All Changes']);
@@ -178,6 +189,21 @@ suite('A.D.E imported diagram review', () => {
 		f.render();
 		assert.deepStrictEqual([...root.querySelectorAll('.ade-review-feature')].map(section => [section.querySelector('h3')?.textContent, section.querySelector('figcaption')?.textContent]), [['Checkout', 'Overview'], ['Returns', 'Returns']]);
 		assert.ok(root.textContent?.includes('Returns · Refund settlement is outside the imported source.'));
+	});
+
+	test('the independent audit report shows the corrections and their source before applying', () => {
+		const f = fixture();
+		f.review.projectReviewId = 'batch';
+		f.review.sources[0].id = 'source-api';
+		f.review.auditReport = { summary: 'Compared API behavior and diagrams.', findings: [
+			{ id: 'shared-archive', category: 'inconsistent', summary: 'The archive is shared.', recommendation: 'Reuse the same archive element in Overview.', viewIds: ['overview'], evidenceIds: ['source-api'], resolution: 'Reused the existing archive ID.' }
+		] };
+		f.render();
+		const report = root.querySelector('.ade-review-coverage')!;
+		assert.deepStrictEqual([...report.querySelectorAll('h3, summary, strong, p')].map(node => node.textContent), [
+			'Codebase Audit Report', 'Compared API behavior and diagrams.', 'Audit Findings (1)', 'Inconsistency · The archive is shared.', 'Reuse the same archive element in Overview.', 'Draft correction · Reused the existing archive ID.', 'Diagrams · Overview', 'Sources · src/api.ts'
+		]);
+		assert.deepStrictEqual(f.called, []);
 	});
 
 	for (const projectWorkflow of [false, true]) {

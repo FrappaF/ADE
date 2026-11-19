@@ -18,7 +18,7 @@ const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
 const { validateCodeRequest } = await import('../../runtime/codeProtocol.ts');
 const { executeDiagramExploration, readExplorationSession } = await import('../diagramSession.ts');
 
-interface FakeTask {
+type FakeTask = {
 	id: string;
 	intent: string;
 	proposalId: string;
@@ -27,7 +27,7 @@ interface FakeTask {
 	readObjectIds?: string[];
 	resume?: boolean;
 	stall?: boolean;
-}
+};
 
 type ToolResult<Data> = Omit<DiagramExplorationResult, 'data'> & { data: Data };
 
@@ -36,13 +36,15 @@ async function fakeProvider(Client: typeof McpClient, StdioClientTransport: type
 	let input = '';
 	for await (const chunk of process.stdin) { input += chunk; }
 	const requestMarker = '\nTask request:\n';
-	const task: FakeTask = JSON.parse(JSON.parse(input.slice(input.lastIndexOf(requestMarker) + requestMarker.length))[0].text);
 	const setting = (key: string) => JSON.parse(process.argv.find(arg => arg.startsWith(`mcp_servers.ade.${key}=`))!.split('=').slice(1).join('='));
+	const args: string[] = setting('args');
+	const { checkpoint: { phase } } = JSON.parse(args.at(-1)!);
+	assert.ok(process.argv.includes('model_reasoning_effort="medium"'));
 	const output = process.argv[process.argv.indexOf('--output-last-message') + 1];
 	const emit = (event: object) => process.stdout.write(JSON.stringify(event) + '\n');
 	emit({ type: 'turn.started' });
 	const client = new Client({ name: 'mercato-timeout-fixture', version: '1' });
-	await client.connect(new StdioClientTransport({ command: setting('command'), args: setting('args') }));
+	await client.connect(new StdioClientTransport({ command: setting('command'), args }));
 	try {
 		const call = async <Data>(name: string, arguments_ = {}) => {
 			const result = (await client.callTool({ name, arguments: arguments_ })).structuredContent as ToolResult<Data>;
@@ -50,6 +52,37 @@ async function fakeProvider(Client: typeof McpClient, StdioClientTransport: type
 			emit({ type: 'item.completed', item: { type: 'mcp_tool_call', tool: name } });
 			return result;
 		};
+		if (phase === 'audit') {
+			assert.match(input, /^You are the independent ADE diagram auditor\./);
+			assert.ok(!input.includes(requestMarker));
+			const tools = (await client.listTools()).tools.map(tool => tool.name);
+			assert.ok(tools.includes('ade_audit_inventory') && tools.includes('ade_audit_submit'));
+			assert.ok(!tools.includes('ade_model_propose') && !tools.includes('ade_task_update') && !tools.includes('ade_audit_repair'));
+			const readObjects = async <Item>(tool: string, args: object = {}) => {
+				const items: Item[] = [];
+				let cursor: string | null = null;
+				do {
+					const { data: { objects } } = await call<{ objects: { items: Item[]; nextCursor: string | null } }>(tool, { ...args, ...(cursor ? { cursor } : {}) });
+					items.push(...objects.items);
+					cursor = objects.nextCursor;
+				} while (cursor);
+				return items;
+			};
+			const inventory = await call<{ views: { id: string; name: string }[]; files: { items: { file: string; revision: string }[] } }>('ade_audit_inventory');
+			assert.deepEqual(inventory.data.views.map(view => view.name), ['Mercato · Panoramica', 'Struttura Acquisto', 'Struttura Resi']);
+			for (const { id } of inventory.data.views) { await readObjects('ade_audit_diagram', { viewId: id }); }
+			const orders = inventory.data.files.items.find(file => file.file === 'src/orders.mjs');
+			assert.ok(orders);
+			await call('ade_source_read', { file: orders.file, revision: orders.revision });
+			const reuse = await readObjects<{ name: string; viewIds: string[] }>('ade_audit_reuse');
+			assert.equal(reuse.find(object => object.name === 'Archivio ordini')?.viewIds.length, inventory.data.views.length);
+			const report = await call<{ checkpointComplete?: boolean }>('ade_audit_submit', { summary: 'Verified the shared order store across all three views.', findings: [] });
+			assert.equal(report.data.checkpointComplete, true);
+			await writeFile(output, 'Audit completed.');
+			emit({ type: 'turn.completed' });
+			return;
+		}
+		const task: FakeTask = JSON.parse(JSON.parse(input.slice(input.lastIndexOf(requestMarker) + requestMarker.length))[0].text);
 		const inspected = await call<{ exploration: { nextTaskId: string; task: { proposalId?: string; previewedProposalId?: string } } }>('ade_project_inspect');
 		assert.equal(inspected.data.exploration.nextTaskId, task.id);
 		const update = (status: 'running' | 'ready') => call<{ checkpointComplete?: boolean }>('ade_task_update', { id: task.id, intent: task.intent, status, gaps: [], ...(status === 'ready' ? { proposalId: task.proposalId } : {}) });
@@ -87,6 +120,15 @@ test('only checkpoint requests accept whole-minute attempt limits from 1 through
 	assert.throws(() => validateCodeRequest({ ...chat, checkpointTimeoutMinutes: 20 }), /diagramChat.*checkpoint/);
 	assert.throws(() => validateCodeRequest({ ...chat, checkpoint: false, checkpointTimeoutMinutes: 20 }), /diagramChat.*checkpoint/);
 	assert.throws(() => validateCodeRequest({ operation: 'exploration', snapshot: '/unused', request: '{}', checkpointTimeoutMinutes: 20 }), /exploration.*additional properties/);
+});
+
+test('only checkpoint requests accept the scoped reasoning effort', () => {
+	const chat = { operation: 'diagramChat', root: '/unused', snapshot: '/unused', sessionId: 'checkpoint-session', config: '{}', messages: [{ role: 'user', text: 'Resume' }] };
+	for (const checkpointReasoningEffort of ['inherit', 'low', 'medium', 'high']) {
+		assert.doesNotThrow(() => validateCodeRequest({ ...chat, checkpoint: true, checkpointReasoningEffort }));
+	}
+	assert.throws(() => validateCodeRequest({ ...chat, checkpointReasoningEffort: 'medium' }), /diagramChat.*checkpoint/);
+	assert.throws(() => validateCodeRequest({ ...chat, checkpoint: true, checkpointReasoningEffort: 'invalid' }), /diagramChat.*checkpointReasoningEffort/);
 });
 
 test('Mercato overview resumes its saved preview after a provider deadline', { timeout: 30_000, skip: process.platform === 'win32' }, async t => {
@@ -131,7 +173,7 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 			relation('@storage', 'dependency', '@server', '@orders', 'Condivide l’archivio', server), show(overview, ['@server', '@orders'], ['@storage'])],
 	};
 	const progress: CodeAiProgress[] = [];
-	const run = async (requestId: string, task: FakeTask, checkpointTimeoutMinutes?: number, onProgress?: (event: CodeAiProgress) => void, signal?: AbortSignal): Promise<CodeDiagramCheckpointResult> => JSON.parse(await engine.execute(JSON.stringify({
+	const run = async (requestId: string, task: FakeTask | { audit: true }, checkpointTimeoutMinutes?: number, onProgress?: (event: CodeAiProgress) => void, signal?: AbortSignal): Promise<CodeDiagramCheckpointResult> => JSON.parse(await engine.execute(JSON.stringify({
 		operation: 'diagramChat', checkpoint: true, checkpointTimeoutMinutes, root, snapshot, sessionId, requestId,
 		config: JSON.stringify({ version: 1, provider: 'codex', connection: 'cli', executable, model: 'fixture-local', timeoutMs: 300_000, maxContextBytes: 262144, maxCalls: 1 }),
 		messages: [{ role: 'user', text: JSON.stringify(task) }],
@@ -202,10 +244,14 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 			assert.equal((await run(`${feature.id}-ready`, task)).text, 'Checkpoint completed.');
 		}
 	}
-	const review = await call<{ proposal: { status: string; views: { name: string; nodes: { elementId: string }[] }[] } }>('review');
+	const viewNames = [overview.name, 'Struttura Acquisto', 'Struttura Resi'];
+	const audited = await run('independent-audit', { audit: true });
+	assert.equal(audited.text, 'Audit completed.');
+	const review = await call<{ auditReport: { findings: unknown[] }; proposal: { status: string; views: { name: string; nodes: { elementId: string }[] }[] } }>('review');
 	assert.deepEqual([
 		review.data.proposal.status,
 		review.data.proposal.views.map(view => [view.name, view.nodes.filter(node => node.elementId === orderId).length]),
 		(await readExplorationSession(root, sessionId)).proposals.map(proposal => proposal.id),
-	], ['ready', [[overview.name, 1], ['Struttura Acquisto', 1], ['Struttura Resi', 1]], [overviewTask.proposalId, 'acquisto-proposal', 'resi-proposal']]);
+		review.data.auditReport.findings,
+	], ['ready', viewNames.map(name => [name, 1]), [overviewTask.proposalId, 'acquisto-proposal', 'resi-proposal'], []]);
 });

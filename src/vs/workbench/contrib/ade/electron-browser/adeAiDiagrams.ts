@@ -42,7 +42,7 @@ import { equals } from '../../../../base/common/objects.js';
 import { canonicalJson, semanticContent } from '../common/modelSerialization.js';
 import { CodeDiagramProgress, CodeDiagramExploration, maxDiagramCheckpointTimeoutMinutes, type CodeAiProgress, type CodeDiagramCheckpointResult } from '../common/codeBridge.js';
 import { getDiagramExplorationPhase } from '../common/diagramExplorationState.js';
-import { diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting, getDiagramCheckpointTimeoutMinutes, isDiagramCheckpointTimeoutMinutes } from '../common/diagramExplorationSettings.js';
+import { diagramCheckpointReasoningEffortSetting, diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting, getDiagramCheckpointReasoningEffort, getDiagramCheckpointTimeoutMinutes, isDiagramCheckpointTimeoutMinutes } from '../common/diagramExplorationSettings.js';
 import { getDiagramBudgetExtensionCapacity, getProjectDiagramExplorationBudget, isDiagramExplorationBudget } from '../common/diagramExplorationBudget.js';
 import { type CliConfig, type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
 import { AdeAiConnection } from './adeAiConnection.js';
@@ -60,7 +60,9 @@ interface ExplorationSession {
 }
 
 function checkpoint(state: CodeDiagramExploration): string {
-	return JSON.stringify([state.phase, state.nextFeatureId, state.nextTaskId]);
+	const parts = [state.phase, state.nextFeatureId, state.nextTaskId];
+	if (state.nextFindingId) { parts.push(state.nextFindingId); }
+	return JSON.stringify(parts);
 }
 
 function checkpointTimeoutIssue(timeout: NonNullable<CodeDiagramCheckpointResult['timeout']>): string {
@@ -417,7 +419,7 @@ export class AdeAiDiagrams extends Disposable {
 					const included = context.files.filter(file => file.status !== 'excluded').length;
 					const confirmation = await this.dialogs.confirm({
 						message: localize('ade.explore.confirmStart', "Generate Diagrams with {0}?", model),
-						detail: localize('ade.explore.confirmScope', "{0}\nImported source scope · Included {1} · Excluded {2}\n{3} will receive relevant source excerpts as each feature is analyzed. You can stop at any time and review the proposed diagrams before applying them.", context.sourceRoot, included, context.files.length - included, provider),
+						detail: localize('ade.explore.confirmScope', "{0}\nImported source scope · Included {1} · Excluded {2}\n{3} will receive relevant source excerpts for diagram generation and the follow-up codebase audit. You can stop at any time and review the corrected diagrams before applying them.", context.sourceRoot, included, context.files.length - included, provider),
 						primaryButton: localize('ade.explore.confirmAction', "Generate Diagrams")
 					});
 					if (!confirmation.confirmed || !current() || token.isCancellationRequested) { return; }
@@ -456,9 +458,11 @@ export class AdeAiDiagrams extends Disposable {
 					const requestId = generateUuid();
 					this.diagramRequestId = requestId;
 					if (this.updateDiagramLiveProgress({ state: 'connecting', activeTool: undefined, retrying })) { this.host.changed(); }
-					const prompt = 'Complete only the current ADE checkpoint. Use the provided phase and IDs, and inspect current ADE evidence. Stop when the checkpoint advances. If an unresolved domain decision prevents progress, end with one line prefixed CLARIFICATION: followed by the question.';
-					const recovery = retrying ? 'The previous attempt timed out. Start with ade_project_inspect to recover the saved task and draft. Reuse valid saved work and finish the remaining validation or checkpoint update. Preserve canonical IDs if a saved draft needs repair.' : undefined;
-					const messages: AdeAiMessage[] = [{ role: 'user', text: [prompt, recovery, session.goal, clarification?.answer ? `User clarification (data): ${JSON.stringify({ question: clarification.question, answer: clarification.answer })}` : undefined].filter(Boolean).join('\n') }];
+					const auditing = state.phase === 'audit';
+					const repairing = state.phase === 'repair';
+					const prompt = auditing ? 'Audit the complete staged diagram set against the imported codebase and submit the evidence-backed report.' : repairing ? 'Resolve the active audit finding in the staged diagram set using its saved evidence and canonical IDs.' : 'Complete only the current ADE checkpoint. Use the provided phase and IDs, and inspect current ADE evidence. Stop when the checkpoint advances. If an unresolved domain decision prevents progress, end with one line prefixed CLARIFICATION: followed by the question.';
+					const recovery = !retrying ? undefined : auditing ? 'The previous attempt timed out. Inspect the staged set and reuse saved source evidence.' : repairing ? 'The previous attempt timed out. Read the saved finding and inspect the current draft before proposing a correction.' : 'The previous attempt timed out. Start with ade_project_inspect to recover the saved task and draft. Reuse valid saved work and finish the remaining validation or checkpoint update. Preserve canonical IDs if a saved draft needs repair.';
+					const messages: AdeAiMessage[] = [{ role: 'user', text: [prompt, recovery, auditing || repairing ? undefined : session.goal, clarification?.answer ? `User clarification (data): ${JSON.stringify({ question: clarification.question, answer: clarification.answer })}` : undefined].filter(Boolean).join('\n') }];
 					const progress = this.code.onDidAiProgress(event => {
 						if (event.requestId !== requestId || !current() || token.isCancellationRequested) { return; }
 						if (event.kind === 'tool') { refreshLive(); }
@@ -467,7 +471,8 @@ export class AdeAiDiagrams extends Disposable {
 					let result: CodeDiagramCheckpointResult;
 					try {
 						const checkpointTimeoutMinutes = getDiagramCheckpointTimeoutMinutes(this.configuration.getValue(diagramCheckpointTimeoutSetting));
-						result = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', checkpoint: true, checkpointTimeoutMinutes, requestId, root: session.root, snapshot, sessionId: session.id, config: JSON.stringify(config), messages }, token));
+						const checkpointReasoningEffort = config.provider === 'codex' ? getDiagramCheckpointReasoningEffort(this.configuration.getValue(diagramCheckpointReasoningEffortSetting)) : undefined;
+						result = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', checkpoint: true, checkpointTimeoutMinutes, ...(checkpointReasoningEffort ? { checkpointReasoningEffort } : {}), requestId, root: session.root, snapshot, sessionId: session.id, config: JSON.stringify(config), messages }, token));
 					} finally { progress.dispose(); }
 					if (!current() || token.isCancellationRequested) { break; }
 					if (result.text && !session.activity?.some(item => item.requestId === requestId && item.kind === 'message') && this.recordDiagramActivity(session, { requestId, kind: 'message', text: result.text })) { this.host.changed(); }
@@ -568,6 +573,8 @@ export class AdeAiDiagrams extends Disposable {
 		if (!this.exploration || this.host.busy || this.operations.busy) { return; }
 		await this.host.run(async token => {
 			await this.refreshExploration();
+			const phase = this._diagramExploration?.phase;
+			if (phase === 'audit' || phase === 'repair') { this.closeDiagramReview(); return; }
 			const projectReview = this._diagramExploration?.workflow === 'project';
 			let proposal = projectReview ? undefined : id ? this._diagramExploration?.proposals.find(entry => entry.id === id) : (await this.quick.pick(this._diagramExploration?.proposals.filter(entry => entry.status !== 'applied').map(entry => ({ label: entry.views.map(view => view.name).join(', ') || entry.id, description: entry.status, proposal: entry })) ?? [], { title: localize('ade.explore.review', "Review Diagram Draft") }))?.proposal;
 			if ((!projectReview && (!proposal || proposal.status === 'applied')) || !await this.project.save() || !this.exploration) { return; }
@@ -579,9 +586,9 @@ export class AdeAiDiagrams extends Disposable {
 			proposal = projectReview ? preview.data.proposal : proposal;
 			if (!proposal || projectReview && !preview.data.reviewId) { throw new Error(localize('ade.explore.reviewMissing', "The Project Review Could Not Be Prepared. Continue Generation and Retry.")); }
 			const contents = preview.data.reviewFile ? (await this.files.readFile(URI.file(preview.data.reviewFile))).value.toString() : JSON.stringify(preview.data, null, '\t');
-			const report: { changes?: AdeDiagramReview['changes']; diff?: { items: AdeDiagramReview['changes'] }; sourceAnchors?: AdeDiagramReview['sources'] } = JSON.parse(contents);
+			const report: { changes?: AdeDiagramReview['changes']; diff?: { items: AdeDiagramReview['changes'] }; sourceAnchors?: AdeDiagramReview['sources']; auditReport?: AdeDiagramReview['auditReport'] } = JSON.parse(contents);
 			if (token.isCancellationRequested || this.code.context?.sourceRoot !== root || this.project.modelUri?.toString() !== modelUri || canonicalJson(semanticContent(this.project.model)) !== semanticRevision) { return; }
-			this._diagramReview = { id: proposal.id, sessionId, root, modelUri, semanticRevision, proposal: structuredClone(proposal), changes: report.changes ?? report.diff?.items ?? [], sources: report.sourceAnchors ?? [], images: preview.data.images ?? [], contents, ...(projectReview ? { projectReviewId: preview.data.reviewId, plan: preview.data.plan, tasks: preview.data.tasks, featureCatalog: preview.data.featureCatalog, featurePlans: preview.data.featurePlans } : {}), ...(preview.diagnostics.length ? { problem: preview.diagnostics.map(entry => entry.code).join(' · ') } : {}) };
+			this._diagramReview = { id: proposal.id, sessionId, root, modelUri, semanticRevision, proposal: structuredClone(proposal), changes: report.changes ?? report.diff?.items ?? [], sources: report.sourceAnchors ?? [], images: preview.data.images ?? [], contents, ...(projectReview ? { projectReviewId: preview.data.reviewId, plan: preview.data.plan, tasks: preview.data.tasks, featureCatalog: preview.data.featureCatalog, featurePlans: preview.data.featurePlans, auditReport: report.auditReport } : {}), ...(preview.diagnostics.length ? { problem: preview.diagnostics.map(entry => entry.code).join(' · ') } : {}) };
 			await this.editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } });
 			this.host.changed();
 		}, { kind: 'local' });

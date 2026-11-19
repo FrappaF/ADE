@@ -108,6 +108,7 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 				let mcp: { command: string; args: string[] } | undefined;
 				let durationMs: number | undefined;
 				let resumeContext: object | undefined;
+				let checkpoint: DiagramCheckpoint['phase'] | undefined;
 				if (request.snapshot && request.sessionId) {
 					if (import.meta.url.endsWith('/nativeHost.ts')) { await import('../scripts/source-loader.mjs'); }
 					const snapshot = await readSnapshot(request.snapshot);
@@ -118,18 +119,23 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 					if (state.budgetStatus?.exhausted.length) { throw new Error('The exploration budget is exhausted (' + state.budgetStatus.exhausted.join(', ') + '). Close the assistant and choose Continue Generation to add budget. Prepared drafts are retained.'); }
 					durationMs = state.budgetWindow?.remainingMs ?? state.budget.maxDurationMs;
 					if (request.checkpoint && (!state.phase || state.phase === 'review')) { return JSON.stringify({ text: '', phase: state.phase }); }
-					resumeContext = state.phase ? {
-						phase: state.phase,
-						nextFeatureId: state.nextFeatureId,
-						nextTaskId: state.nextTaskId,
-						blockers: state.batch?.blockers.slice(0, 12) ?? [],
-					} : {
-						plan: state.plan ? { revision: state.plan.revision, items: state.plan.items.map(item => ({ id: item.id, name: item.name.slice(0, 240), kind: item.viewKind, parentId: item.parentId, dependsOn: item.dependsOn })) } : undefined,
-						tasks: state.tasks.map(task => ({ id: task.id, status: task.status, proposalId: task.proposalId })), blockers: state.batch?.blockers ?? [],
-						drafts: [...state.proposals].sort((a, b) => Number(b.status === 'invalid') - Number(a.status === 'invalid')).slice(0, 24).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics.slice(0, 4).map(diagnostic => ({ code: diagnostic.code, path: diagnostic.path, args: diagnostic.args.map(arg => arg.slice(0, 200)) })), views: proposal.views.map(view => ({ id: view.id, name: view.name.slice(0, 240), kind: view.kind })) }))
-					};
-					const invocation = request.checkpoint && state.phase && state.phase !== 'review' ? {
-						checkpoint: { phase: state.phase, nextFeatureId: state.nextFeatureId, nextTaskId: state.nextTaskId, toolCalls: state.usage.toolCalls, readBytes: state.usage.readBytes },
+					if (request.checkpoint && state.phase !== 'review') { checkpoint = state.phase; }
+					if (checkpoint === 'repair') {
+						resumeContext = { nextFindingId: state.nextFindingId };
+					} else if (checkpoint !== 'audit') {
+						resumeContext = state.phase ? {
+							phase: state.phase,
+							nextFeatureId: state.nextFeatureId,
+							nextTaskId: state.nextTaskId,
+							blockers: state.batch?.blockers.slice(0, 12) ?? [],
+						} : {
+							plan: state.plan ? { revision: state.plan.revision, items: state.plan.items.map(item => ({ id: item.id, name: item.name.slice(0, 240), kind: item.viewKind, parentId: item.parentId, dependsOn: item.dependsOn })) } : undefined,
+							tasks: state.tasks.map(task => ({ id: task.id, status: task.status, proposalId: task.proposalId })), blockers: state.batch?.blockers ?? [],
+							drafts: [...state.proposals].sort((a, b) => Number(b.status === 'invalid') - Number(a.status === 'invalid')).slice(0, 24).map(proposal => ({ id: proposal.id, status: proposal.status, diagnostics: proposal.diagnostics.slice(0, 4).map(diagnostic => ({ code: diagnostic.code, path: diagnostic.path, args: diagnostic.args.map(arg => arg.slice(0, 200)) })), views: proposal.views.map(view => ({ id: view.id, name: view.name.slice(0, 240), kind: view.kind })) }))
+						};
+					}
+					const invocation = checkpoint ? {
+						checkpoint: { phase: checkpoint, nextFeatureId: state.nextFeatureId, nextTaskId: state.nextTaskId, nextFindingId: state.nextFindingId, toolCalls: state.usage.toolCalls, readBytes: state.usage.readBytes },
 						turnId: request.requestId ?? randomUUID()
 					} : undefined;
 					if (invocation) { durationMs = Math.min(durationMs, (request.checkpointTimeoutMinutes ?? defaultDiagramCheckpointTimeoutMinutes) * 60_000); }
@@ -137,7 +143,7 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 				}
 				const { runDiagramChat } = await import('../ai/diagramChat.ts');
 				try {
-					return JSON.stringify(await runDiagramChat(root, config, request.messages, mcp, signal, undefined, durationMs, event => progress?.({ ...event, requestId: request.requestId ?? '' }), resumeContext, request.checkpoint));
+					return JSON.stringify(await runDiagramChat(root, config, request.messages, mcp, signal, undefined, durationMs, event => progress?.({ ...event, requestId: request.requestId ?? '' }), resumeContext, checkpoint ?? request.checkpoint, request.checkpointReasoningEffort));
 				} catch (error) {
 					if (request.checkpoint && error instanceof ProcessTimeoutError) {
 						signal?.throwIfAborted();

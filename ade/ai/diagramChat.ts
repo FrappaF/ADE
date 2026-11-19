@@ -10,16 +10,19 @@ import { ProcessTimeoutError, runProcess } from './process.ts';
 import { readProviderConfig } from './contracts.ts';
 import { readBoundedText } from './io.ts';
 import { diagramSessionInstruction } from '../../src/vs/workbench/contrib/ade/common/diagramTools.ts';
-import { type CodeAiProgress } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
-import { diagramCheckpointInstruction } from './diagramCheckpoint.ts';
+import { type CodeAiProgress, type DiagramCheckpointReasoningEffort } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
+import { defaultDiagramCheckpointReasoningEffort } from '../../src/vs/workbench/contrib/ade/common/diagramExplorationSettings.ts';
+import { diagramCheckpointInstruction, specializedDiagramCheckpointInstruction, type DiagramCheckpoint } from './diagramCheckpoint.ts';
 
 /** Each call is ephemeral; the modal supplies its in-memory transcript and ADE supplies project tools. */
-export async function runDiagramChat(root: string, configValue: object, messages: { role: 'user' | 'assistant'; text: string }[], mcp?: { command: string; args: string[] }, signal?: AbortSignal, runner = runProcess, durationMs?: number, progress?: (event: Omit<CodeAiProgress, 'requestId'>) => void, context?: object, checkpoint = false): Promise<{ text: string }> {
+export async function runDiagramChat(root: string, configValue: object, messages: { role: 'user' | 'assistant'; text: string }[], mcp?: { command: string; args: string[] }, signal?: AbortSignal, runner = runProcess, durationMs?: number, progress?: (event: Omit<CodeAiProgress, 'requestId'>) => void, context?: object, checkpoint: boolean | DiagramCheckpoint['phase'] = false, reasoningEffort: DiagramCheckpointReasoningEffort = defaultDiagramCheckpointReasoningEffort): Promise<{ text: string }> {
 	const config = readProviderConfig(configValue);
 	if (!config.maxCalls) { throw new Error('AI requests are disabled. Enable requests in AI Settings.'); }
 	if (!messages.length || messages.length > 60 || messages.some(message => !['user', 'assistant'].includes(message.role) || typeof message.text !== 'string')) { throw new Error('Invalid assistant conversation'); }
 	if (checkpoint && (!mcp || messages.length !== 1 || messages[0].role !== 'user')) { throw new Error('A diagram checkpoint requires one task request and ADE tools.'); }
-	const prompt = (mcp ? diagramSessionInstruction : 'Help the user with this project and its ADE model. Read the current model before changing it. Preserve semantic IDs and valid model references. Only change files when the user asks for a change. For diagram-only requests, inspect relevant source and validate the ADE diagrams; do not run application test suites, linters or builds unless requested.') + (checkpoint ? '\n\n' + diagramCheckpointInstruction : '') + (context ? '\nSaved project state (resume this plan; repair its blockers):\n' + JSON.stringify(context) : '') + (checkpoint ? '\nTask request:\n' : '\nConversation:\n') + JSON.stringify(messages);
+	const specialized = specializedDiagramCheckpointInstruction(typeof checkpoint === 'string' ? checkpoint : undefined);
+	const prompt = specialized ? specialized + (context ? '\nADE checkpoint:\n' + JSON.stringify(context) : '')
+		: (mcp ? diagramSessionInstruction : 'Help the user with this project and its ADE model. Read the current model before changing it. Preserve semantic IDs and valid model references. Only change files when the user asks for a change. For diagram-only requests, inspect relevant source and validate the ADE diagrams; do not run application test suites, linters or builds unless requested.') + (checkpoint ? '\n\n' + diagramCheckpointInstruction : '') + (context ? '\nSaved project state (resume this plan; repair its blockers):\n' + JSON.stringify(context) : '') + (checkpoint ? '\nTask request:\n' : '\nConversation:\n') + JSON.stringify(messages);
 	if (Buffer.byteLength(prompt) > config.maxContextBytes) { throw new Error('This conversation exceeds the context budget. Close the assistant and open a new conversation; prepared diagrams are retained.'); }
 	const directory = await mkdtemp(join(tmpdir(), 'ade-chat-'));
 	try {
@@ -46,12 +49,14 @@ export async function runDiagramChat(root: string, configValue: object, messages
 		const env = { ...process.env };
 		delete env.NODE_OPTIONS; delete env.VSCODE_INSPECTOR_OPTIONS; delete env.ELECTRON_RUN_AS_NODE;
 		const output = join(directory, 'response.txt');
-		const args = config.provider === 'codex' ? ['exec', '--model', config.model, '--sandbox', mcp ? 'read-only' : 'workspace-write', '--skip-git-repo-check', '--ephemeral', ...[...(mcp ? ['shell_tool', 'unified_exec'] : []), 'apps', 'plugins', 'remote_plugin', 'multi_agent', 'hooks', 'skill_search', 'skill_mcp_dependency_install'].flatMap(feature => ['--disable', feature]), '-c', 'web_search="disabled"', '-c', 'approval_policy="never"', '-c', 'mcp_servers={}', ...(mcp ? ['-c', `mcp_servers.ade.command=${JSON.stringify(mcp.command)}`, '-c', `mcp_servers.ade.args=${JSON.stringify(mcp.args)}`, '-c', 'mcp_servers.ade.required=true', '-c', 'mcp_servers.ade.startup_timeout_sec=60'] : []), '--json', '--output-last-message', output, '-']
+		const effortOverride = checkpoint && reasoningEffort !== 'inherit' ? ['-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`] : [];
+		const args = config.provider === 'codex' ? ['exec', '--model', config.model, ...effortOverride, '--sandbox', mcp ? 'read-only' : 'workspace-write', '--skip-git-repo-check', '--ephemeral', ...[...(mcp ? ['shell_tool', 'unified_exec'] : []), 'apps', 'plugins', 'remote_plugin', 'multi_agent', 'hooks', 'skill_search', 'skill_mcp_dependency_install'].flatMap(feature => ['--disable', feature]), '-c', 'web_search="disabled"', '-c', 'approval_policy="never"', '-c', 'mcp_servers={}', ...(mcp ? ['-c', `mcp_servers.ade.command=${JSON.stringify(mcp.command)}`, '-c', `mcp_servers.ade.args=${JSON.stringify(mcp.args)}`, '-c', 'mcp_servers.ade.required=true', '-c', 'mcp_servers.ade.startup_timeout_sec=60'] : []), '--json', '--output-last-message', output, '-']
 			: ['-p', '--model', config.model, '--permission-mode', 'dontAsk', '--tools', mcp ? '' : 'Read,Edit,Write,Bash,Glob,Grep', '--strict-mcp-config', '--mcp-config', JSON.stringify({ mcpServers: mcp ? { ade: { type: 'stdio', ...mcp } } : {} }), '--allowedTools', mcp ? 'mcp__ade__*' : 'Read,Edit,Write,Bash,Glob,Grep', '--setting-sources', '', '--no-session-persistence', '--output-format', 'json'];
 		// Chat can involve many tool calls. The provider timeout bounds silence, not the entire active turn.
 		let result: Awaited<ReturnType<typeof runProcess>>;
 		try {
-			result = await runner(config.executable, args, root, { input: prompt, signal, env, onOutput, startupTimeoutMs: 45000, idleTimeoutMs: config.timeoutMs, timeoutMs: Math.min(durationMs ?? 1800000, 5400000), maxBytes: 32 * 1024 * 1024, gracefulShutdownMs: 2000 });
+			// The specialized roles get project data through MCP, without loading project-level agent instructions.
+			result = await runner(config.executable, args, specialized ? directory : root, { input: prompt, signal, env, onOutput, startupTimeoutMs: 45000, idleTimeoutMs: config.timeoutMs, timeoutMs: Math.min(durationMs ?? 1800000, 5400000), maxBytes: 32 * 1024 * 1024, gracefulShutdownMs: 2000 });
 		} catch (error) {
 			if (!checkpoint && error instanceof ProcessTimeoutError && error.reason === 'deadline') { throw new Error('The assistant reached the time limit for this request. Completed drafts are retained. Send a follow-up to continue.'); }
 			throw error;
