@@ -13,6 +13,11 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			let shell = window.locator('.ordito-shell');
 			let sidebar = window.locator('.ordito-sidebar');
 			const canvasNode = (name: string) => shell.locator('.ordito-canvas').getByRole('button', { name, exact: true });
+			const clickUncoveredNode = async (name: string) => {
+				const close = shell.getByRole('button', { name: 'Close Properties', exact: true });
+				if (await close.isVisible()) { await close.click(); }
+				await canvasNode(name).click();
+			};
 			await sidebar.waitFor();
 			assert.equal(await window.locator('.explorer-viewlet:visible').count(), 0);
 			await clickOrditoButton(window, 'Explore Purchase Example');
@@ -32,13 +37,15 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
 			await window.screenshot({ path: path.join(evidence, 'ai-collaboration.png') });
 			await runCommand(window, 'Ordito: Return to Model');
+			await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
+			await shell.getByRole('region', { name: 'Diagram: Checkout Structure', exact: true }).waitFor();
 			console.log('PASS: native AI controls and provider chooser render without inference; implementation, tests, apply and undo require an imported project or reviewed session.');
-			// The inspector can overlap canvas nodes on small displays. Use keyboard selection.
-			await canvasNode('Request Payment').press('Enter');
+			await clickUncoveredNode('Request Payment');
+			await openProperties(window);
 			await shell.locator('.ordito-properties').getByRole('heading', { name: 'Request Payment', exact: true }).waitFor();
 			await sidebar.getByRole('button', { name: 'Cart Structure', exact: true }).click();
 			await shell.getByRole('region', { name: 'Diagram: Cart Structure', exact: true }).waitFor();
-			await canvasNode('Cart').press('Enter');
+			await clickUncoveredNode('Cart');
 			await sidebar.getByRole('button', { name: 'Checkout Structure', exact: true }).click();
 			await openProperties(window);
 			await shell.locator('.ordito-properties').getByRole('heading', { name: 'Request Payment', exact: true }).waitFor();
