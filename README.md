@@ -23,7 +23,9 @@ Built on Code OSS, Ordito connects system diagrams, software contracts, and sour
 
 ## Getting started
 
-Ordito is in active development and builds from source. Install Git, Python 3, the native build tools for your platform, and the pinned Node.js version. The setup command installs locked dependencies, builds Ordito, and prepares Electron. [Build prerequisites](ordito/docs/fork-development.md#from-a-clean-clone) · [Pinned Node.js version](.nvmrc)
+Ordito is in active development. Check [GitHub Releases](https://github.com/FrappaF/Ordito/releases) for desktop previews for macOS (Apple Silicon and Intel) and Linux (x86-64).
+
+To build from source, install Git, Python 3, the native build tools for your platform, and the pinned Node.js version. The setup command installs locked dependencies, builds Ordito, and prepares Electron. [Build prerequisites](ordito/docs/fork-development.md#from-a-clean-clone) · [Pinned Node.js version](.nvmrc)
 
 ### macOS and Linux
 
