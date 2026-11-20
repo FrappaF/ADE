@@ -31,7 +31,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await connect(window, 'Tecnico', 'Console', 'Invocation', 'Invia', '');
 		await connect(window, 'Console', 'Raccoglitore', 'Invocation', 'Acquisisci', '');
 		await connect(window, 'Raccoglitore', 'Campione', 'Write', 'Registra', 'Misura valida');
-		await shell.locator('.ordito-node').getByText('Raccoglitore', { exact: true }).click();
+		await shell.locator('.ordito-canvas').getByRole('button', { name: 'Raccoglitore', exact: true }).press('Enter');
 		await contractEntry(window, 'Raccoglitore', 'Inputs');
 		await enterValue(window, 'Field Name', 'sensorId');
 		await enterValue(window, 'Field Type', 'SensorId');

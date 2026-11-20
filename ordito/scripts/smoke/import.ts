@@ -52,7 +52,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 		assert.equal(await shell.locator('.ordito-node, .ordito-atlas-node').count(), 0);
 		await runCommand(window, 'Ordito: Show Diagram Navigation');
 		const sidebar = window.locator('.ordito-sidebar');
-		await sidebar.getByText('Source Evidence Ready.', { exact: false }).waitFor();
+		await shell.getByText('Source Evidence Ready · Create Capability and Flow Diagrams with AI', { exact: true }).waitFor();
 		assert.equal(await sidebar.getByRole('button', { name: /\.(?:rb|erb|yml)$/ }).count(), 0);
 		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true, disabled: false }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'semantic-import-ready.png') });

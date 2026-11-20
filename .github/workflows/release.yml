@@ -96,7 +96,7 @@ jobs:
           if [[ "$ARCH" == x64 ]]; then
             mac_arch=x86_64
           fi
-          lipo -verify_arch "$mac_arch" "$app/Contents/MacOS/Ordito"
+          lipo "$app/Contents/MacOS/Ordito" -verify_arch "$mac_arch"
           echo "ORDITO_APP_ROOT=$app/Contents/Resources/app" >> "$GITHUB_ENV"
           echo "ORDITO_ELECTRON_PATH=$app/Contents/MacOS/Ordito" >> "$GITHUB_ENV"
       - name: Archive and verify Linux app
