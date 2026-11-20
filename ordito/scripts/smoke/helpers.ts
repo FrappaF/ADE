@@ -260,7 +260,8 @@ export async function addElement(window: Page, kind: string, name: string) {
 
 export async function connect(window: Page, source: string, target: string, kind: string, name: string, condition: string) {
 	await closeCanvasActions(window);
-	await window.locator('.ordito-canvas').getByRole('button', { name: source, exact: true }).click();
+	// The previous relationship can leave Properties open over the next source node.
+	await window.locator('.ordito-canvas').getByRole('button', { name: source, exact: true }).press('Enter');
 	await openProperties(window);
 	await clickOrditoButton(window, 'Connect Selection');
 	await completeRelationForm(window, { target, kind, name, condition });

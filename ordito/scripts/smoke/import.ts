@@ -170,11 +170,14 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 		await enteredWorkspace;
 		await shell.getByRole('heading', { name: 'Explore Your Codebase', exact: true }).waitFor({ timeout: 90000 });
-		assert.equal(await shell.locator('.ordito-node, .ordito-atlas-node').count(), 0, 'The index is never presented as finished diagrams');
-		assert.equal(await shell.locator('.ordito-workspace-bar').getByRole('button', { name: 'Code', exact: true }).count(), 0, 'The unreviewed source index does not expose the Code page');
-		assert.equal(await shell.getByRole('button', { name: 'Update Code', exact: true }).count(), 0, 'The unreviewed source index does not expose legacy model-to-code synchronization');
 		await shell.getByRole('region', { name: 'Architecture Exploration', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Explore Architecture', exact: true, disabled: false }).waitFor();
+		assert.equal(await shell.locator('.ordito-node, .ordito-atlas-node').count(), 0, 'The index is never presented as finished diagrams');
+		await shell.locator('.ordito-workspace-bar').getByRole('button', { name: 'Code', exact: true }).click();
+		const codePage = shell.locator('.ordito-code-page');
+		await codePage.getByRole('button', { name: 'Code Evidence', exact: true }).waitFor();
+		assert.equal(await codePage.getByRole('button', { name: 'Update Code', exact: true }).count(), 0, 'The unreviewed source index does not expose legacy model-to-code synchronization');
+		await runCommand(window, 'Ordito: Return to Model');
 		await shell.getByRole('button', { name: 'Inspect Code Evidence', exact: true }).click();
 		await widget.getByRole('option', { name: /checkout.*Extracted declaration/i }).waitFor();
 		await widget.getByRole('option', { name: /checkout.*Extracted declaration/i }).click();
@@ -347,7 +350,9 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		window = await launch(); shell = window.locator('.ordito-shell');
 		await (await codeAction(window, 'Update Code', false)).waitFor({ timeout: 90000 });
 		await clickOrditoButton(window, 'Home');
-		await shell.getByRole('button', { name: 'Open Project', exact: true }).click();
+		const projectMenu = shell.locator('.ordito-project-menu');
+		await projectMenu.locator(':scope > summary').click();
+		await projectMenu.getByRole('button', { name: 'Open Project', exact: true }).click();
 		await chooseFolder(window, sourceRoot);
 		await (await codeAction(window, 'Update Code', false)).waitFor();
 		await runCommand(window, 'Ordito: Restore Code Model Snapshot');
