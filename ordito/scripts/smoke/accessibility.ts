@@ -293,7 +293,9 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await mkdir(folder);
 		await runCommand(window, 'Ordito: Create Project');
 		await enterValue(window, 'Name', 'Test Project');
+		const enteredWorkspace = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 		await chooseFolder(window, folder);
+		await enteredWorkspace;
 		await shell.getByRole('heading', { name: 'Test Project', exact: true }).waitFor({ timeout: 90000 });
 		await clickOrditoButton(window, 'Files');
 		await window.locator('.explorer-viewlet').getByText('new project', { exact: true }).first().waitFor();

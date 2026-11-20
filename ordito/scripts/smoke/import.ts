@@ -10,6 +10,12 @@ import { enterValue, pickValue, chooseFolder, runCommand, codeAction, chooseOrdi
 export function createImportScenarios(harness: SmokeHarness) {
 	const { launch, root, workspace, directory, evidence, launchEnv, args, workflowOnly, validateSemanticModel, userData } = harness;
 
+	async function useLegacyDiagramProtocol() {
+		const settingsFile = path.join(userData, 'User/settings.json');
+		const settings = JSON.parse(await readFile(settingsFile, 'utf8'));
+		await writeFile(settingsFile, JSON.stringify({ ...settings, 'ordito.diagramImport.incremental': false }));
+	}
+
 	async function checkSemanticTodo() {
 		const { todoFile, todoSource, todoFiles } = await import('../../code-import/test/todo-semantic-fixture.mjs');
 		const recordsPath = path.join(root, 'ordito/code-import/test/fixtures/real-diagrams/planned-terra.json');
@@ -32,6 +38,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 `);
 		await chmod(path.join(bin, 'codex'), 0o700);
 		launchEnv.PATH = bin + path.delimiter + process.env.PATH; args.push('--force-disable-user-env');
+		await useLegacyDiagramProtocol();
 		const window = await launch(), shell = window.locator('.ordito-shell');
 		await shell.getByRole('button', { name: 'Import Codebase', exact: true }).click();
 		const widget = window.locator('.quick-input-widget');
@@ -41,7 +48,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 		const entered = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 		await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 		await entered; args[1] = sourceRoot;
-		await shell.getByRole('heading', { name: 'Create Diagrams from Your Code', exact: true }).waitFor({ timeout: 90000 });
+		await shell.getByRole('heading', { name: 'Explore Your Codebase', exact: true }).waitFor({ timeout: 90000 });
 		assert.equal(await shell.locator('.ordito-node, .ordito-atlas-node').count(), 0);
 		await runCommand(window, 'Ordito: Show Diagram Navigation');
 		const sidebar = window.locator('.ordito-sidebar');
@@ -61,7 +68,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 		assert.equal(await shell.locator('.ordito-node').count(), 0);
 		await shell.getByRole('button', { name: 'Review Diagram Plan', exact: true, disabled: false }).click();
 		await generate.click();
-		await shell.getByRole('heading', { name: record.calls[0].response.plan[0].name, exact: true }).waitFor({ timeout: 90000 });
+		await shell.getByRole('region', { name: `Diagram: ${record.calls[0].response.plan[0].name}`, exact: true }).waitFor({ timeout: 90000 });
 		await (await codeAction(window, 'Update Code', false)).waitFor();
 		assert.equal(await readFile(counter, 'utf8'), String(record.calls.length));
 		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ordito/code-project.json'), 'utf8'));
@@ -184,9 +191,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'checkout' }).first().waitFor();
 		await window.getByRole('tab', { name: /Create Diagrams: codebase/ }).click();
 		assert.equal(await readFile(execCounter, 'utf8'), '0', 'Inspecting the default import and code actions sends no inference request');
-		const settingsFile = path.join(userData, 'User/settings.json');
-		const settings = JSON.parse(await readFile(settingsFile, 'utf8'));
-		await writeFile(settingsFile, JSON.stringify({ ...settings, 'ordito.diagramImport.incremental': false }));
+		await useLegacyDiagramProtocol();
 		console.log('PASS: default import exposes Architecture Exploration; continuing the explicitly selected legacy CLI protocol.');
 		const configurationDeadline = Date.now() + 10000;
 		while (!await shell.getByText('Source Evidence Ready · Create Capability and Flow Diagrams with AI', { exact: true }).isVisible() && Date.now() < configurationDeadline) {

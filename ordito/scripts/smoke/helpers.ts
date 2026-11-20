@@ -4,21 +4,22 @@ import { mkdir, symlink } from 'node:fs/promises';
 import type { SmokeHarness } from './harness.ts';
 
 /** Reveal semantic tab panels and disclosures in document order, without relying on their labels. */
-async function revealOrditoAncestors(window: Page, target: Locator) {
+async function revealOrditoAncestors(target: Locator) {
 	await target.waitFor({ state: 'attached' });
 	const ancestors = target.locator('xpath=ancestor::*[@role="tabpanel" or self::details]');
 	for (const ancestor of await ancestors.all()) {
 		if (await ancestor.getAttribute('role') === 'tabpanel') {
-			if (!await ancestor.evaluate(element => element.hasAttribute('hidden'))) { continue; }
-			const labels = (await ancestor.getAttribute('aria-labelledby'))?.split(/\s+/) ?? [];
-			const panelId = await ancestor.getAttribute('id');
-			let activated = false;
-			for (const tab of await window.getByRole('tab', { includeHidden: true }).all()) {
-				if (labels.includes(await tab.getAttribute('id') ?? '') && await tab.getAttribute('aria-controls') === panelId) {
-					await tab.click(); activated = true; break;
-				}
-			}
-			if (!activated) { throw new Error('No accessible tab controls the hidden Ordito panel.'); }
+			const index = await ancestor.evaluate(panel => {
+				if (!panel.hasAttribute('hidden')) { return undefined; }
+				// The panel and tab IDs are regenerated together when the model renders again.
+				const labels = panel.getAttribute('aria-labelledby')?.split(/\s+/) ?? [];
+				const tabs = panel.parentElement?.previousElementSibling?.querySelectorAll('[role="tab"]') ?? [];
+				return Array.from(tabs).findIndex(tab => labels.includes(tab.id) && tab.getAttribute('aria-controls') === panel.id);
+			});
+			if (index === undefined) { continue; }
+			if (index < 0) { throw new Error('No accessible tab controls the hidden Ordito panel.'); }
+			const list = ancestor.locator('xpath=../preceding-sibling::*[@role="tablist"][1]');
+			await list.getByRole('tab', { includeHidden: true }).nth(index).click();
 		} else if (!await ancestor.evaluate(element => element instanceof HTMLDetailsElement && element.open)) {
 			await ancestor.locator(':scope > summary').click();
 		}
@@ -34,7 +35,7 @@ export async function revealOrditoButton(window: Page, name: string) {
 		else { await openProjectSection(window, 'Project Settings'); }
 		button = shell.getByRole('button', { name, exact: true, includeHidden: true });
 	}
-	await revealOrditoAncestors(window, button);
+	await revealOrditoAncestors(button);
 	return button;
 }
 
@@ -55,7 +56,7 @@ export async function closeCanvasActions(window: Page) {
 
 export async function revealOrditoText(window: Page, text: string) {
 	const target = window.locator('.ordito-shell').getByText(text, { exact: true });
-	await revealOrditoAncestors(window, target);
+	await revealOrditoAncestors(target);
 	// Decorated disclosures put their visible label in a span; retain the summary identity.
 	const summary = target.locator('xpath=ancestor-or-self::summary[1]');
 	return await summary.count() ? summary : target;
