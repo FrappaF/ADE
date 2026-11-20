@@ -1,93 +1,93 @@
-# Architettura A.D.E
+# ADE architecture
 
-ADE è un fork di Code OSS con un contributo nativo dedicato. Per ottenere un ambiente di sviluppo funzionante, parti dalla [guida di sviluppo](fork-development.md).
+ADE is a Code OSS fork with a native ADE workbench contribution. Start with the [development guide](fork-development.md) to set up a working environment.
 
-## Confini e dipendenze
+## Boundaries and dependencies
 
-Il dominio vive in `src/vs/workbench/contrib/ade/common/`: è TypeScript puro, senza dipendenze da filesystem, Node, browser o servizi del workbench. Il contributo nativo aggiunge gli adattatori UI e desktop. I tool in `ade/` consumano lo stesso dominio.
+The domain lives in `src/vs/workbench/contrib/ade/common/`. It is pure TypeScript, independent of the filesystem, Node.js, the browser and workbench services. The native contribution adds UI and desktop adapters. The tools in `ade/` use the same domain.
 
 ```mermaid
 flowchart TD
-    UI[Contributo nativo ADE] --> Bridge[Contratto JSON codeBridge]
+    UI[Native ADE contribution] --> Bridge[codeBridge JSON contract]
     Bridge --> Engine[ade/runtime/nativeHost]
     Engine --> AI[ade/ai]
     Engine --> Import[ade/code-import]
     AI --> Import
-    Engine --> Storage[ade/runtime: persistenza e modifiche ai file]
+    Engine --> Storage[ade/runtime persistence and file changes]
     AI --> Storage
     Import --> Storage
-    UI --> Domain[common: dominio puro]
+    UI --> Domain[common domain]
     AI --> Domain
     Import --> Domain
     Messaging[ade/messaging] --> Domain
 ```
 
-`ade/runtime/nativeHost.ts` è il punto di composizione del processo di analisi: valida il protocollo, coordina importazione e IA e conserva cache proprie per ciascuna istanza del motore. L'importatore non dipende dall'IA o dal dispatcher. I moduli infrastrutturali `projectStore.ts`, `sourceChanges.ts` e `schemas.ts` sono condivisi, ma non dipendono dai workflow applicativi.
+`ade/runtime/nativeHost.ts` composes the analysis process. It validates the protocol, coordinates import and AI operations, and keeps a separate cache for each engine instance. The importer is independent of AI and the dispatcher. The shared infrastructure modules `projectStore.ts`, `sourceChanges.ts` and `schemas.ts` are independent of application workflows.
 
-Il contratto JSON in `common/codeBridge.ts` separa il renderer dal processo Node. `ade/runtime/codeProtocol.ts` valida le richieste in ingresso; il bundle mantiene il nome pubblico `adeCodeEngine.js`. Il formato dei progetti e il protocollo non dipendono dall'organizzazione dei file sorgenti.
+The JSON contract in `common/codeBridge.ts` separates the renderer from the Node.js process. `ade/runtime/codeProtocol.ts` validates incoming requests. The bundle keeps the public name `adeCodeEngine.js`. The project format and protocol are independent of how the source files are organized.
 
-## Dominio semantico
+## Semantic domain
 
-Il modello supporta i formati storici v2/v3 e i contratti v4/v5. Identità semantiche, proiezioni visuali, evidenze del codice e verifiche restano distinte. Un layout non determina la proprietà architetturale e un'evidenza sintattica non certifica un comportamento eseguito.
+The model supports legacy formats v2 and v3 and the v4 and v5 contracts. It represents semantic identities, visual projections, source evidence and verification separately. Architectural ownership comes from model declarations. Evidence from code syntax describes the source, while verification records describe executed behavior.
 
-| Modulo in `common/` | Responsabilità |
+| Module in `common/` | Responsibility |
 | --- | --- |
-| `modelTypes.ts` | Tipi del documento, identificatori di categoria e capacità dichiarate. |
-| `modelSchema.ts` | Schemi JSON versionati e controllo della forma. |
-| `modelFoundation.ts` | Fondazioni vuote, inventario degli oggetti e riconoscimento dei modelli di evidenza. |
-| `modelValidation.ts` | Riferimenti, proprietà, diagnostiche e lettura di snapshot validati o bozze ispezionabili. |
-| `modelContractValidation.ts` | Compatibilità dei contratti e vincoli del blueprint. |
-| `modelNotation.ts`, `modelScenario.ts` | Regole delle notazioni e ordinamento parziale degli scenari. |
-| `modelLegacyMigration.ts`, `modelMigration.ts` | Migrazioni esplicite dai formati storici e verso la fondazione v4. |
-| `semanticModelService.ts` | Modello in memoria; la persistenza appartiene agli adattatori documentali. |
-| `semanticModel.ts` | Ingresso compatibile dell'API pubblica; le implementazioni importano direttamente dai moduli proprietari. |
+| `modelTypes.ts` | Document types, category identifiers and declared capabilities. |
+| `modelSchema.ts` | Versioned JSON schemas and document shape validation. |
+| `modelFoundation.ts` | Empty foundations, object inventory and recognition of evidence models. |
+| `modelValidation.ts` | References, properties, diagnostics and reading validated snapshots or inspectable drafts. |
+| `modelContractValidation.ts` | Contract compatibility and blueprint constraints. |
+| `modelNotation.ts`, `modelScenario.ts` | Notation rules and partial ordering of scenarios. |
+| `modelLegacyMigration.ts`, `modelMigration.ts` | Explicit migrations from legacy formats and to the v4 foundation. |
+| `semanticModelService.ts` | In-memory model. Document adapters handle persistence. |
+| `semanticModel.ts` | Compatibility entry point for the public API. Implementations import directly from the modules that define each API. |
 
-Gli schemi pubblicati in `ade/schema/` sono artefatti verificati rispetto alla sorgente. Un cambiamento di struttura del codice non deve alterare la grammatica dei documenti.
+The schema artifacts in `ade/schema/` are verified against the source. Preserve the document grammar when restructuring code.
 
-## Modifiche atomiche e runtime
+## Atomic edits and runtimes
 
-`visualEditTypes.ts` dichiara l'unione discriminata delle operazioni. `visualEditing.ts` prepara un solo candidato e smista ogni operazione in modo esaustivo ai gestori `visualEditFoundation.ts`, `visualEditElements.ts`, `visualEditViews.ts` e `visualEditBehavior.ts`. La gestione delle identità, delle revisioni e della validazione resta al confine della transazione. `visualEditSupport.ts` raccoglie aggiornamento conservativo e calcolo delle dipendenze per la cancellazione.
+`visualEditTypes.ts` declares the discriminated union of operations. `visualEditing.ts` prepares one candidate and exhaustively dispatches each operation to the relevant handler in `visualEditFoundation.ts`, `visualEditElements.ts`, `visualEditViews.ts` or `visualEditBehavior.ts`. Identities, revisions and validation are handled at the transaction boundary. `visualEditSupport.ts` provides conservative updates and computes dependencies for deletion.
 
-Interazioni, macchine a stati e messaggistica mantengono compilazione, interpretazione e verifica nel dominio. I generatori `interactionRuntime.ts` e `stateRuntime.ts` sono consumati direttamente: i moduli che essi utilizzano non li riesportano, evitando dipendenze circolari.
+The domain compiles, interprets and verifies interactions, state machines and messaging. Import `interactionRuntime.ts` and `stateRuntime.ts` directly. The modules they depend on avoid re-exporting their generators to prevent dependency cycles.
 
-Gli script `build-interaction-runtime.mjs`, `build-state-runtime.mjs` e `build-messaging-runtime.mjs` condividono `ade/runtime/runtimeSource.ts`. Quest'ultimo seleziona dichiarazioni TypeScript per nome tramite il parser, segnala dichiarazioni mancanti o ambigue e genera il JavaScript. La generazione non dipende dai titoli dei commenti o dalla posizione di una funzione. Gli artefatti `*.generated.ts` non si modificano manualmente. Un test di compatibilità conserva gli hash dei tre interpreti emessi, perché le regioni gestite nei progetti richiedono corrispondenza esatta del runtime.
+The scripts `build-interaction-runtime.mjs`, `build-state-runtime.mjs` and `build-messaging-runtime.mjs` share `ade/runtime/runtimeSource.ts`. This module uses the TypeScript parser to find declarations by name, reports missing or ambiguous declarations and generates JavaScript. Generation is independent of comment headings and function order. Regenerate `*.generated.ts` artifacts with their scripts. A compatibility test pins the hashes of the three generated interpreters because managed regions in projects require an exact runtime match.
 
-## Contributo nativo
+## Native workbench contribution
 
-`browser/ade.contribution.ts` registra editor, viste e comandi. `AdeProjectService` mantiene il documento tramite i servizi testuali nativi: salvataggio, backup, conflitti e cronologia restano responsabilità di quegli adattatori. Navigazione, layout, selezione e analisi del modello consumano funzioni pure del dominio.
+`browser/ade.contribution.ts` registers the editor, views and commands. `AdeProjectService` uses native text services to manage the document. These adapters handle saving, backups, conflicts and history. Navigation, layout, selection and model analysis use pure domain functions.
 
-L'editor è composto da componenti con responsabilità esplicite:
-
-| Componente | Responsabilità |
+| Component | Responsibility |
 | --- | --- |
-| `AdeEditor` | Ciclo di vita dell'editor, composizione delle superfici e navigazione. |
-| `AdeCanvasController` | Camera, zoom, pan, movimento dei nodi e listener della singola renderizzazione. |
-| `AdeCanvasSurface` | Rendering del canvas, menu e creazione delle connessioni. |
-| `AdeInspector` | Proprietà contestuali di elementi e relazioni. |
-| `AdeWorkflowContent` | Pannelli del workflow, impostazioni IA e strumenti secondari. |
+| `AdeEditor` | Editor lifecycle, composition and navigation. |
+| `AdeCanvasController` | Camera, zoom, pan, node movement and listeners scoped to each render. |
+| `AdeCanvasSurface` | Canvas rendering, menus and connection creation. |
+| `AdeInspector` | Properties for the selected elements and relationships. |
+| `AdeWorkflowContent` | Workflow panels, AI settings and secondary tools. |
 
-Il controller registra i listener nel proprio `DisposableStore`, svuotato alla successiva renderizzazione e smaltito con l'editor. I renderer delle singole notazioni restano moduli dedicati. I componenti ricevono servizi e callback espliciti, senza dipendere dalla classe dell'editor.
+The controller registers its listeners in a `DisposableStore`, clears the store on each subsequent render and disposes it with the editor. Each notation has its own renderer module. Components receive their services and callbacks explicitly and are independent of the editor class.
 
-`adeEditingCommands.ts` è il catalogo unico dei comandi di modifica. `adeEditing.ts` conserva la revisione del documento e il confine di applicazione; i gestori `adeEditingProject.ts`, `adeEditingSpecification.ts`, `adeEditingStructure.ts` e `adeEditingDiagram.ts` raccolgono l'intento tramite dialoghi. L'aggiunta di un comando richiede di completare lo smistamento tipizzato.
+`adeEditingCommands.ts` defines the edit command catalog. `adeEditing.ts` tracks the document revision and controls when edits are applied. The handlers `adeEditingProject.ts`, `adeEditingSpecification.ts`, `adeEditingStructure.ts` and `adeEditingDiagram.ts` collect user intentions through dialogs. When adding a command, extend the typed dispatch to cover it.
 
-## Workflow IA
+## AI workflows
 
-`electron-browser/adeAiService.ts` coordina componenti indipendenti:
+`electron-browser/adeAiService.ts` coordinates independent components.
 
-- `AdeAiConnection`: account del provider, CLI originale, modelli e configurazione.
-- `AdeAiDiagrams`: conversazione, esplorazione, generazione e revisione dei diagrammi.
-- `AdeAiStructural`: preparazione continua, revisione strutturale, simulazione e pubblicazione.
-- `AdeAiImplementation`: proposte implementative, riconciliazione, verifiche e confronti dei modelli.
+| Component | Responsibility |
+| --- | --- |
+| `AdeAiConnection` | Provider account, original CLI, models and configuration. |
+| `AdeAiDiagrams` | Diagram conversation, exploration, generation and review. |
+| `AdeAiStructural` | Continuous preparation, structural review, simulation and publishing. |
+| `AdeAiImplementation` | Implementation proposals, reconciliation, verification and model comparisons. |
 
-Ogni componente possiede sessioni e risorse del proprio workflow. Il coordinatore condivide il blocco delle operazioni, cancellazione, avanzamento e notifiche tramite un contesto limitato alle capacità richieste. Le opzioni di esecuzione nominano la modalità IA, diagrammi o locale. I servizi necessari vengono iniettati nei costruttori; l'istanziatore è usato solo durante la composizione iniziale.
+Each component owns its workflow sessions and resources. The coordinator shares the operation lock, cancellation, progress and notifications through a context that exposes the capabilities each workflow needs. Execution options select the AI, diagram or local mode. Constructors receive the required services. The instantiation service is used only during initial composition.
 
-Le modifiche sono preparate per la revisione e applicate attraverso i workflow esistenti. Budget, consenso alla condivisione, verifica, recupero e annullamento restano parte dei rispettivi contratti. La [guida utente](guida-utente/README.md) descrive i percorsi di importazione, generazione e verifica dall’interfaccia.
+Each workflow prepares changes for review and provides a way to apply them. Its contract covers budget, consent to share context, verification, recovery and undo. The [user guide](user-guide/README.md) explains how to import, generate and verify from the interface.
 
-## Test e manutenzione
+## Testing and maintenance
 
-I pacchetti Node indipendenti sono `ade/runtime`, `ade/code-import`, `ade/ai` e `ade/messaging`, ciascuno con dipendenze fissate e controlli TypeScript. `ade/tsconfig.tools.json` definisce le opzioni comuni senza far dipendere la configurazione IA dall'importatore. I test del dominio sono in `ade/test/`; i test del contributo nativo sono sotto `src/vs/workbench/contrib/ade/test/`.
+The independent Node.js packages are `ade/runtime`, `ade/code-import`, `ade/ai` and `ade/messaging`. Each has pinned dependencies and TypeScript checks. `ade/tsconfig.tools.json` defines shared options and keeps AI configuration independent of the importer. Domain tests live in `ade/test/`, and native contribution tests live in `src/vs/workbench/contrib/ade/test/`.
 
-Per preparare i soli tool, usare la versione Node fissata in `.nvmrc` e installare i pacchetti interessati:
+To work on the tools alone, select the Node.js version in `.nvmrc` and install the packages you need.
 
 ```sh
 npm --prefix ade/runtime ci --ignore-scripts
@@ -103,8 +103,8 @@ npm --prefix ade/ai run check
 npm --prefix ade/ai test
 ```
 
-I test architetturali del runtime controllano l'assenza di cicli a runtime, l'indipendenza del dominio e dell'importatore e la risoluzione dei nomi condivisi dagli scenari desktop. La suite verifica anche che la generazione dei runtime sia indipendente da commenti e ordine delle dichiarazioni.
+The architecture tests check for runtime dependency cycles, verify that the domain and importer are independent, and ensure that desktop scenarios can resolve shared names. The suite also checks that runtime generation is independent of comments and declaration order.
 
-Per il contributo nativo, dopo la preparazione descritta nella [guida di sviluppo](fork-development.md), usare `npm run ade:check`, `npm run ade:smoke:check`, la build client necessaria ai test e `npm run ade:ai:service-test`. Lo smoke desktop mantiene l'ingresso e i flag di `ade/scripts/smoke-desktop.mjs`: avvio, isolamento e raccolta degli errori vivono in `ade/scripts/smoke/harness.ts`, le interazioni comuni in `helpers.ts` e gli scenari nei moduli dedicati.
+For the native contribution, complete setup in the [development guide](fork-development.md), then use `npm run ade:check`, `npm run ade:smoke:check`, the client build required by your test and `npm run ade:ai:service-test`. Run the desktop smoke tests through `ade/scripts/smoke-desktop.mjs`. Launch, isolation and error collection live in `ade/scripts/smoke/harness.ts`, shared interactions in `helpers.ts` and scenarios in their own modules.
 
-`ade/prototype/` conserva il prototipo iniziale e la sua copertura di compatibilità. Non è richiesto dall'avvio del prodotto nativo.
+`ade/prototype/` preserves the original prototype and compatibility tests. The native app has its own launcher.

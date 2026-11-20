@@ -108,7 +108,7 @@ def build_html(guide_dir, root, headings, description, edition, revision):
 					+ ';base64,' + base64.b64encode(path.read_bytes()).decode('ascii'))
 				picture.set('loading', 'lazy')
 				caption = html.escape(picture.get('alt', ''))
-				content.append(f'<figure><button class="image-zoom" aria-label="Ingrandisci: {caption}">'
+				content.append(f'<figure><button class="image-zoom" aria-label="Enlarge image: {caption}">'
 					+ serialize(picture) + f'</button><figcaption>{caption}</figcaption></figure>')
 		else:
 			content.append(serialize(element))
@@ -118,7 +118,7 @@ def build_html(guide_dir, root, headings, description, edition, revision):
 		content.append('</div>')
 	toc = []
 	for heading, chapters in groups:
-		links = [f'<li><a href="#{heading.get("id")}">Introduzione</a></li>']
+		links = [f'<li><a href="#{heading.get("id")}">Introduction</a></li>']
 		links.extend(f'<li><a href="#{chapter.get("id")}">{html.escape(plain(chapter))}</a></li>'
 			for chapter in chapters)
 		toc.append('<details class="toc-group"><summary>' + html.escape(plain(heading))
@@ -129,11 +129,11 @@ def build_html(guide_dir, root, headings, description, edition, revision):
 		'DESCRIPTION': html.escape(description),
 		'TOC': ''.join(toc),
 		'CONTENT': '\n'.join(content),
-		'FOOTER': html.escape(f'Edizione {edition}. Software di riferimento · {revision}.'),
+		'FOOTER': html.escape(f'{edition} edition. Software revision · {revision}.'),
 	}
 	for key, value in values.items():
 		template = template.replace(f'@@{key}@@', value)
-	(guide_dir / 'Guida-ADE.html').write_text(template, encoding='utf-8')
+	(guide_dir / 'ADE-User-Guide.html').write_text(template, encoding='utf-8')
 
 
 def register_fonts(font_dir):
@@ -175,14 +175,14 @@ class GuideDocument(BaseDocTemplate):
 		self.addPageTemplates(PageTemplate(id='guide', frames=[frame], onPage=self.page_footer))
 
 	def page_footer(self, canvas, doc):
-		canvas._doc.Catalog.Lang = PDFString('it-IT')
+		canvas._doc.Catalog.Lang = PDFString('en')
 		canvas.setCreator('ADE · ade/scripts/build-user-guide.py')
 		if doc.page == 1:
 			return
 		canvas.saveState()
 		canvas.setFont('GuideSans', 8)
 		canvas.setFillColor(MUTED)
-		canvas.drawString(50, 27, f'ADE · Guida utente · {self.edition}')
+		canvas.drawString(50, 27, f'ADE · User Guide · {self.edition}')
 		canvas.drawRightString(A4[0] - 50, 27, str(doc.page))
 		canvas.restoreState()
 
@@ -217,16 +217,16 @@ def build_pdf(guide_dir, root, headings, description, edition, revision, font_di
 		leading=12, textColor=INK, leftIndent=10, spaceBefore=6, spaceAfter=12))
 	styles.add(ParagraphStyle(name='GuideQuote', parent=styles['GuideBody'], leftIndent=16,
 		borderPadding=8, backColor=colors.HexColor('#f1f6f8')))
-	doc = GuideDocument(guide_dir / 'Guida-ADE.pdf', edition, revision,
+	doc = GuideDocument(guide_dir / 'ADE-User-Guide.pdf', edition, revision,
 		plain(headings[0]), description)
 	story = [Spacer(1, 75), Paragraph('ADE', styles['GuideH1']),
-		Paragraph('Guida completa', styles['GuideH1']),
-		Paragraph('Tour di Bottega Ordini<br/>Laboratorio Mercato da zero<br/>Atlante dei 16 diagrammi', styles['GuideH3']),
-		Spacer(1, 28), Paragraph(f'Edizione {html.escape(edition)}', styles['GuideBody']),
-		Paragraph(f'Software di riferimento · {html.escape(revision)}.', styles['GuideBody']),
-		Paragraph('Progettazione, contratti, simulazioni e review locali. '
-			'Prerequisiti e limiti delle verifiche accompagnano il percorso.', styles['GuideBody']), PageBreak(),
-		Paragraph('Indice', styles['GuideH2'])]
+		Paragraph('User Guide', styles['GuideH1']),
+		Paragraph('Bottega Ordini tour<br/>Build Mercato from scratch<br/>Atlas of 16 diagrams', styles['GuideH3']),
+		Spacer(1, 28), Paragraph(f'{html.escape(edition)} edition', styles['GuideBody']),
+		Paragraph(f'Software revision · {html.escape(revision)}.', styles['GuideBody']),
+		Paragraph('Model a system, define contracts, simulate behavior, and review changes.',
+			styles['GuideBody']), PageBreak(),
+		Paragraph('Contents', styles['GuideH2'])]
 	toc = TableOfContents()
 	toc.levelStyles = [
 		ParagraphStyle(name='GuideTOC0', fontName='GuideSans-Bold', fontSize=10,
@@ -299,7 +299,7 @@ def build_pdf(guide_dir, root, headings, description, edition, revision, font_di
 
 	# The edition line is on the cover; preserve every other source block.
 	for element in root:
-		if element.tag == 'p' and plain(element).startswith('Un tour, un progetto costruito da zero, un atlante da consultare.'):
+		if element.tag == 'p' and plain(element).startswith('A tour, a project built from scratch, and a diagram reference.'):
 			continue
 		add(element)
 	doc.multiBuild(story)
@@ -332,21 +332,21 @@ def build_examples(guide_dir):
 			hidden == ['.ade'] and parts[-2] == '.ade' and path.name in project_files
 		):
 			files.append(path)
-	write_archive(guide_dir / 'progetti-esempio.zip', source, files, 'ADE-Progetti-Esempio/')
+	write_archive(guide_dir / 'example-projects.zip', source, files, 'ADE-Example-Projects/')
 	print(f'Examples verified: {len(files)} files.')
 
 
 def build_kit(guide_dir):
-	files = [guide_dir / name for name in ['README.md', 'Guida-ADE.html', 'Guida-ADE.pdf', 'progetti-esempio.zip']]
-	files.extend(sorted((guide_dir / 'immagini').glob('*.png')))
-	write_archive(guide_dir / 'ADE-kit-utente.zip', guide_dir, files, 'ADE-Guida/')
+	files = [guide_dir / name for name in ['README.md', 'ADE-User-Guide.html', 'ADE-User-Guide.pdf', 'example-projects.zip']]
+	files.extend(sorted((guide_dir / 'images').glob('*.png')))
+	write_archive(guide_dir / 'ADE-User-Kit.zip', guide_dir, files, 'ADE-User-Guide/')
 	print(f'Kit verified: {len(files)} files.')
 
 
 def main():
 	parser = argparse.ArgumentParser(description=__doc__)
-	parser.add_argument('--guide-dir', type=Path, default=ROOT / 'ade/docs/guida-utente')
-	parser.add_argument('--edition', default='17 novembre 2026')
+	parser.add_argument('--guide-dir', type=Path, default=ROOT / 'ade/docs/user-guide')
+	parser.add_argument('--edition', default='19 November 2026')
 	parser.add_argument('--revision', required=True, help='Version or revision of the software described in the guide.')
 	parser.add_argument('--font-dir', type=Path, default=next((path for path in
 		[Path('/usr/share/fonts/truetype/liberation2'), Path('/usr/share/fonts/truetype/liberation')]
@@ -358,11 +358,11 @@ def main():
 		build_examples(args.guide_dir)
 	if not args.kit_only:
 		root, headings = read_source(args.guide_dir)
-		description = f'Guida utente ADE. Software di riferimento · {args.revision}. Revisione {args.edition}.'
+		description = f'ADE User Guide. Software revision · {args.revision}. {args.edition} edition.'
 		# HTML embeds images, so build PDF first while its input still has local image paths.
 		build_pdf(args.guide_dir, root, headings, description, args.edition, args.revision, args.font_dir)
 		build_html(args.guide_dir, root, headings, description, args.edition, args.revision)
-		for name in ['Guida-ADE.html', 'Guida-ADE.pdf']:
+		for name in ['ADE-User-Guide.html', 'ADE-User-Guide.pdf']:
 			path = args.guide_dir / name
 			print(f'{name}: {path.stat().st_size} bytes; SHA-256 {hashlib.sha256(path.read_bytes()).hexdigest()}')
 	else:

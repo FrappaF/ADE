@@ -1,14 +1,14 @@
-# Sviluppare ADE dai sorgenti
+# Developing ADE from source
 
-## Da un clone pulito
+## From a clean clone
 
-Installa Git, Python 3, un compilatore C/C++ e la versione Node indicata in [`.nvmrc`](../../.nvmrc), con il relativo npm. La configurazione scarica dipendenze npm, header Node, Electron e le estensioni integrate.
+Install Git, Python 3, a C/C++ compiler and the Node.js version specified in [`.nvmrc`](../../.nvmrc), including its npm. Setup downloads npm dependencies, Node.js headers, Electron and the built-in extensions.
 
-- Su **macOS**, installa i Command Line Tools (`xcode-select --install`) e verifica `xcode-select -p`, `xcrun --find clang` e `python3 --version`. Su Apple Silicon usa Node arm64.
-- Su **Debian e Ubuntu**, installa `build-essential pkg-config libx11-dev libxkbfile-dev libkrb5-dev libsecret-1-dev libgtk-3-dev libgbm-dev libnss3 libasound2-dev xvfb xauth`. I nomi possono variare tra distribuzioni.
-- Su **Windows**, segui i [prerequisiti Visual Studio e C++ di Code OSS](https://github.com/microsoft/vscode/wiki/How-to-Contribute#prerequisites). La CI desktop di ADE copre Linux e macOS.
+- On **macOS**, install the Command Line Tools with `xcode-select --install`. Check `xcode-select -p`, `xcrun --find clang` and `python3 --version`. Use an ARM64 build of Node.js on Apple Silicon.
+- On **Debian and Ubuntu**, install `build-essential pkg-config libx11-dev libxkbfile-dev libkrb5-dev libsecret-1-dev libgtk-3-dev libgbm-dev libnss3 libasound2-dev xvfb xauth`. Package names can vary by distribution.
+- On **Windows**, follow the [Code OSS prerequisites for Visual Studio and C++](https://github.com/microsoft/vscode/wiki/How-to-Contribute#prerequisites). ADE's desktop CI covers Linux and macOS.
 
-Su macOS e Linux esegui questi comandi dalla radice del clone con `nvm`.
+On macOS and Linux, run these commands from the root of your clone with `nvm` installed.
 
 ```sh
 nvm install
@@ -17,13 +17,13 @@ npm run ade:setup
 ./ade/scripts/dev.sh
 ```
 
-Con un altro gestore Node seleziona la stessa versione. Lo script `ade:setup` prepara gli header, installa dai lockfile e compila client, motore ADE, estensioni ed Electron. `npm run ade:setup -- --install-only` installa le dipendenze senza compilare e `npm run ade:setup -- --help` elenca le opzioni.
+If you use another Node.js version manager, select the same version. `ade:setup` prepares the headers, installs dependencies from the lockfiles, builds the client, ADE engine and extensions, and prepares Electron. Run `npm run ade:setup -- --install-only` to install dependencies only, or `npm run ade:setup -- --help` to list the options.
 
-Su macOS e Linux `./ade/scripts/dev.sh /percorso/del/progetto` apre una cartella specifica e usa un profilo di sviluppo in `.build/`. Su Windows avvia `scripts\code.bat --user-data-dir .build\ade-profile --extensions-dir .build\ade-extensions` dopo la preparazione. Al primo avvio può servire una connessione per le estensioni integrate.
+On macOS and Linux, `./ade/scripts/dev.sh /path/to/project` opens a specific folder and uses a development profile under `.build/`. On Windows, run `scripts\code.bat --user-data-dir .build\ade-profile --extensions-dir .build\ade-extensions` after setup. The first launch may require internet access to download built-in extensions.
 
-Dopo un aggiornamento del clone, chiudi l’app e riesegui `npm run ade:setup`. Durante lo sviluppo, con dipendenze aggiornate, `npm run build-fast -- --client-only` ricompila il client.
+After updating your clone, close ADE and run `npm run ade:setup` again. During development, use `npm run build-fast -- --client-only` to rebuild the client with up-to-date dependencies.
 
-## Verificare una modifica
+## Verify a change
 
 ```sh
 npm run ade:test
@@ -31,10 +31,10 @@ npm run ade:check
 npm run ade:smoke:check
 ```
 
-`ade:test` esegue i test del dominio. `ade:check` controlla i tipi e `ade:smoke:check` controlla i tipi del collaudo desktop. Per provare l’app dopo la build usa `node ade/scripts/smoke-desktop.mjs --native-only`. Su Linux senza display anteponi `xvfb-run -a`.
+`ade:test` runs the domain tests. `ade:check` checks TypeScript types and `ade:smoke:check` type-checks the desktop smoke tests. To try the built app, run `node ade/scripts/smoke-desktop.mjs --native-only`. Prefix the command with `xvfb-run -a` on Linux without a display.
 
-I tool in `ade/runtime`, `ade/code-import`, `ade/ai` e `ade/messaging` hanno lockfile e test propri. La [mappa dell’architettura](architecture.md) aiuta a scegliere il pacchetto da verificare. GitHub Actions esegue i controlli e il collaudo desktop su Linux. Il collaudo macOS è disponibile dall’avvio manuale del workflow **ADE desktop**.
+The tools in `ade/runtime`, `ade/code-import`, `ade/ai` and `ade/messaging` have their own lockfiles and tests. Use the [architecture overview](architecture.md) to find the package to check. GitHub Actions runs checks and desktop smoke tests on Linux. To run the macOS smoke tests, start the **ADE desktop** workflow manually.
 
-## Aggiornare la base Code OSS
+## Update the Code OSS base
 
-La revisione upstream è in [`ade/upstream.json`](../upstream.json). Per provare un aggiornamento su un worktree dedicato, usa `node ade/scripts/prepare-upstream.mjs SHA_COMPLETO /percorso/assoluto/nuovo-worktree`. Lo script applica il delta fra revisioni e si ferma se il delta tocca i workflow Microsoft. I workflow upstream sono conservati come file `.disabled` in `ade/upstream-workflows/`. Prima di integrare l’aggiornamento, controlla la registrazione del contributo ADE, le impostazioni del prodotto e le verifiche interessate dal delta.
+The upstream revision is recorded in [`ade/upstream.json`](../upstream.json). To try an update in a dedicated worktree, run `node ade/scripts/prepare-upstream.mjs FULL_SHA /absolute/path/to/new-worktree`. The script applies the diff between revisions and stops if it touches Microsoft workflows. The upstream workflows are stored as `.disabled` files in `ade/upstream-workflows/`. Before integrating the update, check the ADE contribution registration, the product settings and the checks affected by the diff.

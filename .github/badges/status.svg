@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="137" height="24" viewBox="0 0 137 24" role="img" aria-label="Status: In development">
+  <rect width="137" height="24" rx="4" fill="#30363d"/>
+  <path d="M47 0h86a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H47z" fill="#88500b"/>
+  <g fill="#fff" font-family="Verdana, sans-serif" font-size="11" text-anchor="middle">
+    <text x="23.5" y="16">Status</text>
+    <text x="92" y="16">In development</text>
+  </g>
+</svg>

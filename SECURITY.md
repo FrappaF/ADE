@@ -1,5 +1,5 @@
-# Segnalare una vulnerabilità
+# Reporting a vulnerability
 
-Per una vulnerabilità di ADE, usa **Report a vulnerability** nella [sezione Security di GitHub](https://github.com/FrappaF/ADE/security) se disponibile. Altrimenti contatta in privato il maintainer del repository per concordare come inviare i dettagli. Evita di pubblicare dettagli della vulnerabilità o dati riservati nelle issue.
+For a vulnerability in ADE, use **Report a vulnerability** in the [GitHub Security tab](https://github.com/FrappaF/ADE/security) if available. Otherwise, contact the repository maintainer privately to arrange how to share the details. Keep vulnerability details and sensitive information out of public issues.
 
-Includi la versione o il commit interessato, l’impatto e le informazioni necessarie a verificare il problema. Per vulnerabilità che riguardano direttamente VS Code upstream, segui la [procedura Microsoft](https://aka.ms/SECURITY.md).
+Include the affected version or commit, the impact and enough information to verify the issue. For vulnerabilities in upstream VS Code, follow [Microsoft's reporting process](https://aka.ms/SECURITY.md).
