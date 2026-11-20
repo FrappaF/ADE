@@ -1,4 +1,4 @@
-# Ordito
+# <img src="ordito/docs/branding/ordito-logo.webp" alt="Ordito" width="340">
 
 **An open-source desktop IDE for software architects who want to delegate implementation to AI.**
 
