@@ -9,11 +9,37 @@ import type { Event } from '../../../../../base/common/event.js';
 import type { IDisposable } from '../../../../../base/common/lifecycle.js';
 import type { IObservable } from '../../../../../base/common/observable.js';
 import type { LibcFamily } from '../../../../../base/node/libc.js';
+import { createDecorator } from '../../../../instantiation/common/instantiation.js';
 import { CopilotCliConfigKey, copilotCliConfigSchema } from '../../../common/copilotCliConfig.js';
 import type { ILocalModelConsent, ILocalModelStatusV1, ILocalTurnExecution } from '../../../common/localModel.js';
 import type { IAgentConfigurationService } from '../../agentConfigurationService.js';
 import { LOCAL_MODEL_SUPPORTED_TARGETS, type LocalModelTarget } from './shim/constants.js';
 import type { LocalModelThinkingSupport } from './localModelThinking.js';
+
+export const ILocalModelSetupService = createDecorator<ILocalModelSetupService>('localModelSetupService');
+
+/** Owns the host's on-device model provider and its setup channel. */
+export interface ILocalModelSetupService {
+	readonly _serviceBrand: undefined;
+
+	/** True when this host supports on-device models. */
+	readonly isLocalAgentHost: boolean;
+
+	readonly provider: ILocalModelProvider | undefined;
+
+	/** Apply the selection and return the provider to install in the client. */
+	applySelection(selection: LocalModelProviderSelection): ILocalModelProvider | undefined;
+}
+
+export class NullLocalModelSetupService implements ILocalModelSetupService {
+	declare readonly _serviceBrand: undefined;
+	readonly isLocalAgentHost = false;
+	readonly provider = undefined;
+
+	applySelection(_selection: LocalModelProviderSelection): undefined {
+		return undefined;
+	}
+}
 
 /** Settings the provider reads live at dispatch time; pushed by `CopilotAgent` whenever root config changes. */
 export interface ILocalModelLiveConfig {

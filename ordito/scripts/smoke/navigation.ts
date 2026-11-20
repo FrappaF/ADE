@@ -21,7 +21,7 @@ export function createNavigationScenarios(harness: SmokeHarness) {
 		await window.locator('dialog.ordito-editing-wizard').getByRole('heading', { name: 'Field Name', exact: true }).waitFor();
 		await window.locator('dialog.ordito-editing-wizard input[type="text"]').fill('amount');
 		await window.locator('dialog.ordito-editing-wizard').getByRole('button', { name: 'Next', exact: true }).click();
-		await window.locator('dialog.ordito-editing-wizard [role="alert"]').getByText('A field with this name already exists.', { exact: true }).waitFor();
+		await window.locator('dialog.ordito-editing-wizard [role="alert"]').getByRole('definition').filter({ hasText: /^A field with this name already exists\.$/ }).waitFor();
 		await window.keyboard.press('Escape');
 		await contractEntry(window, 'Payment Contract', 'Outputs');
 		await enterValue(window, 'Field Name', 'receipt');

@@ -218,7 +218,7 @@ registerAction2(OpenWorkspaceInAgentsWindowTitleBarAction);
 registerAction2(ToggleOpenInAgentsWindowTitleBarAction);
 registerAction2(OpenAgentsWindowAction);
 registerAction2(OpenChatSessionInAgentsWindowAction);
-if (!product.quality) {
+if (!product.quality && !product.disableBuiltInCopilot) {
 	registerAction2(ResetCopilotHarnessIntroductionAction);
 }
 registerAction2(StartVoiceChatAction);
@@ -247,7 +247,9 @@ registerWorkbenchContribution2(ChatSuspendThrottlingHandler.ID, ChatSuspendThrot
 registerWorkbenchContribution2(ChatLifecycleHandler.ID, ChatLifecycleHandler, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OpenWorkspaceInAgentsContribution.ID, OpenWorkspaceInAgentsContribution, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(AgentsWindowInvitationContribution.ID, AgentsWindowInvitationContribution, WorkbenchPhase.BlockRestore);
-registerWorkbenchContribution2(CopilotHarnessIntroductionContribution.ID, CopilotHarnessIntroductionContribution, WorkbenchPhase.Eventually);
+if (!product.disableBuiltInCopilot) {
+	registerWorkbenchContribution2(CopilotHarnessIntroductionContribution.ID, CopilotHarnessIntroductionContribution, WorkbenchPhase.Eventually);
+}
 
 // How long to wait for the agent host to surface an AgentInfo before
 // throwing an error. Long enough for normal startup, short enough to avoid
@@ -332,11 +334,13 @@ async function openNewAgentHostSession(accessor: ServicesAccessor, position: Cha
 // registered after the agent host starts and surfaces an AgentInfo, which
 // is asynchronous. Provide stable command ids that automation (evals) can
 // invoke before the dynamic registration has occurred.
-CommandsRegistry.registerCommand(
-	`workbench.action.chat.openNewSessionSidebar.${AgentSessionProviders.AgentHostCopilot}`,
-	(accessor, chatSendOptions?: NewAgentHostSessionSendOptions) => openNewAgentHostSession(accessor, ChatSessionPosition.Sidebar, chatSendOptions)
-);
-CommandsRegistry.registerCommand(
-	`workbench.action.chat.openNewSessionEditor.${AgentSessionProviders.AgentHostCopilot}`,
-	(accessor, chatSendOptions?: NewAgentHostSessionSendOptions) => openNewAgentHostSession(accessor, ChatSessionPosition.Editor, chatSendOptions)
-);
+if (!product.disableBuiltInCopilot) {
+	CommandsRegistry.registerCommand(
+		`workbench.action.chat.openNewSessionSidebar.${AgentSessionProviders.AgentHostCopilot}`,
+		(accessor, chatSendOptions?: NewAgentHostSessionSendOptions) => openNewAgentHostSession(accessor, ChatSessionPosition.Sidebar, chatSendOptions)
+	);
+	CommandsRegistry.registerCommand(
+		`workbench.action.chat.openNewSessionEditor.${AgentSessionProviders.AgentHostCopilot}`,
+		(accessor, chatSendOptions?: NewAgentHostSessionSendOptions) => openNewAgentHostSession(accessor, ChatSessionPosition.Editor, chatSendOptions)
+	);
+}

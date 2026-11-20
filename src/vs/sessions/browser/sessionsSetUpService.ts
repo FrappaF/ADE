@@ -153,7 +153,7 @@ class SessionsSetUpWidget extends Disposable {
 	}
 
 	private _start(): void {
-		if (!this.productService.defaultChatAgent?.chatExtensionId) {
+		if (this.productService.disableBuiltInCopilot || !this.productService.defaultChatAgent?.chatExtensionId) {
 			this.onCompleted();
 			return;
 		}

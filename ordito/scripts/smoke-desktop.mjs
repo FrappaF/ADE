@@ -14,7 +14,7 @@ import { createAccessibilityScenarios } from './smoke/accessibility.ts';
 import { createBasicScenarios } from './smoke/basic.ts';
 
 const harness = await createSmokeHarness();
-const { notationsOnly, generatedOnly, followupOnly, canvasOnly, connectionPreviewOnly, semanticOnly, aiOnly, codeOnly, projectsOnly, impactOnly, stateOnly, sequenceOnly, navigationOnly, uxOnly, evidence, modelFile, emptyFile, invalidFile, workspace, args, root, executablePath, launchEnv } = harness;
+const { notationsOnly, generatedOnly, followupOnly, canvasOnly, connectionPreviewOnly, semanticOnly, aiOnly, codeOnly, projectsOnly, impactOnly, stateOnly, sequenceOnly, navigationOnly, uxOnly, workspace, getLaunchArgs, root, executablePath, launchEnv, launchCwd } = harness;
 const { checkConnectionPreview, checkInfiniteCanvas, checkNotations, checkSemanticTodo, checkGeneratedDiagrams, checkCodeBridge, checkAiWorkflow, checkIndependentProjects, checkModelImpact, checkStateDiagram, checkSequenceDiagram, checkSemanticNavigation, checkVisualUX, checkManualFollowup, checkBasicWorkflow } = { ...createCanvasScenarios(harness), ...createImportScenarios(harness), ...createAiScenarios(harness), ...createProjectsScenarios(harness), ...createBehaviorScenarios(harness), ...createNavigationScenarios(harness), ...createAccessibilityScenarios(harness), ...createBasicScenarios(harness) };
 
 try {
@@ -36,9 +36,9 @@ try {
 	} else {
 		await copyFile(path.join(root, 'ordito/prototype/examples/checkout.diagram.json'), path.join(workspace, 'checkout.diagram.json'));
 		await new Promise((resolve, reject) => {
-			const child = spawn(executablePath, [...args, '--skip-welcome',
+			const child = spawn(executablePath, [...getLaunchArgs(), '--skip-welcome',
 				`--extensionDevelopmentPath=${root}/ordito/prototype`, `--extensionTestsPath=${root}/ordito/prototype/host-test/index.cjs`],
-			{ cwd: root, env: launchEnv, stdio: 'inherit' });
+				{ cwd: launchCwd, env: launchEnv, stdio: 'inherit' });
 			const timer = setTimeout(() => { child.kill(); reject(new Error('Extension Host smoke timed out')); }, 120000);
 			child.on('error', error => { clearTimeout(timer); reject(error); });
 			child.on('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`Extension Host exited with ${code}`)); });

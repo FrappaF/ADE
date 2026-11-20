@@ -35,6 +35,20 @@ npm run ordito:smoke:check
 
 The tools in `ordito/runtime`, `ordito/code-import`, `ordito/ai` and `ordito/messaging` have their own lockfiles and tests. Use the [architecture overview](architecture.md) to find the package to check. GitHub Actions runs checks and desktop smoke tests on Linux. To run the macOS smoke tests, start the **Ordito desktop** workflow manually.
 
+## Package a desktop preview
+
+Use the pinned Node.js version and the native build tools above. The Code OSS packaging task builds a standalone app for the host architecture in a sibling directory.
+
+```sh
+npm run ordito:setup -- --install-only
+target=$(node -p 'process.platform + "-" + process.arch')
+ORDITO_RELEASE_WITHOUT_COPILOT=1 npm run gulp -- "vscode-$target-min"
+```
+
+The desktop release profile omits the built-in GitHub Copilot extension and SDK. For Ordito's AI workflows, install and authenticate the official CLI for your provider, then choose **AI Settings → Connect Claude Code or Codex**. [Codex CLI](https://developers.openai.com/codex/cli) · [Claude Code](https://code.claude.com/docs/en/quickstart)
+
+The **Ordito release** workflow builds and tests the extracted archives on macOS ARM64, macOS x86-64, and Ubuntu x86-64. Run it manually to get CI artifacts. Pushing a version tag such as `v0.1.0` from `main` publishes the three verified archives and `SHA256SUMS` as a GitHub prerelease. The tag identifies the Ordito preview. The app's compatibility version follows the Code OSS base. [Release workflow](../../.github/workflows/release.yml)
+
 ## Update the Code OSS base
 
 The upstream revision is recorded in [`ordito/upstream.json`](../upstream.json). To try an update in a dedicated worktree, run `node ordito/scripts/prepare-upstream.mjs FULL_SHA /absolute/path/to/new-worktree`. The script applies the diff between revisions and stops if it touches Microsoft workflows. The upstream workflows are stored as `.disabled` files in `ordito/upstream-workflows/`. Before integrating the update, check the Ordito contribution registration, the product settings and the checks affected by the diff.

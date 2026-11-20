@@ -3,8 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createAttributedPermissionResult, type AttributedPermissionResult, type PermissionDecisionSource, type PermissionRequestResult, type PermissionResult } from '@github/copilot-sdk';
+import type { AttributedPermissionResult, PermissionDecisionSource, PermissionRequestResult, PermissionResult } from '@github/copilot-sdk';
 import type { IAgentHostToolApprovalReport } from '../agentHostTelemetryReporter.js';
+
+const { createAttributedPermissionResult } = await import('@github/copilot-sdk');
 
 export function attributePermissionResult(result: PermissionRequestResult, source: PermissionDecisionSource | undefined): PermissionRequestResult | AttributedPermissionResult {
 	if (!source || result.kind === 'no-result') {

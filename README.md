@@ -24,6 +24,8 @@ Ordito is in active development. To build it from source, install Git, Python 3,
 
 ### macOS and Linux
 
+Check [GitHub Releases](https://github.com/FrappaF/Ordito/releases) for desktop previews for macOS (Apple Silicon and Intel) and Linux (x86-64).
+
 With `nvm` installed, run the following commands.
 
 ```bash

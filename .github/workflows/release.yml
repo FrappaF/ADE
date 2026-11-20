@@ -1,0 +1,214 @@
+name: Ordito release
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - 'ordito/scripts/smoke/**'
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  package:
+    name: Package ${{ matrix.platform }} ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      ARCH: ${{ matrix.arch }}
+      GITHUB_TOKEN: ${{ github.token }}
+      NODE_USE_ENV_PROXY: '1'
+      GOMEMLIMIT: 3GiB
+      GOMAXPROCS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: '**/package-lock.json'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Verify build target
+        shell: bash
+        run: |
+          node -e 'if (process.platform !== process.env.PLATFORM || process.arch !== process.env.ARCH) process.exit(1)'
+          version="0.0.0-ci"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+              echo "Expected a version tag such as v0.1.0" >&2
+              exit 1
+            fi
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libx11-dev libxkbfile-dev libkrb5-dev libsecret-1-dev libgtk-3-dev libgbm-dev libnss3 libasound2-dev xvfb xauth
+      - name: Install locked dependencies
+        run: npm run ordito:setup -- --install-only
+      - name: Build distributable
+        env:
+          ORDITO_RELEASE_WITHOUT_COPILOT: '1'
+        run: npm run gulp -- "vscode-$PLATFORM-$ARCH-min"
+      - name: Archive and verify macOS app
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          app="../VSCode-$PLATFORM-$ARCH/Ordito.app"
+          codesign --force --deep --sign - "$app"
+          mkdir -p "$RUNNER_TEMP/ordito-release" "$RUNNER_TEMP/ordito-extracted"
+          archive="$RUNNER_TEMP/ordito-release/Ordito-$VERSION-macos-$ARCH.zip"
+          ditto -c -k --keepParent "$app" "$archive"
+          ditto -x -k "$archive" "$RUNNER_TEMP/ordito-extracted"
+          app="$RUNNER_TEMP/ordito-extracted/Ordito.app"
+          test -s "$app/Contents/Resources/LICENSE.electron.txt"
+          icon=$(plutil -extract CFBundleIconFile raw "$app/Contents/Info.plist")
+          cmp resources/darwin/code.icns "$app/Contents/Resources/$icon"
+          codesign --verify --deep --strict "$app"
+          mac_arch="$ARCH"
+          if [[ "$ARCH" == x64 ]]; then
+            mac_arch=x86_64
+          fi
+          lipo "$app/Contents/MacOS/Ordito" -verify_arch "$mac_arch"
+          echo "ORDITO_APP_ROOT=$app/Contents/Resources/app" >> "$GITHUB_ENV"
+          echo "ORDITO_ELECTRON_PATH=$app/Contents/MacOS/Ordito" >> "$GITHUB_ENV"
+      - name: Archive and verify Linux app
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ordito-release" "$RUNNER_TEMP/ordito-extracted"
+          archive="$RUNNER_TEMP/ordito-release/Ordito-$VERSION-linux-$ARCH.tar.gz"
+          mv "../VSCode-$PLATFORM-$ARCH" "$RUNNER_TEMP/Ordito"
+          tar -czf "$archive" -C "$RUNNER_TEMP" Ordito
+          tar -xzf "$archive" -C "$RUNNER_TEMP/ordito-extracted"
+          test -s "$RUNNER_TEMP/ordito-extracted/Ordito/LICENSE.electron.txt"
+          cmp resources/linux/code.png "$RUNNER_TEMP/ordito-extracted/Ordito/resources/app/resources/linux/code.png"
+          echo "ORDITO_APP_ROOT=$RUNNER_TEMP/ordito-extracted/Ordito/resources/app" >> "$GITHUB_ENV"
+          echo "ORDITO_ELECTRON_PATH=$RUNNER_TEMP/ordito-extracted/Ordito/ordito" >> "$GITHUB_ENV"
+      - name: Verify the extracted release profile
+        shell: bash
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const asar = require('asar');
+          const app = process.env.ORDITO_APP_ROOT;
+          const product = JSON.parse(fs.readFileSync(path.join(app, 'product.json'), 'utf8'));
+          assert.equal(product.disableBuiltInCopilot, true, 'The release must disable the built-in Copilot provider');
+          assert.equal(product.copilotVersions, undefined, 'The product declares a bundled Copilot SDK');
+          const isCopilotPackage = name => /^copilot(?:-|$)/.test(name);
+          assert.equal(fs.existsSync(path.join(app, 'extensions/copilot')), false, 'The Copilot extension is present');
+          for (const modules of ['node_modules', 'node_modules.asar.unpacked']) {
+            const scope = path.join(app, modules, '@github');
+            if (fs.existsSync(scope)) {
+              assert.deepEqual(fs.readdirSync(scope).filter(isCopilotPackage), [], `Copilot packages are present in ${modules}`);
+            }
+          }
+          const archivedFiles = asar.listPackage(path.join(app, 'node_modules.asar'));
+          const copilotPackage = archivedFiles.find(file => /(?:^|\/)@github\/copilot(?:-[^/]+)?(?:\/|$)/.test(file));
+          assert.equal(copilotPackage, undefined, 'A Copilot package is present in node_modules.asar');
+          const mermaid = path.join(app, 'extensions/mermaid-markdown-features');
+          for (const entry of ['markdown-preview-out', 'markdown-editor-out', 'notebook-out']) {
+            assert.ok(fs.statSync(path.join(mermaid, entry, 'index.js')).size > 0, `Mermaid entry ${entry} is empty`);
+          }
+          assert.ok(fs.readdirSync(path.join(mermaid, 'notebook-out/chunks')).some(name => name.endsWith('.js')), 'Shared Mermaid chunks are missing');
+          NODE
+      - name: Smoke test the extracted app
+        shell: bash
+        run: |
+          launcher=()
+          if [[ "$PLATFORM" == linux ]]; then
+            launcher=(xvfb-run -a)
+          fi
+          "${launcher[@]}" node ordito/scripts/smoke-desktop.mjs --packaged --native-only
+          "${launcher[@]}" node ordito/scripts/smoke-desktop.mjs --packaged --code-only
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ordito-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/ordito-release/*
+          if-no-files-found: error
+          compression-level: 0
+      - name: Upload smoke evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-smoke-${{ matrix.platform }}-${{ matrix.arch }}
+          path: .build/ordito-smoke
+          if-no-files-found: ignore
+          retention-days: 3
+
+  publish:
+    name: Publish GitHub prerelease
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: ordito-*
+          merge-multiple: true
+          path: release
+      - name: Publish archives and checksums
+        shell: bash
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          archives=(
+            "Ordito-$version-linux-x64.tar.gz"
+            "Ordito-$version-macos-arm64.zip"
+            "Ordito-$version-macos-x64.zip"
+          )
+          sha256sum "${archives[@]}" > SHA256SUMS
+          cat > notes.md <<'EOF'
+          Ordito is a desktop IDE for designing software with diagrams. This preview includes visual modeling, source inventory, and reviewable workflows with Codex and Claude Code.
+
+          - **macOS:** Choose `arm64` for Apple Silicon or `x64` for Intel. Unzip the archive and move `Ordito.app` to Applications. The app is signed ad hoc and has no Apple notarization. macOS may require approving the first launch in Privacy & Security.
+          - **Linux x86-64:** Extract the `.tar.gz` archive and run `Ordito/ordito`. On systems that restrict unprivileged user namespaces, the portable app needs a host policy that permits the Electron sandbox.
+          - **AI workflows:** Install and authenticate the official CLI you want to use, then connect it in **AI Settings**. The archives omit the GitHub Copilot extension and SDK. [Codex CLI](https://developers.openai.com/codex/cli) · [Claude Code](https://code.claude.com/docs/en/quickstart)
+
+          `SHA256SUMS` contains the checksums for all three archives. See the [user guide](https://github.com/FrappaF/Ordito/blob/main/ordito/docs/user-guide/README.md) for example projects and a guided tour.
+          EOF
+          if draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft); then
+            if [[ "$draft" == false ]]; then
+              echo "Release $GITHUB_REF_NAME is already published."
+              exit 0
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --prerelease \
+              --title "Ordito $version" --notes-file notes.md
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${archives[@]}" SHA256SUMS --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false

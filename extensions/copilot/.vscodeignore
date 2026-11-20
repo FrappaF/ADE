@@ -26,6 +26,7 @@ node_modules/@github/copilot/prebuilds/**
 node_modules/@github/copilot/pvrecorder/**
 node_modules/@github/copilot/sharp/**
 !node_modules/@github/copilot/package.json
+!node_modules/@github/copilot/LICENSE.md
 !node_modules/@github/copilot/sdk/**/package.json
 !node_modules/@github/copilot/sdk/*.js
 !node_modules/@github/copilot/sdk/worker/*.js

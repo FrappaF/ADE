@@ -10,6 +10,7 @@ import { BuildLifecycle } from '../build/lib/buildEvents.ts';
 export interface RunConfig {
 	readonly srcDir: string;
 	readonly outdir: string;
+	readonly outputSubdirectory?: string;
 	readonly entryPoints: esbuild.BuildOptions['entryPoints'];
 	readonly additionalOptions?: Partial<esbuild.BuildOptions>;
 	readonly additionalWatchPaths?: readonly string[];
@@ -54,8 +55,7 @@ export async function runBuild(
 	const outputRootIndex = args.indexOf('--outputRoot');
 	if (outputRootIndex >= 0) {
 		const outputRoot = args[outputRootIndex + 1];
-		const outputDirName = path.basename(outdir);
-		outdir = path.join(outputRoot, outputDirName);
+		outdir = path.join(outputRoot, config.outputSubdirectory ?? path.basename(outdir));
 	}
 
 	const resolvedOptions: esbuild.BuildOptions = {
@@ -109,16 +109,20 @@ async function watchWithParcel(
 	};
 
 	const watcher = await import('@parcel/watcher');
-	const ignoredOutputPaths: string[] = [];
-	if (options.outdir) {
-		const outdirGlob = options.outdir.replace(/\\/g, '/').replace(/\/$/, '');
-		ignoredOutputPaths.push(outdirGlob, `${outdirGlob}/**`);
-	}
 
 	const subscribe = async (watchPath: string, ignore: readonly string[]) => {
 		const watchPathStat = await stat(watchPath);
 		const watchedFile = watchPathStat.isDirectory() ? undefined : path.resolve(watchPath);
 		const watchRoot = watchedFile ? path.dirname(watchedFile) : watchPath;
+		const ignoredOutputPaths: string[] = [];
+		if (options.outdir) {
+			const relativeOutput = path.relative(watchRoot, options.outdir);
+			// An output directory above the watch root must not hide the source files.
+			if (relativeOutput && relativeOutput !== '..' && !relativeOutput.startsWith(`..${path.sep}`) && !path.isAbsolute(relativeOutput)) {
+				const outdirGlob = path.resolve(options.outdir).replace(/\\/g, '/');
+				ignoredOutputPaths.push(outdirGlob, `${outdirGlob}/**`);
+			}
+		}
 		return watcher.subscribe(watchRoot, (error, events) => {
 			if (error) {
 				console.error('[watch] watcher error:', error);
@@ -128,12 +132,12 @@ async function watchWithParcel(
 				rebuild();
 			}
 		}, {
-			ignore: [...ignore, path.resolve(watchRoot, 'node_modules'), path.resolve(watchRoot, '.git')],
+			ignore: [...ignore, ...ignoredOutputPaths, path.resolve(watchRoot, 'node_modules'), path.resolve(watchRoot, '.git')],
 		});
 	};
 	await Promise.all([
-		subscribe(srcDir, ['**/node_modules/**', '**/dist/**', '**/out/**', ...ignoredOutputPaths]),
-		...additionalWatchPaths.map(watchPath => subscribe(watchPath, ignoredOutputPaths)),
+		subscribe(srcDir, ['**/node_modules/**', '**/dist/**', '**/out/**']),
+		...additionalWatchPaths.map(watchPath => subscribe(watchPath, [])),
 	]);
 	rebuild();
 }

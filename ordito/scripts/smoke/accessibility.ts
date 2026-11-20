@@ -162,7 +162,9 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await revealOrditoButton(window, 'Rename Diagram');
 		const selectedTab = await options.getByRole('tab', { selected: true }).textContent();
 		await runCommand(window, 'Ordito: Rename Diagram');
-		await enterValue(window, 'Name', 'Keyboard diagram');
+		const rename = window.locator('dialog.ordito-form-dialog:visible');
+		await rename.getByLabel('Name', { exact: true }).fill('Keyboard diagram');
+		await rename.getByRole('button', { name: 'Save Changes', exact: true }).press('Enter');
 		await shell.getByRole('region', { name: 'Diagram: Keyboard diagram', exact: true }).waitFor();
 		assert.equal(await options.evaluate(element => element instanceof HTMLDetailsElement && element.open), true);
 		assert.equal(await options.getByRole('tab', { selected: true }).textContent(), selectedTab);
@@ -229,6 +231,7 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await window.keyboard.press('Escape');
 		await window.keyboard.press(`${modifier}+Alt+d`);
 		await window.locator('.ordito-sidebar').waitFor();
+		await runCommand(window, 'Ordito: Return to Model');
 		await openProperties(window);
 		await shell.locator('.ordito-properties').getByRole('heading', { name: selection ?? '', exact: true }).waitFor();
 		console.log('PASS: integrated terminal executes a command and returns to the same model selection.');
@@ -251,13 +254,19 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		console.log('Followup: editable diagram opened.');
 		const initial = await shell.locator('g.ordito-connection').count();
 		const source = shell.locator('.ordito-node').filter({ hasText: /^Checkout$/ });
-		await source.click({ button: 'right' });
+		const openContextMenu = async (target: import('playwright-core').Locator) => {
+			const close = shell.getByRole('button', { name: 'Close Properties', exact: true });
+			if (await close.isVisible()) { await close.click(); }
+			await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
+			await target.click({ button: 'right' });
+		};
+		await openContextMenu(source);
 		await shell.getByRole('button', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
 		await pickValue(window, 'Relationship Type', 'Dependency');
 		await shell.getByText('Choose a Compatible Target on the Canvas', { exact: false }).waitFor();
 		await window.keyboard.press('Escape');
 		assert.equal(await shell.locator('g.ordito-connection').count(), initial);
-		await source.click({ button: 'right' });
+		await openContextMenu(source);
 		await shell.getByRole('button', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
 		await pickValue(window, 'Relationship Type', 'Dependency');
 		await shell.locator('.ordito-node').filter({ hasText: /^Cart$/ }).click();
@@ -266,14 +275,14 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
 		assert.equal(await shell.locator('g.ordito-connection').count(), initial);
 		console.log('Followup: canvas creation, cancellation and undo checked.');
-		await source.click({ button: 'right' });
+		await openContextMenu(source);
 		await shell.getByRole('button', { name: 'Create Relationship on Canvas…', exact: true }).press('Enter');
 		await pickValue(window, 'Relationship Type', 'Dependency');
 		await chooseOrditoDiagram(window, 'Payment Outcome');
 		assert.equal(await shell.getByText('Choose a Compatible Target on the Canvas', { exact: false }).count(), 0, 'Changing diagrams cancels the pending relationship');
 		await chooseOrditoDiagram(window, 'Checkout Structure');
 		const relation = shell.locator('.ordito-connection-label').filter({ hasText: /^Write · creates order/ });
-		await relation.click({ button: 'right' });
+		await openContextMenu(relation);
 		const editRelationship = shell.getByRole('button', { name: 'Edit Relationship…', exact: true });
 		await editRelationship.waitFor();
 		await window.screenshot({ path: path.join(evidence, 'followup-relation-properties.png') });
@@ -293,7 +302,9 @@ export function createAccessibilityScenarios(harness: SmokeHarness) {
 		await mkdir(folder);
 		await runCommand(window, 'Ordito: Create Project');
 		await enterValue(window, 'Name', 'Test Project');
+		const enteredWorkspace = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 		await chooseFolder(window, folder);
+		await enteredWorkspace;
 		await shell.getByRole('heading', { name: 'Test Project', exact: true }).waitFor({ timeout: 90000 });
 		await clickOrditoButton(window, 'Files');
 		await window.locator('.explorer-viewlet').getByText('new project', { exact: true }).first().waitFor();

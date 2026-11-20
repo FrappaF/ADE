@@ -12,6 +12,12 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			let window = await launch();
 			let shell = window.locator('.ordito-shell');
 			let sidebar = window.locator('.ordito-sidebar');
+			const canvasNode = (name: string) => shell.locator('.ordito-canvas').getByRole('button', { name, exact: true });
+			const clickUncoveredNode = async (name: string) => {
+				const close = shell.getByRole('button', { name: 'Close Properties', exact: true });
+				if (await close.isVisible()) { await close.click(); }
+				await canvasNode(name).click();
+			};
 			await sidebar.waitFor();
 			assert.equal(await window.locator('.explorer-viewlet:visible').count(), 0);
 			await clickOrditoButton(window, 'Explore Purchase Example');
@@ -31,12 +37,15 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
 			await window.screenshot({ path: path.join(evidence, 'ai-collaboration.png') });
 			await runCommand(window, 'Ordito: Return to Model');
+			await window.locator('.quick-input-widget').waitFor({ state: 'hidden' });
+			await shell.getByRole('region', { name: 'Diagram: Checkout Structure', exact: true }).waitFor();
 			console.log('PASS: native AI controls and provider chooser render without inference; implementation, tests, apply and undo require an imported project or reviewed session.');
-			await shell.locator('.ordito-canvas').getByRole('button', { name: 'Request Payment', exact: true }).click();
+			await clickUncoveredNode('Request Payment');
+			await openProperties(window);
 			await shell.locator('.ordito-properties').getByRole('heading', { name: 'Request Payment', exact: true }).waitFor();
 			await sidebar.getByRole('button', { name: 'Cart Structure', exact: true }).click();
 			await shell.getByRole('region', { name: 'Diagram: Cart Structure', exact: true }).waitFor();
-			await shell.locator('.ordito-canvas').getByRole('button', { name: 'Cart', exact: true }).click();
+			await clickUncoveredNode('Cart');
 			await sidebar.getByRole('button', { name: 'Checkout Structure', exact: true }).click();
 			await openProperties(window);
 			await shell.locator('.ordito-properties').getByRole('heading', { name: 'Request Payment', exact: true }).waitFor();
@@ -93,7 +102,7 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await chooseOrditoDiagram(window, 'Checkout Structure');
 			await shell.getByRole('region', { name: 'Diagram: Checkout Structure', exact: true }).waitFor();
 			await chooseOrditoDiagram(window, 'Payment Outcome');
-			await shell.locator('.ordito-canvas').getByRole('button', { name: 'Payment Declined', exact: true }).click();
+			await canvasNode('Payment Declined').press('Enter');
 			await harness.app.close();
 			harness.app = undefined;
 			window = await launch();
@@ -146,8 +155,8 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await connect(window, 'Request Payment', 'Order Confirmed', 'Invocation', 'Confirm Order', 'payment authorized');
 			await connect(window, 'Request Payment', 'Payment Declined', 'Invocation', 'Shows error', 'payment declined');
 			console.log('PASS: creates project, feature, structure and conditional success/refusal flow through native UI.');
-			const moved = shell.locator('.ordito-canvas').getByRole('button', { name: 'Order Confirmed', exact: true });
-			await moved.click();
+			const moved = canvasNode('Order Confirmed');
+			await moved.press('Enter');
 			const before = await moved.evaluate(element => parseFloat(element.style.left));
 			await moved.focus();
 			await window.keyboard.press('ArrowRight');
@@ -162,12 +171,15 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			assert.ok(Math.abs(zoomAfter - zoomBefore / 1.2) < 0.000001, 'Zoom Out scales the current camera by 1 / 1.2');
 			await clickOrditoButton(window, 'Reset Zoom');
 			await closeCanvasActions(window);
+			const closeProperties = shell.getByRole('button', { name: 'Close Properties', exact: true });
+			if (await closeProperties.isVisible()) { await closeProperties.click(); }
+			await moved.focus();
 			const bounds = await moved.boundingBox(); assert.ok(bounds);
 			await window.mouse.move(bounds.x + 40, bounds.y + 40);
 			await window.mouse.down();
 			await window.mouse.move(bounds.x + 64, bounds.y + 72, { steps: 5 });
 			await window.mouse.up();
-			await shell.locator('.ordito-canvas').getByRole('button', { name: 'Payment Declined', exact: true }).click();
+			await canvasNode('Payment Declined').press('Enter');
 			await clickOrditoButton(window, 'Delete Element');
 			await window.locator('.monaco-dialog-box').getByRole('button', { name: 'Delete', exact: true }).click();
 			assert.equal(await shell.locator('.ordito-canvas .ordito-node').count(), 2);
@@ -191,7 +203,7 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			window = await launch();
 			shell = window.locator('.ordito-shell');
 			await shell.getByRole('region', { name: 'Diagram: Confirm Purchase · Flow', exact: true }).waitFor();
-			await shell.locator('.ordito-canvas').getByRole('button', { name: 'Request Payment', exact: true }).click();
+			await canvasNode('Request Payment').press('Enter');
 			await clickOrditoButton(window, 'Rename Element');
 			await enterValue(window, 'Name', 'Updated Payment');
 			await shell.locator('.ordito-canvas').getByRole('button', { name: 'Updated Payment', exact: true }).waitFor();
@@ -217,7 +229,7 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await shell.locator('.ordito-project-menu > summary').getByText('External system', { exact: true }).waitFor();
 			await shell.getByText('Model Saved Locally', { exact: true }).waitFor();
 			console.log('PASS: unsaved backup recovery reopens the visual editor, with external file intact and explicit discard/reload.');
-			await shell.locator('.ordito-canvas').getByRole('button', { name: 'Request Payment', exact: true }).click();
+			await canvasNode('Request Payment').press('Enter');
 			await clickOrditoButton(window, 'Rename Element');
 			await enterValue(window, 'Name', 'Payment in Copy');
 			await shell.locator('.ordito-canvas').getByRole('button', { name: 'Payment in Copy', exact: true }).waitFor();

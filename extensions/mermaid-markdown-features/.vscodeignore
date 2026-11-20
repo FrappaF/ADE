@@ -7,3 +7,9 @@ package-lock.json
 tsconfig*.json
 **/*.tsbuildinfo
 .gitignore
+markdown-preview-out/*.js
+!markdown-preview-out/index.js
+markdown-editor-out/*.js
+!markdown-editor-out/index.js
+notebook-out/*.js
+!notebook-out/index.js

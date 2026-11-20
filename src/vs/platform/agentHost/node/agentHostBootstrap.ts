@@ -14,6 +14,7 @@ import { IFileService } from '../../files/common/files.js';
 import { FileService } from '../../files/common/fileService.js';
 import { DiskFileSystemProvider } from '../../files/node/diskFileSystemProvider.js';
 import { IInstantiationService } from '../../instantiation/common/instantiation.js';
+import { SyncDescriptor } from '../../instantiation/common/descriptors.js';
 import { InstantiationService } from '../../instantiation/common/instantiationService.js';
 import { ILoggerService, ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
@@ -177,11 +178,14 @@ export async function createAgentHostRuntime(options: ICreateAgentHostRuntimeOpt
 			hostLaunchKind: options.hostLaunchKind,
 			startupMarks: startup,
 		});
+		const localModel = !productService.disableBuiltInCopilot && options.localModel?.kind === 'localUtilityProcess'
+			? new SyncDescriptor((await import('./copilot/localModelBridge/localModelSetupService.js')).LocalModelSetupService)
+			: undefined;
 		registerAgentHostHostServices(services, {
 			userDataPath: URI.file(environmentService.userDataPath),
 			fetchFn,
 			byok: options.byok,
-			localModel: options.localModel,
+			localModel,
 		});
 		instantiationService = new InstantiationService(services, /*strict*/ true);
 		const gitHubService = instantiationService.invokeFunction(accessor => accessor.get(IAgentHostGitHubService));

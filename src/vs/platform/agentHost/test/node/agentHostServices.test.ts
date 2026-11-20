@@ -35,6 +35,7 @@ import { IAgentHostStateManager } from '../../node/agentHostStateManager.js';
 import { NullByokLmBridgeRegistry, IByokLmBridgeRegistry } from '../../node/byokLmBridgeRegistry.js';
 import { IAgentHostUtilityModelService } from '../../node/agentHostUtilityModelService.js';
 import { registerAgentHostCoreServices, registerAgentHostHostServices } from '../../node/agentHostServices.js';
+import { LocalModelSetupService } from '../../node/copilot/localModelBridge/localModelSetupService.js';
 import { createAgentServiceFoundation } from '../../node/agentServiceFoundation.js';
 import { IAgentHostWorktreeIsolation, NullAgentHostWorktreeIsolation } from '../../node/shared/worktreeIsolation.js';
 import { MockAgent } from './mockAgent.js';
@@ -106,7 +107,7 @@ function registerHostServices(services: ServiceCollection): void {
 		userDataPath: URI.file('/user-data'),
 		fetchFn: globalThis.fetch,
 		byok: { kind: 'renderer', bridgeRegistry: new NullByokLmBridgeRegistry() },
-		localModel: { kind: 'localUtilityProcess' },
+		localModel: new SyncDescriptor(LocalModelSetupService),
 	});
 }
 

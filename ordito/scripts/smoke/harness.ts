@@ -13,8 +13,11 @@ export async function createSmokeHarness(platform = process.platform) {
 	const root = fileURLToPath(new URL('../../..', import.meta.url));
 	const aiLive = process.argv.includes('--ai-live');
 	if (aiLive && !process.env.ORDITO_AI_MODEL) { throw new Error('--ai-live requires ORDITO_AI_MODEL from the authenticated Codex account'); }
+	const packaged = process.argv.includes('--packaged');
+	const electronOverride = process.env.ORDITO_ELECTRON_PATH;
+	if (packaged && !electronOverride) { throw new Error('--packaged requires ORDITO_ELECTRON_PATH pointing to the packaged executable'); }
 	const product = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(root, 'product.json'), 'utf8'));
-	const executablePath = process.env.ORDITO_ELECTRON_PATH || path.join(root, '.build/electron', platform === 'darwin'
+	const executablePath = electronOverride ? path.resolve(root, electronOverride) : path.join(root, '.build/electron', platform === 'darwin'
 		? `${product.nameLong}.app/Contents/MacOS/${product.nameShort}`
 		: platform === 'win32' ? `${product.nameShort}.exe` : product.applicationName);
 	// macOS's per-user TMPDIR can exceed the 103-byte Unix socket path limit
@@ -25,7 +28,7 @@ export async function createSmokeHarness(platform = process.platform) {
 	const workspace = path.join(directory, 'project');
 	const evidence = path.join(root, '.build/ordito-smoke');
 	await mkdir(portable);
-	const launchEnv: Record<string, string> = Object.fromEntries(Object.entries({ ...process.env, VSCODE_DEV: '1', NODE_ENV: 'development', VSCODE_PORTABLE: portable }).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
+	const launchEnv: Record<string, string> = Object.fromEntries(Object.entries({ ...process.env, VSCODE_DEV: packaged ? undefined : '1', NODE_ENV: packaged ? undefined : 'development', VSCODE_PORTABLE: portable }).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
 	if (!aiLive) {
 		launchEnv.CODEX_HOME = path.join(directory, 'codex-home');
 		launchEnv.CLAUDE_CONFIG_DIR = path.join(directory, 'claude-home');
@@ -81,6 +84,9 @@ export async function createSmokeHarness(platform = process.platform) {
 		'--disable-workspace-trust', '--disable-telemetry', '--disable-updates', '--disable-experiments',
 		'--disable-dev-shm-usage', '--no-sandbox', '--password-store=basic', '--use-inmemory-secretstorage',
 		'--disable-extension=vscode.vscode-api-tests'];
+	// The development Electron binary needs an app path argument. The release binary already contains the app.
+	const getLaunchArgs = () => packaged ? args.slice(1) : args;
+	const launchCwd = packaged ? directory : root;
 	const uxOnly = process.argv.includes('--ux-only');
 	const followupOnly = process.argv.includes('--followup-only');
 	if (process.argv.includes('--native-only') || uxOnly || navigationOnly || sequenceOnly || stateOnly || impactOnly || projectsOnly || codeOnly || aiOnly || followupOnly || canvasOnly || semanticOnly || generatedOnly || notationsOnly) {
@@ -103,7 +109,7 @@ export async function createSmokeHarness(platform = process.platform) {
 	let electronOutput = '';
 
 	async function launch() {
-		app = await electron.launch({ executablePath, args, cwd: root, env: launchEnv, timeout: 90000 });
+		app = await electron.launch({ executablePath, args: getLaunchArgs(), cwd: launchCwd, env: launchEnv, timeout: 90000 });
 		electronOutput = '';
 		app.process().stderr?.on('data', data => { electronOutput = (electronOutput + data.toString()).slice(-12000); });
 		await app.firstWindow({ timeout: 90000 });
@@ -151,7 +157,7 @@ export async function createSmokeHarness(platform = process.platform) {
 		}
 	}
 
-	return { validateSemanticModel, checkoutModel, root, aiLive, product, executablePath, directory, portable, userData, workspace, evidence, launchEnv, navigationOnly, sequenceOnly, stateOnly, impactOnly, canvasOnly, connectionPreviewOnly, notationsOnly, semanticOnly, generatedOnly, workflowOnly, codeOnly, aiOnly, extraCleanup, projectsOnly, modelFile, emptyFile, invalidFile, otherFile, args, uxOnly, followupOnly, launch, reportFailure, dispose, get app(): ElectronApplication { if (!app) { throw new Error('No desktop process is active'); } return app; }, set app(value: ElectronApplication | undefined) { app = value; } };
+	return { validateSemanticModel, checkoutModel, root, aiLive, product, executablePath, directory, portable, userData, workspace, evidence, launchEnv, launchCwd, getLaunchArgs, navigationOnly, sequenceOnly, stateOnly, impactOnly, canvasOnly, connectionPreviewOnly, notationsOnly, semanticOnly, generatedOnly, workflowOnly, codeOnly, aiOnly, extraCleanup, projectsOnly, modelFile, emptyFile, invalidFile, otherFile, args, uxOnly, followupOnly, launch, reportFailure, dispose, get app(): ElectronApplication { if (!app) { throw new Error('No desktop process is active'); } return app; }, set app(value: ElectronApplication | undefined) { app = value; } };
 }
 
 export type SmokeHarness = Awaited<ReturnType<typeof createSmokeHarness>>;

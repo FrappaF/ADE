@@ -10,6 +10,12 @@ import { enterValue, pickValue, chooseFolder, runCommand, codeAction, chooseOrdi
 export function createImportScenarios(harness: SmokeHarness) {
 	const { launch, root, workspace, directory, evidence, launchEnv, args, workflowOnly, validateSemanticModel, userData } = harness;
 
+	async function useLegacyDiagramProtocol() {
+		const settingsFile = path.join(userData, 'User/settings.json');
+		const settings = JSON.parse(await readFile(settingsFile, 'utf8'));
+		await writeFile(settingsFile, JSON.stringify({ ...settings, 'ordito.diagramImport.incremental': false }));
+	}
+
 	async function checkSemanticTodo() {
 		const { todoFile, todoSource, todoFiles } = await import('../../code-import/test/todo-semantic-fixture.mjs');
 		const recordsPath = path.join(root, 'ordito/code-import/test/fixtures/real-diagrams/planned-terra.json');
@@ -32,6 +38,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 `);
 		await chmod(path.join(bin, 'codex'), 0o700);
 		launchEnv.PATH = bin + path.delimiter + process.env.PATH; args.push('--force-disable-user-env');
+		await useLegacyDiagramProtocol();
 		const window = await launch(), shell = window.locator('.ordito-shell');
 		await shell.getByRole('button', { name: 'Import Codebase', exact: true }).click();
 		const widget = window.locator('.quick-input-widget');
@@ -41,11 +48,11 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 		const entered = window.waitForEvent('domcontentloaded', { timeout: 90000 });
 		await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 		await entered; args[1] = sourceRoot;
-		await shell.getByRole('heading', { name: 'Create Diagrams from Your Code', exact: true }).waitFor({ timeout: 90000 });
+		await shell.getByRole('heading', { name: 'Explore Your Codebase', exact: true }).waitFor({ timeout: 90000 });
 		assert.equal(await shell.locator('.ordito-node, .ordito-atlas-node').count(), 0);
 		await runCommand(window, 'Ordito: Show Diagram Navigation');
 		const sidebar = window.locator('.ordito-sidebar');
-		await sidebar.getByText('Source Evidence Ready.', { exact: false }).waitFor();
+		await shell.getByText('Source Evidence Ready · Create Capability and Flow Diagrams with AI', { exact: true }).waitFor();
 		assert.equal(await sidebar.getByRole('button', { name: /\.(?:rb|erb|yml)$/ }).count(), 0);
 		await shell.getByRole('button', { name: 'Build Diagrams with AI', exact: true, disabled: false }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'semantic-import-ready.png') });
@@ -61,7 +68,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:500,output
 		assert.equal(await shell.locator('.ordito-node').count(), 0);
 		await shell.getByRole('button', { name: 'Review Diagram Plan', exact: true, disabled: false }).click();
 		await generate.click();
-		await shell.getByRole('heading', { name: record.calls[0].response.plan[0].name, exact: true }).waitFor({ timeout: 90000 });
+		await shell.getByRole('region', { name: `Diagram: ${record.calls[0].response.plan[0].name}`, exact: true }).waitFor({ timeout: 90000 });
 		await (await codeAction(window, 'Update Code', false)).waitFor();
 		assert.equal(await readFile(counter, 'utf8'), String(record.calls.length));
 		const pointer = JSON.parse(await readFile(path.join(sourceRoot, '.ordito/code-project.json'), 'utf8'));
@@ -170,20 +177,21 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await pickValue(window, 'Import Codebase', 'Structure and Available Semantic Analysis');
 		await enteredWorkspace;
 		await shell.getByRole('heading', { name: 'Explore Your Codebase', exact: true }).waitFor({ timeout: 90000 });
-		assert.equal(await shell.locator('.ordito-node, .ordito-atlas-node').count(), 0, 'The index is never presented as finished diagrams');
-		assert.equal(await shell.locator('.ordito-workspace-bar').getByRole('button', { name: 'Code', exact: true }).count(), 0, 'The unreviewed source index does not expose the Code page');
-		assert.equal(await shell.getByRole('button', { name: 'Update Code', exact: true }).count(), 0, 'The unreviewed source index does not expose legacy model-to-code synchronization');
 		await shell.getByRole('region', { name: 'Architecture Exploration', exact: true }).waitFor();
 		await shell.getByRole('button', { name: 'Explore Architecture', exact: true, disabled: false }).waitFor();
+		assert.equal(await shell.locator('.ordito-node, .ordito-atlas-node').count(), 0, 'The index is never presented as finished diagrams');
+		await shell.locator('.ordito-workspace-bar').getByRole('button', { name: 'Code', exact: true }).click();
+		const codePage = shell.locator('.ordito-code-page');
+		await codePage.getByRole('button', { name: 'Code Evidence', exact: true }).waitFor();
+		assert.equal(await codePage.getByRole('button', { name: 'Update Code', exact: true }).count(), 0, 'The unreviewed source index does not expose legacy model-to-code synchronization');
+		await runCommand(window, 'Ordito: Return to Model');
 		await shell.getByRole('button', { name: 'Inspect Code Evidence', exact: true }).click();
 		await widget.getByRole('option', { name: /checkout.*Extracted declaration/i }).waitFor();
 		await widget.getByRole('option', { name: /checkout.*Extracted declaration/i }).click();
 		await window.locator('.monaco-editor .view-lines').filter({ hasText: 'checkout' }).first().waitFor();
 		await window.getByRole('tab', { name: /Create Diagrams: codebase/ }).click();
 		assert.equal(await readFile(execCounter, 'utf8'), '0', 'Inspecting the default import and code actions sends no inference request');
-		const settingsFile = path.join(userData, 'User/settings.json');
-		const settings = JSON.parse(await readFile(settingsFile, 'utf8'));
-		await writeFile(settingsFile, JSON.stringify({ ...settings, 'ordito.diagramImport.incremental': false }));
+		await useLegacyDiagramProtocol();
 		console.log('PASS: default import exposes Architecture Exploration; continuing the explicitly selected legacy CLI protocol.');
 		const configurationDeadline = Date.now() + 10000;
 		while (!await shell.getByText('Source Evidence Ready · Create Capability and Flow Diagrams with AI', { exact: true }).isVisible() && Date.now() < configurationDeadline) {
@@ -347,12 +355,14 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		window = await launch(); shell = window.locator('.ordito-shell');
 		await (await codeAction(window, 'Update Code', false)).waitFor({ timeout: 90000 });
 		await clickOrditoButton(window, 'Home');
-		await shell.getByRole('button', { name: 'Open Project', exact: true }).click();
+		const projectMenu = shell.locator('.ordito-project-menu');
+		await projectMenu.locator(':scope > summary').click();
+		await projectMenu.getByRole('button', { name: 'Open Project', exact: true }).click();
 		await chooseFolder(window, sourceRoot);
 		await (await codeAction(window, 'Update Code', false)).waitFor();
 		await runCommand(window, 'Ordito: Restore Code Model Snapshot');
 		await window.locator('.quick-input-widget').getByText(initial.folder, { exact: true }).click();
-		await (await codeAction(window, 'Update Code', false)).waitFor();
+		await shell.locator('.ordito-canvas').getByRole('button', { name: 'checkout', exact: true }).waitFor();
 		assert.equal((await snapshot()).folder, initial.folder);
 		assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('purchase'));
 		await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true, aiReviewed: true, modelToCode: true, pairedUndo: true, diagramProtocol: 'legacy', defaultExplorationUiVerified: true, incrementalEndToEnd: false }, null, 2));
