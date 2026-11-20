@@ -51,6 +51,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 			await pickValue(window, 'Add Existing Message', label);
 		}
 		await closeCanvasActions(window);
+		await clickOrditoButton(window, 'Fit Diagram');
 		await shell.locator('.ordito-node').getByText('Campione', { exact: true }).click();
 		const messages = () => shell.locator('.ordito-sequence-message').evaluateAll(buttons => buttons.map(button => button.dataset.relationId));
 		const before = await messages();
@@ -74,6 +75,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await window.locator('.accessible-view:visible').getByText('Resource: Campione. Visible states: 2 of 2. Visible transitions: 1.', { exact: true }).waitFor();
 		await window.keyboard.press('Escape');
 		await closeCanvasActions(window);
+		await clickOrditoButton(window, 'Fit Diagram');
 		await shell.locator('.ordito-node').getByText('Campione', { exact: true }).click();
 		await clickOrditoButton(window, 'Show Change Impact');
 		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Campione', exact: true }).waitFor();
@@ -107,6 +109,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await chooseOrditoDiagram(window, 'Copy States');
 		await revealOrditoText(window, '2 of 2 declared states visible · 2 visible transitions');
 		await closeCanvasActions(window);
+		await clickOrditoButton(window, 'Fit Diagram');
 		await shell.locator('.ordito-node').getByText('Copy', { exact: true }).click();
 		await clickOrditoButton(window, 'Show Change Impact');
 		await shell.getByRole('heading', { name: 'Potential Dependents: 4', exact: true }).waitFor();
