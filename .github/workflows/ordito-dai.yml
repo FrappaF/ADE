@@ -50,7 +50,7 @@ jobs:
           export ORDITO_BUN_EXECUTABLE="$(command -v bun)"
           export TMPDIR="$(cd "$RUNNER_TEMP" && pwd -P)"
           npm run ordito:dai:verify -- "$RUNNER_TEMP/dai-results"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dai-${{ runner.os }}-${{ github.sha }}
