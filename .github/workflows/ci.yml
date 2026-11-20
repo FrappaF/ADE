@@ -24,10 +24,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            ordito/runtime/package-lock.json
+            ordito/code-import/package-lock.json
+            ordito/ai/package-lock.json
       - run: npm run ordito:setup:test
       - run: npm --prefix ordito/prototype run check
       - run: npm --prefix ordito/prototype test
       - run: npm --prefix ordito/runtime ci --ignore-scripts
+      - run: npm --prefix ordito/code-import ci --ignore-scripts
+      - run: npm --prefix ordito/ai ci --ignore-scripts
       - run: node --test "ordito/test/*.test.{mjs,ts}"
   code-import:
     runs-on: ubuntu-latest

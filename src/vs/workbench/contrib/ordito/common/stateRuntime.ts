@@ -1,10 +1,11 @@
 import { compileModelStateMachine, stateRules } from './modelStates.js';
 import { valueRuntime } from './modelValues.js';
 import { interactionInterpreterSource } from './interactionRuntime.generated.js';
+import { matchesInteractionRuntimeRegion } from './interactionRuntime.legacy.js';
 import { stateInterpreterSource } from './stateRuntime.generated.js';
 import { canonicalJson } from './modelSerialization.js';
 import { type SemanticModelV4 } from './modelTypes.js';
-import { matchesModelOwnedRegion, modelOwnedRegion, readModelOwnedRegion } from './modelOwnedRegion.js';
+import { modelOwnedRegion, readModelOwnedRegion } from './modelOwnedRegion.js';
 
 /** Static runtime and canonical data. Model prose is never executable source. */
 export function emitModelStateMachine(model: SemanticModelV4, id: string): string {
@@ -26,5 +27,5 @@ export function reverseModelStateMachine(model: SemanticModelV4, id: string, sou
 	for (const key of ['states', 'events', 'actions', 'transitions'] as const) { const ids = (machine: typeof original.machine) => machine[key].map(entry => 'id' in entry ? entry.id : entry.elementId).sort(); if (canonicalJson(ids(original.machine)) !== canonicalJson(ids(data.machine))) { throw new Error('Partial state mapping: invented or deleted identity'); } }
 	if (data.machine.ownerId !== original.machine.ownerId || data.machine.operationId !== original.machine.operationId || data.machine.revision !== original.machine.revision) { throw new Error('Partial state mapping: intent boundary'); }
 	const next = structuredClone(model); next.foundation.stateMachines = next.foundation.stateMachines!.map(machine => machine.id === id ? data.machine : machine);
-	if (!matchesModelOwnedRegion(read.region, 'state-v1', emitModelStateMachine(next, id))) { throw new Error('Partial state mapping: invalid or unsupported runtime'); } return next;
+	if (!matchesInteractionRuntimeRegion(read.region, 'state-v1', emitModelStateMachine(next, id))) { throw new Error('Partial state mapping: invalid or unsupported runtime'); } return next;
 }
