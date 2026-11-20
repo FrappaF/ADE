@@ -180,8 +180,9 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			fancyLog(`${ansiColors.green('esbuilding')}: ${data.toString('utf8')}`);
 		});
 	}).then(() => {
-		// After esbuild completes, collect all files using vsce
-		return vsce.listFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None });
+		// The Copilot bundle externalizes its CLI SDK. Include the files allowed by its .vscodeignore.
+		const packageManager = extensionName === 'copilot' ? vsce.PackageManager.Npm : vsce.PackageManager.None;
+		return vsce.listFiles({ cwd: extensionPath, packageManager });
 	}).then(fileNames => {
 		if (packagedDependencies.length > 0) {
 			const packagedDependencyFileNames = packagedDependencies.flatMap(dependency =>
