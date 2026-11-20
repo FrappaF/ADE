@@ -4,7 +4,7 @@
 # `local/code-no-new-javascript-files` lint rule.
 #
 # DO NOT ADD NEW ENTRIES. Write new files in TypeScript instead.
-# Modifications to this file require sign-off from the CODEOWNERS.
+# Modifications to this file require maintainer review.
 #
 # Lines starting with `#` are comments. Blank lines are ignored.
 

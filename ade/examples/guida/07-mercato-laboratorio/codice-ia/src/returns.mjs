@@ -1,5 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License.
-
 export function requestReturn({ orderId, daysSincePurchase }, orders) {
 	if (!Number.isSafeInteger(daysSincePurchase) || daysSincePurchase < 0) {
 		throw new RangeError('Il tempo trascorso deve essere un intero non negativo');

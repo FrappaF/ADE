@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile, readdir, realpath } from 'node:fs/promises';
 import { resolve, isAbsolute } from 'node:path';
@@ -40,7 +35,7 @@ async function main() {
 	const output = resolve(destination);
 	// An existing report is immutable. Never overwrite historical evidence.
 	await mkdir(output);
-	const policyPath = 'ade/docs/diagram-driven-ai/budgets.v1.json', corpusPath = 'ade/docs/diagram-driven-ai/corpus.v1.json';
+	const policyPath = 'ade/benchmarks/budgets.v1.json', corpusPath = 'ade/benchmarks/corpus.v1.json';
 	const policy = await json(policyPath), corpus = await json<DaiCorpus>(corpusPath), hashes = await sourceHashes();
 	const controller = new AbortController(), cancel = () => controller.abort();
 	process.on('SIGINT', cancel); process.on('SIGTERM', cancel);

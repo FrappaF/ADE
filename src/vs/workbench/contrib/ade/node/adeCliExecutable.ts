@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { constants, promises as fs } from 'fs';
 import { findExecutable } from '../../../../base/node/processes.js';
 import { CliExecutableRequest } from '../common/codeBridge.js';

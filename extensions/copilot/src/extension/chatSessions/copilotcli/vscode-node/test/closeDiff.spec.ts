@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestLogService } from '../../../../../platform/testing/common/testLogService';
 import { MockMcpServer, parseToolResult } from './testHelpers';

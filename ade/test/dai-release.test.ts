@@ -1,14 +1,9 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runDaiCorpus, daiCorpusGate, type DaiCorpus } from '../benchmarks/dai-corpus.ts';
 
-const corpus: DaiCorpus = JSON.parse(await readFile(new URL('../docs/diagram-driven-ai/corpus.v1.json', import.meta.url), 'utf8'));
+const corpus: DaiCorpus = JSON.parse(await readFile(new URL('../benchmarks/corpus.v1.json', import.meta.url), 'utf8'));
 const profiles = ['node.esm', 'bun.esm'];
 const passing = corpus.cases.flatMap(item => profiles.map(profileId => ({ id: item.id, profileId, status: 'passed', expected: item.expected, observation: structuredClone(item.expected) })));
 

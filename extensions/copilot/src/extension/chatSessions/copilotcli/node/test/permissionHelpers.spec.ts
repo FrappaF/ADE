@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CancellationToken, ChatParticipantToolToken } from 'vscode';
 import { ILogService } from '../../../../../platform/log/common/logService';

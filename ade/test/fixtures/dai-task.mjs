@@ -1,7 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 import { readFile } from 'node:fs/promises';
 export const nodeOrders = JSON.parse(await readFile(new URL('../../examples/dai-node-orders.ade.json', import.meta.url)));
 export function taskRequest() {

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { measureContextPayload } from '../../src/vs/workbench/contrib/ade/common/contextTransport.ts';
 import { isDeepStrictEqual } from 'node:util';
 import { Ajv2020 } from 'ajv/dist/2020.js';

@@ -1,7 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
@@ -176,7 +172,7 @@ test('C06 cache reuses validated data with zero calls and never bypasses freshne
 test('C04 independent mandatory-definition oracle and reproducible saved task packet', async () => {
 	const packet = await prepare();
 	assert.deepEqual(packet.definitions.filter(item => ['type', 'operation', 'predicate', 'decision', 'module', 'interaction', 'occurrence'].includes(item.ref.kind)).map(item => `${item.ref.kind}:${item.ref.id}`), ['decision:adr.node', 'interaction:scenario.submit', 'module:module.rules', 'occurrence:call.positive', 'operation:operation.positive', 'operation:operation.submit', 'predicate:predicate.positive', 'type:type.boolean', 'type:type.quantity']);
-	const historical = JSON.parse(await readFile(new URL('../docs/benchmarks/dai-04-sealed-context.json', import.meta.url)));
+	const historical = JSON.parse(await readFile(new URL('./fixtures/dai/dai-04-sealed-context.json', import.meta.url)));
 	assert.deepEqual([historical.byteLength, await modelDigest(historical.bytes)], [26707, historical.seal]);
 	assert.notEqual(packet.seal, historical.seal); assert.equal(JSON.parse(packet.bytes).constraints.archetype.profile.revision, '5');
 });

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import '../../scripts/source-loader.mjs';
 
 import { test } from 'node:test';
@@ -61,7 +56,7 @@ test('real TypeScript and Python SCIP indexes resolve imported aliases with exac
 			assert.deepEqual({ bindings: enriched.semantic.bindings.length, indexed: enriched.semantic.indexedFiles, edges: namedEdges(enriched), validation: validateSemanticModel(enriched.model) }, {
 				bindings: 2, indexed: [`checkout.${extension}`, `gateway.${extension}`], edges: [['checkout', 'charge', 'dependency'], [`checkout.${extension}`, 'charge', 'dependency']], validation: []
 			});
-			const reference = enriched.semantic.dependencies.flatMap(edge => edge.references).find(item => item.source.line === (language === 'typescript' ? 9 : 7));
+			const reference = enriched.semantic.dependencies.flatMap(edge => edge.references).find(item => item.source.line === 4);
 			const source = await readFile(join(root, reference.source.file), 'utf8');
 			assert.equal(source.slice(reference.source.start, reference.source.end), 'pay');
 			assert.ok(enriched.semantic.diagnostics.some(item => item.code === 'unboundDefinition'));
@@ -94,8 +89,8 @@ test('Unicode ranges honor UTF-8/16/32 and typed ranges take precedence over dep
 	}
 	const split = structuredClone(bundle);
 	const document = split.index.documents.find(document => document.relative_path === 'checkout.ts');
-	const call = document.occurrences.find(item => item.range[0] === 8 && !(item.symbol_roles & 1));
-	call.range = [8, 17, 18]; // Splits the emoji in the fixture's UTF-16 line.
+	const call = document.occurrences.find(item => item.range[0] === 3 && !(item.symbol_roles & 1));
+	call.range = [3, 17, 18]; // Splits the emoji in the fixture's UTF-16 line.
 	await assert.rejects(applyScipBundles(state, [split]), /splits a UTF-16 character/);
 });
 
@@ -128,9 +123,9 @@ test('coverage gaps, ambiguous definitions and unrepresented symbol relationship
 	assert.ok(['outsideScope', 'missingDocument', 'unresolvedRelationship'].every(code => covered.semantic.diagnostics.some(item => item.code === code)));
 	const ambiguous = structuredClone(bundle);
 	const gateway = ambiguous.index.documents.find(document => document.relative_path === 'gateway.ts');
-	const charge = gateway.occurrences.find(item => item.range[0] === 5 && item.symbol_roles === 1).symbol;
+	const charge = gateway.occurrences.find(item => item.symbol.endsWith('/charge().') && item.symbol_roles === 1).symbol;
 	const checkout = ambiguous.index.documents.find(document => document.relative_path === 'checkout.ts');
-	checkout.occurrences.find(item => item.range[0] === 7 && item.symbol_roles === 1).symbol = charge;
+	checkout.occurrences.find(item => item.symbol.endsWith('/checkout().') && item.symbol_roles === 1).symbol = charge;
 	const result = await applyScipBundles(state, [ambiguous]);
 	assert.deepEqual({ edges: result.semantic.dependencies.length, ambiguous: result.semantic.diagnostics.some(item => item.code === 'ambiguousSymbol') }, { edges: 0, ambiguous: true });
 });
@@ -170,7 +165,7 @@ test('source and configuration changes invalidate semantic evidence until a new 
 	model.semantics.relations.find(relation => relation.from === owner.id).name = 'Manual dependency label';
 	const fewer = structuredClone(bundle.index);
 	const doc = fewer.documents.find(document => document.relative_path === 'checkout.ts');
-	doc.occurrences = doc.occurrences.filter(item => item.range[0] !== 8);
+	doc.occurrences = doc.occurrences.filter(item => item.range[0] !== 3);
 	const updated = await applyScipBundles(changed, [{ ...bundle, sourceRevision: changed.revision, index: fewer }]);
 	const report = prepareSync(enriched, model, updated);
 	assert.ok(report.report.dependencies.removed.length === 1);

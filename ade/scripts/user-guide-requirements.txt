@@ -1,4 +1,2 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
 Markdown==3.11.3
 reportlab==4.4.9

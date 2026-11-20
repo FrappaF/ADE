@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { elementKinds, relationKinds, type ModelDiagnostic, type Schema, viewKinds } from './modelTypes.js';
 
 export function object(properties: Record<string, Schema>, optional: string[] = []): Schema {

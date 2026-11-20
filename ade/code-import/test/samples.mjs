@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 /** Small independent source inputs; these are parsed, never executed. */
 export const samples = [
 	['javascript', 'checkout.js', 'import { charge } from "./gateway.js"; export class Checkout { pay(amount) { return charge(amount); } }'],

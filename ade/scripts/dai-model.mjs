@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { open, writeFile } from 'node:fs/promises';
 import './source-loader.mjs';
 const { readSemanticDraft } = await import('../../src/vs/workbench/contrib/ade/common/semanticModel.ts');

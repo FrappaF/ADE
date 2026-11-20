@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { compileModelContext, assertModelContextCurrent, type SealedModelContext } from '../../src/vs/workbench/contrib/ade/common/modelContext.ts';
 import { assertModelProposalAllowed, getModelReadiness, type GenerationProfile } from '../../src/vs/workbench/contrib/ade/common/modelReadiness.ts';
 import { type SemanticModel, type SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';

@@ -1,7 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 import '../../scripts/source-loader.mjs';
 const { createPureProject } = await import('../../../src/vs/workbench/contrib/ade/common/modelProject.ts');
 let serial = 0;
@@ -22,7 +18,7 @@ model.views.push({ id: 'view.messaging', name: 'Checkout Messaging', kind: 'c4Co
 model.foundation.decisions.push({ id: 'adr.messaging', revision: '1', status: 'accepted', scopeIds: [owner, 'broker', 'fulfilment', 'billing', 'analytics'], constraints: [
 	{ id: 'constraint.messaging.engine', category: 'technology', subject: { kind: 'messaging', id: 'checkout.messaging' }, field: '/brokers/0/engine', value: { state: 'known', value: 'nats-jetstream' } },
 	{ id: 'constraint.messaging.version', category: 'technology', subject: { kind: 'messaging', id: 'checkout.messaging' }, field: '/brokers/0/version', value: { state: 'known', value: '2.11.9' } }
-], record: { number: '11', title: 'Explicit JetStream delivery', context: 'Checkout needs competitive delivery and independent fan-out', decision: 'Use JetStream 2.11.9 with explicit ack/retry/DLQ and finite deduplication; no outbox or effect transaction', consequences: ['At least once; crash can repeat effects before ledger completion', 'Local file ledger is not a distributed lock or external transaction', 'Source: ade/docs/decisions/0011-jetstream-messaging.md'], history: [] } });
+], record: { number: '11', title: 'Explicit JetStream delivery', context: 'Checkout needs competitive delivery and independent fan-out', decision: 'Use JetStream 2.11.9 with explicit ack/retry/DLQ and finite deduplication; no outbox or effect transaction', consequences: ['At least once; crash can repeat effects before ledger completion', 'Local file ledger is not a distributed lock or external transaction', 'Source: https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md'], history: [] } });
 export const checkoutMessaging = model;
 export const envelope = (id = 'order-1', kind = 'queue') => ({ version: 1, id, messageId: 'order.confirmed', messageVersion: '1', publisherId: 'producer.' + kind, routingKey: '42', correlationKey: 'checkout-42', payload: { orderId: '42', correlationId: 'checkout-42' } });
 export const publish = (id = 'order-1', kind = 'queue', at = 0) => ({ kind: 'publish', publisherId: 'producer.' + kind, envelope: envelope(id, kind), at });

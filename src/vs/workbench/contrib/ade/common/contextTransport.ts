@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 /** Positional rows avoid repeating paths, languages, hashes and property names for every symbol. */
 export interface DiagramEvidenceUnit { ref: string; id?: string; file: string; language: string; name: string; start: number; end: number; text?: string }
 export type DiagramEvidenceRow = [ref: string, file: number, indexed: number, name: string | null, start: number, end: number];

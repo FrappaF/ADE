@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -165,7 +160,7 @@ test('reference-only type cycles and contradictory type definitions block a cont
 
 
 test('the DAI-03 historical seal remains intact while current packets include the extended grammar', async () => {
-	const historical = JSON.parse(await readFile(new URL('../docs/benchmarks/dai-03-sealed-context.json', import.meta.url), 'utf8'));
+	const historical = JSON.parse(await readFile(new URL('./fixtures/dai/dai-03-sealed-context.json', import.meta.url), 'utf8'));
 	assert.equal(historical.byteLength, Buffer.byteLength(historical.bytes)); assert.equal(historical.seal, await modelDigest(historical.bytes));
 	assert.equal(JSON.parse(historical.bytes).grammar.schema.properties.version.const, 4);
 	assert.deepEqual(JSON.parse((await compileModelContext(base, request)).bytes).grammar.schema, semanticModelV4Schema);

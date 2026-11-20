@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 export interface DiagramCamera { x: number; y: number; zoom: number }
 export interface DiagramBounds { x: number; y: number; width: number; height: number }
 

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { specificationRows } from './adeSpecificationContent.js';
 import { resolveModelPlatform } from '../common/modelProfiles.js';
 import { describeModelPredicate, validateModelPredicate } from '../common/modelExpressions.js';

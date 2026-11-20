@@ -1,5 +1,3 @@
-<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
-
 # Interazioni
 
 Apri questa cartella con Open Project. Il diagramma Checkout e pagamento è una sequenza eseguibile con alt, ref e opt. Scorri per leggere l’interazione; review e verifica nel laboratorio L13.

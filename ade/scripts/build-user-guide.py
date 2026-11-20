@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
-"""Build the standalone HTML, printable PDF and user kit from the guide Markdown.
+"""Build the standalone HTML and printable PDF from the guide Markdown.
 
 Dependencies: python3 -m pip install Markdown reportlab
 Fonts: Liberation Sans and Liberation Mono (or pass --font-dir).
 Run from any directory; only the generated files in --guide-dir are replaced.
 Use --rebuild-examples to package the repository's guide fixtures before exporting.
-The original snapshots are never changed by this script.
+Use --kit-only to assemble an offline kit from the existing exports and examples.
 """
 
 import argparse
@@ -131,8 +129,7 @@ def build_html(guide_dir, root, headings, description, edition, revision):
 		'DESCRIPTION': html.escape(description),
 		'TOC': ''.join(toc),
 		'CONTENT': '\n'.join(content),
-		'FOOTER': html.escape(f'Edizione {edition}. Software di riferimento · {revision}. '
-			'Procedure e limiti delle verifiche sono descritti nel rapporto di revisione.'),
+		'FOOTER': html.escape(f'Edizione {edition}. Software di riferimento · {revision}.'),
 	}
 	for key, value in values.items():
 		template = template.replace(f'@@{key}@@', value)
@@ -340,13 +337,10 @@ def build_examples(guide_dir):
 
 
 def build_kit(guide_dir):
-	files = [guide_dir / name for name in ['INIZIA-QUI.txt', 'README.md', 'Guida-ADE.html',
-		'Guida-ADE.pdf', 'progetti-esempio.zip', 'VERIFICA-LABORATORIO.md']]
-	for pattern in ['RAPPORTO*.md', 'REVISIONE*.md']:
-		files.extend(path for path in sorted(guide_dir.glob(pattern)) if path not in files)
+	files = [guide_dir / name for name in ['README.md', 'Guida-ADE.html', 'Guida-ADE.pdf', 'progetti-esempio.zip']]
 	files.extend(sorted((guide_dir / 'immagini').glob('*.png')))
 	write_archive(guide_dir / 'ADE-kit-utente.zip', guide_dir, files, 'ADE-Guida/')
-	print(f'Kit verified: {len(files)} files; original snapshots excluded.')
+	print(f'Kit verified: {len(files)} files.')
 
 
 def main():
@@ -357,7 +351,7 @@ def main():
 	parser.add_argument('--font-dir', type=Path, default=next((path for path in
 		[Path('/usr/share/fonts/truetype/liberation2'), Path('/usr/share/fonts/truetype/liberation')]
 		if path.is_dir()), Path('/usr/share/fonts/truetype/liberation2')))
-	parser.add_argument('--kit-only', action='store_true', help='Refresh the kit after editing the review report, without exporting again.')
+	parser.add_argument('--kit-only', action='store_true', help='Assemble the user kit from the existing exports and example archive.')
 	parser.add_argument('--rebuild-examples', action='store_true', help='Package the guide fixtures from ade/examples/guida.')
 	args = parser.parse_args()
 	if args.rebuild_examples:
@@ -371,7 +365,8 @@ def main():
 		for name in ['Guida-ADE.html', 'Guida-ADE.pdf']:
 			path = args.guide_dir / name
 			print(f'{name}: {path.stat().st_size} bytes; SHA-256 {hashlib.sha256(path.read_bytes()).hexdigest()}')
-	build_kit(args.guide_dir)
+	else:
+		build_kit(args.guide_dir)
 
 
 if __name__ == '__main__':

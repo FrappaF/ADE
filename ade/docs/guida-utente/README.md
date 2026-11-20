@@ -1,5 +1,3 @@
-<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
-
 # Guida completa ad ADE
 
 **Un tour, un progetto costruito da zero, un atlante da consultare.** Edizione del 19 novembre 2026. Il riferimento è ADE desktop con l’aggiornamento del laboratorio su base `20028af9` e i flussi IA di questa revisione.
@@ -1011,6 +1009,8 @@ Quando compare almeno una bozza completata, prova **Stop Generation**. Annota la
 3. Verifica condizioni e limiti. Resi distingue ordine assente e finestra scaduta. Il campione usa un archivio in memoria e un esito di approvazione fornito in input. Mantieni esplicite le lacune, per esempio la mancanza di prove su pagamenti, database o deployment. Le viste di stato descrittive richiedono la modellazione manuale nel percorso attuale.
 4. Quando la proposta riflette il codice, scegli **Apply All Changes** e conferma. Le bozze entrano insieme nel modello locale. Apri le viste dal selettore per controllare il risultato. Se il modello o le evidenze sono cambiati, aggiorna la review prima di applicare.
 
+Nelle viste applicate puoi creare elementi con **Add Element** e riusare quelli esistenti con **Add Existing Element**. In una sequenza o attività generata, usa **Add Message**, **Add Step** o **Diagram > Contents > Edit Scenario** per modificare lo scenario condiviso. Puoi cambiare partecipanti, passaggi, condizioni, rami e vincoli d’ordine. Le viste collegate mostrano le modifiche mantenendo gli stessi ID. Salva il modello prima di avviare **Update Codebase from Diagrams**. Un aggiornamento dai sorgenti può rinnovare le evidenze e segnala i conflitti con le modifiche manuali allo scenario.
+
 **Controllo L17**. Dal menu del progetto scegli **Open Project** e riapri la copia `codice-ia` e cerca Ordine nelle due viste pertinenti. Verifica che entrambe puntino alla stessa identità. Conserva l’esito dei cinque test, una fonte per ciascuna feature e l’esito della prova di ripresa. Se hai completato il solo inventario, annota quel risultato.
 
 Per ripetere l’importazione su un progetto autonomo simile a Mercato, copia `08-mercato-codebase` e scegli **Import Codebase** su quella cartella. Parti dai sorgenti di Acquisto e Resi, dall’archivio ordini condiviso e dagli eventi locali. Il `LEGGIMI.md` indica le evidenze da cercare e come eseguire i test.
@@ -1779,7 +1779,7 @@ npm run ade:setup
 
 `ade:setup` prepara dipendenze, client, motori locali, estensioni ed Electron. Il primo avvio richiede una connessione per scaricare gli artefatti. Per gli avvii successivi bastano `nvm use` e `./ade/scripts/dev.sh`. Puoi aggiungere al comando il percorso della cartella di un progetto.
 
-Gli strumenti di compilazione e le librerie desktop servono alle dipendenze native dell’applicazione; controllali prima della preparazione, così un’assenza non viene confusa con un problema del progetto didattico. Su macOS verifica gli strumenti con `xcode-select -p`, `xcrun --find clang` e `python3 --version`. Se mancano i Command Line Tools, usa `xcode-select --install` e completa l’installazione. Su Debian/Ubuntu servono `build-essential`, `pkg-config`, `libx11-dev`, `libxkbfile-dev`, `libkrb5-dev`, `libsecret-1-dev`, `libgtk-3-dev`, `libgbm-dev`, `libnss3`, `libasound2-dev` e `xvfb`; per i test senza display anche `xauth`. I nomi possono variare con la distribuzione. La [preparazione del fork alla revisione di base](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/fork-development.md#da-un-clone-pulito) raccoglie anche prerequisiti Windows e avvio con `scripts\code.bat`. Il collegamento richiede una connessione.
+Gli strumenti di compilazione e le librerie desktop servono alle dipendenze native dell’applicazione; controllali prima della preparazione, così un’assenza non viene confusa con un problema del progetto didattico. Su macOS verifica gli strumenti con `xcode-select -p`, `xcrun --find clang` e `python3 --version`. Se mancano i Command Line Tools, usa `xcode-select --install` e completa l’installazione. Su Debian/Ubuntu servono `build-essential`, `pkg-config`, `libx11-dev`, `libxkbfile-dev`, `libkrb5-dev`, `libsecret-1-dev`, `libgtk-3-dev`, `libgbm-dev`, `libnss3`, `libasound2-dev` e `xvfb`; per i test senza display anche `xauth`. I nomi possono variare con la distribuzione. La [guida di sviluppo](https://github.com/FrappaF/ADE/blob/main/ade/docs/fork-development.md#da-un-clone-pulito) raccoglie anche prerequisiti Windows e avvio con `scripts\code.bat`. Il collegamento richiede una connessione.
 
 Se aggiorni il clone a una revisione successiva, seleziona nuovamente il suo Node e riesegui `npm run ade:setup`: il semplice riavvio non ricompila sempre i sorgenti cambiati. Prima di seguire la guida confronta la nuova interfaccia con la revisione indicata in apertura. Il controllo dei tipi e le suite del repository sono strumenti per sviluppare ADE; non servono per usare i progetti di questa guida.
 
@@ -1973,7 +1973,7 @@ Usa la matrice seguente per passare dall’attività che vuoi svolgere alla lezi
 | Personalizzazione, estensioni, trust, chat e MCP | A1; A4 | Account/SDK/estensioni dove richiesti |
 | Accessibilità e presentazione | A5 | Tastiera, lettura testuale e impostazioni del workbench |
 
-Il verbale del laboratorio registra le prove su ADE desktop macOS, i successivi controlli di componenti e le verifiche dei nuovi campioni IA. Le immagini comprendono le 16 notazioni della soluzione, che contiene 18 viste, e schermate dei comandi. Ogni percorso assistito indica i propri prerequisiti. Nomi e numero delle bozze possono variare secondo le evidenze recuperate e la proposta del modello.
+Le immagini comprendono le 16 notazioni della soluzione, che contiene 18 viste, e schermate dei comandi. Ogni percorso assistito indica i propri prerequisiti. Nomi e numero delle bozze possono variare secondo le evidenze recuperate e la proposta del modello.
 
 
 ### A8. Glossario e riferimenti
@@ -2006,7 +2006,6 @@ Consulta il glossario quando due parole sembrano indicare lo stesso risultato: u
 
 Questa edizione segue l’editor **Structural Blueprint**, il riuso delle relazioni con **Add Existing Relationship** e l’Atlante a livelli di **System Map**. Le schermate aiutano a orientarsi. In T2 trovi gli esiti per riconoscere le quattro prospettive dell’acquisto.
 
-Approfondimenti online del repository alla revisione di base: [editing visuale](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/visual-editing.md), [esploratore semantico](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/semantic-explorer.md), [accessibilità](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/accessibility.md), [importazione](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/code-import.md), [collaborazione IA](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/ai-collaboration.md), [riconciliazione](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/reconciliation.md) e [profili eseguibili](https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md). Richiedono una connessione e comprendono anche verbali storici: per le procedure parti dai capitoli di questa guida.
 
 Gli esempi sono sintetici e derivano dai modelli dimostrativi del repository ADE e dal laboratorio Bottega. Sono distribuiti con la licenza MIT del progetto. Il pacchetto non contiene account, credenziali, cronologie IA o repository Git personali.
 

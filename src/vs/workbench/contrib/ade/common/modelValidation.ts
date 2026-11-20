@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { containmentKinds, type ElementKind, type ModelDiagnostic, type ModelField, type ObjectKind, type RelationKind, type SemanticElement, type SemanticModel, type SemanticModelV4 } from './modelTypes.js';
 import { modelObjects } from './modelFoundation.js';
 import { validateBlueprint } from './modelContractValidation.js';

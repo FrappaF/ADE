@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { connect, AckPolicy, DeliverPolicy, ReplayPolicy, RetentionPolicy, StorageType, DiscardPolicy, nanos, type JsMsg, type StreamConfig, type ConsumerConfig } from 'nats';
 import { mkdir, open, readFile, rename, lstat } from 'node:fs/promises';
 import { join } from 'node:path';

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { type ModelView, type NotationRule, type SemanticElement, type SemanticRelation } from './modelTypes.js';
 
 /** Rules describe notation, never infer source semantics. Structure remains a cross-perspective overview. */

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 export const providerEndpoints = {
 	codex: 'Codex CLI · authenticated by the original provider',
 	claude: 'Claude Code CLI · authenticated by the original provider'

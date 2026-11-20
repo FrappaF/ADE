@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { array, checkShape, identifier, nonempty, object, text } from './modelSchema.js';
 import { type ModelDiagnostic, type SemanticModel } from './modelTypes.js';
 import { InvalidSemanticModelError, readSemanticModel, validateSemanticModel } from './modelValidation.js';

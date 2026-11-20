@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { validateModelTaskProposal } from '../../src/vs/workbench/contrib/ade/common/modelTaskResponse.ts';
 import { readSource } from './context.ts';
 import { modelDigest } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';

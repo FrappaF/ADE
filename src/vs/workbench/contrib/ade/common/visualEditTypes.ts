@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { type InteractionEdit } from './modelInteractions.js';
 import { type Knowledge, type ModelBlueprint, type ModelType, type ModelDecision, type ModelFoundation, type ModelAssertion, type ElementDetails, type RelationDetails, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './modelTypes.js';
 import { type ModelIdFactory } from './modelMigration.js';

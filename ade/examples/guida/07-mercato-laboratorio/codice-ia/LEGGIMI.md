@@ -1,5 +1,3 @@
-<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
-
 # Mercato con Acquisto e Resi
 
 Questo modulo è la codebase di partenza per L17 della Guida ADE. Copia la cartella `codice-ia`, poi apri un terminale nella copia ed esegui `npm test` con Node 24 per controllare i cinque casi. In ADE scegli **Import Codebase** e seleziona la stessa cartella. Esamina i diagrammi proposti per Acquisto e Resi e segui le evidenze fino ai sorgenti e ai test.

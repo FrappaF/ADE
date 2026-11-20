@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { contentHash, sourceFile } from '../runtime/sourceChanges.ts';
 import { isDisclosableSource } from './paths.ts';
 import type { CodeImport, IndexedFile } from './importCode.ts';

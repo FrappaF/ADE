@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { elementKinds, relationKinds, viewKinds, type Schema as IJSONSchema } from './modelTypes.js';
 import { knowledgeSchema, semanticModelV5Schema, relationDetailsSchema } from './modelSchema.js';
 

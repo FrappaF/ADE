@@ -1,7 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import type { CodeImport, IndexedFile, CodeDeclaration } from './importCode.ts';
 

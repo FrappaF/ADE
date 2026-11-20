@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 const purchaseName = /\b(?:acquisto|checkout|purchase)\b/i;
 const returnsName = /\b(?:return|returns|resi|reso)\b/i;
 const orderName = /\b(?:order|orders|ordine|ordini)\b/i;

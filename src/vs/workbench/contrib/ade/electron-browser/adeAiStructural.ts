@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { editAdePredicateCriteria } from '../browser/adePredicateCriteria.js';
 import { assertPureProject, type StructuralProjectSession as StructuralSession, type ProjectCriteria } from '../common/modelProject.js';
 import { ModelContinuity, type ContinuityPolicy } from '../common/modelContinuity.js';

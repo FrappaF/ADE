@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { type DescriptiveScenario, type ModelInteraction, type ModelView, type SemanticElement, type SemanticModel } from './modelTypes.js';
 import { describeModelInteraction } from './modelInteractions.js';
 

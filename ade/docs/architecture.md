@@ -1,6 +1,6 @@
 # Architettura A.D.E
 
-A.D.E è un fork di Code OSS con un contributo nativo dedicato. Questa pagina descrive la struttura attuale del codice A.D.E; gli ADR e i verbali delle milestone documentano le decisioni e le verifiche storiche. Le scelte iniziali sono in [ADR 0001](decisions/0001-code-oss-fork.md), [ADR 0002](decisions/0002-visual-workbench.md) e nella [guida di sviluppo](fork-development.md).
+ADE è un fork di Code OSS con un contributo nativo dedicato. Per ottenere un ambiente di sviluppo funzionante, parti dalla [guida di sviluppo](fork-development.md).
 
 ## Confini e dipendenze
 
@@ -81,7 +81,7 @@ Il controller registra i listener nel proprio `DisposableStore`, svuotato alla s
 
 Ogni componente possiede sessioni e risorse del proprio workflow. Il coordinatore condivide il blocco delle operazioni, cancellazione, avanzamento e notifiche tramite un contesto limitato alle capacità richieste. Le opzioni di esecuzione nominano la modalità IA, diagrammi o locale. I servizi necessari vengono iniettati nei costruttori; l'istanziatore è usato solo durante la composizione iniziale.
 
-Le modifiche sono preparate per la revisione e applicate attraverso i workflow esistenti. Budget, consenso alla condivisione, verifica, recupero e annullamento restano parte dei rispettivi contratti. I dettagli applicativi sono nella [guida IA](ai-collaboration.md), nella [guida di importazione](code-import.md) e negli ADR successivi.
+Le modifiche sono preparate per la revisione e applicate attraverso i workflow esistenti. Budget, consenso alla condivisione, verifica, recupero e annullamento restano parte dei rispettivi contratti. La [guida utente](guida-utente/README.md) descrive i percorsi di importazione, generazione e verifica dall’interfaccia.
 
 ## Test e manutenzione
 
@@ -105,6 +105,6 @@ npm --prefix ade/ai test
 
 I test architetturali del runtime controllano l'assenza di cicli a runtime, l'indipendenza del dominio e dell'importatore e la risoluzione dei nomi condivisi dagli scenari desktop. La suite verifica anche che la generazione dei runtime sia indipendente da commenti e ordine delle dichiarazioni.
 
-Per il contributo nativo, dopo la preparazione descritta nella [guida di sviluppo](fork-development.md), usare `npm run ade:check`, `npm run ade:smoke:check`, la build client necessaria ai test e `npm run ade:ai:service-test`. Lo smoke desktop mantiene l'ingresso e i flag di `ade/scripts/smoke-desktop.mjs`: avvio, isolamento e raccolta degli errori vivono in `ade/scripts/smoke/harness.ts`, le interazioni comuni in `helpers.ts` e gli scenari nei moduli dedicati. I test con provider reali o broker richiedono la configurazione documentata nelle rispettive guide.
+Per il contributo nativo, dopo la preparazione descritta nella [guida di sviluppo](fork-development.md), usare `npm run ade:check`, `npm run ade:smoke:check`, la build client necessaria ai test e `npm run ade:ai:service-test`. Lo smoke desktop mantiene l'ingresso e i flag di `ade/scripts/smoke-desktop.mjs`: avvio, isolamento e raccolta degli errori vivono in `ade/scripts/smoke/harness.ts`, le interazioni comuni in `helpers.ts` e gli scenari nei moduli dedicati.
 
-`ade/prototype/` conserva il prototipo iniziale e la sua copertura di compatibilità. Non è richiesto dall'avvio del prodotto nativo. I verbali e i benchmark storici mantengono percorsi e hash della revisione in cui sono stati prodotti.
+`ade/prototype/` conserva il prototipo iniziale e la sua copertura di compatibilità. Non è richiesto dall'avvio del prodotto nativo.

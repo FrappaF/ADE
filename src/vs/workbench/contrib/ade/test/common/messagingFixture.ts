@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { type SemanticModelV4 } from '../../common/modelTypes.js';
 import { type ProjectCriteria } from '../../common/modelProject.js';
 export const messagingFixture: SemanticModelV4 = {
@@ -244,7 +239,7 @@ export const messagingFixture: SemanticModelV4 = {
 					"consequences": [
 						"At least once; crash can repeat effects before ledger completion",
 						"Local file ledger is not a distributed lock or external transaction",
-						"Source: ade/docs/decisions/0011-jetstream-messaging.md"
+						"Source: https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md"
 					],
 					"history": []
 				}

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { type SemanticModel } from './modelTypes.js';
 
 /** JSON boundary type; undefined, non-finite numbers and sparse arrays are rejected, never normalized. */

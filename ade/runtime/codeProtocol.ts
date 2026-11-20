@@ -1,7 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { adeCodeProtocolVersion, diagramCheckpointReasoningEfforts, maxDiagramCheckpointTimeoutMinutes, type CodeBridgeProtocol, type CodeRequest } from '../../src/vs/workbench/contrib/ade/common/codeBridge.ts';
 

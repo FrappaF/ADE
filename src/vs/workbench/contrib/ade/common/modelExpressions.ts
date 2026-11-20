@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { checkShape, predicateSchema } from './modelSchema.js';
 import { type ModelDiagnostic, type ModelField, type ModelPredicate, type SemanticModelV4 } from './modelTypes.js';
 import { checkModelExpression, evaluateModelExpression, emitModelExpression, fieldValueType, type ExpressionScope } from './modelValues.js';

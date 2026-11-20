@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import assert from 'assert';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import type { Server } from 'http';
@@ -31,10 +26,9 @@ const MODES = ['interactive', 'plan', 'autopilot'] as const;
  * here (for example `new_tool: 'new in SDK x.y.z, not reviewed'`) and the test
  * passes while the tool stays off for every session. Adopting a tool into
  * `COPILOT_ENABLED_BUILTIN_TOOL_NAMES` instead puts its definition in front of
- * the model on every request, so it is a decision for the tool budget owners,
- * whom `.github/CODENOTIFY` notifies. Never adopt a new tool just to make this
- * test pass. A rename of an already adopted tool is different: replace the old
- * name with the new one in the allow-list so the capability stays on.
+ * the model on every request and requires maintainer review. For a rename,
+ * replace the old name with the new one in the allow-list so the capability
+ * stays on.
  */
 const KNOWN_LEFT_OFF: Readonly<Record<string, string>> = {
 	dynamic_workflows_manage: 'dynamic workflows are excluded by CopilotSessionLauncher until Agent Host support is validated',
@@ -86,7 +80,7 @@ function describeDrift(registered: ReadonlyMap<string, string>, registeredButNot
 		lines.push('Check each new built-in for a rename first. It is a rename when it does the same job as a missing allow-listed tool; compare its description above with the old tool\'s definition in test/node/e2e/providers/__snapshots__/*.prompt.md. For a rename, adopt the new name so the capability stays on: replace the old name with the new one in COPILOT_ENABLED_BUILTIN_TOOL_NAMES and in expectedModelFacingToolNames (copilotPromptsE2E.integrationTest.ts), add the new name to the tool display mapping (CopilotToolName in copilotToolDisplay.ts and the aliases in toolPresentation.ts) while keeping the old entry so restored sessions still render, regenerate the prompt snapshots, and name the rename in the PR description.');
 	}
 	if (unreviewed.length) {
-		lines.push('For a new built-in that is not a rename, add it to KNOWN_LEFT_OFF in this file with a reason such as \'new in SDK x.y.z, not reviewed\'. That keeps it off for every session. Do not add it to COPILOT_ENABLED_BUILTIN_TOOL_NAMES to make this test pass; adopting a new tool is a decision for the tool budget owners listed for copilotBuiltinToolAllowlist.ts in .github/CODENOTIFY.');
+		lines.push('For a new built-in that is not a rename, add it to KNOWN_LEFT_OFF in this file with a reason such as \'new in SDK x.y.z, not reviewed\'. That keeps it off for every session. Do not add it to COPILOT_ENABLED_BUILTIN_TOOL_NAMES to make this test pass. Adopting a new tool requires maintainer review.');
 	}
 	if (missing.length) {
 		lines.push('For a missing tool that was not renamed, remove it from COPILOT_ENABLED_BUILTIN_TOOL_NAMES and expectedModelFacingToolNames, and keep its display mapping for restored sessions.');

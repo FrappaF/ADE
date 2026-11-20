@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import assert from 'node:assert/strict';
 import { writeFile, readFile, open } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
@@ -23,7 +18,7 @@ const controller = new AbortController(), cancel = () => controller.abort();
 process.on('SIGINT', cancel); process.on('SIGTERM', cancel);
 const samples = [];
 try {
-	const policyBytes = await readFile(new URL('../docs/diagram-driven-ai/budgets.v1.json', import.meta.url)), policy = JSON.parse(policyBytes);
+	const policyBytes = await readFile(new URL('../benchmarks/budgets.v1.json', import.meta.url)), policy = JSON.parse(policyBytes);
 	const config = { version: 1, provider: 'codex', connection: 'cli', model, executable, timeoutMs: policy.release.liveCallTimeoutMs, maxContextBytes: 262144, maxCalls: 1 };
 	const provider = createCliProvider();
 	for (const profileId of ['node.esm', 'bun.esm']) {
@@ -54,7 +49,7 @@ try {
 		if (samples.at(-1).status === 'failed') { break; }
 	}
 	const sources = ['ade/scripts/benchmark-dai-live.mjs', 'ade/ai/providers.ts', 'ade/ai/contracts.ts', 'src/vs/workbench/contrib/ade/common/modelTaskContext.ts', 'src/vs/workbench/contrib/ade/common/modelTaskResponse.ts'];
-	const report = { version: 1, sprint: 'DAI-12', recordedAt: new Date().toISOString(), kind: 'live-inference', provider: 'codex-cli', cliVersion: execFileSync(executable, ['--version'], { encoding: 'utf8', timeout: 5000 }).trim(), config, policySha256: await modelDigest(policyBytes.toString()), corpusSha256: await modelDigest((await readFile(new URL('../docs/diagram-driven-ai/corpus.v1.json', import.meta.url))).toString()),
+	const report = { version: 1, sprint: 'DAI-12', recordedAt: new Date().toISOString(), kind: 'live-inference', provider: 'codex-cli', cliVersion: execFileSync(executable, ['--version'], { encoding: 'utf8', timeout: 5000 }).trim(), config, policySha256: await modelDigest(policyBytes.toString()), corpusSha256: await modelDigest((await readFile(new URL('../benchmarks/corpus.v1.json', import.meta.url))).toString()),
 		sourceHashes: Object.fromEntries(await Promise.all(sources.map(async path => [path, await modelDigest((await readFile(new URL('../../' + path, import.meta.url))).toString())]))), samples,
 		observedSuccessRate: samples.filter(s => s.status === 'passed').length / samples.length, requestedSamples: 2 * policy.release.liveRunsPerCasePerCandidate, complete: samples.length === 2 * policy.release.liveRunsPerCasePerCandidate && samples.every(s => s.status === 'passed'), calls: samples.length, automaticRetries: 0, providerInternalRetries: 'owned by CLI; not observed', monetaryCost: null, published: false,
 		limits: ['Authored synthetic quantity fixture only; no frozen checkout/business case is certified.', 'A validated proposal is never published. Runtime business tests are separate deterministic evidence.', 'CLI reported tokens may include private overhead. No comparable tariff or second candidate: no price ranking.', 'Only the trusted provider adapter executes the CLI; tools, apps, MCP, hooks, web search and multi-agent feature disabled.'] };

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
@@ -24,8 +19,8 @@ const { createDiagramDrivenAdapter } = await import('../ai/diagramDriven.ts');
 const run = promisify(execFile);
 const json = async path => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
 const base = await json('../examples/dai-foundation.ade.json');
-const corpus = await json('../docs/diagram-driven-ai/corpus.v1.json');
-const budgets = await json('../docs/diagram-driven-ai/budgets.v1.json');
+const corpus = await json('../benchmarks/corpus.v1.json');
+const budgets = await json('../benchmarks/budgets.v1.json');
 const request = { targetId: 'operation.confirm', profile: fixtureProfile, maxInputBytes: budgets.release.contextInputMaxBytes };
 const sha = text => createHash('sha256').update(text).digest('hex');
 const copy = () => structuredClone(base);
@@ -204,7 +199,7 @@ for (const [id, adapt] of Object.entries(negativeAdapters)) {
 
 test('sealed packets resolve every included identity, preserve UTF-8 bytes and exclude the independent draft', async () => {
 	const first = await compileModelContext(base, request); const second = await compileModelContext(copy(), request);
-	const historical = await json('../docs/benchmarks/dai-02-sealed-context.json');
+	const historical = await json('./fixtures/dai/dai-02-sealed-context.json');
 	assert.equal(historical.seal, await modelDigest(historical.bytes));
 	assert.equal(historical.byteLength, Buffer.byteLength(historical.bytes));
 	assert.equal(JSON.parse(historical.bytes).grammar.schema.properties.version.const, 4);

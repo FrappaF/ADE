@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { type ModelBlueprint, type ModelFoundation, type ObjectKind, type SemanticModel, type SemanticModelV4 } from './modelTypes.js';
 
 /** A blueprint is opt-in: old v4 drafts do not receive invented contracts. */

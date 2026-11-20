@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 /** Fixed graph topology shared by baseline and future candidates; no random IDs or source paths. */
 export function createDaiGraph(size) {
 	const elements = [{ id: 'feature.checkout', kind: 'feature', name: 'Checkout' }];

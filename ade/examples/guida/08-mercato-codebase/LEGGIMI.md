@@ -1,5 +1,3 @@
-<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
-
 # Mercato · Codebase da importare
 
 Progetto autonomo in JavaScript per Node.js 24. Acquisto e Resi usano lo stesso archivio ordini. Il server HTTP ascolta su `127.0.0.1`, simula l’esito del pagamento e registra gli eventi in un outbox locale in memoria. Ogni riavvio riparte con ordini ed eventi vuoti.

@@ -1,7 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 // @ts-check
 import { fixupPluginRules } from '@eslint/compat';
 import { defineConfig } from 'eslint/config';
@@ -15,9 +11,6 @@ import * as pluginLocal from './.eslint-plugin-local/index.ts';
 import * as pluginCopilotLocal from './extensions/copilot/.eslintplugin/index.ts';
 import pluginImport from 'eslint-plugin-import';
 import pluginJsdoc from 'eslint-plugin-jsdoc';
-
-import pluginHeader from 'eslint-plugin-header';
-pluginHeader.rules.header.meta.schema = false;
 
 const ignores = fs.readFileSync(path.join(import.meta.dirname, '.eslint-ignore'), 'utf8')
 	.toString()
@@ -51,7 +44,6 @@ export default defineConfig(
 		},
 		plugins: {
 			'local': pluginLocal,
-			'header': fixupPluginRules(/** @type {any} */ (pluginHeader)),
 		},
 		rules: {
 			'constructor-super': 'warn',
@@ -139,16 +131,6 @@ export default defineConfig(
 					]
 				}
 			],
-			'header/header': [
-				2,
-				'block',
-				[
-					'---------------------------------------------------------------------------------------------',
-					' *  Copyright (c) Microsoft Corporation. All rights reserved.',
-					' *  Licensed under the MIT License. See License.txt in the project root for license information.',
-					' *--------------------------------------------------------------------------------------------'
-				]
-			]
 		},
 	},
 	// Production filesystem operations must not block the event loop.
@@ -3073,7 +3055,7 @@ export default defineConfig(
 	},
 	// Forbid new JavaScript files - use TypeScript instead.
 	// The allowlist of pre-existing JS/CJS/MJS files lives in
-	// `.eslint-allowed-javascript-files`, which is gated by CODEOWNERS.
+	// `.eslint-allowed-javascript-files`, whose changes require maintainer review.
 	// Do NOT add new entries; convert your file to TypeScript instead.
 	{
 		files: [

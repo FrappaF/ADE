@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { isDeepStrictEqual } from 'node:util';
 import { readSemanticModel } from '../../src/vs/workbench/contrib/ade/common/modelValidation.ts';
 import { type SemanticModel, type ModelView } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import cp from 'child_process';
 import es from 'event-stream';
 import fs from 'fs';
@@ -11,17 +6,10 @@ import pall from 'p-all';
 import path from 'path';
 import VinylFile from 'vinyl';
 import vfs from 'vinyl-fs';
-import { all, copyrightFilter, eslintFilter, indentationFilter, stylelintFilter, tsFormattingFilter, unicodeFilter } from './filters.ts';
+import { all, eslintFilter, indentationFilter, sourceCheckFilter, stylelintFilter, tsFormattingFilter, unicodeFilter } from './filters.ts';
 import eslint from './gulp-eslint.ts';
 import * as formatter from './lib/formatter.ts';
 import gulpstylelint from './stylelint.ts';
-
-const copyrightHeaderLines = [
-	'/*---------------------------------------------------------------------------------------------',
-	' *  Copyright (c) Microsoft Corporation. All rights reserved.',
-	' *  Licensed under the MIT License. See License.txt in the project root for license information.',
-	' *--------------------------------------------------------------------------------------------*/',
-];
 
 interface VinylFileWithLines extends VinylFile {
 	__lines: string[];
@@ -72,7 +60,7 @@ export function checkNoNewJavaScriptFiles(repoRoot: string): string | undefined 
 		return [
 			'New JavaScript files are not allowed. Use TypeScript (.ts) instead.',
 			'If a file genuinely must be JavaScript, add it to .eslint-allowed-javascript-files',
-			'(this requires CODEOWNERS review). Offending files:',
+			'(this requires maintainer review). Offending files:',
 			...unknown.map(f => `  ${f}`),
 		].join('\n');
 	}
@@ -159,20 +147,6 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 		this.emit('data', file);
 	});
 
-	const copyrights = es.through(function (file: VinylFileWithLines) {
-		const lines = file.__lines;
-
-		for (let i = 0; i < copyrightHeaderLines.length; i++) {
-			if (lines[i] !== copyrightHeaderLines[i]) {
-				console.error(file.relative + ': Missing or bad copyright statement');
-				errorCount++;
-				break;
-			}
-		}
-
-		this.emit('data', file);
-	});
-
 	const formatting = es.map(function (file: any, cb) {
 		try {
 			const rawInput = file.contents!.toString('utf8');
@@ -225,9 +199,7 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 		.pipe(filter(Array.from(indentationFilter)))
 		.pipe(trackCheckedFile())
 		.pipe(indentation)
-		.pipe(filter(Array.from(copyrightFilter)))
-		.pipe(trackCheckedFile())
-		.pipe(copyrights);
+		.pipe(filter(Array.from(sourceCheckFilter)));
 
 	const streams: NodeJS.ReadWriteStream[] = [
 		result.pipe(filter(Array.from(tsFormattingFilter))).pipe(trackCheckedFile()).pipe(formatting)

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { RUNTIME_TOOL_SEARCH_TOOL_NAME } from '../../common/toolSearchConstants.js';
 
 /**
@@ -19,9 +14,8 @@ import { RUNTIME_TOOL_SEARCH_TOOL_NAME } from '../../common/toolSearchConstants.
  * list and the runtime's registered built-ins disagree (see section 9 of
  * `AGENTS.md`).
  *
- * Adding a name here is an adoption decision for the tool budget owners, whom
- * `.github/CODENOTIFY` notifies. When that test reports a new runtime built-in, the
- * default fix is to add it to `KNOWN_LEFT_OFF` in the test, not to adopt it here.
+ * Adopting a tool requires maintainer review. When the test reports a new
+ * runtime built-in, add it to `KNOWN_LEFT_OFF` in the test by default.
  * A rename of a tool already listed here is the exception: replace the old name
  * with the new one so the capability stays on.
  */

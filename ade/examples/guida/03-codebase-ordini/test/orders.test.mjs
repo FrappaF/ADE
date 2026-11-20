@@ -1,5 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License.
-
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateQuantity, calculateTotal, checkout } from '../src/orders.mjs';

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -14,9 +9,9 @@ import { createDaiGraph, createDaiEvidence } from '../benchmarks/dai-fixtures.mj
 const root = new URL('../../', import.meta.url);
 const read = path => readFile(new URL(path, root), 'utf8');
 const readJson = async path => JSON.parse(await read(path));
-const coverage = await readJson('ade/docs/diagram-driven-ai/coverage.json');
-const corpus = await readJson('ade/docs/diagram-driven-ai/corpus.v1.json');
-const budgets = await readJson('ade/docs/diagram-driven-ai/budgets.v1.json');
+const coverage = await readJson('ade/test/fixtures/dai/coverage.json');
+const corpus = await readJson('ade/benchmarks/corpus.v1.json');
+const budgets = await readJson('ade/benchmarks/budgets.v1.json');
 const hash = value => createHash('sha256').update(value).digest('hex');
 
 test('DAI coverage assigns every requirement and step without certifying future capabilities', () => {
@@ -33,13 +28,17 @@ test('DAI coverage assigns every requirement and step without certifying future 
 	assert.deepEqual(coverage.steps.map(item => item.status), ['delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'started', 'started', 'delivered', 'delivered', 'started']);
 });
 
-test('baseline evidence links resolve to files and declared symbols rather than invented APIs', async () => {
+test('baseline evidence references live files, declared symbols or pinned historical documents', async () => {
 	const references = new Set([
 		...coverage.requirements.flatMap(item => [...item.schema, ...item.service, ...item.ui, ...item.proof]),
 		...coverage.steps.flatMap(item => item.evidence),
 		...coverage.requirements.flatMap(item => (item.increments ?? []).flatMap(increment => increment.evidence))
 	]);
 	for (const reference of references) {
+		if (reference.startsWith('https://')) {
+			assert.match(reference, /^https:\/\/github\.com\/FrappaF\/ADE\/blob\/[a-f0-9]{40}\/ade\/docs\//);
+			continue;
+		}
 		const [path, symbol] = reference.split('#');
 		const content = await read(path);
 		assert.ok(content.length && (!symbol || content.includes(symbol)), reference);
@@ -76,9 +75,9 @@ test('fixed benchmark graphs are valid at every declared scale and contain no ex
 });
 
 test('frozen report binds budget, corpus and exact benchmark fixtures while retaining unmeasured results', async () => {
-	const report = await readJson('ade/docs/benchmarks/dai-01-2026-11-08.json');
-	assert.equal(report.policy.sha256, hash(await read('ade/docs/diagram-driven-ai/budgets.v1.json')));
-	assert.equal(report.corpusSha256, hash(await read('ade/docs/diagram-driven-ai/corpus.v1.json')));
+	const report = await readJson('ade/test/fixtures/dai/dai-01-2026-11-08.json');
+	assert.equal(report.policy.sha256, hash(await read('ade/benchmarks/budgets.v1.json')));
+	assert.equal(report.corpusSha256, hash(await read('ade/benchmarks/corpus.v1.json')));
 	assert.deepEqual(report.provider, { calls: 0, model: null, measuredTokens: null, price: null });
 	assert.equal(budgets.frozenBeforeMeasurement, true);
 	assert.equal(report.fixtures.length, budgets.graphs.length);

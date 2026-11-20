@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 const checkpointPhases = ['discovery', 'planning', 'diagrams', 'audit', 'repair'] as const;
 
 export interface DiagramCheckpoint {

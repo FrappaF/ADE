@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { readdir, lstat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import ts from '../code-import/typescriptRuntime.ts';

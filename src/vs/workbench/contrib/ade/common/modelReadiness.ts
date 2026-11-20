@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { modelObjects } from './modelFoundation.js';
 import { validateSemanticModel, validateSemanticShape } from './modelValidation.js';
 import { type ElementKind, type ModelDiagnostic, type ModelFoundation, type ModelReference, type SemanticModel, type SemanticModelV4 } from './modelTypes.js';

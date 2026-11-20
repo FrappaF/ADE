@@ -237,7 +237,7 @@
 					"consequences": [
 						"At least once; crash can repeat effects before ledger completion",
 						"Local file ledger is not a distributed lock or external transaction",
-						"Source: ade/docs/decisions/0011-jetstream-messaging.md"
+						"Source: https://github.com/FrappaF/ADE/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md"
 					],
 					"history": []
 				}

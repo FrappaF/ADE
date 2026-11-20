@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { randomUUID } from 'node:crypto';
 import { readFile, readdir, lstat, realpath, writeFile, rename, rm, chmod } from 'node:fs/promises';
 import { join, dirname, basename } from 'node:path';

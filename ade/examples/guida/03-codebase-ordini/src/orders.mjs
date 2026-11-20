@@ -1,5 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License.
-
 export function validateQuantity(quantity) {
   if (!Number.isSafeInteger(quantity)) throw new TypeError('La quantità deve essere un intero sicuro');
   return quantity > 0;

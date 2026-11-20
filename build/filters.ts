@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -12,7 +7,7 @@ import { join } from 'path';
  * named according to the checks performed on them. Each subset contains
  * the following one, as described in mathematical notation:
  *
- * all ⊃ eol ⊇ indentation ⊃ copyright ⊃ typescript
+ * all ⊃ eol ⊇ indentation ⊃ sources ⊃ typescript
  */
 
 export const all = Object.freeze<string[]>([
@@ -173,7 +168,7 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!extensions/simple-browser/media/*.js',
 ]);
 
-export const copyrightFilter = Object.freeze<string[]>([
+export const sourceCheckFilter = Object.freeze<string[]>([
 	'**',
 	'!**/*.desktop',
 	'!**/*.json',

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 export interface ContinuityPolicy {
 	version: 1; revision: string; root: string; maxPreparations: number; attempted: number;
 	maxInputBytes: number; outputReserveBytes: 65536; review: 'manual'; providerCalls: 0;

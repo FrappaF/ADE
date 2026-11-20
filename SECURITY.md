@@ -1,14 +1,5 @@
-<!-- BEGIN MICROSOFT SECURITY.MD V1.0.0 BLOCK -->
+# Segnalare una vulnerabilità
 
-## Security
+Per una vulnerabilità di ADE, usa **Report a vulnerability** nella [sezione Security di GitHub](https://github.com/FrappaF/ADE/security) se disponibile. Altrimenti contatta in privato il maintainer del repository per concordare come inviare i dettagli. Evita di pubblicare dettagli della vulnerabilità o dati riservati nelle issue.
 
-Microsoft takes the security of our software products and services seriously, which
-includes all source code repositories in our GitHub organizations.
-
-**Please do not report security vulnerabilities through public GitHub issues.**
-
-For security reporting information, locations, contact information, and policies,
-please review the latest guidance for Microsoft repositories at
-[https://aka.ms/SECURITY.md](https://aka.ms/SECURITY.md).
-
-<!-- END MICROSOFT SECURITY.MD BLOCK -->
+Includi la versione o il commit interessato, l’impatto e le informazioni necessarie a verificare il problema. Per vulnerabilità che riguardano direttamente VS Code upstream, segui la [procedura Microsoft](https://aka.ms/SECURITY.md).

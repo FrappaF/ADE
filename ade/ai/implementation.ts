@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, writeFile, rename, link, lstat, realpath, unlink, open, rm } from 'node:fs/promises';

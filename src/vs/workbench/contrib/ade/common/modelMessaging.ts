@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { checkShape, semanticModelV4Schema } from './modelSchema.js';
 import { readSemanticDraft } from './modelValidation.js';
 import { emptyFoundation } from './modelFoundation.js';

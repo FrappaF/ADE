@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { validateModelMessaging, type MessagingScenario, type MessagingObservation } from './modelMessaging.js';
 import { validateModelStateMachine, type StateScenario, type StateObservation } from './modelStates.js';
 import { validateModelInteraction, type InteractionReplies } from './modelInteractions.js';

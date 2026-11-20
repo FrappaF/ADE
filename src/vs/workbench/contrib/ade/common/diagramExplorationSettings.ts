@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { defaultDiagramCheckpointTimeoutMinutes, diagramCheckpointReasoningEfforts, maxDiagramCheckpointTimeoutMinutes, type DiagramCheckpointReasoningEffort } from './codeBridge.js';
 
 export const diagramCheckpointTimeoutSetting = 'ade.diagramImport.checkpointTimeoutMinutes';

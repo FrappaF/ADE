@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { wrapDiagramText } from './diagramLayout.js';
 import { scenarioLayers, scenarioUnorderedOccurrences } from './modelScenario.js';
 import { type Knowledge, type SemanticModelV4 } from './modelTypes.js';

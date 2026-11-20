@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
@@ -28,7 +23,7 @@ async function measure(operation, policy) {
 
 /** Same-input compiler comparison, local boundaries only; no provider tokens or business certification inferred. */
 export async function measureDaiContext() {
-	const policy = JSON.parse(await readFile(new URL('../docs/diagram-driven-ai/budgets.v1.json', import.meta.url)));
+	const policy = JSON.parse(await readFile(new URL('./budgets.v1.json', import.meta.url)));
 	const library = structuredClone(nodeOrders);
 	for (let i = 0; i < 100; i++) {
 		const op = structuredClone(library.foundation.blueprint.operations[1]);

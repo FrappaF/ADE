@@ -1,14 +1,12 @@
 ---
 name: Feature request
-about: Suggest an idea for this project
-title: ''
-labels: ''
-assignees: ''
-
+about: Suggest an improvement to ADE
 ---
 
-<!-- ⚠️⚠️ Do Not Delete This! feature_request_template ⚠️⚠️ -->
-<!-- Please read our Rules of Conduct: https://opensource.microsoft.com/codeofconduct/ -->
-<!-- Please search existing issues to avoid creating duplicates. -->
+<!-- Search existing ADE issues before opening a new one. -->
 
-<!-- Describe the feature you'd like. -->
+## What are you trying to do?
+
+<!-- Describe your workflow and where you get stuck. -->
+
+## What change would help?

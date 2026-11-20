@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { compileModelStateMachine, stateRules } from './modelStates.js';
 import { valueRuntime } from './modelValues.js';
 import { interactionInterpreterSource } from './interactionRuntime.generated.js';

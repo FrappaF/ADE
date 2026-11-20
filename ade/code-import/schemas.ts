@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { array, object, text, identifier, digest } from '../runtime/schemas.ts';
 
 export const evidence = object({ file: text, revision: digest, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 0 }, line: { type: 'integer', minimum: 1 }, endLine: { type: 'integer', minimum: 1 } });

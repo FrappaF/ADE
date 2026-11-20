@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { type SemanticModelV4 } from '../common/modelTypes.js';
 import { type AdeControls } from './adeControls.js';
 import { adeInteractionRows } from './adeInteractionContent.js';

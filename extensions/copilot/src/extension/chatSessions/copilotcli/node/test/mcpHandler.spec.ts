@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import type { SweCustomAgent } from '@github/copilot/sdk';
 import { describe, expect, it } from 'vitest';
 import { IAuthenticationService } from '../../../../../platform/authentication/common/authentication';

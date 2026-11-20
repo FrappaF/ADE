@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 export const text = { type: 'string', minLength: 1 };
 export const identifier = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]*$' };
 export const digest = { type: 'string', pattern: '^[a-f0-9]{64}$' };

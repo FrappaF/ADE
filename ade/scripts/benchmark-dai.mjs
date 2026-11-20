@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -27,7 +22,7 @@ const args = v4 ? input.slice(1) : input;
 if (args.length !== 0 && !(args.length === 2 && args[0] === '--output')) {
 	throw new Error('Usage: node ade/scripts/benchmark-dai.mjs [--v4] [--output NEW_FILE]');
 }
-const policyPath = new URL('../docs/diagram-driven-ai/budgets.v1.json', import.meta.url);
+const policyPath = new URL('../benchmarks/budgets.v1.json', import.meta.url);
 const policyBytes = await readFile(policyPath);
 const policy = JSON.parse(policyBytes);
 const sha256 = value => createHash('sha256').update(value).digest('hex');
@@ -98,7 +93,7 @@ const report = {
 	version: 1, kind: 'local-deterministic-baseline', modelVersion: v4 ? 4 : 3, recordedAt: new Date().toISOString(), timezone: 'Europe/Rome',
 	revision: git('rev-parse', 'HEAD'), workingTreeDirty: git('status', '--porcelain').length > 0,
 	policy: { id: policy.id, sha256: sha256(policyBytes) },
-	corpusSha256: sha256(await readFile(new URL('../docs/diagram-driven-ai/corpus.v1.json', import.meta.url))),
+	corpusSha256: sha256(await readFile(new URL('../benchmarks/corpus.v1.json', import.meta.url))),
 	sourceHashes: Object.fromEntries(await Promise.all(trackedSources.map(async path => [path, sha256(await readFile(new URL(path, root)))]))),
 	hardware: { platform: platform(), arch: arch(), kernel: release(), node: process.version, cpu: cpus()[0]?.model, availableParallelism: availableParallelism(), hostMemoryMiB: totalmem() / 1024 / 1024, cgroupCpuMax: await optionalRead('/sys/fs/cgroup/cpu.max'), cgroupMemoryMax: await optionalRead('/sys/fs/cgroup/memory.max') },
 	measurement: policy.measurement, fixtures,

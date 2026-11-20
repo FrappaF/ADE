@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { reviseModelTask } from './modelWorkflow.js';
 import { type SemanticModel } from './modelTypes.js';
 import { reviseModelDecision, setBlueprintRecord } from './modelBlueprint.js';

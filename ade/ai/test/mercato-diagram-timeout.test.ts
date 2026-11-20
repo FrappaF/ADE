@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import '../../scripts/source-loader.mjs';
 import assert from 'node:assert/strict';
 import { cp, mkdtemp, rm, writeFile } from 'node:fs/promises';

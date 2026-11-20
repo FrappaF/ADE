@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { adeErrorNotification } from '../browser/adeErrors.js';
 import { diagramToolDefinitions, diagramSessionInstruction } from '../common/diagramTools.js';
 import { ILanguageModelsService } from '../../chat/common/languageModels.js';

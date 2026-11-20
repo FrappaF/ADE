@@ -1,6 +1,6 @@
 # Provenienza delle fixture SCIP
 
-Queste fixture provengono da indicizzazioni reali eseguite il 30 ottobre 2026 con Node 24.22.1 su Linux. I test ordinari leggono questi dati locali; non installano indicizzatori, non contattano servizi e non simulano la risoluzione degli alias mediante confronti testuali.
+Queste fixture provengono da indicizzazioni reali eseguite con Node 24.22.1 su Linux. I test ordinari leggono questi dati locali; non installano indicizzatori, non contattano servizi e non simulano la risoluzione degli alias mediante confronti testuali.
 
 | Fixture | Produttore | Versione | Posizioni |
 | --- | --- | --- | --- |
@@ -27,9 +27,9 @@ Decodificare e ridurre i risultati con gli stessi campi delle fixture. Il proget
 
 | Sorgente | SHA-256 |
 | --- | --- |
-| `typescript/checkout.ts` | `d6af4932e8fb1270c310634261cb989f066019f81af219d519b46a05cffe1e90` |
-| `typescript/gateway.ts` | `9fbc5ab8793d76e24c70942e6c19d459792ea564b5395f43bf4c7eaf131fce3e` |
-| `python/checkout.py` | `fd1d84d5892c9f851f9cc053a4b5ccc9b7be871b117f13b45a016ae4fa04f3ba` |
-| `python/gateway.py` | `e75a996ed1e5b5575cee9cd5d421c3848492324ebfe1f2667dd3b17feadb126e` |
+| `typescript/checkout.ts` | `55a95c5750c6bc03c7dcdd492cc876e41f20ec0c56acf8e5656ec3cd9899dae1` |
+| `typescript/gateway.ts` | `f7ee15c123f7cebe244dabda97483f2d3ecf57daef1c9bae105137395e0fce74` |
+| `python/checkout.py` | `9e3e1bd9629821f528936966dc7323ef6a2b2fcd8afbea7fcdc4875084602341` |
+| `python/gateway.py` | `7f058bb949d1bad2eb922900b133967a4fbbf0cfe5eabb6b33ace9723ef801a8` |
 
 Le varianti negative e delle codifiche nei test sono trasformazioni esplicite di questi dati: non rappresentano nuovi collaudi di backend. Fonti primarie: [schema SCIP](https://github.com/scip-code/scip/blob/main/scip.proto), [CLI JSON](https://github.com/scip-code/scip/blob/main/docs/CLI.md), [scip-typescript](https://github.com/sourcegraph/scip-typescript), [scip-python](https://github.com/sourcegraph/scip-python/tree/scip). Gli indicizzatori e i binding sono dipendenze esterne opzionali; il tool ADE non ne ridistribuisce il codice.

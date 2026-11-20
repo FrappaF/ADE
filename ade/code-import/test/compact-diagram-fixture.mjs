@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 // Test-only adapters keep existing domain oracles independent of the optimized wire representation.
 export function expandDiagramContext(context) {
 	if (context.format !== 'compact-v4') { return context; }

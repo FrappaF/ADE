@@ -4,7 +4,7 @@
 # `local/code-no-bracket-notation-for-identifiers` lint rule.
 #
 # DO NOT ADD NEW ENTRIES. Use dot notation for identifier properties instead.
-# Modifications to this file require sign-off from the CODEOWNERS.
+# Modifications to this file require maintainer review.
 #
 # Lines starting with `#` are comments. Blank lines are ignored.
 

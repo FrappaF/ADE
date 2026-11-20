@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { applyDiagramProposal, type DiagramProposal, type ModelPatch } from '../../src/vs/workbench/contrib/ade/common/modelProposals.ts';
 import { type ModelView, type SemanticModelV4 } from '../../src/vs/workbench/contrib/ade/common/modelTypes.ts';
 import { canonicalJson } from '../../src/vs/workbench/contrib/ade/common/modelSerialization.ts';

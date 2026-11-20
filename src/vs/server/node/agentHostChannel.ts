@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 // Server-side IPC channel that proxies the agent host protocol from a
 // renderer to the agent host process running on the server. For each
 // renderer client (identified by IPC context) the channel opens its own
