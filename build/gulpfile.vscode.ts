@@ -63,6 +63,7 @@ const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
 const isCI = !!process.env['CI'] || !!process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'] || !!process.env['GITHUB_WORKSPACE'];
 const useCdnSourceMapsForPackagingTasks = isCI;
 const stripSourceMapsInPackagingTasks = isCI;
+const excludeSourceMaps = '!**/*.{js,mjs,cjs,css,ts,mts,cts}.map';
 
 const coreCIOutBuildTask = task.series(
 	checkApiProposalNamesTask,
@@ -171,7 +172,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		const extensions = gulp.src(['.build/extensions/**', ...platformSpecificBuiltInExtensionsExclusions], { base: '.build', dot: true });
 
 		const sourceFilterPattern = stripSourceMapsInPackagingTasks
-			? ['**', '!**/*.{js,css}.map']
+			? ['**', excludeSourceMaps]
 			: ['**'];
 		const sources = es.merge(src, extensions)
 			.pipe(filter(sourceFilterPattern, { dot: true }));
@@ -245,7 +246,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 		const depFilterPattern = ['**', `!**/${config.version}/**`, '!**/bin/darwin-arm64-87/**', '!**/package-lock.json', '!**/yarn.lock'];
 		if (stripSourceMapsInPackagingTasks) {
-			depFilterPattern.push('!**/*.{js,css}.map');
+			depFilterPattern.push(excludeSourceMaps);
 		}
 
 		const cleanedDeps = gulp.src(dependenciesSrc, { base: '.', dot: true })

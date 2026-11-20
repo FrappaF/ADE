@@ -87,6 +87,8 @@ jobs:
           ditto -x -k "$archive" "$RUNNER_TEMP/ordito-extracted"
           app="$RUNNER_TEMP/ordito-extracted/Ordito.app"
           test -s "$app/Contents/Resources/LICENSE.electron.txt"
+          icon=$(plutil -extract CFBundleIconFile raw "$app/Contents/Info.plist")
+          cmp resources/darwin/code.icns "$app/Contents/Resources/$icon"
           codesign --verify --deep --strict "$app"
           mac_arch="$ARCH"
           if [[ "$ARCH" == x64 ]]; then
@@ -104,6 +106,7 @@ jobs:
           tar -czf "$archive" -C "$RUNNER_TEMP" Ordito
           tar -xzf "$archive" -C "$RUNNER_TEMP/ordito-extracted"
           test -s "$RUNNER_TEMP/ordito-extracted/Ordito/LICENSE.electron.txt"
+          cmp resources/linux/code.png "$RUNNER_TEMP/ordito-extracted/Ordito/resources/app/resources/linux/code.png"
           echo "ORDITO_ELECTRON_PATH=$RUNNER_TEMP/ordito-extracted/Ordito/ordito" >> "$GITHUB_ENV"
       - name: Smoke test the extracted app
         shell: bash
