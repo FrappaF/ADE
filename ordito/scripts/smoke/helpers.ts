@@ -21,7 +21,7 @@ async function revealOrditoAncestors(target: Locator) {
 			const list = ancestor.locator('xpath=../preceding-sibling::*[@role="tablist"][1]');
 			await list.getByRole('tab', { includeHidden: true }).nth(index).click();
 		} else if (!await ancestor.evaluate(element => element instanceof HTMLDetailsElement && element.open)) {
-			await ancestor.locator(':scope > summary').click();
+			await ancestor.locator(':scope > summary').press('Enter');
 		}
 	}
 	await target.waitFor();
