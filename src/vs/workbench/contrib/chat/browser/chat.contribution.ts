@@ -5,6 +5,7 @@
 
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import product from '../../../../platform/product/common/product.js';
 import { ExportAgentHostDebugLogsAction } from './actions/exportAgentHostDebugLogsAction.js';
 import { ForkConversationAction } from './actions/chatForkActions.js';
 import { ContinueChatInCopilotAction } from './actions/chatContinueInAction.js';
@@ -14,7 +15,9 @@ import { IAgentHostPolicyContinuationPresenter } from './agentSessions/agentHost
 import { EditorAgentHostPolicyContinuationPresenter } from './agentSessions/agentHost/agentHostPolicyContinuationEditor.js';
 
 registerAction2(ForkConversationAction);
-registerAction2(ContinueChatInCopilotAction);
+if (!product.disableBuiltInCopilot) {
+	registerAction2(ContinueChatInCopilotAction);
+}
 registerAction2(ExportAgentHostDebugLogsAction);
 registerSingleton(IChatResponseFileChangesService, EditorChatResponseFileChangesService, InstantiationType.Delayed);
 registerSingleton(IAgentHostPolicyContinuationPresenter, EditorAgentHostPolicyContinuationPresenter, InstantiationType.Delayed);

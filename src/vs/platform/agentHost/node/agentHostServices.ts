@@ -40,7 +40,7 @@ import { IByokLmBridgeRegistry } from './byokLmBridgeRegistry.js';
 import { ClaudeAgentSdkService, IClaudeAgentSdkService } from './claude/claudeAgentSdkService.js';
 import { ClaudeProxyService, IClaudeProxyService } from './claude/claudeProxyService.js';
 import { ByokLmProxyService, IByokLmProxyService, NullByokLmProxyService } from './copilot/byokLmProxyService.js';
-import { ILocalModelSetupService, LocalModelSetupService, NullLocalModelSetupService } from './copilot/localModelBridge/localModelSetupService.js';
+import { ILocalModelSetupService, NullLocalModelSetupService } from './copilot/localModelBridge/localModelProvider.js';
 import { CodexProxyService, ICodexProxyService } from './codex/codexProxyService.js';
 import { NodeWorkerDiffComputeService } from './diffComputeService.js';
 import { NetworkDiagnosticsService, INetworkDiagnosticsService } from './networkDiagnosticsService.js';
@@ -157,7 +157,7 @@ export interface IAgentHostHostServiceInputs {
 	readonly fetchFn: typeof globalThis.fetch;
 	readonly byok: { readonly kind: 'renderer'; readonly bridgeRegistry: IByokLmBridgeRegistry } | { readonly kind: 'unavailable' };
 	/** On-device models run only in the local utility-process host; other hosts get the null implementation. */
-	readonly localModel?: { readonly kind: 'localUtilityProcess' } | { readonly kind: 'unavailable' };
+	readonly localModel?: SyncDescriptor<ILocalModelSetupService>;
 }
 
 export function registerAgentHostHostServices(services: ServiceCollection, inputs: IAgentHostHostServiceInputs): void {
@@ -178,6 +178,6 @@ export function registerAgentHostHostServices(services: ServiceCollection, input
 	);
 	services.set(
 		ILocalModelSetupService,
-		inputs.localModel?.kind === 'localUtilityProcess' ? new SyncDescriptor(LocalModelSetupService) : new NullLocalModelSetupService(),
+		inputs.localModel ?? new NullLocalModelSetupService(),
 	);
 }

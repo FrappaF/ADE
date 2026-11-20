@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IAgentHostSessionStateStore, SessionStateMirrorFlush } from '../../common/agentHostSessionStateStore.js';
-import { CopilotClient, RuntimeConnection, type CopilotClientOptions, type GitHubTelemetryNotification, type SessionMetadata, type SessionMode as CopilotSdkMode } from '@github/copilot-sdk';
+import type { CopilotClient, CopilotClientOptions, GitHubTelemetryNotification, SessionMetadata, SessionMode as CopilotSdkMode } from '@github/copilot-sdk';
 import { constants as fsConstants } from 'fs';
 import * as fs from 'fs/promises';
 import * as os from 'os';
@@ -141,6 +141,9 @@ import { SessionMcpDiscovery } from '../shared/sessionMcpDiscovery.js';
 import { hasClientPluginMcpDefaultCwd, isClientPluginStandalone, readClientPluginMcpDefaultCwd } from '../../common/meta/clientPluginCustomizationMeta.js';
 import { classifyCopilotClientOperationFailure, CopilotClientStartupConfigChangedError, createCopilotFailureCorrelation, isRecognizedCopilotClientStartupFailure, reportCopilotClientOperationFailure, reportCopilotClientRecovery, reportCopilotClientRecoveryTurn, reportCopilotClientStartup, type CopilotClientOperation, type CopilotClientOperationFailureKind, type ICopilotFailureCorrelation } from './copilotFailureTelemetry.js';
 import { reportCopilotRuntimeRestart, type CopilotSessionRefreshReason } from './copilotRuntimeRestartTelemetry.js';
+
+// Keep this external dependency behind the Agent Host's provider registration gate in bundled builds.
+const copilotSdk = await import('@github/copilot-sdk');
 
 const COPILOT_MANAGED_SETTINGS_DIAGNOSTICS_QUERY_TIMEOUT_MS = 3500;
 const COPILOT_MANAGED_SETTINGS_DIAGNOSTICS_TIMEOUT_MS = 4500;
@@ -2294,7 +2297,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	}
 
 	protected _createCopilotClient(options: CopilotClientOptions): CopilotClient {
-		return new CopilotClient(options);
+		return new copilotSdk.CopilotClient(options);
 	}
 
 	private async _acquireExtensionLaunchAdmission(directories: readonly URI[]): Promise<IDisposable> {
@@ -4276,7 +4279,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 					baseDirectory: env['COPILOT_HOME'],
 				} : {}),
 				...(scoped?.kind === 'storage' ? { mode: 'empty' as const } : {}),
-				connection: RuntimeConnection.forStdio({ path: runtimePath }),
+				connection: copilotSdk.RuntimeConnection.forStdio({ path: runtimePath }),
 				env,
 				clientInfo: {
 					applicationName: 'vscode-agent-host',

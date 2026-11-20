@@ -34,14 +34,6 @@ const cssTextPlugin: Plugin = {
 	},
 };
 
-const mermaidMarkdownBuildOptions: Partial<esbuild.BuildOptions> = {
-	loader: {
-		'.ttf': 'dataurl',
-	},
-	plugins: [cssTextPlugin],
-	splitting: true,
-};
-
 await Promise.all([
 	// Chat
 	run({
@@ -58,33 +50,24 @@ await Promise.all([
 			},
 		}
 	}, process.argv),
-	// Markdown preview
+	// The Notebook webview allows resources in its renderer directory. The Markdown
+	// preview and editor allow the extension directory, which also contains these chunks.
 	run({
 		entryPoints: {
-			'index': path.join(previewSrcDir, 'markdown', 'index.ts'),
+			'markdown-preview-out/index': path.join(previewSrcDir, 'markdown', 'index.ts'),
+			'notebook-out/index': path.join(previewSrcDir, 'notebook', 'index.ts'),
+			'markdown-editor-out/index': path.join(previewSrcDir, 'markdownEditor', 'index.ts'),
 		},
 		srcDir: previewSrcDir,
-		outdir: path.join(rootDir, 'markdown-preview-out'),
-		additionalOptions: mermaidMarkdownBuildOptions,
-	}, process.argv),
-	// Notebook
-	run({
-		entryPoints: {
-			'index': path.join(previewSrcDir, 'notebook', 'index.ts'),
-		},
-		srcDir: previewSrcDir,
-		outdir: path.join(rootDir, 'notebook-out'),
+		outdir: rootDir,
+		outputSubdirectory: '.',
 		additionalOptions: {
-			...mermaidMarkdownBuildOptions,
+			loader: {
+				'.ttf': 'dataurl',
+			},
+			plugins: [cssTextPlugin],
+			splitting: true,
+			chunkNames: 'notebook-out/chunks/[name]-[hash]',
 		},
-	}, process.argv),
-	// Markdown editor code blocks
-	run({
-		entryPoints: {
-			'index': path.join(previewSrcDir, 'markdownEditor', 'index.ts'),
-		},
-		srcDir: previewSrcDir,
-		outdir: path.join(rootDir, 'markdown-editor-out'),
-		additionalOptions: mermaidMarkdownBuildOptions,
 	}, process.argv),
 ]);

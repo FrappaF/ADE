@@ -357,7 +357,7 @@ writeSync(1,JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output
 		await (await codeAction(window, 'Update Code', false)).waitFor();
 		await runCommand(window, 'Ordito: Restore Code Model Snapshot');
 		await window.locator('.quick-input-widget').getByText(initial.folder, { exact: true }).click();
-		await (await codeAction(window, 'Update Code', false)).waitFor();
+		await shell.locator('.ordito-canvas').getByRole('button', { name: 'checkout', exact: true }).waitFor();
 		assert.equal((await snapshot()).folder, initial.folder);
 		assert.ok((await readFile(path.join(sourceRoot, 'checkout.ts'), 'utf8')).includes('purchase'));
 		await writeFile(path.join(evidence, 'm4-code-results.json'), JSON.stringify({ imported: initial.state.files.length, dependencyCount: initial.state.semantic.dependencies.length, renamedId: previous.id, parsed: updated.state.analysis.parsed, reused: updated.state.analysis.reused, recovery: true, aiReviewed: true, modelToCode: true, pairedUndo: true, diagramProtocol: 'legacy', defaultExplorationUiVerified: true, incrementalEndToEnd: false }, null, 2));

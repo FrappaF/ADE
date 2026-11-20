@@ -157,6 +157,9 @@ export interface IProductConfiguration {
 
 	readonly agentSdks?: { readonly [packageId: string]: IAgentSdkProductConfig };
 
+	/** The product ships without Copilot Chat or the Copilot Agent Host provider. */
+	readonly disableBuiltInCopilot?: boolean;
+
 	readonly copilotVersions?: {
 		readonly runtime: string;
 		readonly sdk: string;

@@ -59,7 +59,7 @@ else if (globalThis._VSCODE_PRODUCT_JSON && globalThis._VSCODE_PACKAGE_JSON) {
 		});
 	}
 
-	if (!product.copilotVersions) {
+	if (!product.disableBuiltInCopilot && !product.copilotVersions) {
 		const sdk = getDependencyVersion(packageConfiguration, '@github/copilot-sdk');
 		if (packageConfiguration.copilotRuntimeVersion && sdk) {
 			Object.assign(product, { copilotVersions: { runtime: packageConfiguration.copilotRuntimeVersion, sdk } });

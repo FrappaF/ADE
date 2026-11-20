@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CopilotRequestHandler, type CopilotRequestContext } from '@github/copilot-sdk';
+import type { CopilotRequestContext } from '@github/copilot-sdk';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../../nls.js';
 import type { ILogService } from '../../../../../log/common/log.js';
@@ -47,6 +47,8 @@ import { LocalModelServingError, type ILocalModelClock, type ILocalModelLoopback
 import type { TurnLedger } from './turnLedger.js';
 
 export type { ILocalModelBufferedRequest } from './requestRouter.js';
+
+const { CopilotRequestHandler } = await import('@github/copilot-sdk');
 
 /** A fetch implementation the handler forwards through. */
 export type LocalModelFetch = (input: Request, init?: RequestInit) => Promise<Response>;

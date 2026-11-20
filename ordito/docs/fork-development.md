@@ -42,8 +42,10 @@ Use the pinned Node.js version and the native build tools above. The Code OSS pa
 ```sh
 npm run ordito:setup -- --install-only
 target=$(node -p 'process.platform + "-" + process.arch')
-npm run gulp -- "vscode-$target-min"
+ORDITO_RELEASE_WITHOUT_COPILOT=1 npm run gulp -- "vscode-$target-min"
 ```
+
+The desktop release profile omits the built-in GitHub Copilot extension and SDK. For Ordito's AI workflows, install and authenticate the official CLI for your provider, then choose **AI Settings → Connect Claude Code or Codex**. [Codex CLI](https://developers.openai.com/codex/cli) · [Claude Code](https://code.claude.com/docs/en/quickstart)
 
 The **Ordito release** workflow builds and tests the extracted archives on macOS ARM64, macOS x86-64, and Ubuntu x86-64. Run it manually to get CI artifacts. Pushing a version tag such as `v0.1.0` from `main` publishes the three verified archives and `SHA256SUMS` as a GitHub prerelease. The tag identifies the Ordito preview. The app's compatibility version follows the Code OSS base. [Release workflow](../../.github/workflows/release.yml)
 

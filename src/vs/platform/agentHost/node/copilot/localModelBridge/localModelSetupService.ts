@@ -7,7 +7,6 @@ import { Event } from '../../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { ICopilotHomeService } from '../../../../environment/common/copilotHome.js';
 import { INativeEnvironmentService } from '../../../../environment/common/environment.js';
-import { createDecorator } from '../../../../instantiation/common/instantiation.js';
 import { ILogService } from '../../../../log/common/log.js';
 import { IProductService } from '../../../../product/common/productService.js';
 import { IRequestService } from '../../../../request/common/request.js';
@@ -19,40 +18,11 @@ import { IAgentHostProxyResolver } from '../../agentHostProxyResolver.js';
 import { IAgentHostStorageService } from '../../agentHostStorageService.js';
 import { LocalModelSetupChannel } from '../../localModelSetupChannel.js';
 import { ICopilotApiService } from '../../shared/copilotApiService.js';
-import type { ILocalModelProvider, LocalModelProviderSelection } from './localModelProvider.js';
+import type { ILocalModelProvider, ILocalModelSetupService, LocalModelProviderSelection } from './localModelProvider.js';
 import { resolveLocalModelCapiBaseUrls } from './shim/requestRouter.js';
 import { createNodeShimLocalModelProviderHost, ShimLocalModelProvider, type IShimLocalModelProviderHost } from './shim/shimLocalModelProvider.js';
 
-export const ILocalModelSetupService = createDecorator<ILocalModelSetupService>('localModelSetupService');
-
-/**
- * Owns the single {@link ILocalModelProvider} of this Agent Host process and its setup channel. Only the local
- * utility-process host gets {@link LocalModelSetupService}; every other host gets {@link NullLocalModelSetupService},
- * so remote hosts publish no status.
- */
-export interface ILocalModelSetupService {
-	readonly _serviceBrand: undefined;
-
-	/** True only in the local utility-process Agent Host; an input to provider selection. */
-	readonly isLocalAgentHost: boolean;
-
-	/** The provider currently owned by this process, if any. */
-	readonly provider: ILocalModelProvider | undefined;
-
-	/** Applies the provider selection made at client start: `shim` creates the provider and channel once and keeps them across restarts; `none` disposes them. Returns the provider to install. */
-	applySelection(selection: LocalModelProviderSelection): ILocalModelProvider | undefined;
-}
-
-/** {@link ILocalModelSetupService} for hosts without on-device model support. */
-export class NullLocalModelSetupService implements ILocalModelSetupService {
-	declare readonly _serviceBrand: undefined;
-	readonly isLocalAgentHost = false;
-	readonly provider = undefined;
-
-	applySelection(_selection: LocalModelProviderSelection): undefined {
-		return undefined;
-	}
-}
+export { ILocalModelSetupService, NullLocalModelSetupService } from './localModelProvider.js';
 
 /** {@link ILocalModelSetupService} for the local utility-process Agent Host. */
 export class LocalModelSetupService extends Disposable implements ILocalModelSetupService {
