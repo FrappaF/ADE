@@ -86,6 +86,7 @@ jobs:
           ditto -c -k --keepParent "$app" "$archive"
           ditto -x -k "$archive" "$RUNNER_TEMP/ordito-extracted"
           app="$RUNNER_TEMP/ordito-extracted/Ordito.app"
+          test -s "$app/Contents/Resources/LICENSE.electron.txt"
           codesign --verify --deep --strict "$app"
           mac_arch="$ARCH"
           if [[ "$ARCH" == x64 ]]; then
@@ -102,6 +103,7 @@ jobs:
           mv "../VSCode-$PLATFORM-$ARCH" "$RUNNER_TEMP/Ordito"
           tar -czf "$archive" -C "$RUNNER_TEMP" Ordito
           tar -xzf "$archive" -C "$RUNNER_TEMP/ordito-extracted"
+          test -s "$RUNNER_TEMP/ordito-extracted/Ordito/LICENSE.electron.txt"
           echo "ORDITO_ELECTRON_PATH=$RUNNER_TEMP/ordito-extracted/Ordito/ordito" >> "$GITHUB_ENV"
       - name: Smoke test the extracted app
         shell: bash

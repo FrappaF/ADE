@@ -371,9 +371,18 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			.pipe(util.fixWin32DirectoryPermissions())
 			.pipe(filter(['**', '!**/.github/**'], { dot: true })) // https://github.com/microsoft/vscode/issues/116523
 			.pipe(electron(electronConfig))
+			.pipe(rename(file => {
+				if (file.dirname === '.' && file.basename === 'LICENSE' && !file.extname) {
+					// Keep Electron's own license in the distributed app or archive.
+					file.basename = 'LICENSE.electron';
+					file.extname = '.txt';
+					if (platform === 'darwin') {
+						file.dirname = `${product.nameLong}.app/Contents/Resources`;
+					}
+				}
+			}))
 			.pipe(filter([
 				'**',
-				'!LICENSE',
 				'!version',
 				...(platform === 'darwin' ? ['!**/Contents/Applications', '!**/Contents/Applications/**'] : []),
 				...(platform === 'win32' ? ['!**/electron_proxy.exe'] : []),
