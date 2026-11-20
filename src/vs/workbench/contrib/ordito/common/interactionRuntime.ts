@@ -1,9 +1,10 @@
 import { compileModelInteraction, validateModelInteraction } from './modelInteractions.js';
 import { valueRuntime } from './modelValues.js';
 import { interactionInterpreterSource } from './interactionRuntime.generated.js';
+import { matchesInteractionRuntimeRegion } from './interactionRuntime.legacy.js';
 import { canonicalJson } from './modelSerialization.js';
 import { type SemanticModelV4 } from './modelTypes.js';
-import { matchesModelOwnedRegion, modelOwnedRegion, readModelOwnedRegion } from './modelOwnedRegion.js';
+import { modelOwnedRegion, readModelOwnedRegion } from './modelOwnedRegion.js';
 
 /** Canonical data plan and a profile-owned runtime. No project code or arbitrary text becomes executable. */
 export function emitModelInteraction(model: SemanticModelV4, id: string): string {
@@ -34,6 +35,6 @@ export function reverseModelInteraction(model: SemanticModelV4, id: string, sour
 		else if (key === 'frames') { next.foundation.frames = next.foundation.frames.map(entry => ids.has(entry.id) ? data.model.foundation.frames.find(item => item.id === entry.id)! : entry); }
 		else { next.foundation.interactions = next.foundation.interactions.map(entry => ids.has(entry.id) ? data.model.foundation.interactions.find(item => item.id === entry.id)! : entry); }
 	}
-	if (validateModelInteraction(next, id).length || !matchesModelOwnedRegion(read.region, 'interaction-v1', emitModelInteraction(next, id))) { throw new Error('Partial interaction mapping: unsupported body or invalid semantics'); }
+	if (validateModelInteraction(next, id).length || !matchesInteractionRuntimeRegion(read.region, 'interaction-v1', emitModelInteraction(next, id))) { throw new Error('Partial interaction mapping: unsupported body or invalid semantics'); }
 	return next;
 }
