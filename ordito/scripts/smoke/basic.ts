@@ -105,10 +105,12 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			await shell.getByRole('heading', { name: 'Empty System', exact: true }).waitFor();
 			assert.equal(await shell.locator('.ordito-node').count(), 0);
 			await openModelFile(window, invalidFile);
-			await shell.getByRole('alert').getByText('Model version 99 is not supported. Supported model versions are 1, 2, 3, 4 and 5.', { exact: false }).waitFor();
+			const versionError = 'Model version 99 is not supported. Supported model versions are 1, 2, 3, 4 and 5.';
+			await shell.getByRole('alert', { name: 'Could Not Open the Project' }).waitFor();
+			await revealOrditoText(window, versionError);
 			assert.equal(await shell.locator('.ordito-node').count(), 0);
 			await shell.getByRole('button', { name: 'Retry', exact: true }).click();
-			await shell.getByRole('alert').getByText('Model version 99 is not supported. Supported model versions are 1, 2, 3, 4 and 5.', { exact: false }).waitFor();
+			await revealOrditoText(window, versionError);
 			await writeFile(invalidFile, JSON.stringify(checkoutModel));
 			await shell.getByRole('region', { name: 'Diagram: Checkout Structure', exact: true }).waitFor();
 			const changed = structuredClone(checkoutModel);
