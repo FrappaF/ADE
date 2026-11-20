@@ -1,19 +1,19 @@
-name: Validate ADE domain and prototype
+name: Validate Ordito domain and prototype
 on:
   push:
     branches: [main]
     paths-ignore:
       - '**/*.md'
-      - 'ade/docs/**'
+      - 'ordito/docs/**'
   pull_request:
     paths-ignore:
       - '**/*.md'
-      - 'ade/docs/**'
+      - 'ordito/docs/**'
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: ade-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: ordito-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
   check:
@@ -24,11 +24,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-      - run: npm run ade:setup:test
-      - run: npm --prefix ade/prototype run check
-      - run: npm --prefix ade/prototype test
-      - run: npm --prefix ade/runtime ci --ignore-scripts
-      - run: node --test "ade/test/*.test.{mjs,ts}"
+      - run: npm run ordito:setup:test
+      - run: npm --prefix ordito/prototype run check
+      - run: npm --prefix ordito/prototype test
+      - run: npm --prefix ordito/runtime ci --ignore-scripts
+      - run: node --test "ordito/test/*.test.{mjs,ts}"
   code-import:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -39,15 +39,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
-            ade/runtime/package-lock.json
-            ade/code-import/package-lock.json
-            ade/ai/package-lock.json
-      - run: npm --prefix ade/runtime ci --ignore-scripts
-      - run: npm --prefix ade/code-import ci --ignore-scripts
-      - run: npm --prefix ade/ai ci --ignore-scripts
-      - run: npm --prefix ade/runtime run check
-      - run: npm --prefix ade/runtime test
-      - run: npm --prefix ade/code-import run check
-      - run: npm --prefix ade/code-import test
-      - run: npm --prefix ade/ai run check
-      - run: npm --prefix ade/ai test
+            ordito/runtime/package-lock.json
+            ordito/code-import/package-lock.json
+            ordito/ai/package-lock.json
+      - run: npm --prefix ordito/runtime ci --ignore-scripts
+      - run: npm --prefix ordito/code-import ci --ignore-scripts
+      - run: npm --prefix ordito/ai ci --ignore-scripts
+      - run: npm --prefix ordito/runtime run check
+      - run: npm --prefix ordito/runtime test
+      - run: npm --prefix ordito/code-import run check
+      - run: npm --prefix ordito/code-import test
+      - run: npm --prefix ordito/ai run check
+      - run: npm --prefix ordito/ai test

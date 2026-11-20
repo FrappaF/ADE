@@ -1,0 +1,490 @@
+.ordito-explore {
+	box-sizing: border-box;
+	inline-size: 100%;
+	max-inline-size: 58rem;
+	margin-inline: auto;
+	padding-block: var(--vscode-spacing-size240);
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+	min-inline-size: 0;
+	overflow-wrap: anywhere;
+}
+
+.ordito-explore .ordito-explore-header,
+.ordito-explore .ordito-explore-identity,
+.ordito-explore .ordito-explore-stage,
+.ordito-explore .ordito-explore-stage-main,
+.ordito-explore .ordito-explore-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size160);
+	min-width: 0;
+}
+
+.ordito-explore .ordito-explore-header,
+.ordito-explore .ordito-explore-stage {
+	justify-content: space-between;
+	flex-wrap: wrap;
+}
+
+.ordito-explore .ordito-explore-header,
+.ordito-explore .ordito-explore-title {
+	margin-block: 0 var(--vscode-spacing-size120);
+}
+
+.ordito-explore .ordito-explore-project-icon,
+.ordito-explore .ordito-explore-stage-icon {
+	display: grid;
+	place-items: center;
+	flex: none;
+	inline-size: var(--vscode-spacing-size400);
+	block-size: var(--vscode-spacing-size400);
+	border-radius: var(--vscode-cornerRadius-medium);
+	color: var(--vscode-textLink-foreground);
+	background: color-mix(in srgb, currentColor 11%, transparent);
+	border: var(--vscode-strokeThickness) solid color-mix(in srgb, currentColor 24%, transparent);
+}
+
+.ordito-explore .ordito-explore-stage-icon {
+	color: var(--vscode-textLink-foreground);
+}
+
+.ordito-explore .ordito-explore-stage-icon > .codicon,
+.ordito-explore .ordito-explore-project-icon > .codicon {
+	font-size: var(--vscode-spacing-size200);
+}
+
+.ordito-explore .ordito-explore-heading h1,
+.ordito-explore .ordito-explore-live h2,
+.ordito-explore .ordito-explore-live h3 {
+	margin: 0;
+}
+
+.ordito-explore .ordito-explore-live h3 {
+	font-size: var(--vscode-fontSize-heading2);
+}
+
+.ordito-explore p {
+	margin: 0;
+	line-height: 1.5;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ordito-explore .ordito-explore-heading p,
+.ordito-explore .ordito-explore-live p {
+	margin-block-start: var(--vscode-spacing-size40);
+}
+
+.ordito-explore .ordito-explore-card {
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-large);
+	background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+}
+
+.ordito-explore .ordito-explore-steps {
+	margin: 0;
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: var(--vscode-spacing-size80);
+	list-style: none;
+	border-block-end: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+}
+
+.ordito-explore.ordito-code-update .ordito-explore-steps {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ordito-explore .ordito-code-update-summary {
+	white-space: pre-wrap;
+	color: var(--vscode-editor-foreground);
+}
+
+.ordito-explore .ordito-code-update-values {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+	gap: var(--vscode-spacing-size120);
+	margin: var(--vscode-spacing-size40) 0 var(--vscode-spacing-size120);
+}
+
+.ordito-explore .ordito-code-update-values dt {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ordito-explore .ordito-code-update-values dd {
+	margin: var(--vscode-spacing-size40) 0 0;
+	white-space: pre-wrap;
+}
+
+.ordito-explore .ordito-explore-steps > li {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	min-width: 0;
+	border: var(--vscode-strokeThickness) solid transparent;
+	border-radius: var(--vscode-cornerRadius-small);
+	padding: var(--vscode-spacing-size60) var(--vscode-spacing-size80);
+	color: var(--vscode-descriptionForeground);
+}
+
+.ordito-explore .ordito-explore-step-label {
+	font-size: var(--vscode-fontSize-body1);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ordito-explore .ordito-explore-step-icon {
+	display: grid;
+	place-items: center;
+	flex: none;
+	inline-size: var(--vscode-spacing-size240);
+	block-size: var(--vscode-spacing-size240);
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-circle);
+}
+
+.ordito-explore .ordito-explore-steps > li[data-state="complete"] {
+	color: var(--vscode-editor-foreground);
+}
+
+.ordito-explore .ordito-explore-steps > li[data-state="complete"] .ordito-explore-step-icon {
+	color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+	background: color-mix(in srgb, currentColor 12%, transparent);
+	border-color: color-mix(in srgb, currentColor 32%, transparent);
+}
+
+.ordito-explore .ordito-explore-steps > li[aria-current="step"] {
+	color: var(--vscode-editor-foreground);
+	border-color: color-mix(in srgb, var(--vscode-progressBar-background) 48%, var(--vscode-editorWidget-border, var(--vscode-panel-border)));
+	background: color-mix(in srgb, var(--vscode-progressBar-background) 12%, transparent);
+}
+
+.ordito-explore .ordito-explore-steps > li[aria-current="step"] .ordito-explore-step-icon {
+	color: var(--vscode-textLink-foreground);
+	border-color: transparent;
+}
+
+.ordito-explore .ordito-explore-stage {
+	padding: var(--vscode-spacing-size240);
+}
+
+.ordito-explore .ordito-explore-stage-main {
+	align-items: flex-start;
+	flex: 1 1 19rem;
+}
+
+.ordito-explore .ordito-explore-stage-copy {
+	min-inline-size: 0;
+}
+
+.ordito-shell .ordito-explore .ordito-explore-button {
+	display: inline-flex;
+	gap: var(--vscode-spacing-size60);
+	align-items: center;
+	min-height: var(--vscode-spacing-size320);
+	margin: 0;
+}
+
+.ordito-shell .ordito-explore .ordito-explore-button.ordito-primary-action {
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ordito-shell .ordito-explore .ordito-explore-button:not(.ordito-primary-action) {
+	border-color: var(--vscode-contrastBorder, var(--vscode-editorWidget-border, var(--vscode-panel-border)));
+}
+
+.ordito-explore .ordito-explore-actions {
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ordito-explore .ordito-explore-actions:empty {
+	display: none;
+}
+
+.ordito-explore .ordito-explore-stage-icon-running {
+	animation: ordito-explore-pulse 2.5s ease-in-out infinite;
+}
+
+.ordito-explore .ordito-explore-now {
+	display: flex;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size60);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ordito-explore .ordito-explore-now > .codicon {
+	color: var(--vscode-textLink-foreground);
+	font-size: var(--vscode-codiconFontSize-compact);
+}
+
+.ordito-explore .ordito-explore-progress {
+	display: block;
+	appearance: none;
+	box-sizing: border-box;
+	inline-size: calc(100% - 2 * var(--vscode-spacing-size240));
+	block-size: var(--vscode-spacing-size40);
+	border: 0;
+	border-radius: var(--vscode-cornerRadius-circle);
+	margin: 0 var(--vscode-spacing-size240) var(--vscode-spacing-size160);
+	overflow: hidden;
+	background: color-mix(in srgb, var(--vscode-progressBar-background) 16%, var(--vscode-editorWidget-border, var(--vscode-panel-border)));
+}
+
+.ordito-explore .ordito-explore-progress::-webkit-progress-bar {
+	background: transparent;
+}
+
+.ordito-explore .ordito-explore-progress::-webkit-progress-value {
+	background: var(--vscode-progressBar-background);
+	border-radius: inherit;
+}
+
+.ordito-explore .ordito-explore-progress:indeterminate {
+	background-image: linear-gradient(90deg, transparent, var(--vscode-progressBar-background), transparent);
+	background-size: 44% 100%;
+	background-position: 50% 0;
+	background-repeat: no-repeat;
+	animation: ordito-explore-activity 2.5s ease-in-out infinite alternate;
+}
+
+.ordito-explore .ordito-explore-progress-label {
+	margin: calc(-1 * var(--vscode-spacing-size80)) var(--vscode-spacing-size240) var(--vscode-spacing-size120);
+	font-size: var(--vscode-fontSize-body2);
+	font-variant-numeric: tabular-nums;
+}
+
+.ordito-explore .ordito-explore-details {
+	overflow: visible;
+	margin: 0;
+	min-inline-size: 0;
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.ordito-shell .ordito-explore .ordito-explore-details > summary {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	inline-size: 100%;
+	min-height: var(--vscode-spacing-size400);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size160);
+	margin: 0;
+	background: transparent;
+	color: var(--vscode-editor-foreground);
+	list-style: none;
+}
+
+.ordito-shell .ordito-explore .ordito-explore-details > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ordito-shell .ordito-explore .ordito-explore-details > summary:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.ordito-explore .ordito-explore-details > summary > .codicon {
+	flex: none;
+	color: var(--vscode-descriptionForeground);
+}
+
+.ordito-explore .ordito-explore-details[open] > summary > .codicon-chevron-right {
+	transform: rotate(90deg);
+}
+
+.ordito-explore .ordito-explore-detail-label {
+	flex: 1;
+	min-width: 0;
+}
+
+.ordito-explore .ordito-explore-detail-meta {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}
+
+.ordito-shell .ordito-explore .ordito-explore-details[open] > .ordito-options-content {
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+	background: transparent;
+	border-block-start: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	max-height: none;
+	overflow: visible;
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size160);
+}
+
+.ordito-explore .ordito-explore-button {
+	justify-self: start;
+}
+
+.ordito-explore .ordito-explore-log,
+.ordito-explore .ordito-explore-views {
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+	min-inline-size: 0;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.ordito-explore .ordito-explore-log > li {
+	display: flex;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	background: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.ordito-explore .ordito-explore-log {
+	max-block-size: 14rem;
+	overflow-y: auto;
+}
+
+.ordito-explore .ordito-explore-log:focus-visible {
+	outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+	outline-offset: var(--vscode-strokeThickness);
+}
+
+.ordito-explore .ordito-explore-log strong,
+.ordito-explore .ordito-explore-log code {
+	display: block;
+}
+
+.ordito-explore .ordito-explore-log code,
+.ordito-explore .ordito-explore-log .codicon {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ordito-explore .ordito-explore-log code {
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ordito-explore .ordito-explore-usage {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+	gap: var(--vscode-spacing-size80);
+	margin: 0;
+}
+
+.ordito-explore .ordito-explore-usage > div,
+.ordito-explore .ordito-explore-views > li {
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+}
+
+.ordito-explore .ordito-explore-usage dt {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ordito-explore .ordito-explore-usage dd {
+	font-size: var(--vscode-fontSize-heading2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	font-variant-numeric: tabular-nums;
+	margin: var(--vscode-spacing-size40) 0 0;
+}
+
+.ordito-explore .ordito-explore-plan-group {
+	display: grid;
+	gap: var(--vscode-spacing-size80);
+}
+
+.ordito-explore .ordito-explore-plan-group h3 {
+	margin: 0;
+}
+
+.ordito-explore .ordito-explore-view {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+	min-inline-size: 0;
+}
+
+.ordito-explore .ordito-explore-view > small {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ordito-explore .ordito-explore-tag {
+	color: var(--vscode-descriptionForeground);
+	background: color-mix(in srgb, currentColor 11%, transparent);
+	border-radius: var(--vscode-cornerRadius-small);
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size60);
+	margin-inline-start: auto;
+	font-size: var(--vscode-fontSize-body2);
+}
+
+.ordito-explore .ordito-explore-tag[data-tone="active"] {
+	color: var(--vscode-textLink-foreground);
+}
+
+.ordito-explore [data-tone="attention"] > .ordito-explore-stage-main .ordito-explore-stage-icon,
+.ordito-explore .ordito-explore-tag[data-tone="attention"] {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.ordito-explore [data-tone="success"] > .ordito-explore-stage-main .ordito-explore-stage-icon,
+.ordito-explore .ordito-explore-tag[data-tone="success"] {
+	color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+}
+
+.ordito-explore .ordito-explore-notice {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.ordito-explore .ordito-explore-stage-copy > .ordito-explore-notice {
+	margin-block-start: var(--vscode-spacing-size80);
+}
+
+@keyframes ordito-explore-activity {
+	from { background-position: -65% 0; }
+	to { background-position: 165% 0; }
+}
+
+@keyframes ordito-explore-pulse {
+	50% { box-shadow: 0 0 0 var(--vscode-spacing-size40) color-mix(in srgb, currentColor 14%, transparent); }
+}
+
+@container (max-width: 560px) {
+	.ordito-explore {
+		padding-block: 0;
+	}
+
+	.ordito-explore .ordito-explore-steps {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.ordito-explore .ordito-explore-stage {
+		padding: var(--vscode-spacing-size160);
+	}
+
+	.ordito-explore .ordito-explore-stage-main {
+		flex-basis: 100%;
+	}
+
+	.ordito-explore .ordito-explore-progress {
+		inline-size: calc(100% - 2 * var(--vscode-spacing-size160));
+		margin-inline: var(--vscode-spacing-size160);
+	}
+
+	.ordito-explore .ordito-explore-progress-label {
+		margin-inline: var(--vscode-spacing-size160);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ordito-explore .ordito-explore-stage-icon-running,
+	.ordito-explore .ordito-explore-progress:indeterminate {
+		animation: none;
+	}
+}
+
+@container (max-width: 380px) {
+	.ordito-explore.ordito-code-update .ordito-explore-steps {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}

@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { mkdirSync, mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { OPTIONS, parseArgs } from '../../node/argv.js';
 import { getUserDataPath } from '../../node/userDataPath.js';
@@ -56,6 +59,33 @@ suite('User data path', () => {
 			} else {
 				delete process.env['VSCODE_APPDATA'];
 			}
+		}
+	});
+
+	test('getUserDataPath - uses an existing profile after a product rename', () => {
+		const environment = { appData: process.env['VSCODE_APPDATA'], dev: process.env['VSCODE_DEV'], portable: process.env['VSCODE_PORTABLE'] };
+		const appData = mkdtempSync(join(tmpdir(), 'ordito-user-data-'));
+		try {
+			process.env['VSCODE_APPDATA'] = appData;
+			delete process.env['VSCODE_DEV'];
+			delete process.env['VSCODE_PORTABLE'];
+			const legacy = join(appData, 'Previous Product');
+			const current = join(appData, 'Ordito');
+			const args = parseArgs(process.argv, OPTIONS);
+			assert.strictEqual(getUserDataPath(args, 'Ordito', 'Previous Product'), current);
+			mkdirSync(legacy);
+			assert.strictEqual(getUserDataPath(args, 'Ordito', 'Previous Product'), legacy);
+			mkdirSync(current);
+			assert.strictEqual(getUserDataPath(args, 'Ordito', 'Previous Product'), current);
+		} finally {
+			for (const [key, value] of Object.entries({ VSCODE_APPDATA: environment.appData, VSCODE_DEV: environment.dev, VSCODE_PORTABLE: environment.portable })) {
+				if (value === undefined) {
+					delete process.env[key];
+				} else {
+					process.env[key] = value;
+				}
+			}
+			rmSync(appData, { recursive: true, force: true });
 		}
 	});
 

@@ -6,9 +6,9 @@ import { existsSync } from 'fs';
 export const dirs = [
 	'',
 	'build',
-	'ade/runtime',
-	'ade/code-import',
-	'ade/ai',
+	'ordito/runtime',
+	'ordito/code-import',
+	'ordito/ai',
 	'build/rspack',
 	'build/vite',
 	'extensions',

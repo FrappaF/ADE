@@ -1,0 +1,177 @@
+{
+	"metadata": {
+		"version": 0,
+		"tool_info": {
+			"name": "scip-typescript",
+			"version": "0.6.0",
+			"arguments": []
+		},
+		"project_root": "file:///SCIP_FIXTURE/",
+		"text_document_encoding": 1
+	},
+	"documents": [
+		{
+			"relative_path": "gateway.ts",
+			"language": "TypeScript",
+			"occurrences": [
+				{
+					"range": [
+						0,
+						0,
+						0
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						0,
+						16,
+						22
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/charge().",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						0,
+						23,
+						29
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/charge().(amount)",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						1,
+						8,
+						14
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/charge().(amount)",
+					"symbol_roles": 0
+				}
+			],
+			"symbols": [
+				{
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/",
+					"relationships": []
+				},
+				{
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/charge().",
+					"relationships": []
+				},
+				{
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/charge().(amount)",
+					"relationships": []
+				}
+			],
+			"text": ""
+		},
+		{
+			"relative_path": "checkout.ts",
+			"language": "TypeScript",
+			"occurrences": [
+				{
+					"range": [
+						0,
+						0,
+						0
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `checkout.ts`/",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						0,
+						9,
+						15
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/charge().",
+					"symbol_roles": 0
+				},
+				{
+					"range": [
+						0,
+						19,
+						22
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/charge().",
+					"symbol_roles": 0
+				},
+				{
+					"range": [
+						0,
+						30,
+						44
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/",
+					"symbol_roles": 0
+				},
+				{
+					"range": [
+						2,
+						16,
+						24
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `checkout.ts`/checkout().",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						2,
+						25,
+						31
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `checkout.ts`/checkout().(amount)",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						3,
+						7,
+						13
+					],
+					"symbol": "local 2",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						3,
+						29,
+						32
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `gateway.ts`/charge().",
+					"symbol_roles": 0
+				},
+				{
+					"range": [
+						3,
+						33,
+						39
+					],
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `checkout.ts`/checkout().(amount)",
+					"symbol_roles": 0
+				}
+			],
+			"symbols": [
+				{
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `checkout.ts`/",
+					"relationships": []
+				},
+				{
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `checkout.ts`/checkout().",
+					"relationships": []
+				},
+				{
+					"symbol": "scip-typescript npm ordito-scip-checkout 1.0.0 `checkout.ts`/checkout().(amount)",
+					"relationships": []
+				},
+				{
+					"symbol": "local 2",
+					"relationships": []
+				}
+			],
+			"text": ""
+		}
+	]
+}

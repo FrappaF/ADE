@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { NativeParsedArgs } from '../common/argv.js';
 // This file used to be a pure JS file and was always
@@ -24,8 +25,8 @@ const cwd = process.env['VSCODE_CWD'] || process.cwd();
  * - respect VSCODE_APPDATA environment variable
  * - respect --user-data-dir CLI argument
  */
-export function getUserDataPath(cliArgs: NativeParsedArgs, productName: string): string {
-	const userDataPath = doGetUserDataPath(cliArgs, productName);
+export function getUserDataPath(cliArgs: NativeParsedArgs, productName: string, legacyName?: string): string {
+	const userDataPath = doGetUserDataPath(cliArgs, productName, legacyName);
 	const pathsToResolve = [userDataPath];
 
 	// If the user-data-path is not absolute, make
@@ -41,11 +42,12 @@ export function getUserDataPath(cliArgs: NativeParsedArgs, productName: string):
 	return resolve(...pathsToResolve);
 }
 
-function doGetUserDataPath(cliArgs: NativeParsedArgs, productName: string): string {
+function doGetUserDataPath(cliArgs: NativeParsedArgs, productName: string, legacyName: string | undefined): string {
 
 	// 0. Running out of sources has a fixed productName
 	if (process.env['VSCODE_DEV']) {
 		productName = 'code-oss-dev';
+		legacyName = undefined;
 	}
 
 	// 1. Support portable mode
@@ -57,7 +59,7 @@ function doGetUserDataPath(cliArgs: NativeParsedArgs, productName: string): stri
 	// 2. Support global VSCODE_APPDATA environment variable
 	const appDataPath = process.env['VSCODE_APPDATA'];
 	if (appDataPath) {
-		return join(appDataPath, productName);
+		return preferExistingUserDataPath(join(appDataPath, productName), legacyName && join(appDataPath, legacyName));
 	}
 
 	// With Electron>=13 --user-data-dir switch will be propagated to
@@ -69,7 +71,11 @@ function doGetUserDataPath(cliArgs: NativeParsedArgs, productName: string): stri
 		return cliPath;
 	}
 
-	return getDefaultUserDataPath(productName);
+	return preferExistingUserDataPath(getDefaultUserDataPath(productName), legacyName && getDefaultUserDataPath(legacyName));
+}
+
+function preferExistingUserDataPath(preferred: string, legacy: string | undefined): string {
+	return legacy && !existsSync(resolve(cwd, preferred)) && existsSync(resolve(cwd, legacy)) ? legacy : preferred;
 }
 
 /**

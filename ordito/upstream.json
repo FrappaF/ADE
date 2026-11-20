@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/microsoft/vscode",
+  "ref": "main",
+  "commit": "98da3bad3433b6aa1abf5638cddc014d70739838",
+  "importedOn": "2026-10-28",
+  "method": "source snapshot; Ordito history preserved",
+  "license": "MIT"
+}

@@ -57,7 +57,7 @@ Use tabs, not spaces.
 
 ## Code Quality
 
-- Use the repository's MIT license for ADE code. Preserve the notices for unchanged upstream code and third-party dependencies.
+- Use the repository's MIT license for Ordito code. Preserve the notices for unchanged upstream code and third-party dependencies.
 - Prefer `async`/`await` over `Promise.then()`
 - Localize all user-facing messages
 - Prefer named regex capture groups over numbered ones

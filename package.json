@@ -1,5 +1,5 @@
 {
-  "name": "code-oss-dev",
+  "name": "ordito-dev",
   "version": "1.145.0",
   "distro": "38ed30f01031ca05f59fb111be203efae74036c2",
   "author": {
@@ -10,23 +10,23 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "ade:setup": "node ade/scripts/setup.mjs",
-    "ade:setup:test": "node --test ade/scripts/test/setup.test.mjs",
-    "ade:bundle-code": "node ade/scripts/build-code-import.mjs",
-    "ade:ai:check": "npm --prefix ade/ai run check",
-    "ade:ai:test": "npm --prefix ade/ai test",
-    "ade:ai:service-test": "node ade/scripts/test-ai-service.ts",
-    "ade:ai:diagram-live": "node ade/scripts/test-diagram-live.mjs",
-    "ade:diagrams:browser": "node ade/scripts/test-diagram-exploration-browser.mjs",
-    "ade:diagrams:live": "node ade/scripts/test-diagram-exploration-live.mjs",
-    "ade:smoke:check": "tsc6 --project ade/scripts/tsconfig.smoke.json --noEmit",
-    "ade:check": "tsc6 --project ade/tsconfig.json --noEmit",
-    "ade:test": "node --test \"ade/test/*.test.{mjs,ts}\"",
-    "ade:dai:model": "node ade/scripts/dai-model.mjs",
-    "ade:dai:baseline": "node ade/scripts/benchmark-dai.mjs",
-    "ade:dai:verify": "node ade/scripts/verify-dai.ts",
-    "ade:dai:check": "tsc6 --project ade/scripts/tsconfig.dai.json --noEmit",
-    "ade:schema": "node ade/scripts/export-schema.mjs",
+    "ordito:setup": "node ordito/scripts/setup.mjs",
+    "ordito:setup:test": "node --test ordito/scripts/test/setup.test.mjs",
+    "ordito:bundle-code": "node ordito/scripts/build-code-import.mjs",
+    "ordito:ai:check": "npm --prefix ordito/ai run check",
+    "ordito:ai:test": "npm --prefix ordito/ai test",
+    "ordito:ai:service-test": "node ordito/scripts/test-ai-service.ts",
+    "ordito:ai:diagram-live": "node ordito/scripts/test-diagram-live.mjs",
+    "ordito:diagrams:browser": "node ordito/scripts/test-diagram-exploration-browser.mjs",
+    "ordito:diagrams:live": "node ordito/scripts/test-diagram-exploration-live.mjs",
+    "ordito:smoke:check": "tsc6 --project ordito/scripts/tsconfig.smoke.json --noEmit",
+    "ordito:check": "tsc6 --project ordito/tsconfig.json --noEmit",
+    "ordito:test": "node --test \"ordito/test/*.test.{mjs,ts}\"",
+    "ordito:dai:model": "node ordito/scripts/dai-model.mjs",
+    "ordito:dai:baseline": "node ordito/scripts/benchmark-dai.mjs",
+    "ordito:dai:verify": "node ordito/scripts/verify-dai.ts",
+    "ordito:dai:check": "tsc6 --project ordito/scripts/tsconfig.dai.json --noEmit",
+    "ordito:schema": "node ordito/scripts/export-schema.mjs",
     "test": "node -e \"console.error('Run a test script from the scripts folder, for example: ./scripts/test.sh --run <file>.'); process.exit(1)\"",
     "test-browser": "npx playwright install && node test/unit/browser/index.js",
     "test-browser-no-install": "node test/unit/browser/index.js",
@@ -304,10 +304,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/FrappaF/ADE.git"
+    "url": "https://github.com/FrappaF/Ordito.git"
   },
   "bugs": {
-    "url": "https://github.com/FrappaF/ADE/issues"
+    "url": "https://github.com/FrappaF/Ordito/issues"
   },
   "optionalDependencies": {
     "windows-foreground-love": "0.6.1"

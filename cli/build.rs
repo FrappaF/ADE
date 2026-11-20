@@ -17,6 +17,11 @@ use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::Value;
 
 fn main() {
+	for path in ["build.rs", "Cargo.toml", "src", "../package.json"] {
+		println!("cargo:rerun-if-changed={path}");
+	}
+	println!("cargo:rerun-if-env-changed=VSCODE_CLI_PRODUCT_JSON");
+
 	let files = enumerate_source_files().expect("expected to enumerate files");
 	ensure_file_headers(&files).expect("expected to ensure file headers");
 	apply_build_environment_variables();
@@ -127,6 +132,7 @@ where
 }
 
 fn apply_build_from_product_json(path: &Path) {
+	println!("cargo:rerun-if-changed={}", path.display());
 	let json: HashMap<String, Value> = read_json_from_path(path);
 	set_env_vars_from_map_keys("VSCODE_CLI", json);
 }
