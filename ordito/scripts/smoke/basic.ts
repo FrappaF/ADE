@@ -200,7 +200,7 @@ export function createBasicScenarios(harness: SmokeHarness) {
 			external.name = 'External system';
 			await writeFile(projectFile, JSON.stringify(external));
 			await shell.getByRole('button', { name: 'Save', exact: true }).click();
-			await shell.getByRole('alert').getByText('could not be saved', { exact: false }).waitFor();
+			await shell.getByRole('alert', { name: 'Could Not Save the Project' }).waitFor();
 			assert.equal(JSON.parse(await readFile(projectFile, 'utf8')).name, 'External system');
 			console.log('PASS: native undo/redo, keyboard move, node drag, zoom, safe deletion, save/reopen and external save conflict.');
 			await harness.app.close();
