@@ -8,13 +8,14 @@ import type { DiagramExplorationBudget } from './diagramExplorationBudget.js';
 /** JSON-only boundary between the sandboxed workbench and the analysis utility process. */
 export const adeCodeChannel = 'adeCode';
 /** Increment when the workbench requires a new engine request or response contract. */
-export const adeCodeProtocolVersion = 16;
+export const adeCodeProtocolVersion = 17;
 export const defaultDiagramCheckpointTimeoutMinutes = 20;
 export const maxDiagramCheckpointTimeoutMinutes = 90;
 export const diagramCheckpointReasoningEfforts = ['inherit', 'low', 'medium', 'high'] as const;
 export type DiagramCheckpointReasoningEffort = typeof diagramCheckpointReasoningEfforts[number];
 export interface CodeAiProgress { requestId: string; kind: 'connecting' | 'thinking' | 'waiting' | 'tool' | 'message'; itemId?: string; text?: string; tool?: string }
 export type CodeDiagramCheckpointResult = { text: string; timeout?: never } | { timeout: 'startup' | 'idle' | 'deadline'; text?: never };
+export interface CodeUpdateResult { outcome: 'implemented' | 'already-aligned' | 'needs-input'; text: string }
 export interface CodeBridgeProtocol { version: number; operations: string[] }
 export interface CliExecutableRequest { executable: string; path?: string; pathExt?: string }
 export interface CliRuntimeEnvironment { path?: string; pathExt?: string; codexHome?: string }
@@ -29,6 +30,7 @@ export interface CodeResolution { path: string; choice: 'model' | 'code' }
 export type CodeRequest =
 	| { operation: 'collaboration'; request: string }
 	| { operation: 'exploration'; snapshot: string; request: string }
+	| { operation: 'codeUpdate'; requestId?: string; root: string; config: string; context: string }
 	| ({ operation: 'diagramChat'; requestId?: string; root: string; config: string; messages: { role: 'user' | 'assistant'; text: string }[] } & (
 		{ snapshot?: string; sessionId?: string; checkpoint?: never; checkpointTimeoutMinutes?: never; checkpointReasoningEffort?: never }
 		| { snapshot: string; sessionId: string; checkpoint: true; checkpointTimeoutMinutes?: number; checkpointReasoningEffort?: DiagramCheckpointReasoningEffort }))

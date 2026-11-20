@@ -68,7 +68,7 @@ export class AdeFeatureCodeGeneration extends Disposable {
 			const version = this.project.documentVersion;
 			if (setup.supportProblem) { throw new Error(setup.supportProblem); }
 			if (!setup.profiles.length) { throw new Error(localize('ade.featureCode.noProfile', "No supported code generation stack was found for this project.")); }
-			const title = setup.mode === 'create' ? localize('ade.featureCode.generate', "Generate Code from Diagrams") : localize('ade.codeUpdate.button', "Update Codebase from Diagrams");
+			const title = setup.mode === 'create' ? localize('ade.featureCode.generate', "Generate Code from Diagrams") : localize('ade.featureCode.prepareReviewed', "Prepare Reviewed Code Changes");
 			const context = localize('ade.featureCode.destination', "{0} · Destination: {1}", this.project.model.name, this.project.projectRoot?.fsPath ?? modelUri);
 			const features = this.project.model.semantics.elements.filter(element => element.kind === 'feature' && (!setup.featureIds || setup.featureIds.includes(element.id)));
 			if (!features.length) { throw new Error(localize('ade.featureCode.noFeatures', "Add a feature with a diagram before preparing code.")); }

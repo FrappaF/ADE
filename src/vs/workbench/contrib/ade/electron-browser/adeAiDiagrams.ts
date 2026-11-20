@@ -85,7 +85,7 @@ export class AdeAiDiagrams extends Disposable {
 
 	get generatingDiagrams(): boolean { return this.diagramRunning; }
 
-	private conversation: { root: string; resource?: URI; attachedModel?: string; codeUpdate?: { modelUri: string; revision: string; contextFile: string } } | undefined;
+	private conversation: { root: string; resource?: URI; attachedModel?: string } | undefined;
 
 	private readonly conversationWatch = this._register(new DisposableStore());
 
@@ -114,19 +114,18 @@ export class AdeAiDiagrams extends Disposable {
 
 	private explorationToolResource: URI | undefined;
 
-	async chat(initialPrompt?: string, codeUpdate?: { modelUri: string; revision: string; contextFile: string }): Promise<void> {
+	async chat(initialPrompt?: string): Promise<void> {
 		if (this.host.busy || this.operations.busy || this.chatOpening || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true) { return; }
-		if (this.conversation && !!this.conversation.codeUpdate !== !!codeUpdate) { await this.aiDialog.close(); }
-		if (!codeUpdate) { await this.discardMissingExploration(); }
-		if (!codeUpdate && this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(initialPrompt, false, true); return; }
-		const session = codeUpdate ? undefined : this.exploration;
+		await this.discardMissingExploration();
+		if (this.code.context && this.configuration.getValue<boolean>('ade.diagramImport.incremental') !== false && this.exploration?.root !== this.code.context.sourceRoot) { await this.exploreDiagrams(initialPrompt, false, true); return; }
+		const session = this.exploration;
 		const opening = this.operations.acquire('ai');
 		if (!opening) { return; }
 		this.chatOpening = true; this.host.busy = true;
 		this.host.report(localize('ade.ai.chatOpening', "Opening Codex…"));
 		try {
 			if (!await this.trust.requestWorkspaceTrust() || this.project.modelUri && !await this.project.save()) { this.host.report(localize('ade.ai.chatNotOpened', "Codex Was Not Opened")); return; }
-			const root = (codeUpdate ? this.project.projectRoot?.fsPath : this.code.context?.sourceRoot) ?? this.project.projectRoot?.fsPath ?? this.project.model.id;
+			const root = this.code.context?.sourceRoot ?? this.project.projectRoot?.fsPath ?? this.project.model.id;
 			if (this.conversation?.root !== root) { this.conversation = undefined; }
 			const native = this.codexAccount.account.status === 'signedIn' && this.setup.setups.some(setup => setup.agent === 'codex' && setup.download === 'ready') && !this.configuration.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) && (!this.connection.config || this.connection.config.provider !== 'codex' || this.connection.config.executable === 'codex');
 			if (native) {
@@ -147,14 +146,13 @@ export class AdeAiDiagrams extends Disposable {
 					session.resource = resource.toString(); this.persistExploration();
 					widget.attachmentModel.updateContext(['ade:exploration'], [{ kind: 'generic', id: 'ade:exploration', name: localize('ade.explore.context', "Architecture Exploration"), value: JSON.stringify({ instruction: diagramSessionInstruction, sessionId: session.id, root, activeView: this.project.activeView?.id ?? null }) }]);
 				}
-				if (codeUpdate) { await widget.attachmentModel.addFile(URI.file(codeUpdate.contextFile)); }
 				if (this.project.modelUri && !session) {
 					const previous = this.conversation?.attachedModel;
 					if (previous && previous !== this.project.modelUri.toString()) { widget.attachmentModel.delete(previous); }
 					if (!widget.attachmentModel.fileAttachments.some(uri => uri.toString() === this.project.modelUri!.toString())) { await widget.attachmentModel.addFile(this.project.modelUri); }
 				}
 				widget.attachmentModel.updateContext(['ade:diagram-context'], [{ kind: 'generic', id: 'ade:diagram-context', name: localize('ade.ai.currentDiagramContext', "Current Diagram"), value: JSON.stringify({ ...(session?.root === root ? { sessionId: session.id } : { model: this.project.modelUri?.fsPath }), diagram: this.project.activeView ? { id: this.project.activeView.id, name: this.project.activeView.name } : null }) }]);
-				this.conversation = { root, resource, attachedModel: this.project.modelUri?.toString(), codeUpdate };
+				this.conversation = { root, resource, attachedModel: this.project.modelUri?.toString() };
 				if (initialPrompt !== undefined || session?.root === root && firstQuestion) { widget.setInput(initialPrompt ?? this.conversationPrompt()); }
 				widget.setInputPlaceholder(localize('ade.ai.chatPlaceholder', "Ask Codex to Change the Diagram or Its Code…")); widget.focusInput();
 			} else {
@@ -163,14 +161,14 @@ export class AdeAiDiagrams extends Disposable {
 				if (!executable) { return; }
 				const account = await this.code.checkCliAccount(provider, executable);
 				if (account.status !== 'signedIn') { if (account.status === 'signedOut') { await this.connection.signIn(provider, true); } else { await this.connection.checkAccount(provider, executable); } return; }
-				let model = codeUpdate ? this.connection.config?.model : this.storage.get(`ade.ai.diagramModel.${provider}`, StorageScope.PROFILE) ?? this.connection.config?.model;
+				let model = this.storage.get(`ade.ai.diagramModel.${provider}`, StorageScope.PROFILE) ?? this.connection.config?.model;
 				if (!model) { model = await this.selectDiagramModel({ version: 1, provider, connection: 'cli', executable, model: '', timeoutMs: 180000, maxContextBytes: 262144, maxCalls: 1 }); if (!model) { return; } }
 				const config: CliConfig = { version: 1, provider, connection: 'cli', executable, model, timeoutMs: 300000, maxContextBytes: 262144, maxCalls: this.connection.config?.maxCalls ?? 1 };
-				this.conversation = { root, codeUpdate };
+				this.conversation = { root };
 				await this.aiDialog.open({ prompt: initialPrompt ?? (session?.root === root ? this.conversationPrompt() : ''), onClose: () => this.closeConversation(root), send: (messages, token) => this.sendConversation(root, config, messages, token) });
 			}
 			this.watchConversation();
-			this.host.report(codeUpdate ? localize('ade.codeUpdate.ready', "Assistant Is Open · Saved Model Ready for Code Implementation") : localize('ade.ai.chatModalReady', "Assistant Is Open · Diagrams Update Automatically"));
+			this.host.report(localize('ade.ai.chatModalReady', "Assistant Is Open · Diagrams Update Automatically"));
 		} catch (error) { await this.aiDialog.close(); this.conversation = undefined; this.conversationWatch.clear(); const message = localize('ade.ai.chatFailed', "Could Not Open Codex: {0}", error instanceof Error ? error.message : String(error)); this.host.report(message); this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); }
 		finally { this.chatOpening = false; this.host.busy = false; opening.dispose(); this.host.changed(); }
 	}
@@ -195,7 +193,7 @@ export class AdeAiDiagrams extends Disposable {
 
 	private watchConversation(): void {
 		this.conversationWatch.clear();
-		const session = this.conversation?.codeUpdate ? undefined : this.exploration;
+		const session = this.exploration;
 		if (!session) { return; }
 		const refresh = this.conversationWatch.add(new ThrottledDelayer<void>(300));
 		this.watchExplorationJournal(session, this.conversationWatch, () => {
@@ -216,21 +214,19 @@ export class AdeAiDiagrams extends Disposable {
 
 	private async sendConversation(root: string, config: CliConfig, messages: AdeAiMessage[], token: CancellationToken): Promise<string> {
 		if (!this.conversation || this.conversation.root !== root || !await this.trust.requestWorkspaceTrust()) { throw new Error(localize('ade.explore.scopeChanged', "The Exploration Project Is No Longer Active.")); }
-		const update = this.conversation.codeUpdate;
-		if (update && (this.project.modelUri?.toString() !== update.modelUri || canonicalJson(this.project.model) !== update.revision)) { throw new Error(localize('ade.codeUpdate.changed', "The Model Changed. Close the Assistant and Choose Update Codebase from Diagrams Again to Use the Latest Saved Changes.")); }
 		const operation = this.operations.acquire('ai');
 		if (!operation) { throw new Error(localize('ade.ai.busy', "Another A.D.E Operation Is Running. Wait for It to Finish.")); }
 		this.host.busy = true; this.host.changed();
 		const requestId = generateUuid(), conversation = this.conversation;
 		const progress = this.code.onDidAiProgress(event => { if (event.requestId === requestId && this.conversation === conversation && !token.isCancellationRequested) { this.aiDialog.updateConversation(event); } });
 		try {
-			const session = !update && this.exploration?.root === root ? this.exploration : undefined;
-			const result: { text: string } = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', requestId, root, ...(session ? { snapshot: this.code.context!.snapshot, sessionId: session.id } : {}), config: JSON.stringify(config), messages: session ? messages : [{ role: 'user', text: `${update ? 'Code implementation context: read ' + update.contextFile + ' for the exact saved model and before/after changes. Preserve the ADE model files. ' : ''}Project context: model file ${this.project.modelUri?.fsPath ?? 'not saved'}, active diagram ${this.project.activeView?.id ?? 'none'}. Preserve semantic IDs and valid references. Only edit files when the user requests a change.` }, ...messages] }, token));
+			const session = this.exploration?.root === root ? this.exploration : undefined;
+			const result: { text: string } = JSON.parse(await this.code.executeReconciliation({ operation: 'diagramChat', requestId, root, ...(session ? { snapshot: this.code.context!.snapshot, sessionId: session.id } : {}), config: JSON.stringify(config), messages: session ? messages : [{ role: 'user', text: `Project context: model file ${this.project.modelUri?.fsPath ?? 'not saved'}, active diagram ${this.project.activeView?.id ?? 'none'}. Preserve semantic IDs and valid references. Only edit files when the user requests a change.` }, ...messages] }, token));
 			return result.text;
 		} finally {
 			progress.dispose(); operation.dispose(); this.host.busy = false;
-			if (!update && this.code.context?.sourceRoot === root) { try { await this.refreshExploration(true); } catch (error) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); } }
-			if (!update && !token.isCancellationRequested && this._diagramReview?.root === root) { await this.reviewDiagramProposal(this._diagramReview.id); }
+			if (this.code.context?.sourceRoot === root) { try { await this.refreshExploration(true); } catch (error) { this.notifications.error(adeErrorNotification(error, 'ai', this.project.model)); } }
+			if (!token.isCancellationRequested && this._diagramReview?.root === root) { await this.reviewDiagramProposal(this._diagramReview.id); }
 			this.host.changed();
 		}
 	}

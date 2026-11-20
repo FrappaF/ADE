@@ -1046,9 +1046,9 @@ Puoi raggiungere lo stesso percorso dalla palette con **A.D.E: Prepare Reviewed 
 
 Con i moduli Node.js ESM compatibili puoi ripetere la preparazione dopo aver aggiornato il modello e i casi. Usa **Code** nella stessa copia, controlla la destinazione e confronta il diff prima di applicare.
 
-Per esercitarti con il percorso conversazionale usa una copia di `codice` di L16. Prepara una vista che includa la validazione della quantità usando lo stesso percorso di generazione di L17. Nella vista seleziona l’elemento che rappresenta `validateQuantity` e apri **Manage > Edit Description**. Dichiara che la funzione restituisce `true` per interi sicuri da 1 a 10, `false` per gli altri interi sicuri e solleva `TypeError` per decimali o stringhe. Premi **Save Changes** e poi **Save**.
+Per esercitarti con l’aggiornamento da diagrammi usa una copia di `codice` di L16. Prepara una vista che includa la validazione della quantità usando lo stesso percorso di generazione di L17. Nella vista seleziona l’elemento che rappresenta `validateQuantity` e apri **Manage > Edit Description**. Dichiara che la funzione restituisce `true` per interi sicuri da 1 a 10, `false` per gli altri interi sicuri e solleva `TypeError` per decimali o stringhe. Premi **Save Changes** e poi **Save**.
 
-Se al salvataggio compare **Update Codebase from Diagrams**, scegli il pulsante. Puoi aprire lo stesso compositore da **Open Quick Access** cercando `>A.D.E: Update Codebase from Diagrams`. Controlla cartella e intento, poi premi **Send**. Leggi il diff e riesegui `npm test` e `npm start` nella copia. Nei test controlla 0, 1, 10, 11 e un valore non intero. Se un diagramma conserva la regola precedente, usa **Update Diagrams from Codebase** e rivedi la proposta aggiornata come in L17.
+Se al salvataggio compare **Update Codebase from Diagrams**, scegli l’azione. Puoi aprire lo stesso flusso dalla scheda **Code** o cercando `>A.D.E: Update Codebase from Diagrams` in **Open Quick Access**. Controlla le modifiche salvate che il provider riceverà e avvia l’aggiornamento. Leggi l’esito, confronta i file nella copia e riesegui `npm test` e `npm start`. Nei test controlla 0, 1, 10, 11 e un valore non intero. Se un diagramma conserva la regola precedente, usa **Update Diagrams from Codebase** e rivedi la proposta aggiornata come in L17.
 
 #### Una feature in un worktree
 

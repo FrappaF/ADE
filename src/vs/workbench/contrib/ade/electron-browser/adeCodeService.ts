@@ -87,7 +87,7 @@ export class AdeCodeService extends Disposable implements IAdeCodeService {
 			const channel = worker.client.getChannel(adeCodeChannel);
 			try {
 				const protocol = await channel.call<CodeBridgeProtocol | undefined>('protocol');
-				if (protocol?.version !== adeCodeProtocolVersion || !Array.isArray(protocol.operations) || !['exploration', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan'].every(operation => protocol.operations.includes(operation))) { throw new Error('Incompatible code bridge protocol'); }
+				if (protocol?.version !== adeCodeProtocolVersion || !Array.isArray(protocol.operations) || !['exploration', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'codeUpdate'].every(operation => protocol.operations.includes(operation))) { throw new Error('Incompatible code bridge protocol'); }
 			} catch {
 				worker.dispose();
 				throw new Error(localize('ade.code.incompatibleEngine', "The A.D.E analysis engine is out of date or incompatible with this interface. For a development build, run npm run build-fast -- --client-only in the ADE repository, then fully quit and reopen ADE. For an installed application, update or reinstall the complete application."));

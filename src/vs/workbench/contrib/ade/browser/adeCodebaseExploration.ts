@@ -15,6 +15,7 @@ import { type IAdeCodeService } from './adeCodeService.js';
 import { type AdeControls } from './adeControls.js';
 import { diagramIcon, prependAdeIcon } from './adeIcons.js';
 import { viewLabels } from './adeLabels.js';
+import { renderAdeWorkflowSteps } from './adeWorkflowSteps.js';
 
 type DiagramPlanItem = NonNullable<CodeDiagramExploration['plan']>['items'][number];
 type DiagramTask = CodeDiagramExploration['tasks'][number];
@@ -105,7 +106,7 @@ export class AdeCodebaseExploration {
 		const currentStep = phase === 'applied' ? steps.length : phase === 'review' || exploration?.phase === 'review' ? 3 : preparingDiagrams ? 2 : 1;
 
 		const card = dom.append(panel, dom.$('div.ade-explore-card'));
-		this.renderSteps(card, currentStep);
+		renderAdeWorkflowSteps(card, localize('ade.explore.steps', "Exploration stages"), steps, currentStep);
 		const stage = this.getStage(exploration, phase, running, prepared, clarification, issue);
 		const body = dom.append(card, dom.$('div.ade-explore-stage', { 'data-tone': stage.tone }));
 		const content = dom.append(body, dom.$('div.ade-explore-stage-main'));
@@ -227,20 +228,6 @@ export class AdeCodebaseExploration {
 			return completed ? localize('ade.explore.waitingAfterTool', "Waiting for the AI provider · Last completed · {0}", completed) : localize('ade.explore.waiting', "Waiting for the AI provider…");
 		}
 		return completed ? localize('ade.explore.lastActivity', "Last completed · {0}", completed) : localize('ade.explore.working', "Analyzing project evidence…");
-	}
-
-	private renderSteps(parent: HTMLElement, current: number): void {
-		const list = dom.append(parent, dom.$('ol.ade-explore-steps', { 'aria-label': localize('ade.explore.steps', "Exploration stages") }));
-		for (const [index, step] of steps.entries()) {
-			const state = index < current ? 'complete' : index === current ? 'current' : 'pending';
-			const li = dom.append(list, dom.$('li', { 'data-state': state }));
-			if (state === 'current') { li.setAttribute('aria-current', 'step'); }
-			const marker = dom.append(li, dom.$('span.ade-explore-step-icon'));
-			prependAdeIcon(marker, state === 'complete' ? Codicon.check : step.icon);
-			const text = dom.append(li, dom.$('span.ade-explore-step-label'));
-			text.textContent = step.label;
-			if (state === 'complete') { li.setAttribute('aria-label', localize('ade.explore.stepComplete', "{0} complete", step.label)); }
-		}
 	}
 
 	private renderProgress(parent: HTMLElement, scope: readonly DiagramPlanItem[], tasks: ReadonlyMap<string, DiagramTask>): void {

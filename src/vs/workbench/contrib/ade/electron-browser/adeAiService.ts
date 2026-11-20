@@ -18,6 +18,8 @@ import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/co
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { AdeInput } from '../browser/adeInput.js';
 import { IAdeProjectService } from '../browser/adeProjectService.js';
 import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { IAdeAiService, type AdeDiagramReview } from '../browser/adeAiService.js';
@@ -177,6 +179,10 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 
 	async updateDiagrams(): Promise<void> { return this.diagrams.updateDiagrams(); }
 	async updateCodebase(): Promise<void> { return this.codeUpdates.update(); }
+	get codeUpdateState() { return this.codeUpdates.state; }
+	async startCodeUpdate(): Promise<void> { await this.codeUpdates.start(); }
+	stopCodeUpdate(): void { this.codeUpdates.stop(); }
+	closeCodeUpdate(): void { this.codeUpdates.close(); }
 
 	get codeGeneration(): FeatureCodeGenerationRun | undefined { return this.featureCode.run; }
 	get codeGenerationProblem(): string | undefined { return this.featureCode.problem; }
@@ -268,7 +274,7 @@ export class AdeAiService extends Disposable implements IAdeAiService {
 		};
 		this.connection = this._register(instantiation.createInstance(AdeAiConnection, workflow));
 		this.diagrams = this._register(instantiation.createInstance(AdeAiDiagrams, workflow, this.connection));
-		this.codeUpdates = this._register(instantiation.createInstance(AdeAiCodeUpdates, workflow, this.diagrams));
+		this.codeUpdates = this._register(instantiation.createInstance(AdeAiCodeUpdates, workflow, this.connection));
 		this.structural = this._register(instantiation.createInstance(AdeAiStructural, workflow));
 		this.implementation = this._register(instantiation.createInstance(AdeAiImplementation, workflow, this.connection));
 		this.featureCode = this._register(instantiation.createInstance(AdeAiFeatureCode, workflow, this.connection));
@@ -297,6 +303,18 @@ registerAction2(class extends Action2 {
 	override run(accessor: ServicesAccessor, preview: CodePreview, resolutions?: CodeResolution[], direction?: 'model' | 'code'): Promise<CodePreview | undefined> { return accessor.get(IAdeAiService).reconcile(preview, resolutions, direction); }
 });
 
+registerAction2(class extends Action2 {
+	constructor() { super({ id: 'ade.ai.updateCodebase', title: localize2('ade.ai.updateCodebaseCommand', "A.D.E: Update Codebase from Diagrams"), f1: true }); }
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const project = accessor.get(IAdeProjectService), ai = accessor.get(IAdeAiService), editors = accessor.get(IEditorService), notifications = accessor.get(INotificationService);
+		try {
+			await project.restore();
+			await ai.updateCodebase();
+			if (ai.codeUpdateState) { await editors.openEditor({ resource: AdeInput.RESOURCE, options: { pinned: true, revealIfOpened: true } }); }
+		} catch (error) { if (!isCancellationError(error)) { notifications.error(adeErrorNotification(error, 'ai', project.model)); } }
+	}
+});
+
 for (const [id, title, method] of [
 	['ade.ai.connect', localize2('ade.ai.connectCommand', "A.D.E: Connect Claude Code or Codex"), 'connect'],
 	['ade.ai.cli', localize2('ade.ai.cliCommand', "A.D.E: Open AI CLI"), 'openCli'],
@@ -309,7 +327,6 @@ for (const [id, title, method] of [
 	['ade.ai.buildDiagrams', localize2('ade.ai.buildDiagramsCommand', "A.D.E: Build Semantic Diagrams"), 'buildDiagrams'],
 	['ade.ai.resumeDiagrams', localize2('ade.ai.resumeDiagramsCommand', "A.D.E: Resume Diagram Generation"), 'resumeDiagrams'],
 	['ade.ai.updateDiagrams', localize2('ade.ai.updateDiagramsCommand', "A.D.E: Update Diagrams from Codebase"), 'updateDiagrams'],
-	['ade.ai.updateCodebase', localize2('ade.ai.updateCodebaseCommand', "A.D.E: Update Codebase from Diagrams"), 'updateCodebase'],
 	['ade.ai.implement', localize2('ade.ai.implementCommand', "A.D.E: Implement Feature"), 'implement'],
 	['ade.ai.interpret', localize2('ade.ai.interpretCommand', "A.D.E: Interpret Unresolved Evidence"), 'interpret'],
 	['ade.ai.review', localize2('ade.ai.reviewCommand', "A.D.E: Review Implementation"), 'review'],

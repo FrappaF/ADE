@@ -39,7 +39,7 @@ import { ITerminalService, ITerminalGroupService } from '../../../terminal/brows
 import { IAdeProjectService } from '../../browser/adeProjectService.js';
 import { IAdeCodeService } from '../../browser/adeCodeService.js';
 import { IAdeOperationService, AdeOperationService } from '../../browser/adeOperationService.js';
-import { CliAccountState, CodeContext, CodeDiagramProgress, CodeDiagramExploration, CodePreview, CodeRequest, type CodeDiagramCheckpointResult } from '../../common/codeBridge.js';
+import { CliAccountState, CodeContext, CodeDiagramProgress, CodeDiagramExploration, CodePreview, CodeRequest, type CodeDiagramCheckpointResult, type CodeUpdateResult } from '../../common/codeBridge.js';
 import { diagramCheckpointReasoningEffortSetting, diagramCheckpointTimeoutSetting, diagramExplorationBudgetSetting } from '../../common/diagramExplorationSettings.js';
 import { AdeAiService } from '../../electron-browser/adeAiService.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
@@ -48,6 +48,8 @@ import { nodeOrdersFixture } from '../common/nodeOrdersFixture.js';
 import { diagramToolDefinitions } from '../../common/diagramTools.js';
 import { checkoutModel } from '../../common/checkoutModel.js';
 import { featureCodeProfiles, type FeatureCodeGenerationRun } from '../../common/featureCodeGeneration.js';
+import { savedModelChanges, type SavedModelChange } from '../../common/modelCodeUpdate.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 
 interface Choice { description?: string; value?: unknown; label?: string; id?: string; provider?: string; maxCalls?: number; picked?: boolean; send?: boolean; generate?: boolean; propose?: boolean }
 type ExplorationBudget = CodeDiagramExploration['budget'];
@@ -67,9 +69,12 @@ suite('A.D.E native AI orchestration', () => {
 		const aiProgress = store.add(new Emitter<import('../../common/codeBridge.js').CodeAiProgress>());
 		const liveUpdates: import('../../common/codeBridge.js').CodeAiProgress[] = [];
 		const projectChanged = store.add(new Emitter<void>());
-		const savedModel = store.add(new Emitter<import('../../common/modelCodeUpdate.js').SavedModelChange>());
+		const savedModel = store.add(new Emitter<SavedModelChange>());
 		const contextFiles = new Map<string, string>();
 		const chatRequests: Extract<CodeRequest, { operation: 'diagramChat' }>[] = [];
+		const codeUpdateRequests: Extract<CodeRequest, { operation: 'codeUpdate' }>[] = [];
+		const codeUpdateNotifications: { run(): void }[] = [];
+		let onCodeUpdate: ((token: CancellationToken) => Promise<CodeUpdateResult>) | undefined;
 		const diagramPrepares: Extract<CodeRequest, { operation: 'diagramPrepare' }>[] = [];
 		const root = '/workspace/ade-ai-fixture';
 		if (savedExploration) { storage.store('ade.ai.exploration', JSON.stringify({ root, snapshot: root + '/.ade/imports/fixture', ...savedExploration }), StorageScope.WORKSPACE, StorageTarget.MACHINE); }
@@ -141,12 +146,21 @@ suite('A.D.E native AI orchestration', () => {
 		const operations = store.add(new AdeOperationService());
 		instantiation.stub(IAdeOperationService, operations);
 		const project = { model: structuredClone(checkoutModel), modelUri: URI.file(context.model), editable: true, onDidSaveModel: savedModel.event, onDidChange: projectChanged.event, save: async () => true };
+		const updateState = {
+			lastSavedChange: undefined as SavedModelChange | undefined,
+			acknowledgeCodeUpdate: (change: SavedModelChange) => { if (change.modelUri === updateState.lastSavedChange?.modelUri) { updateState.lastSavedChange = undefined; Object.assign(projectService, updateState); } }
+		};
 		let reverted = 0;
 		Object.assign(project, { projectRoot: URI.file(root), revert: async () => { reverted++; } });
-		const projectService = stub(IAdeProjectService, project);
+		const projectService = stub(IAdeProjectService, { ...project, ...updateState });
+		stub(ICommandService, { executeCommand: async () => {} });
 		const codeService = stub(IAdeCodeService, code);
 		stub(IQuickInputService, { pick: async (items: Choice[], options?: { title: string; activeItem?: Choice; placeHolder?: string; ignoreFocusLost?: boolean }) => { if (options) { pickerTitles.push(options.title); pickerOptions.push(options); } if (options?.title === 'Review Implementation Context' || options?.title === 'Review Implementation Plan' || options?.title === 'Review Sync Context') { return (confirmations.shift() ?? confirmed) ? items.find(item => item.send || item.generate || item.propose) : undefined; } return picks.shift()?.(items); }, input: async (options?: IInputOptions) => { if (options) { inputOptions.push(options); } return inputs.shift(); } });
-		stub(INotificationService, { notify: (notification: { message: string }) => { errors.push(notification.message); return { close: () => { closedAlerts++; } }; }, error: (message: string) => errors.push(message), info: (message: string) => infos.push(message) });
+		stub(INotificationService, {
+			notify: (notification: { message: string }) => { errors.push(notification.message); return { close: () => { closedAlerts++; } }; },
+			prompt: (_severity: number, _message: string, choices: { run(): void }[]) => { codeUpdateNotifications.push(...choices); },
+			error: (message: string) => errors.push(message), info: (message: string) => infos.push(message)
+		});
 		stub(IProgressService, { withProgress: async (_options: object, task: (progress: { report(step: { message: string }): void }) => Promise<void>) => task({ report: () => {} }) });
 		stub(IDialogService, { confirm: async (options: { detail: string }) => { dialogDetails.push(options.detail); return { confirmed: confirmations.shift() ?? confirmed }; } });
 		let stateData: string | undefined;
@@ -189,6 +203,12 @@ suite('A.D.E native AI orchestration', () => {
 		const execute = async (inputText: string, token = CancellationToken.None) => {
 				const request: { operation: string } = JSON.parse(inputText); requests.push(request.operation);
 				switch (request.operation) {
+					case 'codeUpdate': {
+						const update = JSON.parse(inputText) as Extract<CodeRequest, { operation: 'codeUpdate' }>;
+						codeUpdateRequests.push(update);
+						aiProgress.fire({ requestId: update.requestId!, kind: 'thinking' });
+						return JSON.stringify(onCodeUpdate ? await onCodeUpdate(token) : { outcome: 'implemented', text: 'Updated checkout and ran its focused tests.' });
+					}
 					case 'diagramChat': {
 						const chat = JSON.parse(inputText) as Extract<CodeRequest, { operation: 'diagramChat' }>;
 						chatRequests.push(chat);
@@ -275,6 +295,15 @@ suite('A.D.E native AI orchestration', () => {
 		const service = store.add(instantiation.createInstance(AdeAiService));
 		return { explorationBudgetRequests, setExplorationBudget: (budget: typeof explorationBudget, elapsedMs = 0) => { explorationBudget = structuredClone(budget); explorationBudgetStarted = Date.now() - elapsedMs; }, setCriteria: (value: unknown) => { stateData = JSON.stringify(value); }, pickerOptions, readonlyResources, setPureRoot: (value: string) => { pure.root = value; }, setProjectRoot: (value: URI) => { Object.assign(projectService, { projectRoot: value }); }, savedModel, contextFiles, chatRequests, prepareProjectReview: () => { incremental = true; projectWorkflow = true; exploratoryDraft = { id: 'project-view', status: 'ready', diagnostics: [], views: structuredClone(checkoutModel.views.slice(0, 2)) }; }, explorationSessionIds, removeExploration: () => { explorationMissing = true; exploratoryDraft = undefined; }, failExplorationRead: (error: Error) => { explorationReadError = error; }, prepareExploratoryDraft: (status: 'ready' | 'invalid' = 'ready') => { incremental = true; exploratoryDraft = { id: 'draft-review', status, diagnostics: [], views: [structuredClone(checkoutModel.views[0])] }; }, explorationActions, nativeDiagramModels, selectedChatModels, enableIncremental: () => { incremental = true; }, diagramTools, sessionTools, failPurePublication: () => { failPureApply = true; }, useStateModel: () => { Object.assign(projectService, { model: structuredClone(stateFixture) }); stateData = JSON.stringify(stateCriteriaFixture); }, get reverted() { return reverted; }, setPureAligned: () => { pureAligned = true; }, usePureModel: () => { Object.assign(project, { model: structuredClone(nodeOrdersFixture), modelUri: URI.file(root + '/.ade/model.json') }); Object.assign(projectService, project); projectChanged.fire(); }, service, operations, opened, chats, chatPrompts, dialogs, fileChanges, aiProgress, liveUpdates, deletedAttachments, diagramContexts, setCodeChanged: (value: boolean) => { Object.assign(codeService, { changed: value }); }, setModelUri: (value: URI) => { Object.assign(projectService, { modelUri: value }); }, dialogDetails, pickerTitles, editorInputs, project, projectChanged, get hiddenPanels() { return hiddenPanels; }, get closedAlerts() { return closedAlerts; }, confirmations, useDiagramPlan: () => { plannedProgress = { id: 'diagram-job', sourceRoot: root, reviewId: 'diagram-plan', status: 'ready', completed: 0, total: 3, calls: 0, symbols: 1, files: 1, model: 'economical-diagrams', questions: [], excluded: 0, remainingRequests: 1, plan: [{ key: 'overview', name: 'Overview', kind: 'structure', feature: null, focus: ['checkout-controller'], intent: 'System responsibilities', status: 'pending' }, { key: 'sequence', name: 'Checkout Interaction', kind: 'sequence', feature: 'purchase', focus: ['checkout-controller'], intent: 'Request and persistence order', status: 'pending' }] }; }, setConfirmed: (value: boolean) => { confirmed = value; }, failDiagram: (value = true) => { failDiagram = value; }, setAccountState: (value: CliAccountState) => { accountState = value; }, storage, picks, inputs, inputOptions, errors, infos, terminals, requests, sourceSelections, setups, code, changed, root, get signIns() { return signIns; }, disable: () => { disabled = true; }, holdTrust: (pending: Promise<boolean>) => { trust = pending; },
 			configurationValues, configurationEdits, budgetEditors, explorationOpens, diagramPrepares, failDiagramPrepare: (error: Error) => { diagramPrepareError = error; },
+			codeUpdateRequests, codeUpdateNotifications, onCodeUpdate: (handler: typeof onCodeUpdate) => { onCodeUpdate = handler; },
+			saveCodeUpdate: (before: typeof project.model) => {
+				const model = structuredClone(project.model);
+				const change = { modelUri: project.modelUri.toString(), model, changes: savedModelChanges(before, model) };
+				updateState.lastSavedChange = change;
+				Object.assign(projectService, updateState);
+				savedModel.fire(change);
+				return change.changes;
+			},
 			handleBudgetEditor: (handler: IAdeAiDialogService['editDiagramBudget']) => { editBudget = handler; },
 			setFeatureState: (state: Partial<CodeDiagramExploration>) => { incremental = true; projectWorkflow = true; featureState = state; storage.store('ade.ai.diagramModel.codex', 'native-model', StorageScope.PROFILE, StorageTarget.MACHINE); },
 			handleCheckpoint: (handler: typeof onCheckpoint) => { onCheckpoint = handler; },
@@ -1546,46 +1575,91 @@ suite('A.D.E native AI orchestration', () => {
 		assert.deepStrictEqual([f.service.codeGeneration?.status, f.requests.filter(request => request.startsWith('featureImplementation')), f.errors], ['undone', ['featureImplementationInspect', 'featureImplementationPrepare', 'featureImplementationStep', 'featureImplementationStep', 'featureImplementationVerify', 'featureImplementationApply', 'featureImplementationUndo'], []]);
 	});
 
-	for (const native of [false, true]) {
-		test(`${native ? 'native' : 'CLI'} model-to-code update opens an independent coding modal with the saved project context`, async () => {
-			const f = fixture(); f.enableIncremental();
-			if (native) { f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' }); }
-			await f.service.buildDiagrams();
-			await f.service.updateCodebase();
-			assert.equal(f.contextFiles.size, 1);
-			const [file, text] = [...f.contextFiles][0];
-			const context = JSON.parse(text);
-			assert.deepStrictEqual([context.root, context.modelFile, context.model, context.scope], [f.root, f.project.modelUri.fsPath, f.project.model, 'saved-model']);
-			const prompt = native ? f.chatPrompts.at(-1)! : f.dialogs.at(-1)!.prompt!;
-			assert.ok(prompt.includes(file) && prompt.includes('desired specification') && prompt.includes('meaningful tests'));
-			assert.equal(f.requests.includes('diagramChat'), false);
-			if (native) {
-				assert.equal(f.sessionTools.has(f.chats.at(-1)!.resource), false);
-				assert.ok(f.chats.at(-1)!.attachments.includes(URI.file(file).toString()));
-			} else {
-				await f.dialogs.at(-1)!.send!([{ role: 'user', text: prompt }], CancellationToken.None);
-				assert.deepStrictEqual([f.chatRequests[0].root, f.chatRequests[0].snapshot, f.chatRequests[0].sessionId], [f.root, undefined, undefined]);
-				f.project.model.name = 'A newer unsaved specification';
-				await assert.rejects(f.dialogs.at(-1)!.send!([{ role: 'user', text: 'Continue' }], CancellationToken.None), /Model Changed/);
-			}
-			assert.deepStrictEqual(f.errors, []);
-		});
-	}
+	test('codebase update sends only the saved model delta after an explicit start, outside chat', async () => {
+		const f = fixture();
+		f.project.model.semantics.elements[1].description = 'An unchanged requirement that must stay local';
+		const previous = structuredClone(f.project.model);
+		f.project.model.semantics.elements[0].description = 'Confirm a checkout in EUR';
+		const changes = f.saveCodeUpdate(previous);
+		await f.service.updateCodebase();
+		assert.deepStrictEqual([f.service.codeUpdateState?.phase, f.codeUpdateRequests.length, f.dialogs.length], ['ready', 0, 0]);
 
-	test('declining the save suggestion keeps the model saved and never opens a coding request', async () => {
-		const f = fixture(); f.setConfirmed(false);
-		f.savedModel.fire({ modelUri: f.project.modelUri.toString(), model: structuredClone(f.project.model), changes: [{ collection: 'elements', id: 'new-feature', before: null, after: { name: 'New feature' } }] });
-		await new Promise<void>(resolve => setTimeout(resolve, 0));
-		assert.deepStrictEqual([f.dialogDetails.length, f.dialogs.length, f.contextFiles.size], [1, 0, 0]);
+		const running = new DeferredPromise<void>();
+		const result = new DeferredPromise<CodeUpdateResult>();
+		f.onCodeUpdate(async () => { await running.complete(); return result.p; });
+		const update = f.service.startCodeUpdate();
+		await running.p;
+		const [request] = f.codeUpdateRequests;
+		assert.deepStrictEqual([request.root, JSON.parse(request.context).changes, f.service.codeUpdateState?.phase], [f.root, changes, 'running']);
+		assert.ok(!request.context.includes('An unchanged requirement'));
+		assert.ok(!request.context.includes(f.project.modelUri.fsPath));
+		await result.complete({ outcome: 'implemented', text: 'Updated checkout and ran its focused tests.' });
+		await update;
+		assert.deepStrictEqual([f.service.codeUpdateState?.phase, f.service.codeUpdateState?.summary, f.chatRequests.length, f.dialogs.length], ['completed', 'Updated checkout and ran its focused tests.', 0, 0]);
+		f.service.closeCodeUpdate();
+		await f.service.updateCodebase();
+		assert.deepStrictEqual([f.service.codeUpdateState?.phase, f.codeUpdateRequests.length], ['unavailable', 1]);
 	});
 
-	test('accepting the save suggestion includes exact before and after definitions in the coding context', async () => {
+	test('saving offers an action without opening the code workflow or sending a request', async () => {
 		const f = fixture();
-		const changes = [{ collection: 'elements', id: 'changed-feature', before: { name: 'Before' }, after: { name: 'After' } }];
-		f.savedModel.fire({ modelUri: f.project.modelUri.toString(), model: structuredClone(f.project.model), changes });
-		await new Promise<void>(resolve => setTimeout(resolve, 0));
-		assert.deepStrictEqual(JSON.parse([...f.contextFiles.values()][0]).changes, changes);
-		assert.deepStrictEqual([f.dialogs.length, f.requests.includes('diagramChat')], [1, false]);
+		const previous = structuredClone(f.project.model);
+		f.project.model.semantics.elements[0].description = 'Validate checkout quantity';
+		f.saveCodeUpdate(previous);
+		assert.deepStrictEqual([f.codeUpdateNotifications.length, f.service.codeUpdateState, f.codeUpdateRequests.length, f.dialogs.length], [1, undefined, 0, 0]);
+	});
+
+	test('stopping an update keeps the saved changes available for another attempt', async () => {
+		const f = fixture();
+		const previous = structuredClone(f.project.model);
+		f.project.model.semantics.elements[0].description = 'Validate checkout quantity';
+		f.saveCodeUpdate(previous);
+		await f.service.updateCodebase();
+		const running = new DeferredPromise<void>();
+		f.onCodeUpdate(async token => {
+			const cancelled = new DeferredPromise<void>();
+			const listener = token.onCancellationRequested(() => { void cancelled.complete(); });
+			try { await running.complete(); await cancelled.p; }
+			finally { listener.dispose(); }
+			throw new Error('Stopped');
+		});
+		const update = f.service.startCodeUpdate();
+		await running.p;
+		f.service.stopCodeUpdate();
+		await update;
+		assert.equal(f.service.codeUpdateState?.phase, 'cancelled');
+		f.onCodeUpdate(undefined);
+		await f.service.startCodeUpdate();
+		assert.deepStrictEqual([f.service.codeUpdateState?.phase, f.codeUpdateRequests.length], ['completed', 2]);
+	});
+
+	test('an unsaved semantic change invalidates a prepared scope before dispatch', async () => {
+		const f = fixture();
+		const previous = structuredClone(f.project.model);
+		f.project.model.semantics.elements[0].description = 'Validate checkout quantity';
+		f.saveCodeUpdate(previous);
+		await f.service.updateCodebase();
+		f.project.model.semantics.elements[0].description = 'A newer rule';
+		f.projectChanged.fire();
+		await f.service.startCodeUpdate();
+		assert.deepStrictEqual([f.service.codeUpdateState?.phase, f.codeUpdateRequests.length], ['unavailable', 0]);
+	});
+
+	test('provider questions keep the delta pending until an implementation or a confirmed no-op', async () => {
+		const f = fixture();
+		const previous = structuredClone(f.project.model);
+		f.project.model.semantics.elements[0].description = 'Validate checkout quantity';
+		f.saveCodeUpdate(previous);
+		await f.service.updateCodebase();
+		f.onCodeUpdate(async () => ({ outcome: 'needs-input', text: 'What is the maximum quantity?' }));
+		await f.service.startCodeUpdate();
+		assert.deepStrictEqual([f.service.codeUpdateState?.phase, f.service.codeUpdateState?.summary], ['failed', 'What is the maximum quantity?']);
+
+		f.onCodeUpdate(async () => ({ outcome: 'already-aligned', text: 'The existing code already implements the rule.' }));
+		await f.service.startCodeUpdate();
+		f.service.closeCodeUpdate();
+		await f.service.updateCodebase();
+		assert.deepStrictEqual([f.service.codeUpdateState?.phase, f.codeUpdateRequests.length], ['unavailable', 2]);
 	});
 
 	test('updating waits for the current project codebase and canceling setup never opens the assistant', async () => {
@@ -1598,7 +1672,7 @@ suite('A.D.E native AI orchestration', () => {
 	});
 
 	for (const native of [false, true]) {
-		test(`${native ? 'native' : 'CLI'} codebase update pre-fills an editable prompt without sending or leaking it into the next chat`, async () => {
+		test(`${native ? 'native' : 'CLI'} diagram update pre-fills an editable prompt without sending or leaking it into the next chat`, async () => {
 			const f = fixture(); f.prepareExploratoryDraft();
 			if (native) { f.publishAccount({ status: 'signedIn' }); f.setups.push({ agent: 'codex', download: 'ready' }); }
 			await f.service.buildDiagrams(); await f.service.reviewDiagramProposal('draft-review'); await f.service.applyDiagramReview();

@@ -18,6 +18,7 @@ const requestSchemas = [
 		}
 	},
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'request'], properties: { operation: { const: 'exploration' }, snapshot: nonempty, request: nonempty } },
+	{ type: 'object', additionalProperties: false, required: ['operation', 'root', 'config', 'context'], properties: { operation: { const: 'codeUpdate' }, requestId: nonempty, root: nonempty, config: nonempty, context: nonempty } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'root'], properties: { operation: { const: 'import' }, root: nonempty, modelFile: nonempty, scope: { type: 'object' }, syntaxOnly: { type: 'boolean' }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot'], properties: { operation: { enum: ['inspect', 'preview', 'history'] }, snapshot: nonempty, inventoryOnly: { type: 'boolean' }, scope: { type: 'object' }, renames: { type: 'array' }, resolutions: { type: 'array', maxItems: 1000, items: { type: 'object', additionalProperties: false, required: ['path', 'choice'], properties: { path: nonempty, choice: { enum: ['model', 'code'] } } } }, bundles: { type: 'array', items: nonempty, maxItems: 20 } } },
 	{ type: 'object', additionalProperties: false, required: ['operation', 'snapshot', 'id'], properties: { operation: { enum: ['undoSync', 'recoverSync'] }, snapshot: nonempty, id: nonempty } },

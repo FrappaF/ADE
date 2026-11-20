@@ -443,7 +443,15 @@ suite('A.D.E project context', () => {
 		await project.save(true); assert.equal(saved.length, 1);
 		project.edit({ kind: 'rename', target: 'element', id: original.id, name: 'Internal save' });
 		await project.save(); assert.equal(saved.length, 1);
-		assert.equal(project.lastSavedChange?.changes[0].id, original.id);
+		assert.deepStrictEqual(project.lastSavedChange?.changes[0], { collection: 'elements', id: original.id, before: original, after: project.model.semantics.elements[0] });
+
+		const reopened = disposables.add(new AdeProjectService(storage, files, dialogs, documents.textFiles, documents.textModels, workspaceContext, projectDialogs));
+		await reopened.openModelResource(resource);
+		assert.deepStrictEqual(reopened.lastSavedChange, project.lastSavedChange);
+		reopened.acknowledgeCodeUpdate(saved[0]);
+		assert.ok(reopened.lastSavedChange, 'an older in-flight update must not acknowledge a newer save');
+		reopened.acknowledgeCodeUpdate(reopened.lastSavedChange!);
+		assert.strictEqual(reopened.lastSavedChange, undefined);
 	});
 
 	test('creates an empty project without overwrites, and records feature creation as one native undo transaction', async () => {

@@ -35,11 +35,20 @@ import { createPureProject, type ProjectCriteria } from '../common/modelProject.
 import { compileModelTaskContext, type ModelTaskPacket } from '../common/modelTaskContext.js';
 import { compileModelContext, type ModelContextRequest } from '../common/modelContext.js';
 import { diagnosticMessage, isAdeDiagramBlockingDiagnostic } from './adeDiagnostics.js';
-import { savedModelChanges, type SavedModelChange } from '../common/modelCodeUpdate.js';
+import { codeUpdateContent, mergeModelCodeChanges, savedModelChanges, type ModelCodeChange, type SavedModelChange } from '../common/modelCodeUpdate.js';
+import { canonicalJson, modelDigest } from '../common/modelSerialization.js';
 import { type ModelDiagnostic, type SemanticModel } from '../common/modelTypes.js';
 import { SaveReason } from '../../../common/editor.js';
 
 export const IAdeProjectService = createDecorator<AdeProjectService>('adeProjectService');
+
+interface StoredCodeUpdate {
+	version: 1;
+	revision: string;
+	changes: ModelCodeChange[];
+}
+
+const codeUpdateStorageKey = (modelUri: string) => `ade.codeUpdates.pending:${modelUri}`;
 
 interface PureStarterRecord {
 	version: 1;
@@ -82,6 +91,12 @@ export class AdeProjectService extends Disposable {
 	private savedModel: SemanticModel | undefined;
 	private savedChange: SavedModelChange | undefined;
 	get lastSavedChange(): SavedModelChange | undefined { return this.savedChange?.modelUri === this.modelUri?.toString() ? structuredClone(this.savedChange) : undefined; }
+	acknowledgeCodeUpdate(change: SavedModelChange): void {
+		if (this.savedChange?.modelUri === change.modelUri && canonicalJson(this.savedChange.changes) === canonicalJson(change.changes)) {
+			this.savedChange = undefined;
+			this.storageService.remove(codeUpdateStorageKey(change.modelUri), StorageScope.WORKSPACE);
+		}
+	}
 	private silentSave = 0;
 	private recordingSave: Promise<void> = Promise.resolve();
 	private structuralPreview: { version: string; packet: ModelTaskPacket } | undefined;
@@ -611,11 +626,38 @@ export class AdeProjectService extends Disposable {
 		const value = JSON.parse((await this.fileService.readFile(resource)).value.toString());
 		const model = value.version === 4 || value.version === 5 ? readSemanticDraft(value) : migrateSemanticModel(value).model;
 		if (generation !== this.generation || this.modelUri?.toString() !== resource.toString()) { return; }
-		const changes = this.savedModel ? savedModelChanges(this.savedModel, model) : [];
+		const delta = this.savedModel ? savedModelChanges(this.savedModel, model) : [];
 		this.savedModel = structuredClone(model);
-		if (!changes.length) { return; }
-		this.savedChange = { modelUri: resource.toString(), model: structuredClone(model), changes };
-		if (suggest && !validateSemanticModel(model).some(entry => entry.severity === 'error')) { this.savedEmitter.fire(structuredClone(this.savedChange)); }
+		if (!delta.length) { return; }
+		const modelUri = resource.toString();
+		const changes = mergeModelCodeChanges(this.savedChange?.modelUri === modelUri ? this.savedChange.changes : [], delta);
+		const revision = changes.length ? await modelDigest(canonicalJson(codeUpdateContent(model))) : undefined;
+		if (generation !== this.generation || this.modelUri?.toString() !== modelUri) { return; }
+		if (revision) {
+			const stored: StoredCodeUpdate = { version: 1, revision, changes };
+			this.savedChange = { modelUri, model: structuredClone(model), changes };
+			this.storageService.store(codeUpdateStorageKey(modelUri), JSON.stringify(stored), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		} else {
+			this.savedChange = undefined;
+			this.storageService.remove(codeUpdateStorageKey(modelUri), StorageScope.WORKSPACE);
+		}
+		if (suggest && this.savedChange && !validateSemanticModel(model).some(entry => entry.severity === 'error')) { this.savedEmitter.fire(structuredClone(this.savedChange)); }
+	}
+
+	private async restoreSavedChange(resource: URI, model: SemanticModel): Promise<SavedModelChange | undefined> {
+		const modelUri = resource.toString();
+		const stored = this.storageService.get(codeUpdateStorageKey(modelUri), StorageScope.WORKSPACE);
+		if (!stored) { return; }
+		try {
+			const entry: StoredCodeUpdate = JSON.parse(stored);
+			const image = (value: unknown) => value === null || (typeof value === 'object' && !Array.isArray(value));
+			if (entry.version === 1 && Array.isArray(entry.changes) && entry.changes.length && entry.changes.every(change => change &&
+				typeof change.collection === 'string' && typeof change.id === 'string' && image(change.before) && image(change.after) && (change.before || change.after)) &&
+				entry.revision === await modelDigest(canonicalJson(codeUpdateContent(model)))) {
+				return { modelUri, model, changes: entry.changes };
+			}
+		} catch { /* Ignore obsolete or corrupt local update context. */ }
+		return undefined;
 	}
 
 	async saveAs(): Promise<boolean> {
@@ -756,7 +798,11 @@ export class AdeProjectService extends Disposable {
 				this.recordingSave = this.recordingSave.then(() => this.recordSavedModel(resource, generation, suggest)).catch(() => { /* Invalid saved drafts cannot request code generation. */ });
 			}));
 			this.readDocument(document);
-			this.savedModel = structuredClone(this.model); this.savedChange = undefined;
+			const savedModel = structuredClone(this.model);
+			this.savedModel = savedModel;
+			this.savedChange = undefined;
+			const savedChange = !this.error ? await this.restoreSavedChange(resource, savedModel) : undefined;
+			if (generation === this.generation && this.savedModel === savedModel) { this.savedChange = savedChange; }
 		} catch (error) {
 			if (generation !== this.generation) { return; }
 			this._errorCause = error;

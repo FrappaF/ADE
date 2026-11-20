@@ -180,17 +180,20 @@ export class AdeWorkflowContent {
 		const assisted = generation && typeof this.ai.inspectCodeGeneration === 'function' ? generation : undefined;
 		const run = assisted && this.ai.codeGeneration;
 		const setupReason = updateReason ?? (!this.project.model.semantics.elements.some(element => element.kind === 'feature') ? localize('ade.featureCode.featureRequired', "Add a feature with a diagram before preparing code.") : undefined);
-		const updateLabel = this.code.context ? localize('ade.codeUpdate.button', "Update Codebase from Diagrams") : localize('ade.featureCode.start', "Prepare Code from Diagrams");
-		let update = assisted ? action(updateLabel, () => assisted.ui.configure(), setupReason) : action(localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), () => this.ai.updateCodebase(), updateReason);
+		const update = this.code.context || !assisted ? action(localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), () => this.ai.updateCodebase(), updateReason) : undefined;
+		let reviewed = assisted && action(localize('ade.featureCode.start', "Prepare Code from Diagrams"), () => assisted.ui.configure(), setupReason);
 		if (assisted && run) {
-			if (hasFeatureCodeReview(run)) { update = action(localize('ade.featureCode.openReview', "Review AI Code Changes"), async () => assisted.review(), aiReason); }
-			else if (run.status === 'waitingUser') { update = action(localize('ade.featureCode.clarify', "Answer Clarifications"), () => assisted.ui.clarify(), aiReason); }
-			else { update = action(localize('ade.featureCode.resume', "Resume Generation"), () => this.ai.resumeCodeGeneration(), aiReason); }
+			if (hasFeatureCodeReview(run)) { reviewed = action(localize('ade.featureCode.openReview', "Review AI Code Changes"), async () => assisted.review(), aiReason); }
+			else if (run.status === 'waitingUser') { reviewed = action(localize('ade.featureCode.clarify', "Answer Clarifications"), () => assisted.ui.clarify(), aiReason); }
+			else { reviewed = action(localize('ade.featureCode.resume', "Resume Generation"), () => this.ai.resumeCodeGeneration(), aiReason); }
 		}
 		renderAdeCodeActions(parent, this.controls, {
-			update: run?.status === 'generating' && busy ? undefined : update,
-			newGeneration: assisted && run && ['ready', 'verified', 'failed', 'applied', 'undone'].includes(run.status) ? action(localize('ade.featureCode.startNew', "Prepare New Code Changes"), () => assisted.ui.configure(), setupReason) : undefined,
-			generationStatus: assisted ? container => assisted.ui.renderProgress(container, run, this.controls, busy) : undefined,
+			update,
+			reviewedGeneration: assisted && {
+				action: run?.status === 'generating' && busy ? undefined : reviewed,
+				prepareNew: run && ['ready', 'verified', 'failed', 'applied', 'undone'].includes(run.status) ? action(localize('ade.featureCode.startNew', "Prepare New Code Changes"), () => assisted.ui.configure(), setupReason) : undefined,
+				renderStatus: container => assisted.ui.renderProgress(container, run, this.controls, busy)
+			},
 			prepare: action(localize('ade.review.prepare', "Prepare Model to Code Review"), () => this.ai.implement(), structuralReason ?? (!executable ? localize('ade.code.behaviorRequired', "Complete the executable behavior and runtime in Project Settings to prepare a local code review.") : undefined)),
 			continuity: action(localize('ade.continuity.toggle', "Start or Stop Continuous Preparation"), () => this.ai.configureContinuity(), structuralReason),
 			continuityStatus: this.ai.continuityStatus,

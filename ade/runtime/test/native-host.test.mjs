@@ -6,7 +6,7 @@
 import '../../scripts/source-loader.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, realpath, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 const { engine: productionEngine, createCodeEngine, codeBridgeProtocol } = await import('../../runtime/nativeHost.ts');
@@ -37,8 +37,65 @@ async function workspace(t, files) {
 	for (const [file, text] of Object.entries(files)) { await mkdir(join(root, file, '..'), { recursive: true }); await writeFile(join(root, file), text); }
 	return root;
 }
-test('native boundary advertises the semantic diagram protocol', () => {
-	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'diagramChat', 'exploration', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'restore', 'source'] });
+test('native boundary advertises the semantic diagram and code update protocol', () => {
+	assert.deepEqual(codeBridgeProtocol, { version: adeCodeProtocolVersion, operations: ['collaboration', 'diagramChat', 'exploration', 'codeUpdate', 'import', 'inspect', 'preview', 'history', 'undoSync', 'recoverSync', 'apply', 'reconciliationPrepare', 'reconciliationPropose', 'diagramPrepare', 'diagramStep', 'diagramApprovePlan', 'restore', 'source'] });
+});
+test('code update dispatches only the saved delta in one writable provider turn', { skip: process.platform === 'win32' }, async t => {
+	const root = await workspace(t, { 'orders.mjs': 'export const currency = "EUR";\n' });
+	const context = {
+		version: 2, direction: 'model-to-code', project: { id: 'mercato', name: 'Mercato' },
+		changes: [{ collection: 'elements', id: 'order', before: { name: 'Order' }, after: { name: 'Order', currency: 'EUR' } }],
+		affectedViews: [], referencedElements: [], sourceHints: { mappings: [], evidence: [] }
+	};
+	const executable = join(root, 'fixture-cli');
+	await writeFile(executable, `#!${process.execPath}
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+const value = flag => args[args.indexOf(flag) + 1];
+const prompt = fs.readFileSync(0, 'utf8');
+assert.equal(process.cwd(), ${JSON.stringify(root)});
+assert.match(prompt, /^Implement only the saved ADE model changes/);
+assert.doesNotMatch(prompt, /Conversation:|model[.]ade[.]json|Read the current model before changing it/);
+assert.deepEqual(JSON.parse(prompt.split('Saved model changes:\\n')[1]), ${JSON.stringify(context)});
+const result = { outcome: 'already-aligned', text: 'The source already uses EUR.' };
+if (args[0] === 'exec') {
+	assert.ok(args.includes('--ephemeral') && args.includes('mcp_servers={}') && !args.some(arg => arg.startsWith('mcp_servers.ade.')));
+	assert.equal(value('--sandbox'), 'workspace-write');
+	assert.deepEqual(JSON.parse(fs.readFileSync(value('--output-schema'), 'utf8')).required, ['outcome', 'text']);
+	console.log(JSON.stringify({ type: 'turn.started' }));
+	console.log(JSON.stringify({ type: 'item.started', item: { type: 'command_execution' } }));
+	fs.writeFileSync(value('--output-last-message'), JSON.stringify(result));
+	console.log(JSON.stringify({ type: 'turn.completed' }));
+} else {
+	assert.ok(args.includes('--no-session-persistence') && args.includes('--strict-mcp-config'));
+	assert.equal(value('--output-format'), 'stream-json');
+	assert.deepEqual(JSON.parse(value('--mcp-config')), { mcpServers: {} });
+	assert.deepEqual(JSON.parse(value('--json-schema')).required, ['outcome', 'text']);
+	console.log(JSON.stringify({ type: 'system', subtype: 'init' }));
+	console.log(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash' }] } }));
+	console.log(JSON.stringify({ type: 'result', subtype: 'success', structured_output: value('--model') === 'invalid-result' ? { text: 'Missing outcome' } : result }));
+}
+`, { mode: 0o700 });
+	const request = { operation: 'codeUpdate', requestId: 'mercato-delta', root, config: '', context: JSON.stringify(context) };
+	for (const provider of ['codex', 'claude']) {
+		request.config = JSON.stringify({ ...config, provider, executable });
+		const events = [];
+		assert.deepEqual(JSON.parse(await engine.execute(JSON.stringify(request), undefined, event => events.push(event))), { outcome: 'already-aligned', text: 'The source already uses EUR.' });
+		assert.deepEqual(events, [
+			{ requestId: 'mercato-delta', kind: 'connecting' },
+			{ requestId: 'mercato-delta', kind: 'thinking' },
+			{ requestId: 'mercato-delta', kind: 'tool', tool: 'command_execution' }
+		]);
+	}
+	assert.equal(await readFile(join(root, 'orders.mjs'), 'utf8'), 'export const currency = "EUR";\n');
+	assert.deepEqual((await readdir(root)).sort(), ['fixture-cli', 'orders.mjs']);
+	await assert.rejects(call({ ...request, messages: [{ role: 'user', text: 'Do more' }] }), /codeUpdate.*additional properties/);
+	await assert.rejects(call({ ...request, context: JSON.stringify({ ...context, model: {} }) }), /Invalid code update context/);
+	await assert.rejects(call({ ...request, context: JSON.stringify({ ...context, changes: [] }) }), /Invalid code update context/);
+	await assert.rejects(call({ ...request, config: JSON.stringify({ ...config, executable, maxCalls: 0 }) }), /AI requests are disabled/);
+	await assert.rejects(call({ ...request, config: JSON.stringify({ ...config, executable, maxContextBytes: 1024 }) }), /code update context budget/);
+	await assert.rejects(call({ ...request, config: JSON.stringify({ ...config, provider: 'claude', executable, model: 'invalid-result' }) }), /invalid code update result/);
 });
 test('the modal request runs the CLI headlessly with the verified project MCP binding', async t => {
 	const root = await workspace(t, { 'app.py': 'def start():\n    return 1\n' });

@@ -3,65 +3,223 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { VSBuffer } from '../../../../base/common/buffer.js';
-import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
-import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
-import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IAdeCodeService } from '../browser/adeCodeService.js';
 import { IAdeProjectService } from '../browser/adeProjectService.js';
 import { adeErrorNotification } from '../browser/adeErrors.js';
+import { codeUpdateContent, createModelCodeUpdateContext, describeModelCodeChanges, type ModelCodeUpdateState, type SavedModelChange } from '../common/modelCodeUpdate.js';
 import { canonicalJson } from '../common/modelSerialization.js';
-import { codeUpdateContent, type SavedModelChange } from '../common/modelCodeUpdate.js';
+import { type AdeAiConnection } from './adeAiConnection.js';
+import { runCodeUpdate } from './adeAiCodeUpdateRunner.js';
 import { type AdeAiProject, type AdeAiWorkflow } from './adeAiTypes.js';
-import { type AdeAiDiagrams } from './adeAiDiagrams.js';
 
-/** A saved model is implementation intent; it never resumes source-to-diagram exploration. */
+interface CodeUpdateTarget {
+	root: string;
+	modelUri: string;
+}
+
+interface PreparedCodeUpdate {
+	change: SavedModelChange;
+	revision: string;
+	context: string;
+}
+
+/** Carries saved implementation intent through a dedicated, cancellable workflow. */
 export class AdeAiCodeUpdates extends Disposable {
+	private view: ModelCodeUpdateState | undefined;
+	private target: CodeUpdateTarget | undefined;
+	private prepared: PreparedCodeUpdate | undefined;
+	private active: CancellationTokenSource | undefined;
 	private opening = false;
+
+	get state(): ModelCodeUpdateState | undefined { return this.view; }
+
 	constructor(
-		private readonly host: Pick<AdeAiWorkflow, 'busy' | 'info'>,
-		private readonly diagrams: AdeAiDiagrams,
+		private readonly host: Pick<AdeAiWorkflow, 'busy' | 'changed' | 'info' | 'run'>,
+		private readonly connection: AdeAiConnection,
 		@IAdeProjectService private readonly project: AdeAiProject,
-		@IFileService private readonly files: IFileService,
-		@IDialogService private readonly dialogs: IDialogService,
+		@IAdeCodeService private readonly code: IAdeCodeService,
 		@IConfigurationService private readonly configuration: IConfigurationService,
-		@IWorkspaceTrustRequestService private readonly trust: IWorkspaceTrustRequestService
+		@INotificationService private readonly notifications: INotificationService,
+		@ICommandService private readonly commands: ICommandService
 	) {
 		super();
-		this._register(project.onDidSaveModel(change => { void this.suggest(change).catch(error => this.host.info(adeErrorNotification(error, 'ai', this.project.model))); }));
+		this._register(project.onDidSaveModel(change => this.suggest(change)));
+		this._register(project.onDidChange(() => this.followProject()));
 	}
-	private enabled(): boolean { return !this.host.busy && !this.opening && this.configuration.getValue<boolean>('chat.disableAIFeatures') !== true && this.project.projectRoot?.scheme === 'file' && this.project.modelUri?.scheme === 'file' && this.project.editable && !this.project.error && !this.project.hasStructuralErrors; }
-	private current(change: SavedModelChange): boolean { return change.modelUri === this.project.modelUri?.toString() && canonicalJson(codeUpdateContent(change.model)) === canonicalJson(codeUpdateContent(this.project.model)); }
-	private async suggest(change: SavedModelChange): Promise<void> {
-		if (!this.enabled() || !this.current(change) || this.configuration.getValue<boolean>('ade.codeUpdates.suggestAfterSave') === false) { return; }
+
+	private projectTarget(): CodeUpdateTarget | undefined {
+		const root = this.project.projectRoot;
+		const model = this.project.modelUri;
+		return root?.scheme === 'file' && model?.scheme === 'file' ? { root: root.fsPath, modelUri: model.toString() } : undefined;
+	}
+
+	private sameProject(target: CodeUpdateTarget): boolean {
+		const current = this.projectTarget();
+		return current?.root === target.root && current.modelUri === target.modelUri;
+	}
+
+	private currentRevision(): string {
+		return canonicalJson(codeUpdateContent(this.project.model));
+	}
+
+	private setState(state: ModelCodeUpdateState | undefined): void {
+		this.view = state;
+		this.host.changed();
+	}
+
+	private followProject(): void {
+		if (!this.target) { return; }
+		if (!this.sameProject(this.target)) {
+			this.active?.cancel();
+			this.target = undefined;
+			this.prepared = undefined;
+			this.setState(undefined);
+		} else if (this.prepared && (this.project.hasStructuralErrors || this.prepared.revision !== this.currentRevision())) {
+			this.invalidate();
+		}
+	}
+
+	private invalidate(): void {
+		const running = this.view?.phase === 'running';
+		this.active?.cancel();
+		this.prepared = undefined;
+		if (this.view) {
+			const status = running ? localize('ade.codeUpdate.staleRunning', "The diagrams changed during the update. Review any local file changes before refreshing.") : localize('ade.codeUpdate.stale', "The diagrams have changed. Refresh the saved changes before continuing.");
+			this.setState({ id: this.view.id, phase: 'unavailable', changes: [], status, canRefresh: true });
+		}
+	}
+
+	private suggest(change: SavedModelChange): void {
+		if (this.host.busy || this.active || !this.project.editable || this.project.hasStructuralErrors ||
+			this.configuration.getValue<boolean>('chat.disableAIFeatures') === true || this.configuration.getValue<boolean>('ade.codeUpdates.suggestAfterSave') === false ||
+			change.modelUri !== this.projectTarget()?.modelUri) { return; }
+		this.notifications.prompt(Severity.Info, localize('ade.codeUpdate.suggest', "Saved diagram changes are ready for a codebase update."), [{
+			label: localize('ade.codeUpdate.button', "Update Codebase from Diagrams"),
+			run: () => this.commands.executeCommand('ade.ai.updateCodebase')
+		}]);
+	}
+
+	async update(): Promise<void> {
+		if (this.opening || this.active) { return; }
+		const target = this.projectTarget();
+		if (!target) {
+			this.host.info(localize('ade.codeUpdate.localProject', "Open a local diagram project before updating its codebase."));
+			return;
+		}
 		this.opening = true;
 		try {
-			const result = await this.dialogs.confirm({ message: localize('ade.codeUpdate.suggest', "Update the Codebase from Your Saved Diagram Changes?"), detail: localize('ade.codeUpdate.suggestDetail', "{0} model changes saved in {1}. The assistant will receive the exact changes and saved model to implement them in this project's codebase.", change.changes.length, change.model.name), primaryButton: localize('ade.codeUpdate.button', "Update Codebase from Diagrams"), checkbox: { label: localize('ade.codeUpdate.dontAsk', "Don't Ask Again in This Workspace") } });
-			if (result.checkboxChecked) { await this.configuration.updateValue('ade.codeUpdates.suggestAfterSave', false, ConfigurationTarget.WORKSPACE); }
-			if (!result.confirmed || !this.current(change)) { return; }
-		} finally { this.opening = false; }
-		await this.update(change);
+			const id = generateUuid();
+			this.target = target;
+			this.prepared = undefined;
+			if (!this.project.editable || this.project.hasStructuralErrors) {
+				this.setState({ id, phase: 'unavailable', changes: [], status: localize('ade.codeUpdate.invalidModel', "Open an editable model and resolve its validation errors before updating the codebase.") });
+				return;
+			}
+			const saved = await this.project.save();
+			if (!this.sameProject(target)) { return; }
+			const change = this.project.lastSavedChange;
+			if (!saved || this.project.hasStructuralErrors) {
+				this.setState({ id, phase: 'unavailable', changes: [], status: this.project.saveError ?? localize('ade.codeUpdate.saveRequired', "Save valid diagram changes before updating the codebase.") });
+			} else if (!change?.changes.length) {
+				this.setState({ id, phase: 'unavailable', changes: [], status: localize('ade.codeUpdate.noChanges', "There are no pending saved diagram changes. Edit and save a diagram to prepare an update.") });
+			} else {
+				const revision = canonicalJson(codeUpdateContent(change.model));
+				if (change.modelUri !== target.modelUri || revision !== this.currentRevision()) {
+					this.setState({ id, phase: 'unavailable', changes: [], status: localize('ade.codeUpdate.changedWhileSaving', "The diagrams changed while preparing the update. Save them and refresh the changes."), canRefresh: true });
+					return;
+				}
+				this.prepared = { change, revision, context: JSON.stringify(createModelCodeUpdateContext(change)) };
+				this.setState({ id, phase: 'ready', changes: describeModelCodeChanges(change.changes) });
+			}
+		} finally {
+			this.opening = false;
+		}
 	}
-	async update(saved?: SavedModelChange): Promise<void> {
-		if (!this.enabled()) { return; }
-		this.opening = true;
+
+	async start(): Promise<void> {
+		const view = this.view;
+		const target = this.target;
+		const prepared = this.prepared;
+		if (!view || !target || !prepared || this.active || this.host.busy) { return; }
+		if (!this.sameProject(target) || prepared.revision !== this.currentRevision() || !this.project.editable || this.project.hasStructuralErrors) {
+			this.invalidate();
+			return;
+		}
+		const source = new CancellationTokenSource();
+		this.active = source;
+		const started = Date.now();
+		let entered = false;
+		const playing = (phase: ModelCodeUpdateState['phase'], status: string, summary?: string) => {
+			if (this.prepared !== prepared || this.active !== source) { return; }
+			this.setState({ ...view, phase, status, summary, durationMs: phase === 'running' ? undefined : Date.now() - started });
+		};
+		const cancelled = () => playing('cancelled', localize('ade.codeUpdate.cancelled', "Update stopped. Review any local file changes before retrying."));
+		playing('running', localize('ade.codeUpdate.preparing', "Checking the workspace and saved diagram changes"));
 		try {
-			if (!await this.trust.requestWorkspaceTrust() || !await this.project.save() || this.project.hasStructuralErrors) { return; }
-			const change = saved ?? this.project.lastSavedChange;
-			if (change && !this.current(change)) { this.host.info(localize('ade.codeUpdate.stale', "The Saved Model Changed. Save It and Retry the Codebase Update.")); return; }
-			const modelUri = this.project.modelUri!, root = this.project.projectRoot!;
-			const model = structuredClone(this.project.model), revision = canonicalJson(model);
-			const folder = URI.joinPath(root, '.ade', 'code-updates');
-			await this.files.createFolder(folder);
-			const artifact = URI.joinPath(folder, generateUuid() + '.json');
-			await this.files.writeFile(artifact, VSBuffer.fromString(JSON.stringify({ version: 1, direction: 'model-to-code', root: root.fsPath, modelFile: modelUri.fsPath, model, changes: change?.changes ?? [], scope: change ? 'latest-save' : 'saved-model' }, null, '\t') + '\n'));
-			if (this.project.modelUri?.toString() !== modelUri.toString() || canonicalJson(this.project.model) !== revision) { return; }
-			await this.diagrams.returnToDiagrams();
-			await this.diagrams.chat(localize('ade.codeUpdate.prompt', "Update this project's codebase to implement the saved ADE model. Read the implementation context at {0}; it contains the exact saved model and the additions, modifications and removals from the latest save, when available. Treat these authored changes as the desired specification, not as facts already implemented in source code. Inspect the affected diagrams, shared objects, descriptions, attributes, relationships, conditions and behavioral contracts, then compare them with the current code. Removing an object from one diagram does not remove its shared definition or authorize deleting its implementation. Preserve unrelated code and local changes. Follow the existing project's language, framework, authentication, authorization and persistence conventions. Implement the necessary source changes, migrations and meaningful tests. Resolve missing functional decisions with the user instead of inventing rules. Run relevant verification and report the mapping from model changes to code, changed files, test results, remaining gaps and any migration commands. Preserve all ADE model files, semantic IDs and manual layout. Leave code changes local for review; do not commit, push, deploy or run destructive migrations.", artifact.fsPath), { modelUri: modelUri.toString(), revision, contextFile: artifact.fsPath });
-		} finally { this.opening = false; }
+			await this.host.run(async token => {
+				entered = true;
+				const hostCancellation = token.onCancellationRequested(() => source.cancel());
+				try {
+					if (source.token.isCancellationRequested || token.isCancellationRequested) { cancelled(); return; }
+					if (!this.sameProject(target) || prepared.revision !== this.currentRevision() || !this.project.editable || this.project.hasStructuralErrors) { this.invalidate(); return; }
+					const result = await runCodeUpdate({
+						root: target.root,
+						context: prepared.context,
+						token: source.token,
+						onProgress: message => { if (!source.token.isCancellationRequested) { playing('running', message); } }
+					}, this.connection, this.code);
+					if (source.token.isCancellationRequested) { cancelled(); return; }
+					if (!this.sameProject(target) || prepared.revision !== this.currentRevision()) { this.invalidate(); return; }
+					if (result.outcome === 'needs-input') {
+						playing('failed', localize('ade.codeUpdate.needsInput', "Clarify the diagram changes and retry the update."), result.text);
+						return;
+					}
+					this.project.acknowledgeCodeUpdate(prepared.change);
+					playing('completed', result.outcome === 'already-aligned' ? localize('ade.codeUpdate.aligned', "The code already reflects the saved changes.") : localize('ade.codeUpdate.completed', "Code update completed. Review the local changes."), result.text);
+					this.prepared = undefined;
+				} catch (error) {
+					if (source.token.isCancellationRequested || isCancellationError(error)) { cancelled(); }
+					else { playing('failed', adeErrorNotification(error, 'ai', this.project.model)); }
+				} finally {
+					hostCancellation.dispose();
+				}
+			}, { inline: true });
+			if (!entered) {
+				if (source.token.isCancellationRequested) { cancelled(); }
+				else { playing('ready', localize('ade.codeUpdate.notStarted', "The update did not start. Check workspace trust and AI settings, then try again.")); }
+			}
+		} finally {
+			if (this.active === source) { this.active = undefined; }
+			source.dispose();
+			this.host.changed();
+		}
+	}
+
+	stop(): void {
+		this.active?.cancel();
+		if (this.view?.phase === 'running') {
+			this.setState({ ...this.view, stopping: true, status: localize('ade.codeUpdate.stopping', "Stopping the code update") });
+		}
+	}
+
+	close(): void {
+		if (this.active) { return; }
+		this.target = undefined;
+		this.prepared = undefined;
+		this.setState(undefined);
+	}
+
+	override dispose(): void {
+		this.active?.dispose(true);
+		this.active = undefined;
+		super.dispose();
 	}
 }

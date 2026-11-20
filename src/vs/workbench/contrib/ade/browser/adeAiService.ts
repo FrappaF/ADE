@@ -9,6 +9,7 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { type StructuralProjectSession } from '../common/modelProject.js';
 import { CodePreview, CodeResolution, CodeDiagramProgress, CodeDiagramExploration } from '../common/codeBridge.js';
 import { type FeatureCodeGenerationRequest, type FeatureCodeGenerationRun, type FeatureCodeGenerationSetup } from '../common/featureCodeGeneration.js';
+import { type ModelCodeUpdateState } from '../common/modelCodeUpdate.js';
 
 export const IAdeAiService = createDecorator<IAdeAiService>('adeAiService');
 
@@ -79,6 +80,10 @@ export interface IAdeAiService {
 	resumeDiagrams(): Promise<void>;
 	updateDiagrams(): Promise<void>;
 	updateCodebase(): Promise<void>;
+	readonly codeUpdateState: ModelCodeUpdateState | undefined;
+	startCodeUpdate(): Promise<void>;
+	stopCodeUpdate(): void;
+	closeCodeUpdate(): void;
 	readonly codeGeneration: FeatureCodeGenerationRun | undefined;
 	readonly codeGenerationProblem?: string;
 	inspectCodeGeneration(): Promise<FeatureCodeGenerationSetup | undefined>;
@@ -145,6 +150,10 @@ class UnavailableAiService implements IAdeAiService {
 	async resumeDiagrams(): Promise<void> { }
 	async updateDiagrams(): Promise<void> { }
 	async updateCodebase(): Promise<void> { }
+	readonly codeUpdateState = undefined;
+	async startCodeUpdate(): Promise<void> { }
+	stopCodeUpdate(): void { }
+	closeCodeUpdate(): void { }
 	readonly codeGeneration = undefined;
 	async inspectCodeGeneration(): Promise<FeatureCodeGenerationSetup | undefined> { return undefined; }
 	async prepareCodeGeneration(_request: FeatureCodeGenerationRequest): Promise<void> { }

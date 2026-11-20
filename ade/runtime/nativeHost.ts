@@ -102,6 +102,11 @@ export function createCodeEngine(provider?: StructuredProvider, runtime: { elect
 			}
 			validateCodeRequest(request);
 			signal?.throwIfAborted();
+			if (request.operation === 'codeUpdate') {
+				const root = await realpath(request.root);
+				const { runCodeUpdate } = await import('../ai/diagramChat.ts');
+				return JSON.stringify(await runCodeUpdate(root, JSON.parse(request.config), request.context, signal, event => progress?.({ ...event, requestId: request.requestId ?? '' })));
+			}
 			if (request.operation === 'diagramChat') {
 				const root = await realpath(request.root);
 				const config = JSON.parse(request.config);
