@@ -9,7 +9,8 @@ const { validateModelInteraction, interpretModelInteraction } = await import('..
 const { emitModelInteraction, interactionRegion, reverseModelInteraction } = await import('../../src/vs/workbench/contrib/ordito/common/interactionRuntime.ts');
 const { checkModelExpression, evaluateModelExpression, emitModelExpression } = await import('../../src/vs/workbench/contrib/ordito/common/modelValues.ts');
 const observe = r => ({ outcome: r.outcome, calls: r.trace.filter(t => t.kind === 'call').map(t => t.id), outputs: r.outputs, ...(r.error ? { error: r.error.code } : {}) });
-const runEmitted = async (model, id, input, replies) => (await import('data:text/javascript,' + encodeURIComponent(emitModelInteraction(model, id)))).default(input, replies);
+const loadEmitted = async (model, id) => (await import('data:text/javascript,' + encodeURIComponent(emitModelInteraction(model, id)))).default;
+const runEmitted = async (model, id, input, replies) => (await loadEmitted(model, id))(input, replies);
 
 test('I01 typed checkout fixture is valid; runtime artifact is reproducible from its canonical typed source', () => {
 	assert.deepEqual(validateSemanticModel(checkoutInteractions), []);
@@ -126,7 +127,7 @@ test('C01 interaction packet includes ref signature and version, retrieves body 
 	await assert.rejects(compileModelTaskContext(checkoutInteractions, { ...request, budget: { ...request.budget, maxInputBytes: 100 } }), /inputBudget/);
 });
 
-test('I06 parallel outputs are typed and bound by declared branch identity, irrespective of completion order', async () => {
+test('I06 parallel outputs are typed and bound by declared branch identity, irrespective of completion order', async t => {
 	const model = parallel(), root = model.foundation.interactions[1], c = interactionCriteria.interactions.at(-1), nullable = { state: 'known', value: false };
 	model.foundation.blueprint.operations.find(o => o.id === 'persist').effects = [];
 	model.foundation.blueprint.operations.find(o => o.id === 'persist').outputs = [{ id: 'persist.receipt', name: 'Receipt', type: '', typeId: 'Text', required: true, nullable }];
@@ -134,7 +135,17 @@ test('I06 parallel outputs are typed and bound by declared branch identity, irre
 	root.execution.outputs = [argument('contract.receipt', reference('parallel.results', ['parallel.0', 'result.message.persist', 'persist.receipt']))];
 	const replies = { 'message.persist': [{ delayMs: 15, outputs: { 'persist.receipt': 'first-declared' } }], 'message.persist2': [{ delayMs: 0, outputs: { 'persist.receipt': 'second-declared' } }] };
 	assert.deepEqual(validateModelInteraction(model, root.id), []);
-	for (const result of [await interpretModelInteraction(model, root.id, c.input, replies), await runEmitted(model, root.id, c.input, replies)]) { assert.deepEqual(result.outputs, { 'contract.receipt': 'first-declared' }); assert.deepEqual(result.trace.filter(t => t.kind === 'reply').map(t => t.id), ['message.persist2', 'message.persist']); }
+	const emitted = await loadEmitted(model, root.id);
+	t.mock.timers.enable({ apis: ['setTimeout'] });
+	for (const execute of [() => interpretModelInteraction(model, root.id, c.input, replies), () => emitted(c.input, replies)]) {
+		const pending = execute();
+		t.mock.timers.tick(1);
+		await new Promise(resolve => setImmediate(resolve));
+		t.mock.timers.tick(14);
+		const result = await pending;
+		assert.deepEqual(result.outputs, { 'contract.receipt': 'first-declared' });
+		assert.deepEqual(result.trace.filter(entry => entry.kind === 'reply').map(entry => entry.id), ['message.persist2', 'message.persist']);
+	}
 });
 test('I07 critical lock ordering is enforced across ref boundaries before a possible deadlock', () => {
 	const model = structuredClone(checkoutInteractions), root = model.foundation.interactions[0], sub = model.foundation.interactions[1];
