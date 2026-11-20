@@ -1,0 +1,137 @@
+import type { SemanticElement } from '../../../src/vs/workbench/contrib/ordito/common/modelTypes.ts';
+import type { SmokeHarness } from './harness.ts';
+import assert from 'node:assert/strict';
+import { mkdir, copyFile, readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { clickOrditoButton, closeCanvasActions, revealOrditoText, chooseOrditoDiagram, openModelFile, enterValue, pickValue, chooseFolder, addElement, connect, runCommand, searchSystem, contractEntry, completeDiagramForm, applyWizardChanges } from './helpers.ts';
+
+/** projects scenarios share only the harness values listed here. */
+export function createProjectsScenarios(harness: SmokeHarness) {
+	const { launch, workspace, args, validateSemanticModel, directory, root, evidence } = harness;
+
+	async function checkIndependentProjects() {
+		const folder = path.join(workspace, 'from-zero');
+		await mkdir(folder);
+		let window = await launch();
+		let shell = window.locator('.ordito-shell');
+		await shell.getByRole('button', { name: 'Create Project', exact: true }).click();
+		await enterValue(window, 'Name', 'Laboratorio da zero');
+		const enteredWorkspace = window.waitForEvent('domcontentloaded', { timeout: 90000 });
+		await chooseFolder(window, folder);
+		await enteredWorkspace;
+		args[1] = folder;
+		await shell.getByRole('heading', { name: 'Laboratorio da zero', exact: true }).waitFor();
+		const projectFile = path.join(folder, '.ordito/model.json');
+		const empty = JSON.parse(await readFile(projectFile, 'utf8'));
+		assert.deepEqual([empty.semantics.elements, empty.semantics.relations, empty.views], [[], [], []]);
+		await shell.getByRole('button', { name: 'Create First Feature', exact: true }).click();
+		await enterValue(window, 'Name', 'Acquisizione dati');
+		await shell.getByRole('region', { name: 'Diagram: Acquisizione dati · Structure', exact: true }).waitFor();
+		for (const [kind, name] of [['Actor', 'Tecnico'], ['Interface', 'Console'], ['Controller', 'Raccoglitore'], ['Resource', 'Campione']]) { await addElement(window, kind, name); }
+		await connect(window, 'Tecnico', 'Console', 'Invocation', 'Invia', '');
+		await connect(window, 'Console', 'Raccoglitore', 'Invocation', 'Acquisisci', '');
+		await connect(window, 'Raccoglitore', 'Campione', 'Write', 'Registra', 'Misura valida');
+		await shell.locator('.ordito-node').getByText('Raccoglitore', { exact: true }).click();
+		await contractEntry(window, 'Raccoglitore', 'Inputs');
+		await enterValue(window, 'Field Name', 'sensorId');
+		await enterValue(window, 'Field Type', 'SensorId');
+		await pickValue(window, 'Field Presence', 'Required');
+		await applyWizardChanges(window);
+		await revealOrditoText(window, 'Input: sensorId (SensorId), Required');
+		await chooseOrditoDiagram(window, 'Acquisizione dati · Flow');
+		await runCommand(window, 'Ordito: Add Existing Element');
+		await pickValue(window, 'Add Existing Element', 'Raccoglitore');
+		await addElement(window, 'Action', 'Valida misura');
+		await connect(window, 'Raccoglitore', 'Valida misura', 'Invocation', 'Valida', 'Valore non negativo');
+		await revealOrditoText(window, 'Input: sensorId (SensorId), Required');
+		await runCommand(window, 'Ordito: Add Diagram');
+		await completeDiagramForm(window, { feature: 'Acquisizione dati', kind: 'Sequence Diagram', name: 'Sequenza dati' });
+		for (const label of ['Tecnico → Console: Invia', 'Console → Raccoglitore: Acquisisci', 'Raccoglitore → Campione: Registra']) {
+			await clickOrditoButton(window, 'Add Existing Message');
+			await pickValue(window, 'Add Existing Message', label);
+		}
+		await closeCanvasActions(window);
+		await shell.locator('.ordito-node').getByText('Campione', { exact: true }).click();
+		const messages = () => shell.locator('.ordito-sequence-message').evaluateAll(buttons => buttons.map(button => button.dataset.relationId));
+		const before = await messages();
+		const options = (await revealOrditoText(window, 'Registra')).locator('..');
+		await options.getByRole('button', { name: 'Move Message Earlier', exact: true }).click();
+		assert.deepEqual(await messages(), [before[0], before[2], before[1]]);
+		await shell.getByRole('button', { name: 'Undo', exact: true }).click();
+		assert.deepEqual(await messages(), before);
+		await shell.getByRole('button', { name: 'Redo', exact: true }).click();
+		await runCommand(window, 'Ordito: Add Diagram');
+		await completeDiagramForm(window, { feature: 'Acquisizione dati', kind: 'State Diagram', resource: 'Campione', name: 'Ciclo campioni' });
+		for (const name of ['Nuovo', 'Archiviato']) {
+			await shell.getByRole('button', { name: 'Add State', exact: true }).click();
+			await enterValue(window, 'Name', name);
+			await shell.locator('.ordito-node').getByText(name, { exact: true }).waitFor();
+		}
+		await connect(window, 'Nuovo', 'Archiviato', 'Transition', 'Archivia', 'Misura valida');
+		await revealOrditoText(window, 'Transition Table: Campione');
+		await shell.getByRole('table', { name: 'Transition Table: Campione', exact: true }).getByRole('cell', { name: 'Archivia', exact: true }).waitFor();
+		await clickOrditoButton(window, 'Read Diagram');
+		await window.locator('.accessible-view:visible').getByText('Resource: Campione. Visible states: 2 of 2. Visible transitions: 1.', { exact: true }).waitFor();
+		await window.keyboard.press('Escape');
+		await closeCanvasActions(window);
+		await shell.locator('.ordito-node').getByText('Campione', { exact: true }).click();
+		await clickOrditoButton(window, 'Show Change Impact');
+		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Campione', exact: true }).waitFor();
+		await shell.getByRole('heading', { name: 'Potential Dependents: 3', exact: true }).waitFor();
+		await shell.getByRole('button', { name: 'Read Change Impact', exact: true }).click();
+		await window.locator('.accessible-view:visible').getByText('Potential Dependents: 3', { exact: true }).waitFor();
+		await window.keyboard.press('Escape');
+		await shell.locator('.ordito-workspace-bar').getByRole('button', { name: 'Save', exact: true }).click();
+		await shell.getByText('Model Saved Locally', { exact: true }).waitFor();
+		const saved = JSON.parse(await readFile(projectFile, 'utf8'));
+		assert.deepEqual(validateSemanticModel(saved), []);
+		assert.deepEqual(saved.semantics.elements.map((element: SemanticElement) => element.name).sort(), ['Acquisizione dati', 'Archiviato', 'Campione', 'Console', 'Nuovo', 'Raccoglitore', 'Tecnico', 'Valida misura'].sort());
+		assert.deepEqual([saved.codeMappings, saved.verifications], [[], []]);
+		await harness.app.close();
+		harness.app = undefined;
+		window = await launch();
+		shell = window.locator('.ordito-shell');
+		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Campione', exact: true }).waitFor();
+		console.log('PASS: a project created from an empty folder supports native design, contracts, sequences, states, impact, undo/redo, save and restart without demo data.');
+		const libraryFile = path.join(directory, 'library.ordito.json');
+		const observatoryFile = path.join(directory, 'observatory.ordito.json');
+		await copyFile(path.join(root, 'ordito/examples/library.ordito.json'), libraryFile);
+		await copyFile(path.join(root, 'ordito/examples/observatory.ordito.json'), observatoryFile);
+		await openModelFile(window, libraryFile);
+		await shell.getByRole('region', { name: 'Diagram: Servizio prestiti', exact: true }).waitFor();
+		assert.equal(await window.locator('.ordito-sidebar').getByRole('button', { name: 'Ciclo campioni', exact: true }).count(), 0);
+		await searchSystem(window, 'Contract', 'Regole del prestito');
+		await shell.getByText('This element is not placed in a diagram.', { exact: true }).waitFor();
+		await clickOrditoButton(window, 'Show Change Impact');
+		await shell.getByRole('heading', { name: 'Potential Dependents: 3', exact: true }).waitFor();
+		await chooseOrditoDiagram(window, 'Stati della copia');
+		await revealOrditoText(window, '2 of 2 declared states visible · 2 visible transitions');
+		await closeCanvasActions(window);
+		await shell.locator('.ordito-node').getByText('Copia', { exact: true }).click();
+		await clickOrditoButton(window, 'Show Change Impact');
+		await shell.getByRole('heading', { name: 'Potential Dependents: 4', exact: true }).waitFor();
+		await window.screenshot({ path: path.join(evidence, 'independent-library.png') });
+		await openModelFile(window, observatoryFile);
+		await shell.getByText('No diagrams yet. Open the feature to explore its details or add a diagram.', { exact: true }).waitFor();
+		assert.equal(await shell.locator('.ordito-impact, .ordito-canvas').count(), 0);
+		await shell.getByRole('button', { name: 'Add Diagram', exact: true }).click();
+		await completeDiagramForm(window, { feature: 'Acquisizioni notturne', kind: 'State Diagram', resource: 'Esposizione', resourceContext: 'Coordinatore', name: 'Stati esposizione' });
+		await runCommand(window, 'Ordito: Include Resource Lifecycle');
+		await revealOrditoText(window, '2 of 2 declared states visible · 1 visible transitions');
+		await searchSystem(window, 'Contract', 'Vincoli ottici');
+		await clickOrditoButton(window, 'Show Change Impact');
+		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Vincoli ottici', exact: true }).waitFor();
+		await shell.getByRole('heading', { name: 'Potential Dependents: 3', exact: true }).waitFor();
+		await shell.locator('.ordito-workspace-bar').getByRole('button', { name: 'Save', exact: true }).click();
+		await shell.getByText('Model Saved Locally', { exact: true }).waitFor();
+		const updated = JSON.parse(await readFile(observatoryFile, 'utf8'));
+		assert.deepEqual(validateSemanticModel(updated), []);
+		assert.deepEqual(updated.semantics, JSON.parse(await readFile(path.join(root, 'ordito/examples/observatory.ordito.json'), 'utf8')).semantics);
+		await window.screenshot({ path: path.join(evidence, 'independent-observatory.png') });
+		console.log('PASS: independently authored library and observatory projects support shared resources, unplaced contracts, empty views, no initial diagrams, cycles, homonyms and document-scoped identities.');
+		await harness.app.close();
+		harness.app = undefined;
+	}
+
+	return { checkIndependentProjects };
+}

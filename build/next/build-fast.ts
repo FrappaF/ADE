@@ -9,7 +9,7 @@ import { applyIncrementalClientChanges, mapWithConcurrency, MAX_CONCURRENT_FILE_
 const STATE_SCHEMA = 2;
 const BUILD_RECIPE = 5;
 const LOCK_STALE_AFTER_MS = 30_000;
-const BUILD_SCOPES = ['ade/ai', 'ade/code-import', 'ade/runtime', 'ade/scripts/build-code-import.mjs', 'src', 'extensions', '.vscode/extensions', 'build', 'gulpfile.mjs', 'package.json', 'package-lock.json', '.nvmrc'];
+const BUILD_SCOPES = ['ordito/ai', 'ordito/code-import', 'ordito/runtime', 'ordito/scripts/build-code-import.mjs', 'src', 'extensions', '.vscode/extensions', 'build', 'gulpfile.mjs', 'package.json', 'package-lock.json', '.nvmrc'];
 const API_PROPOSALS_OUTPUT = 'src/vs/platform/extensions/common/extensionsApiProposals.ts';
 const EXTENSION_POINTS_OUTPUT = 'src/vs/workbench/services/extensions/common/extensionPoints.json';
 const EXTENSION_BUILD_ARGS = ['run', 'gulp', 'transpile-extensions', 'compile-extension-media'];
@@ -140,7 +140,7 @@ export async function runBuildFast(repoRoot: string, force: boolean, clientOnly 
 		}
 
 		await waitForTasks(tasks);
-		await runCommand(repoRoot, process.execPath, ['ade/scripts/build-code-import.mjs'], 'ade-code');
+		await runCommand(repoRoot, process.execPath, ['ordito/scripts/build-code-import.mjs'], 'ordito-code');
 
 		const after = await collectSnapshot(repoRoot);
 		const { snapshot: builtSnapshot, inputsChanged } = selectBuiltSnapshot(before, after);
@@ -370,7 +370,7 @@ function affectsLane(filePath: string, lane: BuildLane): boolean {
 		return true;
 	}
 	switch (lane) {
-		case 'client': return filePath.startsWith('src/') || filePath.startsWith('ade/ai/') || filePath.startsWith('ade/code-import/') || filePath.startsWith('ade/runtime/') || filePath === 'ade/scripts/build-code-import.mjs';
+		case 'client': return filePath.startsWith('src/') || filePath.startsWith('ordito/ai/') || filePath.startsWith('ordito/code-import/') || filePath.startsWith('ordito/runtime/') || filePath === 'ordito/scripts/build-code-import.mjs';
 		case 'extensions': return (filePath.startsWith('extensions/') && !filePath.startsWith('extensions/copilot/')) || filePath.startsWith('.vscode/extensions/');
 		case 'copilot': return filePath.startsWith('extensions/copilot/');
 	}
@@ -382,7 +382,7 @@ function fullPlan(reason: string, changedPaths: readonly string[], clientOnly: b
 
 async function getOutputStatus(repoRoot: string): Promise<OutputStatus> {
 	const [client, extensions, copilot] = await Promise.all([
-		Promise.all(['main.js', 'vs/workbench/contrib/ade/node/adeCodeEngine.js', 'vs/workbench/contrib/ade/node/web-tree-sitter.wasm', 'vs/workbench/contrib/ade/node/legacy-runtime.cjs', 'vs/workbench/contrib/ade/node/typescript/lib.d.ts'].map(file => pathExists(path.join(repoRoot, 'out', file)))).then(files => files.every(Boolean)),
+		Promise.all(['main.js', 'vs/workbench/contrib/ordito/node/orditoCodeEngine.js', 'vs/workbench/contrib/ordito/node/web-tree-sitter.wasm', 'vs/workbench/contrib/ordito/node/legacy-runtime.cjs', 'vs/workbench/contrib/ordito/node/typescript/lib.d.ts'].map(file => pathExists(path.join(repoRoot, 'out', file)))).then(files => files.every(Boolean)),
 		pathExists(path.join(repoRoot, 'extensions', 'configuration-editing', 'out', 'configurationEditingMain.js')),
 		pathExists(path.join(repoRoot, 'extensions', 'copilot', 'dist', 'extension.js')),
 	]);
@@ -416,7 +416,7 @@ async function runAllFull(repoRoot: string, clientOnly: boolean): Promise<void> 
 			runCommand(repoRoot, npmCommand(), COPILOT_BUILD_ARGS, 'copilot'),
 		] : []),
 	]);
-	await runCommand(repoRoot, process.execPath, ['ade/scripts/build-code-import.mjs'], 'ade-code');
+	await runCommand(repoRoot, process.execPath, ['ordito/scripts/build-code-import.mjs'], 'ordito-code');
 }
 
 async function runCommand(cwd: string, command: string, args: readonly string[], label: string): Promise<void> {

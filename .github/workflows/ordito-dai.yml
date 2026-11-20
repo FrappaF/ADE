@@ -1,0 +1,58 @@
+name: Ordito Diagram-Driven AI validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/m6-dai-validation]
+  pull_request:
+    paths:
+      - 'ordito/**'
+      - 'src/vs/workbench/contrib/ordito/**'
+      - '.github/workflows/ordito-dai.yml'
+permissions:
+  contents: read
+concurrency:
+  group: dai-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  deterministic:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      NODE_USE_ENV_PROXY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.2'
+      - name: Install standalone test dependencies
+        run: |
+          npm ci --prefix ordito/runtime
+          npm ci --prefix ordito/ai
+          npm ci --prefix ordito/code-import
+          npm ci --prefix ordito/messaging
+      - name: Check standalone TypeScript
+        run: |
+          npm run check --prefix ordito/runtime
+          npm test --prefix ordito/runtime
+          npm run check --prefix ordito/ai
+          npm run check --prefix ordito/code-import
+          npm run check --prefix ordito/messaging
+      - name: Validate local capabilities and record open release criteria
+        shell: bash
+        run: |
+          export ORDITO_BUN_EXECUTABLE="$(command -v bun)"
+          export TMPDIR="$(cd "$RUNNER_TEMP" && pwd -P)"
+          npm run ordito:dai:verify -- "$RUNNER_TEMP/dai-results"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dai-${{ runner.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/dai-results
+          if-no-files-found: warn

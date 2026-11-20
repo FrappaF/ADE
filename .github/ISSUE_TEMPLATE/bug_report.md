@@ -1,13 +1,13 @@
 ---
 name: Bug report
-about: Report a reproducible problem with ADE
+about: Report a reproducible problem with Ordito
 ---
 
-<!-- Search existing ADE issues before opening a new one. -->
+<!-- Search existing Ordito issues before opening a new one. -->
 
 ## Environment
 
-- ADE version or commit
+- Ordito version or commit
 - Operating system and version
 - AI provider and CLI version, if relevant
 

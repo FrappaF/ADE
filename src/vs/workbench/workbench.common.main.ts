@@ -484,7 +484,7 @@ import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
 // Opener
 import './contrib/opener/browser/opener.contribution.js';
 
-// A.D.E project shell and semantic model boundary
-import './contrib/ade/browser/ade.contribution.js';
+// Ordito project shell and semantic model boundary
+import './contrib/ordito/browser/ordito.contribution.js';
 
 //#endregion

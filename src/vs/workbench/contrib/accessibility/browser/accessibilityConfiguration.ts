@@ -42,7 +42,7 @@ export const enum ViewDimUnfocusedOpacityProperties {
 }
 
 export const enum AccessibilityVerbositySettingId {
-	Ade = 'accessibility.verbosity.ade',
+	Ordito = 'accessibility.verbosity.ordito',
 	Terminal = 'accessibility.verbosity.terminal',
 	DiffEditor = 'accessibility.verbosity.diffEditor',
 	MultiDiffEditorFileList = 'accessibility.verbosity.multiDiffEditorFileList',
@@ -145,8 +145,8 @@ const configuration: IConfigurationNode = {
 	...accessibilityConfigurationNodeBase,
 	scope: ConfigurationScope.RESOURCE,
 	properties: {
-		[AccessibilityVerbositySettingId.Ade]: {
-			description: localize('verbosity.ade.description', "Provide information about accessibility help and the text version of A.D.E diagrams when the visual workbench is focused."),
+		[AccessibilityVerbositySettingId.Ordito]: {
+			description: localize('verbosity.ordito.description', "Provide information about accessibility help and the text version of Ordito diagrams when the visual workbench is focused."),
 			...baseVerbosityProperty
 		},
 		[AccessibilityVerbositySettingId.Terminal]: {
@@ -1104,6 +1104,15 @@ export class DynamicSpeechAccessibilityConfiguration extends Disposable implemen
 		};
 	}
 }
+
+Registry.as<IConfigurationMigrationRegistry>(WorkbenchExtensions.ConfigurationMigration)
+	.registerConfigurationMigrations([{
+		key: 'accessibility.verbosity.ade',
+		migrateFn: (value, accessor) => [
+			[AccessibilityVerbositySettingId.Ordito, { value: accessor(AccessibilityVerbositySettingId.Ordito) ?? value }],
+			['accessibility.verbosity.ade', { value: undefined }],
+		]
+	}]);
 
 Registry.as<IConfigurationMigrationRegistry>(WorkbenchExtensions.ConfigurationMigration)
 	.registerConfigurationMigrations([{

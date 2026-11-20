@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { watchBuild } from '../watch.ts';
 
 test('rebuilds a source changed after its initial read without another event or concurrent builds', async () => {
-	const directory = await mkdtemp(join(tmpdir(), 'ade-watch-'));
+	const directory = await mkdtemp(join(tmpdir(), 'ordito-watch-'));
 	try {
 		const source = join(directory, 'input.ts');
 		const output = join(directory, 'output.js');

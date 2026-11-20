@@ -1,0 +1,13 @@
+{
+  "name": "ordito",
+  "displayName": "Ordito",
+  "description": "Progettazione visuale e sviluppo collaborativo con IA.",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {"vscode": "^1.85.0", "node": ">=22"},
+  "main": "./src/extension.js",
+  "categories": ["Visualization"],
+  "activationEvents": ["onCommand:ordito.open"],
+  "contributes": {"commands": [{"command": "ordito.open", "title": "Ordito: Apri modello visuale"}]},
+  "scripts": {"check": "node --check src/extension.js && node --check src/model.js && node --check desktop/smoke.cjs", "test": "node --test"}
+}

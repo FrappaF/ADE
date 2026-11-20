@@ -1,0 +1,2311 @@
+{
+	"version": 1,
+	"baseline": "05c3a0f0",
+	"scope": "R01-R16 and S00-S15. Paths are relative to the repository root; #suffix names an existing symbol or heading. Baseline evidence is not DAI acceptance.",
+	"statusPolicy": "present/partial/missing describe baseline capability; open describes unmet DAI acceptance. Local reruns are recorded separately from historical reports.",
+	"requirements": [
+		{
+			"id": "R01",
+			"capability": "Modello primario e PIM/PSM",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "domain",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#SemanticModel",
+				"ordito/schema/model-v3.schema.json"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/common/visualEditing.ts#applyVisualEdit"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoEditor.ts"
+			],
+			"proof": [
+				"ordito/test/semantic-model.test.mjs",
+				"ordito/test/visual-editing.test.mjs"
+			],
+			"gap": "PIM/PSM, ownership e archetipi non separati; v4 e migrazione ancora da implementare.",
+			"steps": [
+				"S01",
+				"S10",
+				"S12"
+			],
+			"sprints": [
+				"DAI-02",
+				"DAI-04",
+				"DAI-05",
+				"DAI-11"
+			],
+			"cases": [
+				"conservative-migration",
+				"unknown-technology",
+				"migration-data"
+			],
+			"exit": "Stesso PIM e identità su due archetipi, nessun dato inventato durante migrazione.",
+			"increments": [
+				{
+					"sprint": "DAI-02",
+					"status": "foundation-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-02.md",
+						"ordito/test/dai-foundation.test.mjs"
+					],
+					"remaining": "V4 separa binding di piattaforma e intento; migrazioni conservative provate. Restano i generatori e due archetipi S10/S12."
+				},
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-05",
+					"status": "delivered-pure-project-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-05-verification-2026-11-09.json",
+						"ordito/ai/test/structural-project.test.mjs"
+					],
+					"remaining": "Predicati puri, template verificabile e runner indipendente; corpi arbitrari, frame/stati/broker, isolamento OS, continuità, secondo stack e accettazione completa restano negli sprint successivi."
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Migrazioni storage/dati del corpus non implementate; PIM/PSM e switch runtime verificati nel perimetro dichiarato."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Migrazioni storage/dati del corpus non implementate; PIM/PSM e switch runtime verificati nel perimetro dichiarato.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R02",
+			"capability": "L1 e scope esterni",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "domain",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#ModelView"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#notationRules"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoNotationEditing.ts"
+			],
+			"proof": [
+				"ordito/test/diagram-notations.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/validation/diagram-catalog-2026-11-08.json"
+			],
+			"gap": "c4Context presente; soggetto governato e confini esterni non hanno campi distinti.",
+			"steps": [
+				"S02",
+				"S03",
+				"S12"
+			],
+			"sprints": [
+				"DAI-02",
+				"DAI-03",
+				"DAI-05"
+			],
+			"cases": [
+				"undeclared-external"
+			],
+			"exit": "L1 dichiara soggetto/esterni e blocca integrazioni non dichiarate.",
+			"increments": [
+				{
+					"sprint": "DAI-02",
+					"status": "foundation-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-02.md",
+						"ordito/test/dai-foundation.test.mjs"
+					],
+					"remaining": "Scope governed/external e dichiarazioni di integrazione verificati per target. Restano gerarchia completa e percorso visuale C4 S03."
+				},
+				{
+					"sprint": "DAI-03",
+					"status": "structural-blueprint-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+						"ordito/test/dai-blueprint.test.mjs"
+					],
+					"remaining": "Gerarchia, contratti e ADR verificati nel dominio, nei dialoghi/servizio e nel renderer Chromium. Restano profili produttivi, espressioni/esecuzione, contesto completo S11 e accettazioni desktop/round-trip degli sprint successivi."
+				},
+				{
+					"sprint": "DAI-05",
+					"status": "delivered-pure-project-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-05-verification-2026-11-09.json",
+						"ordito/ai/test/structural-project.test.mjs"
+					],
+					"remaining": "Predicati puri, template verificabile e runner indipendente; corpi arbitrari, frame/stati/broker, isolamento OS, continuità, secondo stack e accettazione completa restano negli sprint successivi."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Negativi per riferimenti, tecnologia, tipo e integrazione respinti; percorso completo di generazione business del corpus ancora assente."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Negativi per riferimenti, tecnologia, tipo e integrazione respinti; percorso completo di generazione business del corpus ancora assente.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R03",
+			"capability": "L2 distribuibilità e trasporto",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "domain",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#ElementDetails",
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#RelationDetails"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#notationRules"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoNotationEditing.ts"
+			],
+			"proof": [
+				"ordito/test/diagram-notations.test.mjs"
+			],
+			"gap": "Tecnologia e protocollo testuali; payload e risoluzione PSM non tipizzati.",
+			"steps": [
+				"S03",
+				"S04",
+				"S10"
+			],
+			"sprints": [
+				"DAI-03",
+				"DAI-04"
+			],
+			"cases": [
+				"unknown-technology",
+				"checkout-approved"
+			],
+			"exit": "Ogni target L2 risolve responsabilità, tecnologia, protocollo e payload.",
+			"increments": [
+				{
+					"sprint": "DAI-03",
+					"status": "structural-blueprint-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+						"ordito/test/dai-blueprint.test.mjs"
+					],
+					"remaining": "Gerarchia, contratti e ADR verificati nel dominio, nei dialoghi/servizio e nel renderer Chromium. Restano profili produttivi, espressioni/esecuzione, contesto completo S11 e accettazioni desktop/round-trip degli sprint successivi."
+				},
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Archetipi e contesto strutturale verificati; nessuna implementazione checkout completa con persistenza su entrambi gli stack."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Archetipi e contesto strutturale verificati; nessuna implementazione checkout completa con persistenza su entrambi gli stack.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R04",
+			"capability": "L3 componenti e interfacce",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "domain",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#SemanticElement"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#isCompatibleRelation"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoNavigation.ts"
+			],
+			"proof": [
+				"ordito/test/diagram-notations.test.mjs",
+				"ordito/test/visual-navigation.test.mjs"
+			],
+			"gap": "parentId non distingue feature e owner architetturale; compatibilità delle firme non verificata.",
+			"steps": [
+				"S03",
+				"S04"
+			],
+			"sprints": [
+				"DAI-03"
+			],
+			"cases": [
+				"checkout-approved"
+			],
+			"exit": "Interfacce fornite/richieste compatibili e componenti nel proprio container, librerie condivise senza duplicati.",
+			"increments": [
+				{
+					"sprint": "DAI-03",
+					"status": "structural-blueprint-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+						"ordito/test/dai-blueprint.test.mjs"
+					],
+					"remaining": "Gerarchia, contratti e ADR verificati nel dominio, nei dialoghi/servizio e nel renderer Chromium. Restano profili produttivi, espressioni/esecuzione, contesto completo S11 e accettazioni desktop/round-trip degli sprint successivi."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "C4 e contratti condivisi coperti dalle suite; mancano i collaudi desktop completi e il corpus applicativo equivalente."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "C4 e contratti condivisi coperti dalle suite; mancano i collaudi desktop completi e il corpus applicativo equivalente.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R05",
+			"capability": "L4 contratti selettivi",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "domain",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#ModelBehavior",
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#ModelField"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/common/visualEditing.ts#applyVisualEdit"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoBehaviorEditing.ts"
+			],
+			"proof": [
+				"ordito/test/behavioral-contract.test.mjs",
+				"ordito/test/diagram-notations.test.mjs"
+			],
+			"gap": "Membri senza ID, tipi stringa, permessi/criteri non completamente modificabili nel percorso visuale.",
+			"steps": [
+				"S04",
+				"S11"
+			],
+			"sprints": [
+				"DAI-03",
+				"DAI-04"
+			],
+			"cases": [
+				"checkout-declined",
+				"checkout-forbidden",
+				"unsupported-type"
+			],
+			"exit": "Registro tipi, operazioni con ID e firme condivise; negativi su tipi/errori/parametri respinti.",
+			"increments": [
+				{
+					"sprint": "DAI-02",
+					"status": "foundation-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-02.md",
+						"ordito/test/dai-foundation.test.mjs"
+					],
+					"remaining": "ID persistenti per campi/operazioni e primo registro record ricorsivo; firme complete, errori condivisi e authoring S04 restano aperti."
+				},
+				{
+					"sprint": "DAI-03",
+					"status": "structural-blueprint-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+						"ordito/test/dai-blueprint.test.mjs"
+					],
+					"remaining": "Gerarchia, contratti e ADR verificati nel dominio, nei dialoghi/servizio e nel renderer Chromium. Restano profili produttivi, espressioni/esecuzione, contesto completo S11 e accettazioni desktop/round-trip degli sprint successivi."
+				},
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Espressioni e contratti locali verificati; autorizzazione, scorte e ordini persistiti del corpus non hanno adapter completo."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Espressioni e contratti locali verificati; autorizzazione, scorte e ordini persistiti del corpus non hanno adapter completo.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R06",
+			"capability": "Sequenze eseguibili",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "domain",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#SemanticRelation"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/common/sequenceDiagram.ts#getSequenceDiagram"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoSequence.ts"
+			],
+			"proof": [
+				"ordito/test/sequence-diagram.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/validation/diagram-catalog-2026-11-08.json"
+			],
+			"gap": "Ordine locale delle relazioni; mancano occorrenze, espressioni, risposte, frame e relativa esecuzione.",
+			"steps": [
+				"S05",
+				"S06"
+			],
+			"sprints": [
+				"DAI-04",
+				"DAI-06"
+			],
+			"cases": [
+				"checkout-timeout",
+				"checkout-last-unit",
+				"frames-checkout"
+			],
+			"exit": "Tutti i frame del profilo, correlazioni ed errori superano oracoli su numero e ordine delle chiamate.",
+			"increments": [
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-06",
+					"status": "delivered-local-structured-interactions",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+						"ordito/test/dai-interactions.test.mjs",
+						"ordito/ai/test/interaction-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json"
+					],
+					"remaining": "Frame, espressioni, editor e runner con adapter di risposte come dati; restano stati/broker, effetti applicativi reali, continuità, secondo stack e collaudi di release."
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Frame/runtime verificati; checkout-last-unit, idempotency e timeout del corpus non sono certificati dai casi locali più stretti."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Frame/runtime verificati; checkout-last-unit, idempotency e timeout del corpus non sono certificati dai casi locali più stretti.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R07",
+			"capability": "Macchine a stati",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "domain",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#SemanticElement"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/common/stateDiagram.ts#getStateDiagram"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoEditor.ts"
+			],
+			"proof": [
+				"ordito/test/state-diagram.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/validation/diagram-catalog-2026-11-08.json"
+			],
+			"gap": "Stati/condizioni dichiarati e raggruppati; mancano trigger tipizzati, iniziale/finali, entry/exit/do e simulazione eseguibile.",
+			"steps": [
+				"S05",
+				"S07"
+			],
+			"sprints": [
+				"DAI-07"
+			],
+			"cases": [
+				"state-external",
+				"state-unexpected-event",
+				"state-cancel-do"
+			],
+			"exit": "Profilo piatto con ordine e atomicità dichiarati, guardie ed errori verificati.",
+			"increments": [
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Macchine piatte verificate su altra fixture; stati/azioni/ordine commit del corpus congelato richiedono un adapter esatto e decisione semantica esplicita."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Macchine piatte verificate su altra fixture; stati/azioni/ordine commit del corpus congelato richiedono un adapter esatto e decisione semantica esplicita.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R08",
+			"capability": "Queue/topic e messaggi",
+			"baselineStatus": "missing",
+			"acceptanceStatus": "open",
+			"owner": "engine",
+			"schema": [],
+			"service": [],
+			"ui": [],
+			"proof": [],
+			"gap": "Topologia generica disegnabile, ma nessun contratto di canale, subscription, consegna o runner broker.",
+			"steps": [
+				"S08",
+				"S10"
+			],
+			"sprints": [
+				"DAI-08"
+			],
+			"cases": [
+				"queue-redelivery",
+				"queue-poison",
+				"topic-fanout",
+				"message-incompatible"
+			],
+			"exit": "Broker reale con fan-out, redelivery, DLQ e incompatibilità provati senza effetti duplicati.",
+			"increments": [
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Broker reale verificato su entrambi i runtime; manca osservatore esatto del payload/topologia/ack del corpus congelato."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Broker reale verificato su entrambi i runtime; manca osservatore esatto del payload/topologia/ack del corpus congelato.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R09",
+			"capability": "Metamodello e proiezioni",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "workbench",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#SemanticModel"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/common/visualEditing.ts#applyVisualEdit",
+				"src/vs/workbench/contrib/ordito/browser/orditoProjectService.ts"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoEditor.ts"
+			],
+			"proof": [
+				"ordito/test/visual-editing.test.mjs",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoProjectService.test.ts"
+			],
+			"gap": "Identità e viste condivise presenti sul dominio attuale; nuovi costrutti e hash indipendente dal layout mancanti.",
+			"steps": [
+				"S01",
+				"S13",
+				"S14"
+			],
+			"sprints": [
+				"DAI-02",
+				"DAI-09",
+				"DAI-10"
+			],
+			"cases": [
+				"conservative-migration",
+				"layout-only",
+				"concurrent-guard"
+			],
+			"exit": "Editing di ogni nuovo costrutto condiviso, persistente e recuperabile senza duplicazioni.",
+			"increments": [
+				{
+					"sprint": "DAI-02",
+					"status": "foundation-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-02.md",
+						"ordito/test/dai-foundation.test.mjs"
+					],
+					"remaining": "Metamodello v4, serializzazione, hash senza layout e bozze recuperabili consegnati. Restano proiezioni e editing dei costrutti futuri."
+				},
+				{
+					"sprint": "DAI-05",
+					"status": "delivered-pure-project-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-05-verification-2026-11-09.json",
+						"ordito/ai/test/structural-project.test.mjs"
+					],
+					"remaining": "Predicati puri, template verificabile e runner indipendente; corpi arbitrari, frame/stati/broker, isolamento OS, continuità, secondo stack e accettazione completa restano negli sprint successivi."
+				},
+				{
+					"sprint": "DAI-06",
+					"status": "delivered-local-structured-interactions",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+						"ordito/test/dai-interactions.test.mjs",
+						"ordito/ai/test/interaction-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json"
+					],
+					"remaining": "Frame, espressioni, editor e runner con adapter di risposte come dati; restano stati/broker, effetti applicativi reali, continuità, secondo stack e collaudi di release."
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-09",
+					"status": "bounded-roundtrip-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-09.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/roundtrip-v1.md",
+						"ordito/ai/test/roundtrip-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-09-verification-2026-11-09.json"
+					],
+					"scope": "First-profile per-construct matrix, physical operations and reconstructible compiler index; final acceptance remains open."
+				},
+				{
+					"sprint": "DAI-10",
+					"status": "delivered-first-profile-workflow",
+					"scope": "Versioned native task/clarification intent, guided properties and diagram review; opt-in deterministic continuous preparation with preventive budget and stale-result rejection; manual verification/publication.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-10.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/workflow-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+						"ordito/test/dai-workflow.test.mjs",
+						"ordito/ai/test/workflow-project.test.mjs",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoTaskEditing.test.ts",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoStructuralReview.test.ts"
+					],
+					"remaining": "Second archetype and full desktop/release acceptance remain open. Scripted native boundaries and Chromium are not full desktop certification."
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Persistenza, identità, undo e proprietà nativi scriptati verificati; collaudo desktop e matrice completa dei percorsi ancora aperti."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Persistenza, identità, undo e proprietà nativi scriptati verificati; collaudo desktop e matrice completa dei percorsi ancora aperti.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R10",
+			"capability": "Forward incrementale/continuo",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "engine",
+			"schema": [
+				"ordito/ai/contracts.ts#ImplementationRequest"
+			],
+			"service": [
+				"ordito/ai/context.ts#prepareImplementation",
+				"ordito/ai/reconciliation.ts#PreparedReconciliation"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoAiService.ts",
+				"src/vs/workbench/contrib/ordito/electron-browser/orditoAiService.ts"
+			],
+			"proof": [
+				"ordito/ai/test/benchmark.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/m5-verification.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/m6-verification.md"
+			],
+			"gap": "M5 worktree/test Node e M6 sostituzioni su file esistenti sono percorsi distinti; niente bootstrap o modalità continua.",
+			"steps": [
+				"S11",
+				"S12"
+			],
+			"sprints": [
+				"DAI-04",
+				"DAI-05",
+				"DAI-10"
+			],
+			"cases": [
+				"checkout-approved",
+				"aligned-noop",
+				"layout-only",
+				"stale-review"
+			],
+			"exit": "Bootstrap, verifica indipendente, pubblicazione/undo e continuità con budget e cancellazione.",
+			"increments": [
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-05",
+					"status": "delivered-pure-project-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-05-verification-2026-11-09.json",
+						"ordito/ai/test/structural-project.test.mjs"
+					],
+					"remaining": "Predicati puri, template verificabile e runner indipendente; corpi arbitrari, frame/stati/broker, isolamento OS, continuità, secondo stack e accettazione completa restano negli sprint successivi."
+				},
+				{
+					"sprint": "DAI-06",
+					"status": "delivered-local-structured-interactions",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+						"ordito/test/dai-interactions.test.mjs",
+						"ordito/ai/test/interaction-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json"
+					],
+					"remaining": "Frame, espressioni, editor e runner con adapter di risposte come dati; restano stati/broker, effetti applicativi reali, continuità, secondo stack e collaudi di release."
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-10",
+					"status": "delivered-first-profile-workflow",
+					"scope": "Versioned native task/clarification intent, guided properties and diagram review; opt-in deterministic continuous preparation with preventive budget and stale-result rejection; manual verification/publication.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-10.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/workflow-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+						"ordito/test/dai-workflow.test.mjs",
+						"ordito/ai/test/workflow-project.test.mjs",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoTaskEditing.test.ts",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoStructuralReview.test.ts"
+					],
+					"remaining": "Second archetype and full desktop/release acceptance remain open. Scripted native boundaries and Chromium are not full desktop certification."
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Bootstrap/continuità/review verificati sul sottoinsieme locale; storage e checkout applicativo completo del corpus non implementati."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Bootstrap/continuità/review verificati sul sottoinsieme locale; storage e checkout applicativo completo del corpus non implementati.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R11",
+			"capability": "Reverse e riconciliazione",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "engine",
+			"schema": [
+				"ordito/code-import/reconciliationJournal.ts#ReconciliationOperation"
+			],
+			"service": [
+				"ordito/ai/reconciliation.ts",
+				"ordito/code-import/reconciliationJournal.ts#applyReconciliation"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/electron-browser/orditoCodeService.ts"
+			],
+			"proof": [
+				"ordito/code-import/test/reconciliation.test.ts",
+				"ordito/ai/test/reconciliation-benchmark.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/m6-verification.md"
+			],
+			"gap": "Confronto a tre versioni, hash, journal e undo presenti; niente operazioni fisiche complete né conformità comportamentale universale.",
+			"steps": [
+				"S13"
+			],
+			"sprints": [
+				"DAI-05",
+				"DAI-09"
+			],
+			"cases": [
+				"concurrent-guard",
+				"undo-manual-change",
+				"physical-recovery"
+			],
+			"exit": "Nuovo dominio sincronizzato con conflitti, create/move/delete e recupero senza perdita.",
+			"increments": [
+				{
+					"sprint": "DAI-05",
+					"status": "delivered-pure-project-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-05-verification-2026-11-09.json",
+						"ordito/ai/test/structural-project.test.mjs"
+					],
+					"remaining": "Predicati puri, template verificabile e runner indipendente; corpi arbitrari, frame/stati/broker, isolamento OS, continuità, secondo stack e accettazione completa restano negli sprint successivi."
+				},
+				{
+					"sprint": "DAI-06",
+					"status": "delivered-local-structured-interactions",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+						"ordito/test/dai-interactions.test.mjs",
+						"ordito/ai/test/interaction-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json"
+					],
+					"remaining": "Frame, espressioni, editor e runner con adapter di risposte come dati; restano stati/broker, effetti applicativi reali, continuità, secondo stack e collaudi di release."
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-09",
+					"status": "bounded-roundtrip-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-09.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/roundtrip-v1.md",
+						"ordito/ai/test/roundtrip-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-09-verification-2026-11-09.json"
+					],
+					"scope": "First-profile per-construct matrix, physical operations and reconstructible compiler index; final acceptance remains open."
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Conflitto, freschezza e undo verificati; fixture physical-recovery su sorgenti arbitrari manca di adapter esatto."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Conflitto, freschezza e undo verificati; fixture physical-recovery su sorgenti arbitrari manca di adapter esatto.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R12",
+			"capability": "ADR utente normativi",
+			"baselineStatus": "missing",
+			"acceptanceStatus": "open",
+			"owner": "domain",
+			"schema": [],
+			"service": [],
+			"ui": [],
+			"proof": [],
+			"gap": "Gli ADR storici contengono decisioni sul prodotto Ordito, non il repository ADR dei progetti utente.",
+			"steps": [
+				"S09",
+				"S11",
+				"S12"
+			],
+			"sprints": [
+				"DAI-03",
+				"DAI-04",
+				"DAI-05"
+			],
+			"cases": [
+				"adr-conflict"
+			],
+			"exit": "ADR versionati per scope, vincoli risolti e conflitti bloccanti prima della generazione.",
+			"increments": [
+				{
+					"sprint": "DAI-02",
+					"status": "foundation-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-02.md",
+						"ordito/test/dai-foundation.test.mjs"
+					],
+					"remaining": "Vincoli normalizzati e conflitti applicabili diagnosticati. Repository ADR, storia e authoring S09 da implementare."
+				},
+				{
+					"sprint": "DAI-03",
+					"status": "structural-blueprint-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+						"ordito/test/dai-blueprint.test.mjs"
+					],
+					"remaining": "Gerarchia, contratti e ADR verificati nel dominio, nei dialoghi/servizio e nel renderer Chromium. Restano profili produttivi, espressioni/esecuzione, contesto completo S11 e accettazioni desktop/round-trip degli sprint successivi."
+				},
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-05",
+					"status": "delivered-pure-project-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-05-verification-2026-11-09.json",
+						"ordito/ai/test/structural-project.test.mjs"
+					],
+					"remaining": "Predicati puri, template verificabile e runner indipendente; corpi arbitrari, frame/stati/broker, isolamento OS, continuità, secondo stack e accettazione completa restano negli sprint successivi."
+				},
+				{
+					"sprint": "DAI-06",
+					"status": "delivered-local-structured-interactions",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+						"ordito/test/dai-interactions.test.mjs",
+						"ordito/ai/test/interaction-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json"
+					],
+					"remaining": "Frame, espressioni, editor e runner con adapter di risposte come dati; restano stati/broker, effetti applicativi reali, continuità, secondo stack e collaudi di release."
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Conflitti ADR bloccano il contesto su entrambi i profili; collaudo end-to-end su tutti gli scenari e desktop ancora aperto."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Conflitti ADR bloccano il contesto su entrambi i profili; collaudo end-to-end su tutti gli scenari e desktop ancora aperto.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R13",
+			"capability": "Percorso visuale/accessibile completo",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "workbench",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#ModelView"
+			],
+			"service": [
+				"src/vs/workbench/contrib/ordito/browser/orditoAccessibleContent.ts"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoEditor.ts",
+				"src/vs/workbench/contrib/ordito/browser/orditoBehaviorEditing.ts"
+			],
+			"proof": [
+				"src/vs/workbench/contrib/ordito/test/browser/orditoAccessibleContent.test.ts",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/validation/diagram-catalog-2026-11-08.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/m2-validation.md"
+			],
+			"gap": "UI del dominio attuale presente; nuovi significati e criteri/permessi non completi. VoiceOver/Windows e revisione UX restano distinti.",
+			"steps": [
+				"S03",
+				"S04",
+				"S05",
+				"S06",
+				"S07",
+				"S08",
+				"S09",
+				"S14"
+			],
+			"sprints": [
+				"DAI-03",
+				"DAI-06",
+				"DAI-07",
+				"DAI-08",
+				"DAI-10"
+			],
+			"cases": [
+				"frames-checkout",
+				"state-external"
+			],
+			"exit": "Matrice vedere/creare/modificare e due percorsi desktop senza editing JSON, anche da tastiera.",
+			"increments": [
+				{
+					"sprint": "DAI-03",
+					"status": "structural-blueprint-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+						"ordito/test/dai-blueprint.test.mjs"
+					],
+					"remaining": "Gerarchia, contratti e ADR verificati nel dominio, nei dialoghi/servizio e nel renderer Chromium. Restano profili produttivi, espressioni/esecuzione, contesto completo S11 e accettazioni desktop/round-trip degli sprint successivi."
+				},
+				{
+					"sprint": "DAI-06",
+					"status": "delivered-local-structured-interactions",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+						"ordito/test/dai-interactions.test.mjs",
+						"ordito/ai/test/interaction-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json"
+					],
+					"remaining": "Frame, espressioni, editor e runner con adapter di risposte come dati; restano stati/broker, effetti applicativi reali, continuità, secondo stack e collaudi di release."
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-10",
+					"status": "delivered-first-profile-workflow",
+					"scope": "Versioned native task/clarification intent, guided properties and diagram review; opt-in deterministic continuous preparation with preventive budget and stale-result rejection; manual verification/publication.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-10.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/workflow-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+						"ordito/test/dai-workflow.test.mjs",
+						"ordito/ai/test/workflow-project.test.mjs",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoTaskEditing.test.ts",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoStructuralReview.test.ts"
+					],
+					"remaining": "Second archetype and full desktop/release acceptance remain open. Scripted native boundaries and Chromium are not full desktop certification."
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "19 prove Chromium e 124 nativi scriptati; mancano Electron completo, screen reader reale e collaudo macOS di questa revisione."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "19 prove Chromium e 124 nativi scriptati; mancano Electron completo, screen reader reale e collaudo macOS di questa revisione.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R14",
+			"capability": "Maturità e criteri di uscita",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "quality",
+			"schema": [],
+			"service": [],
+			"ui": [],
+			"proof": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/roadmap.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/m6-verification.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai-implementation-plan.md"
+			],
+			"gap": "Milestone e verbali esistono; accettazione DAI ancora da eseguire.",
+			"steps": [
+				"S00",
+				"S15"
+			],
+			"sprints": [
+				"DAI-01",
+				"DAI-12"
+			],
+			"cases": [
+				"essential-omission"
+			],
+			"exit": "Ogni criterio obbligatorio ha prova della revisione e non resta non misurato.",
+			"increments": [
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Matrice di uscita esplicita; non tutti i criteri obbligatori hanno prova positiva."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Matrice di uscita esplicita; non tutti i criteri obbligatori hanno prova positiva.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R15",
+			"capability": "Contesto minimo sufficiente",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "engine",
+			"schema": [
+				"ordito/ai/contracts.ts#FeatureContext"
+			],
+			"service": [
+				"ordito/ai/diagramEvidence.ts#packDiagramEvidence",
+				"ordito/ai/context.ts#prepareImplementation"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoAiService.ts"
+			],
+			"proof": [
+				"ordito/code-import/test/diagram-evidence.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/semantic-generation-protocol.md"
+			],
+			"gap": "compact-v4 e budget byte presenti; compilatore comune, chiusura semantica e recall non misurati.",
+			"steps": [
+				"S01",
+				"S02",
+				"S05",
+				"S11",
+				"S12",
+				"S13",
+				"S14",
+				"S15"
+			],
+			"sprints": [
+				"DAI-02",
+				"DAI-04",
+				"DAI-12"
+			],
+			"cases": [
+				"essential-omission",
+				"invalid-reference",
+				"unknown-technology"
+			],
+			"exit": "Dipendenze obbligatorie tutte presenti o blocco esplicito; risparmio confrontato a correttezza invariata.",
+			"increments": [
+				{
+					"sprint": "DAI-02",
+					"status": "foundation-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-02.md",
+						"ordito/test/dai-foundation.test.mjs"
+					],
+					"remaining": "Readiness e primo pacchetto di definizioni sigillato, con blocco del budget. Selezione minima, consumer, sorgenti/retrieval e recall S11 restano aperti."
+				},
+				{
+					"sprint": "DAI-03",
+					"status": "structural-blueprint-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+						"ordito/test/dai-blueprint.test.mjs"
+					],
+					"remaining": "Gerarchia, contratti e ADR verificati nel dominio, nei dialoghi/servizio e nel renderer Chromium. Restano profili produttivi, espressioni/esecuzione, contesto completo S11 e accettazioni desktop/round-trip degli sprint successivi."
+				},
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-05",
+					"status": "delivered-pure-project-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-05-verification-2026-11-09.json",
+						"ordito/ai/test/structural-project.test.mjs"
+					],
+					"remaining": "Predicati puri, template verificabile e runner indipendente; corpi arbitrari, frame/stati/broker, isolamento OS, continuità, secondo stack e accettazione completa restano negli sprint successivi."
+				},
+				{
+					"sprint": "DAI-06",
+					"status": "delivered-local-structured-interactions",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+						"ordito/test/dai-interactions.test.mjs",
+						"ordito/ai/test/interaction-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json"
+					],
+					"remaining": "Frame, espressioni, editor e runner con adapter di risposte come dati; restano stati/broker, effetti applicativi reali, continuità, secondo stack e collaudi di release."
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-09",
+					"status": "bounded-roundtrip-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-09.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/roundtrip-v1.md",
+						"ordito/ai/test/roundtrip-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-09-verification-2026-11-09.json"
+					],
+					"scope": "First-profile per-construct matrix, physical operations and reconstructible compiler index; final acceptance remains open."
+				},
+				{
+					"sprint": "DAI-10",
+					"status": "delivered-first-profile-workflow",
+					"scope": "Versioned native task/clarification intent, guided properties and diagram review; opt-in deterministic continuous preparation with preventive budget and stale-result rejection; manual verification/publication.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-10.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/workflow-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+						"ordito/test/dai-workflow.test.mjs",
+						"ordito/ai/test/workflow-project.test.mjs",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoTaskEditing.test.ts",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoStructuralReview.test.ts"
+					],
+					"remaining": "Second archetype and full desktop/release acceptance remain open. Scripted native boundaries and Chromium are not full desktop certification."
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Recall e risparmio misurati sulle fixture strutturali; sufficienza sul corpus business completo e inferenze live non dimostrate."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Recall e risparmio misurati sulle fixture strutturali; sufficienza sul corpus business completo e inferenze live non dimostrate.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		},
+		{
+			"id": "R16",
+			"capability": "Prove indipendenti e recupero",
+			"baselineStatus": "partial",
+			"acceptanceStatus": "open",
+			"owner": "quality",
+			"schema": [
+				"src/vs/workbench/contrib/ordito/common/semanticModel.ts#Verification"
+			],
+			"service": [
+				"ordito/code-import/reconciliationJournal.ts#recoverReconciliation"
+			],
+			"ui": [
+				"src/vs/workbench/contrib/ordito/browser/orditoImpactContent.ts"
+			],
+			"proof": [
+				"ordito/ai/test/reconciliation-benchmark.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/validation/m6-live-benchmark-2026-11-05.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/validation/diagram-catalog-2026-11-08.json"
+			],
+			"gap": "Oracoli e prove esistenti sul sottoinsieme; report DAI, due stack e verifica runtime del nuovo dominio mancanti.",
+			"steps": [
+				"S12",
+				"S13",
+				"S15"
+			],
+			"sprints": [
+				"DAI-01",
+				"DAI-05",
+				"DAI-09",
+				"DAI-11",
+				"DAI-12"
+			],
+			"cases": [
+				"checkout-approved",
+				"migration-interrupted",
+				"physical-recovery"
+			],
+			"exit": "Scenari/oracoli e negativi obbligatori su due stack, recupero e metriche con limiti espliciti.",
+			"increments": [
+				{
+					"sprint": "DAI-02",
+					"status": "foundation-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-02.md",
+						"ordito/test/dai-foundation.test.mjs"
+					],
+					"remaining": "Prove indipendenti del sottoinsieme DAI-02 e recupero documentale locale. Oracoli di business, due stack, inferenza live e desktop di release restano aperti."
+				},
+				{
+					"sprint": "DAI-03",
+					"status": "structural-blueprint-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+						"ordito/test/dai-blueprint.test.mjs"
+					],
+					"remaining": "Gerarchia, contratti e ADR verificati nel dominio, nei dialoghi/servizio e nel renderer Chromium. Restano profili produttivi, espressioni/esecuzione, contesto completo S11 e accettazioni desktop/round-trip degli sprint successivi."
+				},
+				{
+					"sprint": "DAI-04",
+					"status": "delivered-structural-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+						"ordito/test/dai-task.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-04-context-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-05",
+					"status": "delivered-pure-project-subset",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-05-verification-2026-11-09.json",
+						"ordito/ai/test/structural-project.test.mjs"
+					],
+					"remaining": "Predicati puri, template verificabile e runner indipendente; corpi arbitrari, frame/stati/broker, isolamento OS, continuità, secondo stack e accettazione completa restano negli sprint successivi."
+				},
+				{
+					"sprint": "DAI-06",
+					"status": "delivered-local-structured-interactions",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+						"ordito/test/dai-interactions.test.mjs",
+						"ordito/ai/test/interaction-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json"
+					],
+					"remaining": "Frame, espressioni, editor e runner con adapter di risposte come dati; restano stati/broker, effetti applicativi reali, continuità, secondo stack e collaudi di release."
+				},
+				{
+					"sprint": "DAI-07",
+					"status": "partial",
+					"scope": "Profilo locale Node ESM revisione 4: macchine piatte, priorità, entry/exit/do, eventi tipizzati, azioni con risposte JSON e snapshot quiescenti; editor/simulazione nativi e journal condiviso.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+						"ordito/test/dai-states.test.ts",
+						"ordito/ai/test/state-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json"
+					],
+					"remaining": "Broker, DB e stato vivo, gerarchie/regioni ortogonali, modalità continua, secondo stack, accettazione desktop completa e prove finali restano aperti."
+				},
+				{
+					"sprint": "DAI-08",
+					"status": "partial",
+					"scope": "Explicit queue/topic contracts/policies, native editing/context and shared journal configuration verification; isolated real JetStream proof; final acceptance remains open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+						"ordito/test/dai-messaging.test.mjs",
+						"ordito/ai/test/messaging-project.test.mjs",
+						"ordito/messaging/test/broker.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json"
+					]
+				},
+				{
+					"sprint": "DAI-09",
+					"status": "bounded-roundtrip-delivered",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-09.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/roundtrip-v1.md",
+						"ordito/ai/test/roundtrip-project.test.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-09-verification-2026-11-09.json"
+					],
+					"scope": "First-profile per-construct matrix, physical operations and reconstructible compiler index; final acceptance remains open."
+				},
+				{
+					"sprint": "DAI-10",
+					"status": "delivered-first-profile-workflow",
+					"scope": "Versioned native task/clarification intent, guided properties and diagram review; opt-in deterministic continuous preparation with preventive budget and stale-result rejection; manual verification/publication.",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-10.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/workflow-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+						"ordito/test/dai-workflow.test.mjs",
+						"ordito/ai/test/workflow-project.test.mjs",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoTaskEditing.test.ts",
+						"src/vs/workbench/contrib/ordito/test/browser/orditoStructuralReview.test.ts"
+					],
+					"remaining": "Second archetype and full desktop/release acceptance remain open. Scripted native boundaries and Chromium are not full desktop certification."
+				},
+				{
+					"sprint": "DAI-11",
+					"status": "delivered within declared two-runtime scope; release acceptance open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+						"ordito/test/dai-stack.test.mjs",
+						"ordito/ai/test/second-stack.integration.mjs",
+						"ordito/messaging/test/stack-transfer.integration.mjs",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json"
+					],
+					"remaining": "Node/Bun ESM con PIM e criteri invariati; nessun DB/secondo linguaggio/deploy o collaudo desktop completo. Chiusura R01–R16 e corpus completo in DAI-12."
+				},
+				{
+					"sprint": "DAI-12",
+					"status": "measured-release-open",
+					"evidence": [
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/local-testing.md",
+						"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-12-verification-2026-11-09.json",
+						"ordito/scripts/verify-dai.ts",
+						"ordito/test/dai-release.test.ts"
+					],
+					"remaining": "Report riproducibili e gate bloccante; corpus completo, live e desktop non superati integralmente."
+				}
+			],
+			"releaseReview": {
+				"status": "open",
+				"reason": "Report riproducibili e gate bloccante; corpus completo, live e desktop non superati integralmente.",
+				"report": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			}
+		}
+	],
+	"steps": [
+		{
+			"id": "S00",
+			"owner": "quality",
+			"sprints": [
+				"DAI-01"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/baseline.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/glossary.md",
+				"ordito/test/fixtures/dai/coverage.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S01",
+			"owner": "domain",
+			"sprints": [
+				"DAI-02"
+			],
+			"status": "delivered",
+			"evidence": [
+				"ordito/schema/model-v4.schema.json",
+				"src/vs/workbench/contrib/ordito/common/modelMigration.ts#migrateSemanticModelToV4",
+				"ordito/test/dai-foundation.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S02",
+			"owner": "domain",
+			"sprints": [
+				"DAI-02"
+			],
+			"status": "delivered",
+			"evidence": [
+				"src/vs/workbench/contrib/ordito/common/modelReadiness.ts#getModelReadiness",
+				"src/vs/workbench/contrib/ordito/common/modelReadiness.ts#validateModelLayers",
+				"ordito/test/dai-foundation.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S03",
+			"owner": "domain/workbench",
+			"sprints": [
+				"DAI-03"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+				"ordito/test/dai-blueprint.test.mjs",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoBlueprintEditing.test.ts",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoBlueprintDetails.test.ts",
+				"src/vs/workbench/contrib/ordito/common/modelBlueprint.ts",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S04",
+			"owner": "domain/workbench",
+			"sprints": [
+				"DAI-03"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+				"ordito/test/dai-blueprint.test.mjs",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoBlueprintEditing.test.ts",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoBlueprintDetails.test.ts",
+				"src/vs/workbench/contrib/ordito/common/modelBlueprint.ts",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S05",
+			"owner": "domain",
+			"sprints": [
+				"DAI-04",
+				"DAI-06"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+				"ordito/test/dai-interactions.test.mjs",
+				"ordito/ai/test/interaction-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S06",
+			"owner": "domain/workbench",
+			"sprints": [
+				"DAI-06"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+				"ordito/test/dai-interactions.test.mjs",
+				"ordito/ai/test/interaction-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S07",
+			"owner": "domain/workbench",
+			"sprints": [
+				"DAI-07"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+				"ordito/test/dai-states.test.ts",
+				"ordito/ai/test/state-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S08",
+			"owner": "engine/workbench",
+			"sprints": [
+				"DAI-08"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+				"ordito/test/dai-messaging.test.mjs",
+				"ordito/ai/test/messaging-project.test.mjs",
+				"ordito/messaging/test/broker.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"scope": "Explicit Node ESM revision 5 / NATS JetStream 2.11.9 local adapter; real isolated broker proof, no live data publication or distributed transaction",
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S09",
+			"owner": "domain/workbench",
+			"sprints": [
+				"DAI-03"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+				"ordito/test/dai-blueprint.test.mjs",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoBlueprintEditing.test.ts",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoBlueprintDetails.test.ts",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0005-project-adr-constraints.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+				"ordito/test/dai-messaging.test.mjs",
+				"ordito/ai/test/messaging-project.test.mjs",
+				"ordito/messaging/test/broker.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S10",
+			"owner": "engine",
+			"sprints": [
+				"DAI-04",
+				"DAI-08",
+				"DAI-11"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+				"ordito/ai/test/structural-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+				"ordito/test/dai-interactions.test.mjs",
+				"ordito/ai/test/interaction-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+				"ordito/test/dai-states.test.ts",
+				"ordito/ai/test/state-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+				"ordito/test/dai-messaging.test.mjs",
+				"ordito/ai/test/messaging-project.test.mjs",
+				"ordito/messaging/test/broker.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ordito/test/dai-stack.test.mjs",
+				"ordito/ai/test/second-stack.integration.mjs",
+				"ordito/messaging/test/stack-transfer.integration.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S11",
+			"owner": "engine",
+			"sprints": [
+				"DAI-02",
+				"DAI-04",
+				"DAI-06",
+				"DAI-12",
+				"DAI-03"
+			],
+			"status": "started",
+			"evidence": [
+				"src/vs/workbench/contrib/ordito/common/modelContext.ts#compileModelContext",
+				"ordito/ai/diagramDriven.ts#createDiagramDrivenAdapter",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+				"ordito/ai/test/structural-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+				"ordito/test/dai-interactions.test.mjs",
+				"ordito/ai/test/interaction-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+				"ordito/test/dai-states.test.ts",
+				"ordito/ai/test/state-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+				"ordito/test/dai-messaging.test.mjs",
+				"ordito/ai/test/messaging-project.test.mjs",
+				"ordito/messaging/test/broker.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ordito/test/dai-stack.test.mjs",
+				"ordito/ai/test/second-stack.integration.mjs",
+				"ordito/messaging/test/stack-transfer.integration.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S12",
+			"owner": "engine/workbench",
+			"sprints": [
+				"DAI-05",
+				"DAI-10"
+			],
+			"status": "started",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+				"ordito/ai/test/structural-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+				"ordito/test/dai-interactions.test.mjs",
+				"ordito/ai/test/interaction-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+				"ordito/test/dai-states.test.ts",
+				"ordito/ai/test/state-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+				"ordito/test/dai-messaging.test.mjs",
+				"ordito/ai/test/messaging-project.test.mjs",
+				"ordito/messaging/test/broker.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-10.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/workflow-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+				"ordito/test/dai-workflow.test.mjs",
+				"ordito/ai/test/workflow-project.test.mjs",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoTaskEditing.test.ts",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoStructuralReview.test.ts",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ordito/test/dai-stack.test.mjs",
+				"ordito/ai/test/second-stack.integration.mjs",
+				"ordito/messaging/test/stack-transfer.integration.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S13",
+			"owner": "engine",
+			"sprints": [
+				"DAI-05",
+				"DAI-09"
+			],
+			"status": "delivered",
+			"evidence": [
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+				"ordito/ai/test/structural-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+				"ordito/test/dai-interactions.test.mjs",
+				"ordito/ai/test/interaction-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+				"ordito/test/dai-states.test.ts",
+				"ordito/ai/test/state-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+				"ordito/test/dai-messaging.test.mjs",
+				"ordito/ai/test/messaging-project.test.mjs",
+				"ordito/messaging/test/broker.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-09.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/roundtrip-v1.md",
+				"ordito/ai/test/roundtrip-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-09-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ordito/test/dai-stack.test.mjs",
+				"ordito/ai/test/second-stack.integration.mjs",
+				"ordito/messaging/test/stack-transfer.integration.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S14",
+			"owner": "workbench",
+			"sprints": [
+				"DAI-02",
+				"DAI-03",
+				"DAI-05",
+				"DAI-10"
+			],
+			"status": "delivered",
+			"evidence": [
+				"src/vs/workbench/contrib/ordito/browser/orditoProjectService.ts#upgradeToV4",
+				"src/vs/workbench/contrib/ordito/browser/orditoDiagnostics.ts#readinessDiagnosticMessage",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoProjectService.test.ts",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+				"ordito/ai/test/structural-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+				"ordito/test/dai-interactions.test.mjs",
+				"ordito/ai/test/interaction-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+				"ordito/test/dai-states.test.ts",
+				"ordito/ai/test/state-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+				"ordito/test/dai-messaging.test.mjs",
+				"ordito/ai/test/messaging-project.test.mjs",
+				"ordito/messaging/test/broker.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-10.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/workflow-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+				"ordito/test/dai-workflow.test.mjs",
+				"ordito/ai/test/workflow-project.test.mjs",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoTaskEditing.test.ts",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoStructuralReview.test.ts",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ordito/test/dai-stack.test.mjs",
+				"ordito/ai/test/second-stack.integration.mjs",
+				"ordito/messaging/test/stack-transfer.integration.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"scope": "First declared Node ESM profile: native guided properties, versioned task intent, diagram review, accessible reading, keyboard and six Chromium theme/viewport combinations. Full desktop and second-stack equivalence remain release acceptance.",
+			"releaseAcceptanceStatus": "open"
+		},
+		{
+			"id": "S15",
+			"owner": "quality",
+			"sprints": [
+				"DAI-01",
+				"DAI-12",
+				"DAI-03",
+				"DAI-10"
+			],
+			"status": "started",
+			"evidence": [
+				"ordito/benchmarks/corpus.v1.json",
+				"ordito/benchmarks/budgets.v1.json",
+				"ordito/scripts/benchmark-dai.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-02.md",
+				"ordito/ai/test/diagram-driven.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-03.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-04.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-05.md",
+				"ordito/ai/test/structural-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-06.md",
+				"ordito/test/dai-interactions.test.mjs",
+				"ordito/ai/test/interaction-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-06-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-07.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/states-v1.md",
+				"ordito/test/dai-states.test.ts",
+				"ordito/ai/test/state-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-07-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-08.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/messaging-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0011-jetstream-messaging.md",
+				"ordito/test/dai-messaging.test.mjs",
+				"ordito/ai/test/messaging-project.test.mjs",
+				"ordito/messaging/test/broker.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-08-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-09.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/roundtrip-v1.md",
+				"ordito/ai/test/roundtrip-project.test.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-09-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-10.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/workflow-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0013-native-workflow-and-continuous-preparation.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-10-verification-2026-11-09.json",
+				"ordito/test/dai-workflow.test.mjs",
+				"ordito/ai/test/workflow-project.test.mjs",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoTaskEditing.test.ts",
+				"src/vs/workbench/contrib/ordito/test/browser/orditoStructuralReview.test.ts",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-11.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/stacks-v1.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/decisions/0014-bun-esm-second-archetype.md",
+				"ordito/test/dai-stack.test.mjs",
+				"ordito/ai/test/second-stack.integration.mjs",
+				"ordito/messaging/test/stack-transfer.integration.mjs",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/benchmarks/dai-11-verification-2026-11-09.json",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/dai-12.md",
+				"https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+			],
+			"releaseAcceptanceStatus": "open"
+		}
+	],
+	"currentSprint": "DAI-12",
+	"nextSprint": null,
+	"releaseStatus": "open",
+	"releaseReview": "https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ade/docs/diagram-driven-ai/release-review.json"
+}

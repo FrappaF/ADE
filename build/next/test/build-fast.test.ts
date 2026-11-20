@@ -267,11 +267,11 @@ suite('build-fast orchestration', () => {
 						writeFileSync(new URL('src/main.ts', root), 'export const value: number = 3;\\n');
 					}
 				`);
-			await write(repoRoot, 'ade/scripts/build-code-import.mjs', `
+			await write(repoRoot, 'ordito/scripts/build-code-import.mjs', `
 				import { mkdirSync, writeFileSync } from 'node:fs';
-				const root = new URL('../../out/vs/workbench/contrib/ade/node/', import.meta.url);
+				const root = new URL('../../out/vs/workbench/contrib/ordito/node/', import.meta.url);
 				mkdirSync(new URL('typescript/', root), { recursive: true });
-				for (const name of ['adeCodeEngine.js', 'web-tree-sitter.wasm', 'legacy-runtime.cjs', 'typescript/lib.d.ts']) { writeFileSync(new URL(name, root), 'fixture'); }
+				for (const name of ['orditoCodeEngine.js', 'web-tree-sitter.wasm', 'legacy-runtime.cjs', 'typescript/lib.d.ts']) { writeFileSync(new URL(name, root), 'fixture'); }
 			`);
 			runGit(repoRoot, ['add', '.']);
 			runGit(repoRoot, ['commit', '-m', 'initial']);
@@ -373,17 +373,17 @@ suite('build-fast Git discovery', () => {
 			runGit(repoRoot, ['init']);
 			runGit(repoRoot, ['config', 'user.email', 'build-fast@example.com']);
 			runGit(repoRoot, ['config', 'user.name', 'Build Fast Test']);
-			await write(repoRoot, 'ade/ai/protocol.ts', 'initial');
-			await write(repoRoot, 'ade/runtime/nativeHost.ts', 'initial');
+			await write(repoRoot, 'ordito/ai/protocol.ts', 'initial');
+			await write(repoRoot, 'ordito/runtime/nativeHost.ts', 'initial');
 			runGit(repoRoot, ['add', '.']);
 			runGit(repoRoot, ['commit', '-m', 'initial']);
 			const before = await collectSnapshot(repoRoot);
-			await write(repoRoot, 'ade/ai/protocol.ts', 'updated');
-			await write(repoRoot, 'ade/runtime/nativeHost.ts', 'updated');
+			await write(repoRoot, 'ordito/ai/protocol.ts', 'updated');
+			await write(repoRoot, 'ordito/runtime/nativeHost.ts', 'updated');
 			const after = await collectSnapshot(repoRoot);
 			const plan = createBuildPlan(savedState(), environment, changes(computeChangedPaths(before, after, [])), outputsPresent, false, true);
 			assert.deepStrictEqual({ dirty: after.dirty, modes: [plan.client, plan.extensions, plan.copilot] }, {
-				dirty: { 'ade/ai/protocol.ts': createHash('sha256').update('updated').digest('hex'), 'ade/runtime/nativeHost.ts': createHash('sha256').update('updated').digest('hex') },
+				dirty: { 'ordito/ai/protocol.ts': createHash('sha256').update('updated').digest('hex'), 'ordito/runtime/nativeHost.ts': createHash('sha256').update('updated').digest('hex') },
 				modes: ['incremental', 'skip', 'skip'],
 			});
 		} finally {

@@ -1,9 +1,9 @@
 ---
 name: Feature request
-about: Suggest an improvement to ADE
+about: Suggest an improvement to Ordito
 ---
 
-<!-- Search existing ADE issues before opening a new one. -->
+<!-- Search existing Ordito issues before opening a new one. -->
 
 ## What are you trying to do?
 

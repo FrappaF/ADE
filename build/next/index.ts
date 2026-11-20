@@ -15,7 +15,7 @@ import { getBootstrapEntryPointsForTarget, type BuildTarget } from '../lib/esbui
 import product from '../../product.json' with { type: 'json' };
 import packageJson from '../../package.json' with { type: 'json' };
 import { isWebExtension, type IScannedBuiltinExtension } from '../lib/extensions.ts';
-import { adeCodeWatchInputs, buildAdeCode, isAdeCodeInput } from '../lib/adeCode.ts';
+import { orditoCodeWatchInputs, buildOrditoCode, isOrditoCodeInput } from '../lib/orditoCode.ts';
 import { runBuildFast } from './build-fast.ts';
 import { bundleDevTunnelsWeb, devTunnelsWebOutDir } from './devTunnelsWeb.ts';
 import { agentHostCryptoOutDir, bundleAgentHostCrypto } from './agentHostCrypto.ts';
@@ -105,7 +105,7 @@ const desktopEntryPoints = [
 	'vs/workbench/contrib/debug/node/telemetryApp',
 	'vs/platform/files/node/watcher/watcherMain',
 	'vs/platform/localTranscription/node/localTranscriptionMain',
-	'vs/workbench/contrib/ade/node/adeCodeWorkerMain',
+	'vs/workbench/contrib/ordito/node/orditoCodeWorkerMain',
 	'vs/platform/terminal/node/ptyHostMain',
 	'vs/platform/agentHost/node/agentHostMain',
 	'vs/platform/agentHost/node/diffWorkerMain',
@@ -713,7 +713,7 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 
 	// Finish emitted assets and copied resources before packaging computes integrity data.
 	await optimizeSvgFiles(outDirPath, doMinify);
-	if (target === 'desktop') { await buildAdeCode(outDir); }
+	if (target === 'desktop') { await buildOrditoCode(outDir); }
 
 	console.log(`[bundle] Done in ${Date.now() - t1}ms (${bundled} bundles)`);
 }
@@ -729,7 +729,7 @@ async function watch(): Promise<void> {
 
 	let pendingTsFiles: Set<string> = new Set();
 	let pendingCopyFiles: Set<string> = new Set();
-	let pendingAdeCode = false;
+	let pendingOrditoCode = false;
 	let processingChanges = false;
 
 	const processChanges = async () => {
@@ -739,13 +739,13 @@ async function watch(): Promise<void> {
 
 		processingChanges = true;
 		try {
-			while (pendingTsFiles.size > 0 || pendingCopyFiles.size > 0 || pendingAdeCode) {
+			while (pendingTsFiles.size > 0 || pendingCopyFiles.size > 0 || pendingOrditoCode) {
 				console.log('Starting transpilation...');
 				const t1 = Date.now();
 				const tsFiles = [...pendingTsFiles];
 				const filesToCopy = [...pendingCopyFiles];
-				const rebuildAdeCode = pendingAdeCode;
-				pendingAdeCode = false;
+				const rebuildOrditoCode = pendingOrditoCode;
+				pendingOrditoCode = false;
 				pendingTsFiles = new Set();
 				pendingCopyFiles = new Set();
 
@@ -769,7 +769,7 @@ async function watch(): Promise<void> {
 						});
 					}
 
-					if (rebuildAdeCode) { await buildAdeCode(outDir); }
+					if (rebuildOrditoCode) { await buildOrditoCode(outDir); }
 					console.log(`Finished transpilation with 0 errors after ${Date.now() - t1} ms`);
 				} catch (err) {
 					console.error('[watch] Rebuild failed:', err);
@@ -782,7 +782,7 @@ async function watch(): Promise<void> {
 	};
 
 	// Watch src directory using existing gulp-watch based watcher
-	const watchStream = gulpWatch(['src/**', ...adeCodeWatchInputs], { base: REPO_ROOT, readDelay: 200 });
+	const watchStream = gulpWatch(['src/**', ...orditoCodeWatchInputs], { base: REPO_ROOT, readDelay: 200 });
 	// Chokidar suppresses initial add events, so wait for its subscriptions
 	// before reading any inputs. The Windows adapter starts its native watcher directly.
 	const ready = process.platform === 'win32' ? Promise.resolve() : once(watchStream, 'ready');
@@ -795,7 +795,7 @@ async function watch(): Promise<void> {
 			await transpile(outDir, false);
 			await copyAllNonTsFiles(outDir, false);
 			await bundleAgentHostCrypto({ outDir: path.join(outDir, agentHostCryptoOutDir) });
-			await buildAdeCode(outDir);
+			await buildOrditoCode(outDir);
 			console.log(`Finished transpilation with 0 errors after ${Date.now() - t1} ms`);
 		} catch (err) {
 			console.error('[watch] Initial build failed:', err);
@@ -804,7 +804,7 @@ async function watch(): Promise<void> {
 		}
 	}, file => {
 		const relative = path.relative(REPO_ROOT, file.path).replaceAll('\\', '/');
-		pendingAdeCode ||= isAdeCodeInput(relative);
+		pendingOrditoCode ||= isOrditoCodeInput(relative);
 		if (relative.startsWith('src/') && file.path.endsWith('.ts') && !file.path.endsWith('.d.ts')) {
 			pendingTsFiles.add(file.path);
 		} else if (relative.startsWith('src/')) {
@@ -893,7 +893,7 @@ async function main(): Promise<void> {
 					await transpile(outDir, options.excludeTests);
 					await copyAllNonTsFiles(outDir, options.excludeTests);
 					await bundleAgentHostCrypto({ outDir: path.join(outDir, agentHostCryptoOutDir) });
-					await buildAdeCode(outDir);
+					await buildOrditoCode(outDir);
 					console.log(`[transpile] Done in ${Date.now() - t1}ms`);
 				}
 				break;

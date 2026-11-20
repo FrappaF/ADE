@@ -1,0 +1,1166 @@
+import { type SemanticModelV4 } from '../../common/modelTypes.js';
+import { type ProjectCriteria } from '../../common/modelProject.js';
+export const messagingFixture: SemanticModelV4 = {
+	"version": 4,
+	"id": "async.1",
+	"name": "Checkout Messaging",
+	"semantics": {
+		"elements": [
+			{
+				"id": "async.2",
+				"name": "Checkout Messaging",
+				"kind": "system",
+				"scope": "governed"
+			},
+			{
+				"id": "async.3",
+				"name": "Domain",
+				"kind": "container",
+				"runtimeKind": "application",
+				"description": "Evaluate pure quantity rules"
+			},
+			{
+				"id": "async.4",
+				"name": "Quantity Validation",
+				"kind": "component",
+				"description": "Validate submitted quantities"
+			},
+			{
+				"id": "async.5",
+				"name": "Validate Quantity",
+				"kind": "feature"
+			},
+			{
+				"id": "broker",
+				"name": "Checkout Broker",
+				"kind": "container",
+				"runtimeKind": "messaging",
+				"description": "Persist and deliver declared checkout messages"
+			},
+			{
+				"id": "fulfilment",
+				"name": "fulfilment",
+				"kind": "component",
+				"description": "Handle OrderConfirmed for fulfilment"
+			},
+			{
+				"id": "billing",
+				"name": "billing",
+				"kind": "component",
+				"description": "Handle OrderConfirmed for billing"
+			},
+			{
+				"id": "analytics",
+				"name": "analytics",
+				"kind": "component",
+				"description": "Handle OrderConfirmed for analytics"
+			}
+		],
+		"relations": []
+	},
+	"foundation": {
+		"ownership": [
+			{
+				"id": "async.13",
+				"elementId": "async.3",
+				"ownerId": "async.2",
+				"role": "architecture"
+			},
+			{
+				"id": "async.14",
+				"elementId": "async.4",
+				"ownerId": "async.3",
+				"role": "architecture"
+			},
+			{
+				"id": "owns.broker",
+				"elementId": "broker",
+				"ownerId": "async.2",
+				"role": "architecture"
+			},
+			{
+				"id": "owns.fulfilment",
+				"elementId": "fulfilment",
+				"ownerId": "async.3",
+				"role": "architecture"
+			},
+			{
+				"id": "owns.billing",
+				"elementId": "billing",
+				"ownerId": "async.3",
+				"role": "architecture"
+			},
+			{
+				"id": "owns.analytics",
+				"elementId": "analytics",
+				"ownerId": "async.3",
+				"role": "architecture"
+			}
+		],
+		"memberships": [
+			{
+				"id": "async.15",
+				"elementId": "async.4",
+				"featureId": "async.5"
+			}
+		],
+		"integrations": [],
+		"types": [
+			{
+				"id": "async.9",
+				"name": "Quantity",
+				"kind": "primitive",
+				"primitive": "integer",
+				"fields": []
+			},
+			{
+				"id": "async.10",
+				"name": "Boolean",
+				"kind": "primitive",
+				"primitive": "boolean",
+				"fields": []
+			},
+			{
+				"id": "Text",
+				"name": "Text",
+				"kind": "primitive",
+				"primitive": "string",
+				"fields": []
+			},
+			{
+				"id": "OrderConfirmed",
+				"name": "Order Confirmed",
+				"kind": "record",
+				"fields": [
+					{
+						"id": "orderId",
+						"name": "orderId",
+						"type": "",
+						"typeId": "Text",
+						"required": true,
+						"nullable": {
+							"state": "known",
+							"value": false
+						}
+					},
+					{
+						"id": "correlationId",
+						"name": "correlationId",
+						"type": "",
+						"typeId": "Text",
+						"required": true,
+						"nullable": {
+							"state": "known",
+							"value": false
+						}
+					}
+				]
+			}
+		],
+		"occurrences": [
+			{
+				"id": "sequence.publish",
+				"operationId": "publish.topic",
+				"from": "async.4",
+				"to": "broker",
+				"messagingBindingId": "producer.topic"
+			}
+		],
+		"frames": [],
+		"interactions": [],
+		"assertions": [],
+		"platform": {
+			"bindings": [
+				{
+					"id": "async.16",
+					"elementId": "async.3",
+					"profileId": "node.esm",
+					"technology": {
+						"state": "known",
+						"value": "node-esm"
+					}
+				},
+				{
+					"id": "binding.broker",
+					"elementId": "broker",
+					"profileId": "node.esm",
+					"technology": {
+						"state": "known",
+						"value": "nats-jetstream"
+					}
+				}
+			]
+		},
+		"decisions": [
+			{
+				"id": "adr.messaging",
+				"revision": "1",
+				"status": "accepted",
+				"scopeIds": [
+					"async.4",
+					"broker",
+					"fulfilment",
+					"billing",
+					"analytics"
+				],
+				"constraints": [
+					{
+						"id": "constraint.messaging.engine",
+						"category": "technology",
+						"subject": {
+							"kind": "messaging",
+							"id": "checkout.messaging"
+						},
+						"field": "/brokers/0/engine",
+						"value": {
+							"state": "known",
+							"value": "nats-jetstream"
+						}
+					},
+					{
+						"id": "constraint.messaging.version",
+						"category": "technology",
+						"subject": {
+							"kind": "messaging",
+							"id": "checkout.messaging"
+						},
+						"field": "/brokers/0/version",
+						"value": {
+							"state": "known",
+							"value": "2.11.9"
+						}
+					}
+				],
+				"record": {
+					"number": "11",
+					"title": "Explicit JetStream delivery",
+					"context": "Checkout needs competitive delivery and independent fan-out",
+					"decision": "Use JetStream 2.11.9 with explicit ack/retry/DLQ and finite deduplication; no outbox or effect transaction",
+					"consequences": [
+						"At least once; crash can repeat effects before ledger completion",
+						"Local file ledger is not a distributed lock or external transaction",
+						"Source: https://github.com/FrappaF/Ordito/blob/20028af9de3ebce75615101777ef513ab9716351/ordito/docs/decisions/0011-jetstream-messaging.md"
+					],
+					"history": []
+				}
+			}
+		],
+		"blueprint": {
+			"operations": [
+				{
+					"id": "async.6",
+					"ownerId": "async.4",
+					"name": "validateQuantity",
+					"inputs": [
+						{
+							"id": "async.7",
+							"name": "quantity",
+							"type": "",
+							"typeId": "async.9",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"outputs": [
+						{
+							"id": "async.8",
+							"name": "accepted",
+							"type": "",
+							"typeId": "async.10",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"errors": [],
+					"effects": [],
+					"permissions": [],
+					"preconditions": [],
+					"postconditions": [],
+					"acceptanceCriteria": [
+						{
+							"id": "async.12",
+							"given": "A safe integer quantity",
+							"when": "The precondition is checked",
+							"then": "Only positive quantities satisfy the precondition"
+						}
+					]
+				},
+				{
+					"id": "publish.queue",
+					"name": "publish.queue",
+					"ownerId": "async.4",
+					"inputs": [
+						{
+							"id": "publish.queue.payload",
+							"name": "publish.queue.payload",
+							"type": "",
+							"typeId": "OrderConfirmed",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"outputs": [],
+					"errors": [],
+					"effects": [],
+					"permissions": [],
+					"preconditions": [],
+					"postconditions": [],
+					"acceptanceCriteria": [
+						{
+							"id": "criterion.publish.queue",
+							"given": "An explicitly versioned OrderConfirmed",
+							"when": "The declared binding is used",
+							"then": "Delivery follows its independently authored policy"
+						}
+					]
+				},
+				{
+					"id": "publish.topic",
+					"name": "publish.topic",
+					"ownerId": "async.4",
+					"inputs": [
+						{
+							"id": "publish.topic.payload",
+							"name": "publish.topic.payload",
+							"type": "",
+							"typeId": "OrderConfirmed",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"outputs": [],
+					"errors": [],
+					"effects": [],
+					"permissions": [],
+					"preconditions": [],
+					"postconditions": [],
+					"acceptanceCriteria": [
+						{
+							"id": "criterion.publish.topic",
+							"given": "An explicitly versioned OrderConfirmed",
+							"when": "The declared binding is used",
+							"then": "Delivery follows its independently authored policy"
+						}
+					]
+				},
+				{
+					"id": "receive.queue",
+					"name": "receive.queue",
+					"ownerId": "fulfilment",
+					"inputs": [
+						{
+							"id": "receive.queue.payload",
+							"name": "receive.queue.payload",
+							"type": "",
+							"typeId": "OrderConfirmed",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"outputs": [],
+					"errors": [],
+					"effects": [],
+					"permissions": [],
+					"preconditions": [],
+					"postconditions": [],
+					"acceptanceCriteria": [
+						{
+							"id": "criterion.receive.queue",
+							"given": "An explicitly versioned OrderConfirmed",
+							"when": "The declared binding is used",
+							"then": "Delivery follows its independently authored policy"
+						}
+					]
+				},
+				{
+					"id": "receive.billing",
+					"name": "receive.billing",
+					"ownerId": "billing",
+					"inputs": [
+						{
+							"id": "receive.billing.payload",
+							"name": "receive.billing.payload",
+							"type": "",
+							"typeId": "OrderConfirmed",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"outputs": [],
+					"errors": [],
+					"effects": [],
+					"permissions": [],
+					"preconditions": [],
+					"postconditions": [],
+					"acceptanceCriteria": [
+						{
+							"id": "criterion.receive.billing",
+							"given": "An explicitly versioned OrderConfirmed",
+							"when": "The declared binding is used",
+							"then": "Delivery follows its independently authored policy"
+						}
+					]
+				},
+				{
+					"id": "receive.analytics",
+					"name": "receive.analytics",
+					"ownerId": "analytics",
+					"inputs": [
+						{
+							"id": "receive.analytics.payload",
+							"name": "receive.analytics.payload",
+							"type": "",
+							"typeId": "OrderConfirmed",
+							"required": true,
+							"nullable": {
+								"state": "known",
+								"value": false
+							}
+						}
+					],
+					"outputs": [],
+					"errors": [],
+					"effects": [],
+					"permissions": [],
+					"preconditions": [],
+					"postconditions": [],
+					"acceptanceCriteria": [
+						{
+							"id": "criterion.receive.analytics",
+							"given": "An explicitly versioned OrderConfirmed",
+							"when": "The declared binding is used",
+							"then": "Delivery follows its independently authored policy"
+						}
+					]
+				}
+			],
+			"interfaces": [],
+			"ports": [],
+			"connections": [],
+			"transports": [],
+			"modules": [],
+			"fieldMappings": []
+		},
+		"predicates": [
+			{
+				"id": "async.11",
+				"version": 1,
+				"operationId": "async.6",
+				"phase": "pre",
+				"rootId": "positive",
+				"nodes": [
+					{
+						"id": "quantity",
+						"kind": "reference",
+						"fieldId": "async.7",
+						"path": []
+					},
+					{
+						"id": "zero",
+						"kind": "literal",
+						"typeId": "async.9",
+						"value": 0
+					},
+					{
+						"id": "positive",
+						"kind": "compare",
+						"operator": "gt",
+						"left": "quantity",
+						"right": "zero"
+					}
+				]
+			}
+		],
+		"messaging": [
+			{
+				"id": "checkout.messaging",
+				"version": 1,
+				"revision": "1",
+				"brokers": [
+					{
+						"id": "nats",
+						"elementId": "broker",
+						"engine": "nats-jetstream",
+						"version": "2.11.9",
+						"endpointRef": "local.checkout",
+						"credentialRef": "none"
+					}
+				],
+				"messages": [
+					{
+						"id": "order.confirmed",
+						"name": "OrderConfirmed",
+						"version": "1",
+						"payloadTypeId": "OrderConfirmed",
+						"compatibility": "exact",
+						"routingFieldId": "orderId",
+						"correlationFieldId": "correlationId"
+					}
+				],
+				"channels": [
+					{
+						"id": "queue",
+						"name": "Fulfilment Queue",
+						"brokerId": "nats",
+						"kind": "queue",
+						"messageId": "order.confirmed",
+						"subject": "checkout.queue",
+						"storage": "file",
+						"maxMessages": 1000,
+						"duplicateWindowMs": 1000
+					},
+					{
+						"id": "topic",
+						"name": "Order Confirmed Topic",
+						"brokerId": "nats",
+						"kind": "topic",
+						"messageId": "order.confirmed",
+						"subject": "checkout.topic",
+						"storage": "file",
+						"maxMessages": 1000,
+						"duplicateWindowMs": 1000
+					}
+				],
+				"publishers": [
+					{
+						"id": "producer.queue",
+						"channelId": "queue",
+						"ownerId": "async.4",
+						"operationId": "publish.queue"
+					},
+					{
+						"id": "producer.topic",
+						"channelId": "topic",
+						"ownerId": "async.4",
+						"operationId": "publish.topic"
+					}
+				],
+				"subscriptions": [
+					{
+						"id": "workers",
+						"channelId": "queue",
+						"ownerId": "fulfilment",
+						"operationId": "receive.queue",
+						"durable": "workers",
+						"delivery": "at-least-once",
+						"ack": "explicit",
+						"ackWaitMs": 500,
+						"maxAttempts": 3,
+						"backoffMs": [
+							100,
+							200
+						],
+						"deadLetter": {
+							"subject": "checkout.dlq.workers"
+						},
+						"ordering": "serial",
+						"idempotency": "file-ledger-v1"
+					},
+					{
+						"id": "billing",
+						"channelId": "topic",
+						"ownerId": "billing",
+						"operationId": "receive.billing",
+						"durable": "billing",
+						"delivery": "at-least-once",
+						"ack": "explicit",
+						"ackWaitMs": 500,
+						"maxAttempts": 3,
+						"backoffMs": [
+							100,
+							200
+						],
+						"deadLetter": {
+							"subject": "checkout.dlq.billing"
+						},
+						"ordering": "serial",
+						"idempotency": "file-ledger-v1"
+					},
+					{
+						"id": "analytics",
+						"channelId": "topic",
+						"ownerId": "analytics",
+						"operationId": "receive.analytics",
+						"durable": "analytics",
+						"delivery": "at-least-once",
+						"ack": "explicit",
+						"ackWaitMs": 500,
+						"maxAttempts": 3,
+						"backoffMs": [
+							100,
+							200
+						],
+						"deadLetter": {
+							"subject": "checkout.dlq.analytics"
+						},
+						"ordering": "serial",
+						"idempotency": "file-ledger-v1"
+					}
+				]
+			}
+		]
+	},
+	"views": [
+		{
+			"id": "view.messaging",
+			"name": "Checkout Messaging",
+			"kind": "c4Container",
+			"subjectId": "async.2",
+			"contextIds": [],
+			"messagingId": "checkout.messaging",
+			"nodes": [
+				{
+					"elementId": "async.2",
+					"x": 0,
+					"y": 100
+				},
+				{
+					"elementId": "async.3",
+					"x": 180,
+					"y": 100
+				},
+				{
+					"elementId": "broker",
+					"x": 440,
+					"y": 100
+				}
+			],
+			"relationIds": []
+		}
+	],
+	"codeMappings": [],
+	"verifications": []
+};
+export const messagingCriteriaFixture: ProjectCriteria = {
+	"version": 1,
+	"revision": "1",
+	"cases": [
+		{
+			"id": "quantity.0",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": -1
+			},
+			"expected": false
+		},
+		{
+			"id": "quantity.1",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": 0
+			},
+			"expected": false
+		},
+		{
+			"id": "quantity.2",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": 1
+			},
+			"expected": true
+		},
+		{
+			"id": "quantity.3",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": 9007199254740991
+			},
+			"expected": true
+		},
+		{
+			"id": "absent",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {},
+			"expected": null
+		},
+		{
+			"id": "invalid.0",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": null
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "invalid.1",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": "1"
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "invalid.2",
+			"predicateId": "async.11",
+			"criterionId": "async.12",
+			"input": {
+				"async.7": 9007199254740992
+			},
+			"expected": "typeError"
+		}
+	],
+	"messaging": [
+		{
+			"id": "queue.competitive",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "B",
+						"outcome": "ok",
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1"
+				],
+				"deliveries": [
+					"workers:A:order-1:1:ok",
+					"empty:workers"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "topic.fanout",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.billing",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.topic",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.topic",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "billing",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "analytics",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1"
+				],
+				"deliveries": [
+					"billing:A:order-1:1:ok",
+					"analytics:A:order-1:1:ok"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "producer.dedup",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.publish.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1",
+					"duplicate:order-1"
+				],
+				"deliveries": [
+					"workers:A:order-1:1:ok"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "consumer.idempotent",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					},
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 1001
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "B",
+						"outcome": "ok",
+						"at": 1001
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1",
+					"order-1"
+				],
+				"deliveries": [
+					"workers:A:order-1:1:ok",
+					"duplicate:workers:order-1"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "retry.exhausted",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "fail",
+						"at": 0
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "B",
+						"outcome": "fail",
+						"at": 99
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "B",
+						"outcome": "fail",
+						"at": 100
+					},
+					{
+						"kind": "consume",
+						"subscriptionId": "workers",
+						"worker": "A",
+						"outcome": "fail",
+						"at": 300
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-1"
+				],
+				"deliveries": [
+					"workers:A:order-1:1:fail",
+					"empty:workers",
+					"workers:B:order-1:2:fail",
+					"workers:A:order-1:3:fail"
+				],
+				"deadLetters": [
+					"workers:order-1:attemptsExhausted"
+				],
+				"errors": []
+			}
+		},
+		{
+			"id": "topic.no-producer",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.analytics",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "consume",
+						"subscriptionId": "analytics",
+						"worker": "A",
+						"outcome": "ok",
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [],
+				"deliveries": [
+					"empty:analytics"
+				],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "topic.publish",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.publish.topic",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.topic",
+						"envelope": {
+							"version": 1,
+							"id": "order-2",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.topic",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [
+					"order-2"
+				],
+				"deliveries": [],
+				"deadLetters": [],
+				"errors": []
+			}
+		},
+		{
+			"id": "contract.incompatible",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "producer.queue",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "2",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [],
+				"deliveries": [],
+				"deadLetters": [],
+				"errors": [
+					"messageVersion"
+				]
+			}
+		},
+		{
+			"id": "producer.undeclared",
+			"messagingId": "checkout.messaging",
+			"criterionId": "criterion.receive.queue",
+			"scenario": {
+				"steps": [
+					{
+						"kind": "publish",
+						"publisherId": "unknown",
+						"envelope": {
+							"version": 1,
+							"id": "order-1",
+							"messageId": "order.confirmed",
+							"messageVersion": "1",
+							"publisherId": "producer.queue",
+							"routingKey": "42",
+							"correlationKey": "checkout-42",
+							"payload": {
+								"orderId": "42",
+								"correlationId": "checkout-42"
+							}
+						},
+						"at": 0
+					}
+				]
+			},
+			"expected": {
+				"published": [],
+				"deliveries": [],
+				"deadLetters": [],
+				"errors": [
+					"messagePublisher"
+				]
+			}
+		}
+	]
+};

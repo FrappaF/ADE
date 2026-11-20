@@ -5,7 +5,7 @@ import glob from 'glob';
 import { createRequire } from 'node:module';
 import { monacoTypecheckTask /* , monacoTypecheckWatchTask */ } from './gulpfile.editor.ts';
 import { compileExtensionMediaTask, compileExtensionsTask, watchExtensionsTask } from './gulpfile.extensions.ts';
-import { buildAdeCode } from './lib/adeCode.ts';
+import { buildOrditoCode } from './lib/orditoCode.ts';
 import * as compilation from './lib/compilation.ts';
 import * as task from './lib/gulp/task.ts';
 import * as util from './lib/util.ts';
@@ -31,15 +31,15 @@ task.task(task.define('transpile-client-esbuild', task.series(
 )));
 
 // Transpile only
-const bundleAdeCodeTask = task.define('bundle-ade-code', () => buildAdeCode());
-const transpileClientTask = task.define('transpile-client', task.series(util.rimraf('out'), compilation.transpileTask('src', 'out'), bundleAgentHostCryptoTask, bundleAdeCodeTask));
+const bundleOrditoCodeTask = task.define('bundle-ordito-code', () => buildOrditoCode());
+const transpileClientTask = task.define('transpile-client', task.series(util.rimraf('out'), compilation.transpileTask('src', 'out'), bundleAgentHostCryptoTask, bundleOrditoCodeTask));
 task.task(transpileClientTask);
 
 // Fast compile for development time
-const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), compilation.copyCodiconsTask, compilation.compileApiProposalNamesTask, compilation.compileExtensionPointNamesTask, compilation.compileTask('src', 'out'), bundleAgentHostCryptoTask, bundleAdeCodeTask));
+const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), compilation.copyCodiconsTask, compilation.compileApiProposalNamesTask, compilation.compileExtensionPointNamesTask, compilation.compileTask('src', 'out'), bundleAgentHostCryptoTask, bundleOrditoCodeTask));
 task.task(compileClientTask);
 
-// The transpile watcher owns ADE's initial bundle and serialized incremental rebuilds.
+// The transpile watcher owns Ordito's initial bundle and serialized incremental rebuilds.
 const watchClientTask = task.define('watch-client', task.parallel(compilation.watchTypeCheckTask('src'), compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask, compilation.watchCodiconsTask, bundleAgentHostCryptoTask));
 task.task(watchClientTask);
 

@@ -19,7 +19,7 @@
 	],
 	"workbench": [
 		{
-			"name": "vs/workbench/contrib/ade",
+			"name": "vs/workbench/contrib/ordito",
 			"project": "vscode-workbench"
 		},
 		{

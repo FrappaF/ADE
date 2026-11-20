@@ -1,0 +1,204 @@
+{
+	"metadata": {
+		"version": 0,
+		"tool_info": {
+			"name": "scip-python",
+			"version": "0.6.8",
+			"arguments": []
+		},
+		"project_root": "file:///SCIP_FIXTURE/",
+		"text_document_encoding": 1
+	},
+	"documents": [
+		{
+			"relative_path": "checkout.py",
+			"language": "",
+			"occurrences": [
+				{
+					"range": [
+						0,
+						0,
+						0
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 checkout/__init__:",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						0,
+						5,
+						12
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/__init__:",
+					"symbol_roles": 8
+				},
+				{
+					"range": [
+						0,
+						20,
+						33
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/charge().",
+					"symbol_roles": 8
+				},
+				{
+					"range": [
+						2,
+						4,
+						12
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 checkout/checkout().",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						2,
+						31,
+						35
+					],
+					"symbol": "scip-python python python-stdlib 3.11 builtins/bool#",
+					"symbol_roles": 8
+				},
+				{
+					"range": [
+						2,
+						13,
+						19
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 checkout/checkout().(amount)",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						2,
+						21,
+						26
+					],
+					"symbol": "scip-python python python-stdlib 3.11 builtins/float#",
+					"symbol_roles": 8
+				},
+				{
+					"range": [
+						3,
+						1,
+						7
+					],
+					"symbol": "local 0",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						3,
+						23,
+						26
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/charge().",
+					"symbol_roles": 8
+				},
+				{
+					"range": [
+						3,
+						27,
+						33
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 checkout/checkout().(amount)",
+					"symbol_roles": 8
+				}
+			],
+			"symbols": [
+				{
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 checkout/__init__:",
+					"relationships": []
+				},
+				{
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 checkout/checkout().",
+					"relationships": []
+				},
+				{
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 checkout/checkout().(amount)",
+					"relationships": []
+				},
+				{
+					"symbol": "local 0",
+					"relationships": []
+				}
+			],
+			"text": ""
+		},
+		{
+			"relative_path": "gateway.py",
+			"language": "",
+			"occurrences": [
+				{
+					"range": [
+						0,
+						0,
+						0
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/__init__:",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						0,
+						4,
+						10
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/charge().",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						0,
+						29,
+						33
+					],
+					"symbol": "scip-python python python-stdlib 3.11 builtins/bool#",
+					"symbol_roles": 8
+				},
+				{
+					"range": [
+						0,
+						11,
+						17
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/charge().(amount)",
+					"symbol_roles": 1
+				},
+				{
+					"range": [
+						0,
+						19,
+						24
+					],
+					"symbol": "scip-python python python-stdlib 3.11 builtins/float#",
+					"symbol_roles": 8
+				},
+				{
+					"range": [
+						1,
+						8,
+						14
+					],
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/charge().(amount)",
+					"symbol_roles": 8
+				}
+			],
+			"symbols": [
+				{
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/__init__:",
+					"relationships": []
+				},
+				{
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/charge().",
+					"relationships": []
+				},
+				{
+					"symbol": "scip-python python ordito-scip-checkout 1.0.0 gateway/charge().(amount)",
+					"relationships": []
+				}
+			],
+			"text": ""
+		}
+	]
+}
