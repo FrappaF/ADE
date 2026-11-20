@@ -37,6 +37,7 @@ jobs:
     env:
       PLATFORM: ${{ matrix.platform }}
       ARCH: ${{ matrix.arch }}
+      GITHUB_TOKEN: ${{ github.token }}
       NODE_USE_ENV_PROXY: '1'
       GOMEMLIMIT: 3GiB
       GOMAXPROCS: '2'
@@ -74,8 +75,6 @@ jobs:
         run: npm run ordito:setup -- --install-only
       - name: Build distributable
         run: npm run gulp -- "vscode-$PLATFORM-$ARCH-min"
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
       - name: Archive and verify macOS app
         if: runner.os == 'macOS'
         shell: bash
