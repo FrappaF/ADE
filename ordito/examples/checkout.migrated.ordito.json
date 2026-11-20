@@ -1,13 +1,13 @@
 {
 	"version": 2,
 	"id": "checkout",
-	"name": "Acquisto — interazioni attore e sistema",
+	"name": "Checkout — Actor and System Interactions",
 	"semantics": {
 		"elements": [
 			{
 				"id": "customer",
 				"kind": "actor",
-				"name": "Cliente"
+				"name": "Customer"
 			},
 			{
 				"id": "checkout",
@@ -17,18 +17,18 @@
 			{
 				"id": "payment",
 				"kind": "component",
-				"name": "Servizio pagamenti"
+				"name": "Payment Service"
 			},
 			{
 				"id": "order",
 				"kind": "resource",
-				"name": "Ordine",
+				"name": "Order",
 				"legacyKind": "class"
 			},
 			{
 				"id": "confirmed",
 				"kind": "state",
-				"name": "Confermato"
+				"name": "Confirmed"
 			}
 		],
 		"relations": [
@@ -37,7 +37,7 @@
 				"kind": "dependency",
 				"from": "customer",
 				"to": "checkout",
-				"name": "conferma acquisto",
+				"name": "confirms purchase",
 				"classification": "legacy-unclassified"
 			},
 			{
@@ -45,7 +45,7 @@
 				"kind": "dependency",
 				"from": "checkout",
 				"to": "payment",
-				"name": "richiede pagamento",
+				"name": "requests payment",
 				"classification": "legacy-unclassified"
 			},
 			{
@@ -53,7 +53,7 @@
 				"kind": "dependency",
 				"from": "checkout",
 				"to": "order",
-				"name": "crea",
+				"name": "creates",
 				"classification": "legacy-unclassified"
 			},
 			{
@@ -61,7 +61,7 @@
 				"kind": "dependency",
 				"from": "order",
 				"to": "confirmed",
-				"name": "pagamento riuscito",
+				"name": "payment succeeds",
 				"classification": "legacy-unclassified"
 			}
 		]
@@ -69,7 +69,7 @@
 	"views": [
 		{
 			"id": "structure",
-			"name": "Acquisto — interazioni attore e sistema",
+			"name": "Checkout — Actor and System Interactions",
 			"kind": "structure",
 			"nodes": [
 				{

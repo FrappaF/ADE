@@ -20,7 +20,7 @@ test('independent library and observatory examples validate without demo data an
 		assert.deepEqual(map.branches.flatMap(branch => branch.members.map(member => member.element.id)).sort(), model.semantics.elements.map(element => element.id).sort());
 		assert.deepEqual(map.connections.flatMap(connection => connection.relations.map(relation => relation.id)).sort(), model.semantics.relations.map(relation => relation.id).sort());
 	}
-	assert.deepEqual(getDiagramGroups(libraryModel).map(group => [group.name, group.views.map(view => view.id)]), [['Biblioteca civica', []], ['Prestiti', ['structure']], ['Catalogo', ['states', 'empty']]]);
+	assert.deepEqual(getDiagramGroups(libraryModel).map(group => [group.name, group.views.map(view => view.id)]), [['Public Library', []], ['Loans', ['structure']], ['Catalog', ['states', 'empty']]]);
 	assert.deepEqual(normalizeDiagramContext(observatoryModel, { viewId: 'states', selections: { states: 'active' } }), { viewId: '', selections: {} });
 });
 

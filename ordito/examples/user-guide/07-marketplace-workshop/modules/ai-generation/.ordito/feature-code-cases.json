@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "confirmed-total",
+      "featureId": "checkout",
+      "criterionId": "checkout-confirmed",
+      "input": { "orderId": "order-1", "unitPriceCents": 1250, "quantity": 2, "approved": true },
+      "expected": { "status": "confirmed", "order": { "id": "order-1", "totalCents": 2500 } }
+    },
+    {
+      "id": "maximum-quantity-total",
+      "featureId": "checkout",
+      "criterionId": "checkout-confirmed",
+      "input": { "orderId": "order-2", "unitPriceCents": 175, "quantity": 10, "approved": true },
+      "expected": { "status": "confirmed", "order": { "id": "order-2", "totalCents": 1750 } }
+    },
+    {
+      "id": "declined-payment",
+      "featureId": "checkout",
+      "criterionId": "checkout-declined",
+      "input": { "orderId": "order-1", "unitPriceCents": 1250, "quantity": 2, "approved": false },
+      "expected": { "status": "declined" }
+    },
+    {
+      "id": "quantity-over-limit",
+      "featureId": "checkout",
+      "criterionId": "checkout-invalid-quantity",
+      "input": { "orderId": "order-1", "unitPriceCents": 1250, "quantity": 11, "approved": true },
+      "expected": { "status": "invalid-input" }
+    },
+    {
+      "id": "day-30",
+      "featureId": "returns",
+      "criterionId": "returns-within-window",
+      "input": { "order": { "id": "order-1", "totalCents": 2500 }, "daysSincePurchase": 30 },
+      "expected": { "status": "accepted", "orderId": "order-1", "refundCents": 2500 }
+    },
+    {
+      "id": "day-31",
+      "featureId": "returns",
+      "criterionId": "returns-outside-window",
+      "input": { "order": { "id": "order-1", "totalCents": 2500 }, "daysSincePurchase": 31 },
+      "expected": { "status": "outside-window" }
+    },
+    {
+      "id": "missing-order",
+      "featureId": "returns",
+      "criterionId": "returns-missing-order",
+      "input": { "order": null, "daysSincePurchase": 5 },
+      "expected": { "status": "unknown-order" }
+    }
+  ]
+}

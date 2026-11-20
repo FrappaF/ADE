@@ -12,7 +12,7 @@ Built on Code OSS, Ordito connects system diagrams, software contracts, and sour
 
 ![Ordito showing the purchase structure diagram and the purchase and returns features in the project sidebar](ordito/docs/user-guide/images/02-canvas.png)
 
-*Bottega Ordini is the sample project used in the guided tour.*
+*Order Shop is the sample project used in the guided tour.*
 
 ## What you can do
 
@@ -52,11 +52,11 @@ npm run ordito:setup
 ## Try an example
 
 1. Extract the [example projects](ordito/docs/user-guide/example-projects.zip) to a writable folder outside the clone. Keep the hidden `.ordito` directories when extracting or copying a project.
-2. Select **Open Project** on the start screen and open `01-bottega-visuale`.
-3. In **Struttura acquisto** (Purchase Structure), select **Ordine** (Order). Choose **Rename** in its properties and confirm with **Save Changes**.
-4. Open **Struttura resi** (Returns Structure) to see the same resource with its updated name. Select **Undo** to restore it.
+2. Select **Open Project** on the start screen and open `01-visual-workshop`.
+3. In **Checkout Structure**, select **Order**. Choose **Rename** in its properties and confirm with **Save Changes**.
+4. Open **Returns Structure** to see the same resource with its updated name. Select **Undo** to restore it.
 
-You can also select **Import Codebase** and open `08-mercato-codebase` to trace findings back to the source. The tour, manual modeling, and local source inventory work without an AI account. [Codebase walkthrough](ordito/examples/guida/08-mercato-codebase/README.md)
+You can also select **Import Codebase** and open `08-marketplace-codebase` to trace findings back to the source. The tour, manual modeling, and local source inventory work without an AI account. [Codebase walkthrough](ordito/examples/user-guide/08-marketplace-codebase/README.md)
 
 ## Documentation
 
@@ -64,7 +64,7 @@ You can also select **Import Codebase** and open `08-mercato-codebase` to trace 
 | --- | --- |
 | Explore Ordito or build a model from scratch | [User guide](ordito/docs/user-guide/README.md) · [Offline HTML](ordito/docs/user-guide/Ordito-User-Guide.html) · [PDF](ordito/docs/user-guide/Ordito-User-Guide.pdf) |
 | Pick a diagram type | [Atlas of 16 diagrams](ordito/docs/user-guide/README.md#part-iii---atlas-of-16-diagrams) |
-| Try an AI-assisted workflow | [Source to diagrams](ordito/docs/user-guide/README.md#l17-generate-purchase-and-returns-diagrams) · [Diagrams to code](ordito/docs/user-guide/README.md#l18-generate-code-from-diagrams) |
+| Try an AI-assisted workflow | [Source to diagrams](ordito/docs/user-guide/README.md#l17-generate-checkout-and-returns-diagrams) · [Diagrams to code](ordito/docs/user-guide/README.md#l18-generate-code-from-diagrams) |
 | Build, test, or understand the repository | [Development guide](ordito/docs/fork-development.md) · [Architecture](ordito/docs/architecture.md) |
 
 ## Contributing

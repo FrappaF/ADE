@@ -9,10 +9,10 @@ test('native navigation groups diagrams by semantic feature with shared resource
 	assert.deepEqual(getDiagramGroups(checkoutModel).map(group => ({
 		featureId: group.featureId, name: group.name, views: group.views.map(view => view.id)
 	})), [
-		{ featureId: undefined, name: 'Acquisto', views: [] },
-		{ featureId: 'purchase', name: 'Conferma acquisto', views: ['purchase-structure', 'purchase-outcome'] },
-		{ featureId: 'cart-management', name: 'Gestione carrello', views: ['cart-structure'] },
-		{ featureId: 'cancellation', name: 'Annullamento acquisto', views: ['cancellation-structure'] }
+		{ featureId: undefined, name: 'Checkout', views: [] },
+		{ featureId: 'purchase', name: 'Confirm Purchase', views: ['purchase-structure', 'purchase-outcome'] },
+		{ featureId: 'cart-management', name: 'Cart Management', views: ['cart-structure'] },
+		{ featureId: 'cancellation', name: 'Cancel Purchase', views: ['cancellation-structure'] }
 	]);
 });
 

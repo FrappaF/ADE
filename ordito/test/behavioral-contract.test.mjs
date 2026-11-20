@@ -79,5 +79,5 @@ test('referenced errors cannot be removed until the relationship is cleared or r
 	const cleared = applyVisualEdit(checkoutModel, { kind: 'relationError', id: 'show-declined' });
 	const next = applyVisualEdit(cleared, { kind: 'behavior', id: 'checkout-controller', behavior });
 	assert.deepEqual({ original: checkoutModel, errors: next.semantics.elements.find(element => element.id === 'checkout-controller').behavior.errors, relation: next.semantics.relations.find(relation => relation.id === 'show-declined') },
-		{ original: before, errors: [], relation: { id: 'show-declined', kind: 'invocation', from: 'checkout-controller', to: 'checkout', name: 'mostra errore' } });
+		{ original: before, errors: [], relation: { id: 'show-declined', kind: 'invocation', from: 'checkout-controller', to: 'checkout', name: 'shows error' } });
 });

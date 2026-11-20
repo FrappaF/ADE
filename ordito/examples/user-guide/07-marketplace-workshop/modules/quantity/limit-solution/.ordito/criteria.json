@@ -1,0 +1,112 @@
+{
+	"version": 1,
+	"revision": "0b3e97cd-a800-4910-899d-d087050d3ec4",
+	"cases": [
+		{
+			"id": "quantity.0",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": -1
+			},
+			"expected": false
+		},
+		{
+			"id": "quantity.1",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 0
+			},
+			"expected": false
+		},
+		{
+			"id": "quantity.2",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 1
+			},
+			"expected": true
+		},
+		{
+			"id": "quantity.3",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 9007199254740991
+			},
+			"expected": false
+		},
+		{
+			"id": "absent",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {},
+			"expected": null
+		},
+		{
+			"id": "invalid.0",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": null
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "invalid.1",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": "1"
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "invalid.2",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 9007199254740992
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "Zero Quantity",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 0
+			},
+			"expected": false
+		},
+		{
+			"id": "Non-numeric Text",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": "two"
+			},
+			"expected": "typeError"
+		},
+		{
+			"id": "Limit 10",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 10
+			},
+			"expected": true
+		},
+		{
+			"id": "Over Limit 11",
+			"predicateId": "eca53002-cc5e-47f9-b4b9-e66ff5475cf0",
+			"criterionId": "44e4e5e8-83d4-4479-aadf-320bd726c62f",
+			"input": {
+				"ed148a07-f1be-4c5d-bccb-a2a2e863b7d9": 11
+			},
+			"expected": false
+		}
+	]
+}

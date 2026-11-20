@@ -1,6 +1,6 @@
 # The Complete Ordito User Guide
 
-**A tour, a project built from scratch, and a diagram reference.** Edition dated 20 November 2026. This guide covers Ordito desktop with the lab updates based on `20028af9` and the AI workflows in this revision.
+**A tour, a project built from scratch, and a diagram reference.** Edition dated 20 November 2026. This guide covers Ordito desktop based on revision `6a9e0d54`, with the English examples distributed with this edition.
 
 Ordito is a desktop integrated development environment (IDE) for designing software with diagrams, defining contracts and behavior, exploring code, and working with artificial intelligence (AI). Diagrams show who does what, which data they use, and what happens if something fails. In this guide you will build and save a model of an online store and test selected rules locally. Each stage identifies what you can expect from the descriptive model, the generated code, and the verification results.
 
@@ -10,12 +10,12 @@ This guide is for software designers and developers who are new to Ordito. To st
 
 Before T1, check that Ordito starts and that you can write to the folder where you extracted the examples. You will edit and save the model in that copy. If you still need to set up the application, start with A1. The tour and manual modeling require no AI account. To generate and verify code with the local profiles in L12–L15, make sure Node 24.22.1 is available when Ordito starts. The runner uses it to execute the generated files. The guided simulations in L14–L15 run without a broker. L17–L19 list the prerequisites for AI-assisted tasks.
 
-**Part I is a tour of a ready-made project, Bottega Ordini.** **Part II is the Mercato lab**, where you build your own model. **Part III is a reference** for choosing and working with a notation. The appendices cover installation, IDE tools, and troubleshooting.
+**Part I is a tour of a ready-made project, Order Shop.** **Part II is the Marketplace lab**, where you build your own model. **Part III is a reference** for choosing and working with a notation. The appendices cover installation, IDE tools, and troubleshooting.
 
 | Goal | Where to start | What you will achieve |
 | --- | --- | --- |
-| Get oriented on your first visit | A1 if needed, then T1–T5 | Open, read, edit, and reopen Bottega Ordini |
-| Design Mercato | L1–L11, with the diagram reference | Save a model with 18 views, types, a contract, and a decision |
+| Get oriented on your first visit | A1 if needed, then T1–T5 | Open, read, edit, and reopen Order Shop |
+| Design Marketplace | L1–L11, with the diagram reference | Save a model with 18 views, types, a contract, and a decision |
 | Verify a rule locally | L12, then reverse in L20 | Verify the 1–10 limit, apply the files, and try undoing the changes |
 | Explore other local behaviors | L13–L15, after the concepts in L7 and the review in L12 | Read calls and simulate states and deliveries in separate modules |
 | Explore the source code | L16 | Pass seven tests, run the demo, and open a declaration from its source evidence |
@@ -32,30 +32,30 @@ Extract the [example projects](example-projects.zip) to a folder you can write t
 
 | Material | How the guide uses it |
 | --- | --- |
-| `01-bottega-visuale` | Tour with two features, checkout and returns and refunds, and eight views |
-| `07-mercato-laboratorio/inizio` | Starting folder for the lab, with no prebuilt model |
-| `07-mercato-laboratorio/tappe` | Two visual checkpoints to compare with your early work |
-| `07-mercato-laboratorio/soluzione` | Complete reference model with 18 views across 16 notations |
-| `07-mercato-laboratorio/moduli` | Executable exercises for quantity rules, interactions, states, and messaging. Each subfolder is a standalone Ordito project |
-| `07-mercato-laboratorio/codice` | Small JavaScript module to run and import |
-| `07-mercato-laboratorio/codice-ia` | Source and tests for generating the checkout and returns diagrams in L17 |
-| `07-mercato-laboratorio/moduli/generazione-ia` | Model and independent cases for generating the first source files in L18 |
-| `08-mercato-codebase` | Standalone source and test project for **Import Codebase** |
+| `01-visual-workshop` | Tour with eight views covering Confirm Purchase and Returns and Refunds |
+| `07-marketplace-workshop/start` | Starting folder for the lab, with no prebuilt model |
+| `07-marketplace-workshop/milestones` | Two visual checkpoints to compare with your early work |
+| `07-marketplace-workshop/solution` | Complete reference model with 18 views across 16 notations |
+| `07-marketplace-workshop/modules` | Executable exercises for quantity rules, interactions, states, and messaging. Each subfolder is a standalone Ordito project |
+| `07-marketplace-workshop/code` | Small JavaScript module to run and import |
+| `07-marketplace-workshop/ai-code` | Source and tests for generating the checkout and returns diagrams in L17 |
+| `07-marketplace-workshop/modules/ai-generation` | Model and independent cases for generating the first source files in L18 |
+| `08-marketplace-codebase` | Standalone source and test project for **Import Codebase** |
 | `02` through `06` | The starting points for the advanced labs, available as separate projects |
 
-Bold command and control names match the interface. The screenshots and example projects keep the original Italian names, such as “Struttura acquisto” and “Ordine.” The instructions use those names wherever you need to find an item or type a value. **Project > Project Settings** means to open the menu with the project name. To open the Command Palette, use `F1`, `Cmd+Shift+P` on macOS, or `Ctrl+Shift+P` on Windows and Linux. You can also search the palette for commands from the menus. In the HTML version, use the contents or search to find a chapter, and click an image to enlarge it.
+Bold command and control names match the interface. **Project > Project Settings** means to open the menu with the project name. To open the Command Palette, use `F1`, `Cmd+Shift+P` on macOS, or `Ctrl+Shift+P` on Windows and Linux. You can also search the palette for commands from the menus. In the HTML version, use the contents or search to find a chapter, and click an image to enlarge it.
 
 A **feature** is a product capability, such as checkout. The **model** stores shared definitions and relationships. A **view**, also called a **diagram**, shows one perspective on the model on the **canvas**. A **review** lets you inspect a proposal before applying it. The screenshots help you get oriented. The command names and text feedback let you follow the instructions regardless of color or placement.
 
-## Part I - Tour of Bottega Ordini
+## Part I - Tour of Order Shop
 
-Before building Mercato, explore a store that is already modeled. You will see what each view tells you and which objects the views share. Then you will make and undo a small change so you know how to find and recover your work before starting from scratch.
+Before building Marketplace, explore a store that is already modeled. You will see what each view tells you and which objects the views share. Then you will make and undo a small change so you know how to find and recover your work before starting from scratch.
 
 ### T1. Open the store and find the main controls
 
 Start with a working model so you can learn to read its views. In this step you will identify the active project and diagram and find elements without changing them. You will use the same controls to compare checkout and returns in the next steps.
 
-From **Start a Project**, click **Open Project**, select the `01-bottega-visuale` folder in the system picker, and confirm. You should see **Bottega Ordini** in the header and **Struttura acquisto** as the active diagram.
+From **Start a Project**, click **Open Project**, select the `01-visual-workshop` folder in the system picker, and confirm. You should see **Order Shop** in the header and **Checkout Structure** as the active diagram.
 
 ![The Home screen lets you open, create, or import a project](images/01-home.png)
 
@@ -72,110 +72,110 @@ Use these four controls to switch views, inspect their contents, and bring all t
 
 **Diagrams** opens and closes the navigation sidebar. **Code** contains code workflows. In the sidebar, **New** contains **Add Feature**, **Add Diagram**, and **Structural Blueprint**. Switching views leaves the model as it was. **Save** appears when you have pending changes. **Model Saved Locally** confirms the model was saved to your computer.
 
-**T1 check.** Open **Choose Diagram** and find the eight views grouped under two features. The picker also includes **Add Diagram** and **Add Feature**. In the sidebar, **Related Diagrams** lists two views from the **Resi e rimborsi** feature under the checkout feature. Click outside the picker to close it. If the canvas appears empty, try **Fit Diagram** before creating anything.
+**T1 check.** Open **Choose Diagram** and find the eight views grouped under two features. The picker also includes **Add Diagram** and **Add Feature**. In the sidebar, **Related Diagrams** lists two views from the **Returns and Refunds** feature under the checkout feature. Click outside the picker to close it. If the canvas appears empty, try **Fit Diagram** before creating anything.
 
 ### T2. Follow a purchase from four perspectives
 
-Read the same purchase from four perspectives to understand responsibilities, alternatives, messages, and the resulting state. Start with the structure to identify the objects. Then look at behavior, where a call and an order state describe different parts of the purchase. You will use these distinctions when building Mercato.
+Read the same purchase from four perspectives to understand responsibilities, alternatives, messages, and the resulting state. Start with the structure to identify the objects. Then look at behavior, where a call and an order state describe different parts of the purchase. You will use these distinctions when building Marketplace.
 
-Open **Struttura acquisto**. Follow the arrows from “Cliente” to “Pagina acquisto,” then “Conferma ordine” and “Ordine.” “Cliente” is the customer role. “Pagina acquisto” represents the store interface, “Conferma ordine” coordinates the request, and “Ordine” is the resource that gets recorded. The store page is modeled as an element within the diagram.
+Open **Checkout Structure**. Follow the arrows from “Customer” to “Checkout Page,” then “Confirm Order” and “Order.” “Customer” is the customer role. “Checkout Page” represents the store interface, “Confirm Order” coordinates the request, and “Order” is the resource that gets recorded. The store page is modeled as an element within the diagram.
 
-Select the relationship pointing to “Ordine.” The **Write** relationship “crea ordine” identifies who records the data, and the condition “pagamento autorizzato” indicates when to record it. This is a description of the rule. Payment execution and data writes happen in the code. The properties explain the roles without crowding the canvas with labels.
+Select the relationship pointing to “Order.” The **Write** relationship “create order” identifies who records the data, and the condition “payment authorized” indicates when to record it. This is a description of the rule. Payment execution and data writes happen in the code. The properties explain the roles without crowding the canvas with labels.
 
-In the sidebar, click **Flusso acquisto**. Start at “Richiedi pagamento” and follow the alternatives to “Ordine confermato” or “Pagamento rifiutato.” This view shows what happens for each outcome.
+In the sidebar, click **Checkout Flow**. Start at “Request Payment” and follow the alternatives to “Order Confirmed” or “Payment Declined.” This view shows what happens for each outcome.
 
-![The flow shows what happens when payment is approved or declined](images/05-flusso.png)
+![The flow shows what happens when payment is approved or declined](images/05-flow.png)
 
-Open **Sequenza pagamento**. The columns represent participants. The two arrows show the alternative outcomes “conferma ordine” for an approved payment and “mostra errore” for a declined payment. You will build a more detailed sequence in L7 that includes the authorization call and the subsequent write to “Ordine.” Next, open **Stati ordine** and find the “In attesa,” “Confermato,” and “Pagamento rifiutato” states. The “richiedi pagamento” action initiates a payment attempt. The “confermato” state records its successful outcome.
+Open **Payment Sequence**. The columns represent participants. The two arrows show the alternative outcomes “confirm order” for an approved payment and “show error” for a declined payment. You will build a more detailed sequence in L7 that includes the authorization call and the subsequent write to “Order.” Next, open **Order States** and find the “Pending,” “Confirmed,” and “Payment Declined” states. The “request payment” action initiates a payment attempt. The “Confirmed” state records its successful outcome.
 
 **T2 check.** Describe the purchase in four sentences. Identify who works together, which outcomes are possible, who calls whom, and how the order changes state. The four views are descriptive. L11–L15 show how to add contracts and executable checks.
 
 ### T3. Explore returns and refunds
 
-The return uses an existing order. When you compare the two features, look for “Cliente” and “Ordine” in both and for the new “Richiesta di reso” resource in the returns feature. The behavior views show when the return is approved and when the refund is completed.
+The return uses an existing order. When you compare the two features, look for “Customer” and “Order” in both and for the new “Return Request” resource in the returns feature. The behavior views show when the return is approved and when the refund is completed.
 
-Click **Struttura resi** in the sidebar under **Related Diagrams** or under **Resi e rimborsi**. If the view is off screen, find it using **Choose Diagram** in the header. The request starts with the same “Cliente” as in checkout. It goes from “Pagina resi” to “Gestione resi,” reads the existing “Ordine,” and records a new “Richiesta di reso.” The return request refers to the original purchase, which remains a separate object.
+Click **Returns Structure** in the sidebar under **Related Diagrams** or under **Returns and Refunds**. If the view is off screen, find it using **Choose Diagram** in the header. The request starts with the same “Customer” as in checkout. It goes from “Returns Page” to “Manage Returns,” reads the existing “Order,” and records a new “Return Request.” The return request refers to the original purchase, which remains a separate object.
 
-![The diagram picker shows both features and their four perspectives](images/15-tour-due-feature.png)
+![The diagram picker shows both features and their four perspectives](images/15-tour-two-features.png)
 
-![Returns reuse Cliente and Ordine and introduce Richiesta di reso](images/16-tour-resi.png)
+![Returns reuse Customer and Order and introduce Return Request](images/16-tour-returns.png)
 
 Open the other three views to follow the return from evaluation through completion. The flow shows alternatives, the sequence shows the order being read before the return is recorded, and the state diagram distinguishes an approved request from a refunded one.
 
 | View | What to follow | Question to answer |
 | --- | --- | --- |
-| Flusso rimborso | “Valuta richiesta,” “Emetti rimborso,” and “Reso non ammesso” | Which condition allows a refund? |
-| Sequenza reso | The customer request, submission, order lookup, and recording | Which information must already exist before a return is recorded? |
-| Stati richiesta di reso | “Richiesto,” “Autorizzato,” “Rimborsato,” and “Rifiutato” | When does an approved request become a refunded request? |
+| Refund Flow | “Evaluate Request,” “Issue Refund,” and “Return Ineligible” | Which condition allows a refund? |
+| Return Sequence | The customer request, submission, order lookup, and recording | Which information must already exist before a return is recorded? |
+| Return Request States | “Requested,” “Authorized,” “Refunded,” and “Rejected” | When does an approved request become a refunded request? |
 
-Select each arrow in the flow and read its condition. Then look at the transition from “Autorizzato” to “Rimborsato.” Approving and completing the refund are separate steps. The model represents the rule agreed for the exercise. It involves no real bank contact or deadline calculation.
+Select each arrow in the flow and read its condition. Then look at the transition from “Authorized” to “Refunded.” Approving and completing the refund are separate steps. The model represents the rule agreed for the exercise. It involves no real bank contact or deadline calculation.
 
-**T3 check.** Find a read of “Ordine” and a write of “Richiesta di reso.” Explain why the returns feature can use the existing order resource without creating a separate order for returns.
+**T3 check.** Find a read of “Order” and a write of “Return Request.” Explain why the returns feature can use the existing order resource without creating a separate order for returns.
 
 ### T4. Find an element and see its shared identity
 
-You have seen “Ordine” in two features. Now find it and rename it in a copy of the project. The resource changes across its views, which each keep their own title. Checking the impact of that edit prepares you to make a change in the next step.
+You have seen “Order” in two features. Now find it and rename it in a copy of the project. The resource changes across its views, which each keep their own title. Checking the impact of that edit prepares you to make a change in the next step.
 
-Click **Search System** in the sidebar. If the sidebar is closed, reopen it with **Diagrams**. Search for “Ordine,” check that it has the **Resource** type, note the associated views, and click the result. Ordito centers and selects the resource in a view. Click it on the canvas to open **Properties**. Search includes unsaved changes and can open details for identities that have no view. Use **Back** and **Forward** to revisit previous locations.
+Click **Search System** in the sidebar. If the sidebar is closed, reopen it with **Diagrams**. Search for “Order,” check that it has the **Resource** type, note the associated views, and click the result. Ordito centers and selects the resource in a view. Click it on the canvas to open **Properties**. Search includes unsaved changes and can open details for identities that have no view. Use **Back** and **Forward** to revisit previous locations.
 
 Use **Search System** when you know the name. To explore what belongs to an actor or feature, click **System Map** in the header or sidebar. Clicking an item adds it to the active filters. Use the arrow to open a level and **×** to remove a filter. You can still access internal and shared elements of features connected to the actor. A9 explains navigation, filters, and relationships.
 
 An element retains its identity when you rename or move it. A diagram selects elements and relationships and has its own layout. **Add Existing Element** reuses an identity. **Add Element** creates one. Two objects can have the same name and still have distinct identities.
 
-In your copy, select **Ordine** and click **Rename** next to the properties heading. Enter “Ordine cliente” in **Name** and click **Save Changes**. Open **Struttura resi** and find the updated name. Select that resource and choose **Show Change Impact** under **Explore** to see the affected views and references. Click **Undo** to restore the original name. If **Save** is visible, click it to save any pending changes.
+In your copy, select **Order** and click **Rename** next to the properties heading. Enter “Customer Order” in **Name** and click **Save Changes**. Open **Returns Structure** and find the updated name. Select that resource and choose **Show Change Impact** under **Explore** to see the affected views and references. Click **Undo** to restore the original name. If **Save** is visible, click it to save any pending changes.
 
-**T4 check.** The resource should have the new name in both views before you undo it. The diagram titles “Stati ordine” and “Struttura acquisto” and other text containing the word “ordine” retain their original wording. The renamed element keeps its identity.
+**T4 check.** The resource should have the new name in both views before you undo it. The diagram titles “Order States” and “Checkout Structure” and other text containing the word “order” retain their original wording. The renamed element keeps its identity.
 
 ### T5. Make your first reversible change
 
-Add an order notification to practice editing the model. Represent it as a component with its own responsibility, then connect it to “Conferma ordine” so the request is made when an order is confirmed. Save, undo, redo, and reopen the project to see how Ordito keeps track of your edits before you start Mercato.
+Add an order notification to practice editing the model. Represent it as a component with its own responsibility, then connect it to “Confirm Order” so the request is made when an order is confirmed. Save, undo, redo, and reopen the project to see how Ordito keeps track of your edits before you start Marketplace.
 
-Work in your copy of Bottega Ordini and open **Struttura acquisto**.
+Work in your copy of Order Shop and open **Checkout Structure**.
 
-1. Click **Add Element**. Enter “Notifiche ordine” in **Name**, select **Component** in **Element Type**, and click **Create**.
-2. Drag the component to an open area. Select **Conferma ordine** on the canvas, click **Connect**, and choose **Invocation**.
-3. Click **Notifiche ordine** on the canvas. In **Create Relationship**, enter “invia conferma” in **Relationship Name** and `ordine confermato` in **Condition (Optional)**. Click **Save Changes** to create the relationship or **Cancel** to back out.
+1. Click **Add Element**. Enter “Order Notifications” in **Name**, select **Component** in **Element Type**, and click **Create**.
+2. Drag the component to an open area. Select **Confirm Order** on the canvas, click **Connect**, and choose **Invocation**.
+3. Click **Order Notifications** on the canvas. In **Create Relationship**, enter “sends confirmation” in **Relationship Name** and `confirmed order` in **Condition (Optional)**. Click **Save Changes** to create the relationship or **Cancel** to back out.
 4. Select the arrow, check its origin, destination, and text, then close the properties.
 5. Click **Save** in the header. If **Update Codebase from Diagrams** appears, choose **Cancel**. For now, save the responsibility in the model. You will implement behavior later.
-6. Click **Undo**, then **Redo**, next to **Fit Diagram**. Save the version you want to keep. Open the **Bottega Ordini** menu, choose **Open Project**, select the tour folder again, and check that your saved change is there.
+6. Click **Undo**, then **Redo**, next to **Fit Diagram**. Save the version you want to keep. Open the **Order Shop** menu, choose **Open Project**, select the tour folder again, and check that your saved change is there.
 
-![The properties of Ordine in Mercato show Rename and Remove from This Diagram](images/04-proprieta.png)
+![The properties of Order in Marketplace show Rename and Remove from This Diagram](images/04-properties.png)
 
 To remove an element from the current view, select it and click **Remove from This Diagram** in **Properties**. The panel closes. Use **Undo** next to **Fit Diagram** to restore the element to the view. **Delete Element** under **Manage** removes the shared definition from the system and can affect other references. Check the impact before confirming. Deleting a view preserves its semantic elements. If you switch projects with pending changes, you can save the changes, discard them, or cancel the switch.
 
 **T5 check.** After reopening the project, find the notification and its relationship or confirm they are gone if you chose to undo them. You have finished the tour when you can find a view, read a relationship, reuse an identity, and recover a change.
 
-## Part II - Lab: build Mercato from scratch
+## Part II - Lab: build Marketplace from scratch
 
 Turn the requirements for a small store into decisions you can verify. Start with users and system boundaries, then model responsibilities, data, and behavior. The views help you prepare contracts. In the local modules, you can test individual rules without building a full online store. Use this order to learn how the views work together, then choose the views you need in your own projects.
 
 ### L1. Set up the lab and choose the right folder
 
-Prepare a working folder to build **Mercato**, a small online store for the lab. You will move from reading an existing project to making your own design decisions, starting from `inizio` or an empty folder. Use the checkpoints to compare results and the separate modules for the later exercises that run code.
+Prepare a working folder to build **Marketplace**, a small online store for the lab. You will move from reading an existing project to making your own design decisions, starting from `start` or an empty folder. Use the checkpoints to compare results and the separate modules for the later exercises that run code.
 
-The customer “Cliente” buys products and requests returns, which the support team “Assistenza” handles. “Pagamenti esterni” authorizes payments, “Corriere esterno” handles delivery, and “Catalogo prodotti” provides context for the data. The lab produces a consistent model and local checks for selected behaviors. There is no running store.
+The customer “Customer” buys products and requests returns, which the support team “Support” handles. “External Payments” authorizes payments, “External Carrier” handles delivery, and “Product Catalog” provides context for the data. The lab produces a consistent model and local checks for selected behaviors. There is no running store.
 
 Keep your work, checkpoints, and modules in separate folders. Ordito opens one project root at a time and saves the model in that folder. Starting with an empty folder lets you see what each step adds.
 
 1. Extract `example-projects.zip` and keep the original archive.
-2. Find `07-mercato-laboratorio`. Open the subfolder indicated by each lesson. The top-level lab folder contains several projects.
-3. To build the project, use `inizio`, which contains only instructions, or create an empty folder named `Mercato-mio` in your file manager. Leave the model from the solution in its own folder.
+2. Find `07-marketplace-workshop`. Open the subfolder indicated by each lesson. The top-level lab folder contains several projects.
+3. To build the project, use `start`, which contains only instructions, or create an empty folder named `my-marketplace` in your file manager. Leave the model from the solution in its own folder.
 4. Start Ordito. If you are looking at a diagram, click **Home** in the **Diagrams** sidebar or choose **Home** from the project menu.
 
 The store has the following rules. Each order line has a quantity from 1 to 10, as an integer. Prices are in cents to avoid implicit rounding. An order has at least one line and is confirmed after payment authorization. A return applies to an existing order and is allowed within 30 days. A coupon is optional in the use case example. Taxes, live payments, security, and business rules for a real shop require further specification.
 
 | Lessons | Folder to open | What you will do |
 | --- | --- | --- |
-| L2–L11 | Your `Mercato-mio` or `inizio` | Build views and contracts manually |
-| Compare after L3 | `tappe/01-confini` | Check the first stage without replacing your work |
-| Compare after L5 | `tappe/02-architettura-dati` | Check the architecture and data model |
-| Compare after L10–L11 | `soluzione` | Review the final reference model |
-| L12 | A copy of `moduli/quantita` | Define an executable rule and cases, then review, verify, apply, and undo |
-| L13–L15 | `moduli/interazioni`, then `moduli/stati`, then `moduli/messaggi` | Complete three separate local exercises |
-| L16 | A copy of `codice` | Run tests and the demo, then build a source inventory |
-| L17 | A copy of `codice-ia` | Import code and generate diagrams |
-| L18 | A copy of `moduli/generazione-ia` | Generate and verify a first implementation |
-| L19–L20 | The compatible project specified in the lesson and a copy of `moduli/quantita` for L20 | Try Sync, reverse, and runtime selection |
+| L2–L11 | Your `my-marketplace` or `start` | Build views and contracts manually |
+| Compare after L3 | `milestones/01-boundaries` | Check the first stage without replacing your work |
+| Compare after L5 | `milestones/02-data-architecture` | Check the architecture and data model |
+| Compare after L10–L11 | `solution` | Review the final reference model |
+| L12 | A copy of `modules/quantity` | Define an executable rule and cases, then review, verify, apply, and undo |
+| L13–L15 | `modules/interactions`, then `modules/states`, then `modules/messaging` | Complete three separate local exercises |
+| L16 | A copy of `code` | Run tests and the demo, then build a source inventory |
+| L17 | A copy of `ai-code` | Import code and generate diagrams |
+| L18 | A copy of `modules/ai-generation` | Generate and verify a first implementation |
+| L19–L20 | The compatible project specified in the lesson and a copy of `modules/quantity` for L20 | Try Sync, reverse, and runtime selection |
 
 The project root is the folder you select in **Open Project** or **Create Project**. Keep your store project in its own folder, separate from the Ordito clone. **Open Project** opens an existing model. **Create Project** starts a new one. **Import Codebase** analyzes a folder of source files.
 
@@ -183,21 +183,21 @@ Save at the end of each lesson so you can continue later. To compare your work, 
 
 ### L2. Create the project, features, and first structure diagram
 
-Start with a checkout overview so you can name the responsibilities and data that later views will reuse. The features “Acquisto,” “Catalogo prodotti,” and “Resi e rimborsi” organize the store’s capabilities. The structure diagram shows who initiates the purchase, who coordinates it, and what gets recorded before you define the boundaries and details.
+Start with a checkout overview so you can name the responsibilities and data that later views will reuse. The features “Checkout,” “Product Catalog,” and “Returns and Refunds” organize the store’s capabilities. The structure diagram shows who initiates the purchase, who coordinates it, and what gets recorded before you define the boundaries and details.
 
 #### Create and navigate the project
 
 Create the project in the folder you prepared, then create the three features. These groups help you find the checkout, catalog, and returns views in the model. You will define access roles and runtime services separately when needed. Return to the checkout structure diagram to create your starting overview.
 
 1. From Home, click **Create Project**.
-2. Enter `Mercato` in **Name** and click **Save Changes**.
-3. Select the folder you prepared in L1 and click **Open**. The system picker label is **Apri** in Italian. On macOS, you can also create `Mercato-mio` with **New Folder** (**Nuova cartella** in Italian). Ordito opens the Mercato project home.
-4. Click **Create First Feature**, enter `Acquisto`, and click **Save Changes**. Ordito opens **Acquisto · Structure** and also creates **Acquisto · Flow**.
-5. Click the view name in the header, choose **Add Feature**, enter `Catalogo prodotti`, and click **Save Changes**.
-6. Repeat for `Resi e rimborsi`.
-7. Open **Acquisto · Structure** from the view picker. If the view is visible in **Diagrams**, you can click it directly.
+2. Enter `Marketplace` in **Name** and click **Save Changes**.
+3. Select the folder you prepared in L1 and click **Open**. On macOS, you can also create `my-marketplace` with **New Folder**. Ordito opens the Marketplace project home.
+4. Click **Create First Feature**, enter `Checkout`, and click **Save Changes**. Ordito opens **Checkout · Structure** and also creates **Checkout · Flow**.
+5. Click the view name in the header, choose **Add Feature**, enter `Product Catalog`, and click **Save Changes**.
+6. Repeat for `Returns and Refunds`.
+7. Open **Checkout · Structure** from the view picker. If the view is visible in **Diagrams**, you can click it directly.
 
-In the lab you will assign most ordinary views to “Acquisto” in the creation form. The two returns views will have their own feature. You create C4 views from the blueprint, and they also appear in the system navigation. These groups organize views while the views share the same underlying elements.
+In the lab you will assign most ordinary views to “Checkout” in the creation form. The two returns views will have their own feature. You create C4 views from the blueprint, and they also appear in the system navigation. These groups organize views while the views share the same underlying elements.
 
 #### Add the first six elements
 
@@ -207,23 +207,23 @@ For each row, click **Add Element**, enter **Name**, and click **Create**. Chang
 
 | Name to enter | Element Type | Responsibility |
 | --- | --- | --- |
-| Cliente | Actor | Requests a purchase |
+| Customer | Actor | Requests a purchase |
 | Web shop | Application / Container | The store’s web application |
 | Checkout | Component | Coordinates confirmation |
-| Ordine | Resource | The recorded domain result |
-| Pagamenti esterni | Software System | The external payment authorization service |
-| Gestione resi | Component | Looks up the purchase to handle the return |
+| Order | Resource | The recorded domain result |
+| External Payments | Software System | The external payment authorization service |
+| Returns Handling | Component | Looks up the purchase to handle the return |
 
-You will mark “Pagamenti esterni” as external in L3. For now, create it with the **Software System** type. If an element ends up outside the frame, click **Fit Diagram** to locate it before adding anything else.
+You will mark “External Payments” as external in L3. For now, create it with the **Software System** type. If an element ends up outside the frame, click **Fit Diagram** to locate it before adding anything else.
 
 #### Create a relationship from start to finish
 
-Connect the elements to show how the customer enters the shop and how checkout, payment authorization, and recording follow. Start with “Cliente” and “Web shop” to learn the full form. Then repeat the process for the other relationships.
+Connect the elements to show how the customer enters the shop and how checkout, payment authorization, and recording follow. Start with “Customer” and “Web shop” to learn the full form. Then repeat the process for the other relationships.
 
-1. Click **Cliente** on the canvas and click **Connect**.
+1. Click **Customer** on the canvas and click **Connect**.
 2. If **Relationship Type** appears, choose **Communication**. When only one type is compatible, Ordito highlights the destinations immediately.
 3. Click **Web shop** among the highlighted destinations.
-4. Enter `naviga` in **Relationship Name**, leave **Condition (Optional)** blank, and click **Save Changes**.
+4. Enter `browses` in **Relationship Name**, leave **Condition (Optional)** blank, and click **Save Changes**.
 
 If the source is already selected, start with **Connect**. **Connect Selection** in the properties opens a form with the type, destination, name, and condition on one screen.
 
@@ -231,12 +231,12 @@ Repeat the process for the four rows below. Enter a condition only where shown.
 
 | Source | Relationship Type | Destination | Relationship Name | Condition |
 | --- | --- | --- | --- | --- |
-| Web shop | Invocation | Checkout | invia acquisto | Blank |
-| Checkout | Invocation | Pagamenti esterni | autorizza pagamento | Blank |
-| Checkout | Write | Ordine | registra ordine | pagamento autorizzato |
-| Gestione resi | Dependency | Checkout | consulta acquisto | Blank |
+| Web shop | Invocation | Checkout | submits purchase | Blank |
+| Checkout | Invocation | External Payments | authorizes payment | Blank |
+| Checkout | Write | Order | records order | payment authorized |
+| Returns Handling | Dependency | Checkout | looks up purchase | Blank |
 
-**Communication** describes access to the shop, **Invocation** a request, and **Write** a data record. The **Write** condition describes recording the order after approval. You will execute and verify rules in later exercises. **Dependency** states what “Gestione resi” uses. Call order can be described separately.
+**Communication** describes access to the shop, **Invocation** a request, and **Write** a data record. The **Write** condition describes recording the order after approval. You will execute and verify rules in later exercises. **Dependency** states what “Returns Handling” uses. Call order can be described separately.
 
 **Reuse elements and relationships separately.** **Add Existing Element** adds the element to the view. For an ordinary view, include both endpoints, then choose **Diagram > Contents > Add Existing Relationship** and select the relationship. A C4 view can already include compatible relationships between visible elements, so check the canvas first. In a sequence diagram use **Add Existing Message**. **Connect** creates a new relationship in the system.
 
@@ -244,7 +244,7 @@ Repeat the process for the four rows below. Enter a condition only where shown.
 
 Name the view so you can find it among the diagrams you will create later. Arrange elements and labels so you can see the responsibilities without opening each set of properties. Save and reopen the project to check that the first stage is in the correct root.
 
-If the properties are open, click **Close Properties**. Open **Diagram** and click **Rename** next to the title. Enter `01 Panoramica delle responsabilità` and click **Save Changes**. Check the new name in the header.
+If the properties are open, click **Close Properties**. Open **Diagram** and click **Rename** next to the title. Enter `01 Responsibilities Overview` and click **Save Changes**. Check the new name in the header.
 
 Open **Diagram** and click **Arrange** next to the title. Choose **Balanced**, then click **Fit Diagram**. Drag elements to make the flow clearer. To show all the labels, choose **Diagram > Layout and Display > Show Relationship Labels**.
 
@@ -254,7 +254,7 @@ Click **Save** in the header. If **Update Codebase from Diagrams** appears, choo
 
 ### L3. Define the context and user goals
 
-The L2 overview names the first responsibilities. Now define the Mercato boundary and the goals of “Cliente” and “Assistenza.” The context view shows the system you are designing and the external services it uses. The use cases capture what actors need the shop to do. In L4, you will divide the inside of the system into parts that support those goals.
+The L2 overview names the first responsibilities. Now define the Marketplace boundary and the goals of “Customer” and “Support.” The context view shows the system you are designing and the external services it uses. The use cases capture what actors need the shop to do. In L4, you will divide the inside of the system into parts that support those goals.
 
 #### Open Structural Blueprint
 
@@ -266,24 +266,24 @@ At the bottom, **Review** shows the draft changes. Click a configuration name to
 
 #### Create the system and set its scope
 
-Add “Mercato” as a **Software System** to represent the product boundary. The project name identifies the project. The separate system element identifies the subject of the context view. Set the scope first because the context view needs a governed system as its subject. Reuse “Cliente” and “Pagamenti esterni” from L2 to retain the same references, then add the missing external carrier and support role.
+Add “Marketplace” as a **Software System** to represent the product boundary. The project name identifies the project. The separate system element identifies the subject of the context view. Set the scope first because the context view needs a governed system as its subject. Reuse “Customer” and “External Payments” from L2 to retain the same references, then add the missing external carrier and support role.
 
-In the overview, click **Add Element**, enter **Name**, select **Software System** in **Element Type**, and click **Create**. Use this process to create **Mercato** and **Corriere esterno**. For **Assistenza**, use **Actor** in the same form. “Cliente” and “Pagamenti esterni” are already present.
+In the overview, click **Add Element**, enter **Name**, select **Software System** in **Element Type**, and click **Create**. Use this process to create **Marketplace** and **External Carrier**. For **Support**, use **Actor** in the same form. “Customer” and “External Payments” are already present.
 
-Open **Structural Blueprint > Structure > System Scope or Container Responsibility**. Select **Mercato** in **Configuration** and **Governed System** in **Scope**. Use the same picker to select **Pagamenti esterni** and **Corriere esterno** in turn, setting **External System** for each. Click **Apply to Model**. “Mercato” is the system you are designing, and the other systems provide external services.
+Open **Structural Blueprint > Structure > System Scope or Container Responsibility**. Select **Marketplace** in **Configuration** and **Governed System** in **Scope**. Use the same picker to select **External Payments** and **External Carrier** in turn, setting **External System** for each. Click **Apply to Model**. “Marketplace” is the system you are designing, and the other systems provide external services.
 
 #### Create the C4 context view
 
-C4 models architecture at several levels, from the system and its context down to its applications and components. Use the context view to see who uses Mercato and which external services it depends on. L4 will show the internal structure. The subject identifies the system you are looking at. The context declares its external dependencies, and the visible elements are the identities the diagram displays. Keep the subject visible so you can see the boundary.
+C4 models architecture at several levels, from the system and its context down to its applications and components. Use the context view to see who uses Marketplace and which external services it depends on. L4 will show the internal structure. The subject identifies the system you are looking at. The context declares its external dependencies, and the visible elements are the identities the diagram displays. Keep the subject visible so you can see the boundary.
 
 1. In **Structure > C4 View Subject and Context**, click **New C4 View**.
-2. In **View Identity**, enter `02 C4 Contesto Mercato` in **View Name**, choose **L1 · System Context** in **C4 Level**, and choose **Mercato** in **View Subject**. If Mercato is missing, check that it is a **Software System** with **Governed System** scope.
-3. In **View Contents**, select **Context** and **Visible** for “Cliente,” “Assistenza,” “Pagamenti esterni,” and “Corriere esterno.” “Mercato” is visible as the subject. Use **Filter Elements** to find an item. Changing the filter preserves your selections.
+2. In **View Identity**, enter `02 C4 Marketplace Context` in **View Name**, choose **L1 · System Context** in **C4 Level**, and choose **Marketplace** in **View Subject**. If Marketplace is missing, check that it is a **Software System** with **Governed System** scope.
+3. In **View Contents**, select **Context** and **Visible** for “Customer,” “Support,” “External Payments,” and “External Carrier.” “Marketplace” is visible as the subject. Use **Filter Elements** to find an item. Changing the filter preserves your selections.
 4. Check **View Preview**, click **Apply to Model**, then click **Open Diagram** in the view’s panel.
 
-![Structural Blueprint shows Mercato as the subject and four context dependencies](images/33-blueprint-choose.png)
+![Structural Blueprint shows Marketplace as the subject and four context dependencies](images/33-blueprint-choose.png)
 
-Complete the context view with the exchanges that cross the boundary. In **Create Relationship**, choose **Communication** in **Relationship Type**, select a source and destination, and enter the name. Leave **Condition (Optional)** blank and click **Save Changes**. Connect “Cliente” to “Mercato” with “acquista e richiede resi,” “Assistenza” to “Mercato” with “gestisce richieste,” “Mercato” to “Pagamenti esterni” with “autorizza e rimborsa,” and “Mercato” to “Corriere esterno” with “richiede consegna.” Reuse any relationship that is already visible.
+Complete the context view with the exchanges that cross the boundary. In **Create Relationship**, choose **Communication** in **Relationship Type**, select a source and destination, and enter the name. Leave **Condition (Optional)** blank and click **Save Changes**. Connect “Customer” to “Marketplace” with “makes purchases and requests returns,” “Support” to “Marketplace” with “handles requests,” “Marketplace” to “External Payments” with “authorizes payments and issues refunds,” and “Marketplace” to “External Carrier” with “requests delivery.” Reuse any relationship that is already visible.
 
 If an existing project shows **Draft Needs Correction** for the C4 boundary, reopen **C4 View Subject and Context**, choose the view in **Configuration**, and check **C4 Level** and **View Subject**. The panel automatically includes the subject among the visible elements. Click **Apply to Model** and save.
 
@@ -291,81 +291,81 @@ If an existing project shows **Draft Needs Correction** for the C4 boundary, reo
 
 The context view shows the system boundary. Use cases show what actors want the system to do. The customer wants to confirm a purchase and request a return. Support helps handle requests. In the lab, you will model these goals before assigning responsibilities to containers in L4. You will distinguish the actors’ goals, the required payment authorization, and the optional coupon. Later flows, contracts, and cases will build on them.
 
-Open **Add Diagram**. In **Create Diagram**, enter `12 Casi d’uso` in **Name**, choose **Use Case** in **Diagram Type** and **Acquisto** in **Choose Feature**. Click **Create** to open the view.
+Open **Add Diagram**. In **Create Diagram**, enter `12 Use Cases` in **Name**, choose **Use Case** in **Diagram Type** and **Checkout** in **Choose Feature**. Click **Create** to open the view.
 
-On the canvas, click **Add Existing Element**, search for “Cliente,” and choose the **Actor** row. Repeat for “Assistenza” and the **Software System** named “Mercato.” The view reuses each element’s existing identity.
+On the canvas, click **Add Existing Element**, search for “Customer,” and choose the **Actor** row. Repeat for “Support” and the **Software System** named “Marketplace.” The view reuses each element’s existing identity.
 
-Reuse the actors and “Mercato” from the context view so the goals refer to the same identities and boundary. With **Add Element**, choose **Use Case** in **Element Type** and create **Confermare acquisto**, **Autorizzare pagamento**, **Richiedere reso**, and **Applicare coupon**. Associations show who participates in a goal. **Include** declares required behavior, and **Extend** adds behavior under a condition. Create the relationships in the table.
+Reuse the actors and “Marketplace” from the context view so the goals refer to the same identities and boundary. With **Add Element**, choose **Use Case** in **Element Type** and create **Confirm Purchase**, **Authorize Payment**, **Request Return**, and **Apply Coupon**. Associations show who participates in a goal. **Include** declares required behavior, and **Extend** adds behavior under a condition. Create the relationships in the table.
 
 | Source | Type | Destination | Name | Condition |
 | --- | --- | --- | --- | --- |
-| Cliente | Association | Confermare acquisto | avvia | Blank |
-| Cliente | Association | Richiedere reso | richiede | Blank |
-| Assistenza | Association | Richiedere reso | gestisce | Blank |
-| Confermare acquisto | Include | Autorizzare pagamento | include | Blank |
-| Applicare coupon | Extend | Confermare acquisto | extend | coupon presente |
+| Customer | Association | Confirm Purchase | starts | Blank |
+| Customer | Association | Request Return | requests | Blank |
+| Support | Association | Request Return | handles | Blank |
+| Confirm Purchase | Include | Authorize Payment | include | Blank |
+| Apply Coupon | Extend | Confirm Purchase | extend | coupon provided |
 
-Assign the four use cases to “Mercato” to declare which system owns them. Open **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. In **Configuration**, choose **Confermare acquisto**, then select **Mercato** in **Architectural Owner**. Expand **Assign the Same Owner to More Elements** and select **Autorizzare pagamento**, **Richiedere reso**, and **Applicare coupon**. Click **Apply to Model**, then **Back to Diagram**. The visible “Mercato” element marks the boundary for its use cases. Use **Diagram > Arrange > Balanced**, then **Fit Diagram**, to arrange the ovals and keep their names readable.
+Assign the four use cases to “Marketplace” to declare which system owns them. Open **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. In **Configuration**, choose **Confirm Purchase**, then select **Marketplace** in **Architectural Owner**. Expand **Assign the Same Owner to More Elements** and select **Authorize Payment**, **Request Return**, and **Apply Coupon**. Click **Apply to Model**, then **Back to Diagram**. The visible “Marketplace” element marks the boundary for its use cases. Use **Diagram > Arrange > Balanced**, then **Fit Diagram**, to arrange the ovals and keep their names readable.
 
 Use **Include** because confirming a purchase requires payment authorization. Use **Extend** for the optional coupon, pointing from the added behavior to the base case. A purchase can proceed without a coupon and can be confirmed after authorization. You will model authorization in the flows later. The coupon is an example of an optional extension. Use cases describe goals and dependencies. The activity and sequence diagrams will describe the order of steps.
 
-**L3 check.** Save the model. In the context view you should see one governed system, two actors, and two external systems. In the use case diagram, find the customer’s two goals and the optional coupon. Compare your work with the `tappe/01-confini` checkpoint.
+**L3 check.** Save the model. In the context view you should see one governed system, two actors, and two external systems. In the use case diagram, find the customer’s two goals and the optional coupon. Compare your work with the `milestones/01-boundaries` checkpoint.
 
 ### L4. Build the C4 container and component views
 
-With the boundary and goals in place, divide Mercato into applications, data storage, and messaging, then detail the API service. The container view shows which parts communicate. The component view distributes the responsibilities within the API. Set ownership and roles first so the views show the same system at two levels of detail.
+With the boundary and goals in place, divide Marketplace into applications, data storage, and messaging, then detail the API service. The container view shows which parts communicate. The component view distributes the responsibilities within the API. Set ownership and roles first so the views show the same system at two levels of detail.
 
 #### Create the containers and assign roles
 
-The web shop handles presentation, the API handles application rules, the archive stores data, and the broker distributes events. Each role describes what the container does, and the “Mercato” owner declares that it belongs to the product. These decisions define the architecture shown in the container view. The services remain design elements in this exercise.
+The web shop handles presentation, the API handles application rules, the archive stores data, and the broker distributes events. Each role describes what the container does, and the “Marketplace” owner declares that it belongs to the product. These decisions define the architecture shown in the container view. The services remain design elements in this exercise.
 
-Return to the overview. With **Add Element**, create **API Mercato**, **Archivio Mercato**, and **Broker eventi**, choosing **Application / Container** in **Element Type**. “Web shop” already exists. “API Mercato” is the service that receives requests from the store.
+Return to the overview. With **Add Element**, create **Marketplace API**, **Marketplace Store**, and **Event Broker**, choosing **Application / Container** in **Element Type**. “Web shop” already exists. “Marketplace API” is the service that receives requests from the store.
 
 Open **Structural Blueprint > Structure > System Scope or Container Responsibility**. Choose a container in **Configuration** and fill in **Description** and **Container Role**. Use the picker to move to the next container. After editing all four configurations, click **Apply to Model**.
 
 | Container | Description to enter | Container Role |
 | --- | --- | --- |
-| Web shop | Interfaccia web del negozio | Web Client |
-| API Mercato | Conferma acquisti e gestisce resi | Service |
-| Archivio Mercato | Conserva ordini e prodotti | Data Store |
-| Broker eventi | Distribuisce eventi | Messaging |
+| Web shop | Store web interface | Web Client |
+| Marketplace API | Confirms purchases and handles returns | Service |
+| Marketplace Store | Stores orders and products | Data Store |
+| Event Broker | Distributes events | Messaging |
 
-Assign **Mercato** as the architectural owner for the four containers. Open **Architectural or Lifecycle Owner**, choose **Web shop** in **Configuration**, and select **Mercato** in **Architectural Owner**. Expand **Assign the Same Owner to More Elements** and select **API Mercato**, **Archivio Mercato**, and **Broker eventi**. Click **Apply to Model**. Check that all four have the intended owner before creating the view.
+Assign **Marketplace** as the architectural owner for the four containers. Open **Architectural or Lifecycle Owner**, choose **Web shop** in **Configuration**, and select **Marketplace** in **Architectural Owner**. Expand **Assign the Same Owner to More Elements** and select **Marketplace API**, **Marketplace Store**, and **Event Broker**. Click **Apply to Model**. Check that all four have the intended owner before creating the view.
 
 #### Create and open the container view
 
-Now show how the containers communicate. Keep “Mercato” as the boundary and “Cliente” as the entry point. The containers show how a request reaches the service, data store, and event broker. The view uses the applications already defined in the model.
+Now show how the containers communicate. Keep “Marketplace” as the boundary and “Customer” as the entry point. The containers show how a request reaches the service, data store, and event broker. The view uses the applications already defined in the model.
 
-Return to **C4 View Subject and Context** and click **New C4 View**. Choose **L2 · Containers**, set the subject to “Mercato,” and name the view `03 C4 Applicazioni e dati`. Select **Context** for “Cliente,” and **Visible** for “Cliente” and the four containers. “Mercato” is already visible. Click **Apply to Model**, then **Open Diagram**.
+Return to **C4 View Subject and Context** and click **New C4 View**. Choose **L2 · Containers**, set the subject to “Marketplace,” and name the view `03 C4 Applications and Data`. Select **Context** for “Customer,” and **Visible** for “Customer” and the four containers. “Marketplace” is already visible. Click **Apply to Model**, then **Open Diagram**.
 
-Keep the existing “naviga” relationship from “Cliente” to “Web shop.” Create **Communication** relationships from “Web shop” to “API Mercato” named “invia ordini,” from “API Mercato” to “Archivio Mercato” named “legge e scrive,” and from “API Mercato” to “Broker eventi” named “pubblica eventi.” Leave all conditions blank. You may also see the “Cliente” to “Mercato” relationship from the context view because both views share the model.
+Keep the existing “browses” relationship from “Customer” to “Web shop.” Create **Communication** relationships from “Web shop” to “Marketplace API” named “sends orders,” from “Marketplace API” to “Marketplace Store” named “reads and writes,” and from “Marketplace API” to “Event Broker” named “publishes events.” Leave all conditions blank. You may also see the “Customer” to “Marketplace” relationship from the context view because both views share the model.
 
 After choosing the endpoints, set the protocol to record how you expect the parts to communicate. Select an arrow and click **Edit Cardinalities and Protocol** in the relationship properties. Fill in **Protocol / Transport**, leave the multiplicity and member fields blank, and click **Save Changes**. Use the values in the table.
 
 | Relationship | Protocol / Transport |
 | --- | --- |
-| Cliente to Web shop | HTTPS |
-| Web shop to API Mercato | HTTPS / JSON |
-| API Mercato to Archivio Mercato | SQL |
-| API Mercato to Broker eventi | Messaggistica dichiarata |
+| Customer to Web shop | HTTPS |
+| Web shop to Marketplace API | HTTPS / JSON |
+| Marketplace API to Marketplace Store | SQL |
+| Marketplace API to Event Broker | Declared messaging |
 
-The relationship name describes its purpose. The protocol records how the parts are expected to communicate. Leave the first four fields blank because the view describes communication protocols. HTTPS/JSON and SQL are design choices. “Messaggistica dichiarata” leaves the broker transport open. The labels capture design intent and leave implementation and connection tests for later.
+The relationship name describes its purpose. The protocol records how the parts are expected to communicate. Leave the first four fields blank because the view describes communication protocols. HTTPS/JSON and SQL are design choices. “Declared messaging” leaves the broker transport open. The labels capture design intent and leave implementation and connection tests for later.
 
 To select an arrow, click its line or label. Check its source and destination in the properties before editing it.
 
 #### Build the components before the contract
 
-Break down “API Mercato” to show who coordinates purchases, records results, handles returns, and manages availability. Assign the components to the API before including them in its C4 view, since the owner defines the boundary. The contract will identify the agreement offered by “Checkout.” You will define its signature and data in L11.
+Break down “Marketplace API” to show who coordinates purchases, records results, handles returns, and manages availability. Assign the components to the API before including them in its C4 view, since the owner defines the boundary. The contract will identify the agreement offered by “Checkout.” You will define its signature and data in L11.
 
-Return to the overview. With **Add Element**, create **Registro esiti** and **Scorte** as **Component** elements. “Checkout” and “Gestione resi” already exist. In **Architectural or Lifecycle Owner**, choose **Checkout** in **Configuration** and **API Mercato** in **Architectural Owner**. Under **Assign the Same Owner to More Elements**, select **Registro esiti**, **Gestione resi**, and **Scorte**, then click **Apply to Model**. “Scorte” represents the application’s responsibility for availability. “Archivio Mercato” represents persistence.
+Return to the overview. With **Add Element**, create **Outcome Log** and **Inventory** as **Component** elements. “Checkout” and “Returns Handling” already exist. In **Architectural or Lifecycle Owner**, choose **Checkout** in **Configuration** and **Marketplace API** in **Architectural Owner**. Under **Assign the Same Owner to More Elements**, select **Outcome Log**, **Returns Handling**, and **Inventory**, then click **Apply to Model**. “Inventory” represents the application’s responsibility for availability. “Marketplace Store” represents persistence.
 
-This view focuses on the four components inside the API. From **C4 View Subject and Context**, click **New C4 View** and select **L3 · Components**. Set the subject to “API Mercato” and the name to `04 C4 Componenti API`. Leave the **Context** column blank. Select **Visible** for “Checkout,” “Registro esiti,” “Gestione resi,” and “Scorte.” “API Mercato” is already visible. Click **Apply to Model**, then **Open Diagram**.
+This view focuses on the four components inside the API. From **C4 View Subject and Context**, click **New C4 View** and select **L3 · Components**. Set the subject to “Marketplace API” and the name to `04 C4 API Components`. Leave the **Context** column blank. Select **Visible** for “Checkout,” “Outcome Log,” “Returns Handling,” and “Inventory.” “Marketplace API” is already visible. Click **Apply to Model**, then **Open Diagram**.
 
-Add the contract that you will use in L11 to formalize what “Checkout” offers. In the C4 view, click **Add Element**, enter **Contratto acquisto**, choose **Contract** in **Element Type**, and click **Create**. Ordito places it under “API Mercato,” the subject of this view.
+Add the contract that you will use in L11 to formalize what “Checkout” offers. In the C4 view, click **Add Element**, enter **Checkout Contract**, choose **Contract** in **Element Type**, and click **Create**. Ordito places it under “Marketplace API,” the subject of this view.
 
-Add **Communication** from “Checkout” to “Registro esiti” named “registra esito,” **Implementation** from “Checkout” to “Contratto acquisto” named “espone contratto,” and **Dependency** from “Checkout” to “Scorte” named “richiede disponibilità.” Reuse the existing “consulta acquisto” relationship from “Gestione resi” to “Checkout.” The C4 view offers compatible architectural relationships. The L7 sequence will show calls.
+Add **Communication** from “Checkout” to “Outcome Log” named “records outcome,” **Implementation** from “Checkout” to “Checkout Contract” named “exposes contract,” and **Dependency** from “Checkout” to “Inventory” named “requests availability.” Reuse the existing “looks up purchase” relationship from “Returns Handling” to “Checkout.” The C4 view offers compatible architectural relationships. The L7 sequence will show calls.
 
-**L4 check.** Save and click **Fit Diagram**. Each container has “Mercato” as its owner and a declared role. The four components belong to the API. “Contratto acquisto” is the API contract provided by “Checkout.” Drag a card to adjust the layout. Use the ownership form to change the declared structure.
+**L4 check.** Save and click **Fit Diagram**. Each container has “Marketplace” as its owner and a declared role. The four components belong to the API. “Checkout Contract” is the API contract provided by “Checkout.” Drag a card to adjust the layout. Use the ownership form to change the declared structure.
 
 ### L5. Define entities, columns, and references with forms
 
@@ -375,15 +375,15 @@ The C4 views assign responsibilities and identify storage. Now define the data t
 
 Start with the domain entities for customer, order, order line, product, and return. Define attributes and relationships you can understand before choosing their tables. Use the data to check the responsibilities you have designed. For example, checkout needs the quantity and price of each line item.
 
-An entity–relationship diagram (ERD) represents data entities and their relationships. From the diagram picker, choose **Add Diagram**. In **Create Diagram**, enter `05 Entità e cardinalità` in **Name**, choose **Entity–Relationship** in **Diagram Type**, choose **Acquisto** in **Choose Feature**, and click **Create**. Use **Add Element**, choose **Entity** in **Element Type**, and create “Cliente,” “Ordine,” “Riga ordine,” “Prodotto,” and “Reso.”
+An entity–relationship diagram (ERD) represents data entities and their relationships. From the diagram picker, choose **Add Diagram**. In **Create Diagram**, enter `05 Entities and Cardinality` in **Name**, choose **Entity–Relationship** in **Diagram Type**, choose **Checkout** in **Choose Feature**, and click **Create**. Use **Add Element**, choose **Entity** in **Element Type**, and create “Customer,” “Order,” “Order Line,” “Product,” and “Return.”
 
-Use **Add Element** to define these domain entities. The “Cliente” actor represents who acts, and the “Ordine” resource represents the object involved in the flow. The ERD entities define their data attributes and relationships. Use **Add Existing Element** to reuse an entity in another data diagram.
+Use **Add Element** to define these domain entities. The “Customer” actor represents who acts, and the “Order” resource represents the object involved in the flow. The ERD entities define their data attributes and relationships. Use **Add Existing Element** to reuse an entity in another data diagram.
 
 #### Add an attribute from start to finish
 
 Attributes specify the data each entity holds. The `customerId` attribute is a text identifier for the customer. Use **No Key** here. Physical keys belong in the database schema.
 
-1. Select the **Cliente** card and click **Edit Attributes and Technology** in **Properties**.
+1. Select the **Customer** card and click **Edit Attributes and Technology** in **Properties**.
 2. Click **Add Attribute** under **Attributes and Methods**.
 3. Enter `customerId` in **Member Name** and `string` in **Type or Method Signature**. Keep **Attribute / Column**, **No Key**, and **Required Field** at their defaults. Choose **Non-null Value** in **Nullability (Independent of Presence)**.
 4. Click **Add Attribute** again to add `email` as shown in the table. Click **Save Changes** to apply both attributes.
@@ -396,34 +396,34 @@ Identifiers let data refer to objects. Quantities and amounts describe what was 
 
 | Entity | Member names and types to add |
 | --- | --- |
-| Cliente | `customerId: string`, `email: string` |
-| Ordine | `orderId: string`, `totalCents: integer` |
-| Riga ordine | `quantity: integer`, `unitPriceCents: integer` |
-| Prodotto | `sku: string`, `priceCents: integer` |
-| Reso | `returnId: string`, `reason: string` |
+| Customer | `customerId: string`, `email: string` |
+| Order | `orderId: string`, `totalCents: integer` |
+| Order Line | `quantity: integer`, `unitPriceCents: integer` |
+| Product | `sku: string`, `priceCents: integer` |
+| Return | `returnId: string`, `reason: string` |
 
 **Required Field** says that the field must be present. **Non-null Value** says that it must have a value other than `null`. Use both so that every order has a total you can use.
 
 #### Draw relationships and set cardinalities
 
-With the objects and attributes in place, specify how many instances can be linked. The name “contiene” tells you the order contains lines, and a cardinality tells you whether it can be empty. Set these rules before creating physical references. Leave the column fields blank for relationships between domain entities.
+With the objects and attributes in place, specify how many instances can be linked. The name “contains” tells you the order contains lines, and a cardinality tells you whether it can be empty. Set these rules before creating physical references. Leave the column fields blank for relationships between domain entities.
 
 Create the four **Association** relationships using the steps from L2, leaving **Condition (Optional)** blank. Select each relationship and open **Edit Cardinalities and Protocol**. Enter **Source Multiplicity** and **Target Multiplicity** as shown. Leave the member and protocol fields blank and click **Save Changes**.
 
 | Source | Destination | Relationship Name | Source Multiplicity | Target Multiplicity |
 | --- | --- | --- | --- | --- |
-| Cliente | Ordine | effettua | `1` | `0..*` |
-| Ordine | Riga ordine | contiene | `1` | `1..*` |
-| Riga ordine | Prodotto | riguarda | `0..*` | `1` |
-| Reso | Ordine | si riferisce a | `0..*` | `1` |
+| Customer | Order | performs | `1` | `0..*` |
+| Order | Order Line | contains | `1` | `1..*` |
+| Order Line | Product | refers to | `0..*` | `1` |
+| Return | Order | refers to | `0..*` | `1` |
 
-In “Cliente” `1` to “Ordine” `0..*`, a customer can have zero purchases and every order belongs to one customer. In “Ordine” to “Riga ordine,” `1..*` requires at least one line. Read both directions. Cardinalities declare allowed relationships between instances.
+In “Customer” `1` to “Order” `0..*`, a customer can have zero purchases and every order belongs to one customer. In “Order” to “Order Line,” `1..*` requires at least one line. Read both directions. Cardinalities declare allowed relationships between instances.
 
 #### Create the physical schema
 
 Now design how the data will be stored. A **Table** has columns, keys, and physical references. Create tables as separate elements from the domain **Entity** elements. The lesson produces a database design. Creating the database and implementing the full set of domain constraints are separate tasks.
 
-With **Add Diagram**, create `06 Schema dati progettato`. Choose **Database Schema** in **Diagram Type** and **Acquisto** in **Choose Feature**. Create the five **Table** elements listed below. On each table, open **Edit Attributes and Technology** and click **Add Attribute** for each column before clicking **Save Changes**. Set **Key Kind** from the table, keep **Required Field**, and choose **Non-null Value**.
+With **Add Diagram**, create `06 Proposed Data Schema`. Choose **Database Schema** in **Diagram Type** and **Checkout** in **Choose Feature**. Create the five **Table** elements listed below. On each table, open **Edit Attributes and Technology** and click **Add Attribute** for each column before clicking **Save Changes**. Set **Key Kind** from the table, keep **Required Field**, and choose **Non-null Value**.
 
 | Table | Columns with name, type, and Key Kind |
 | --- | --- |
@@ -455,7 +455,7 @@ Complete the remaining references. An order line identifies its order and produc
 
 The **Foreign Key** role identifies the reference column. The relationship specifies which record must exist at the other end. Together they express rules such as a return needing an existing order.
 
-**L5 check.** Save and reopen the project. The ERD has five entities, ten attributes, and four associations. The database schema has five tables, fifteen columns, and four references. Compare your work with `tappe/02-architettura-dati`. You should now have a schema design ready to discuss. Set up mappings from domain types to columns after creating the shared types in L11.
+**L5 check.** Save and reopen the project. The ERD has five entities, ten attributes, and four associations. The database schema has five tables, fifteen columns, and four references. Compare your work with `milestones/02-data-architecture`. You should now have a schema design ready to discuss. Set up mappings from domain types to columns after creating the shared types in L11.
 
 ### L6. Build class, component, and package diagrams
 
@@ -463,9 +463,9 @@ Use UML (Unified Modeling Language) to describe software types and how they work
 
 #### Describe types and methods in the class diagram
 
-Define “Order” as a type with attributes and a confirmation operation, “CheckoutService” as a service, and “OrderRepository” as a persistence contract. The “Ordine” resource identifies the object involved in the application responsibilities, and the “Ordine” entity describes its domain data. A separate **Class** element lets you define methods on the software type.
+Define “Order” as a type with attributes and a confirmation operation, “CheckoutService” as a service, and “OrderRepository” as a persistence contract. The “Order” resource identifies the object involved in the application responsibilities, and the “Order” entity describes its domain data. A separate **Class** element lets you define methods on the software type.
 
-With **Add Diagram**, create `11 Classi e repository`. Choose **Class** in **Diagram Type** and **Acquisto** in **Choose Feature**. With **Add Element**, create **Order** and **CheckoutService** as **Class** and **OrderRepository** as **Interface Contract**.
+With **Add Diagram**, create `11 Classes and Repositories`. Choose **Class** in **Diagram Type** and **Checkout** in **Choose Feature**. With **Add Element**, create **Order** and **CheckoutService** as **Class** and **OrderRepository** as **Interface Contract**.
 
 Select **Order** and open **Edit Attributes and Technology**. Use **Add Attribute** to add `orderId: string` and `totalCents: integer` as in L5, with **No Key**, **Required Field**, and **Non-null Value**.
 
@@ -473,23 +473,23 @@ In the same form, click **Add Method**. Enter `confirm` in **Member Name** and `
 
 Repeat for the `submit` method of “CheckoutService” and the `save` method of “OrderRepository,” each with a descriptive `string` result. The names distinguish submitting a request to the service from persisting data through the contract. These signatures describe selected operations. L11 defines a fuller contract with typed inputs and results.
 
-Create two **Dependency** relationships with blank conditions. Name the relationship from “CheckoutService” to “Order” “valida e conferma” and the relationship from “CheckoutService” to “OrderRepository” “usa contratto.” The members describe the types for an implementation to follow.
+Create two **Dependency** relationships with blank conditions. Name the relationship from “CheckoutService” to “Order” “validates and confirms” and the relationship from “CheckoutService” to “OrderRepository” “uses contract.” The members describe the types for an implementation to follow.
 
 #### Reuse contracts in the UML component diagram
 
-Connect “OrderRepository” to the component that provides it. Review “Contratto acquisto,” which “Checkout” already exposes. Reuse interfaces, components, and relationships so they refer to the same objects in the class, C4, and UML component diagrams. You will be able to see a contract change wherever the contract appears.
+Connect “OrderRepository” to the component that provides it. Review “Checkout Contract,” which “Checkout” already exposes. Reuse interfaces, components, and relationships so they refer to the same objects in the class, C4, and UML component diagrams. You will be able to see a contract change wherever the contract appears.
 
-With **Add Diagram**, create `13 Componenti e interfacce`. Choose **UML Component** in **Diagram Type** and **Acquisto** in **Choose Feature**. On the canvas, use **Add Existing Element** to add “Checkout,” “Contratto acquisto,” “Registro esiti,” and “OrderRepository.” Check the types in the picker, especially **Component** for “Checkout” and **Interface Contract** for “OrderRepository.”
+With **Add Diagram**, create `13 Components and Interfaces`. Choose **UML Component** in **Diagram Type** and **Checkout** in **Choose Feature**. On the canvas, use **Add Existing Element** to add “Checkout,” “Checkout Contract,” “Outcome Log,” and “OrderRepository.” Check the types in the picker, especially **Component** for “Checkout” and **Interface Contract** for “OrderRepository.”
 
-Add the existing relationships after including their endpoints. Open **Diagram > Contents > Add Existing Relationship** and choose **Checkout → Contratto acquisto: espone contratto**. Repeat for **Checkout → Registro esiti: registra esito**. Then create a new **Implementation** relationship from “Registro esiti” to “OrderRepository,” name it “fornisce persistenza,” and leave the condition blank. The view should show three links. Reusing a relationship preserves its identity and details. Use **Connect** to create a new one.
+Add the existing relationships after including their endpoints. Open **Diagram > Contents > Add Existing Relationship** and choose **Checkout → Checkout Contract: exposes contract**. Repeat for **Checkout → Outcome Log: records outcome**. Then create a new **Implementation** relationship from “Outcome Log” to “OrderRepository,” name it “provides persistence,” and leave the condition blank. The view should show three links. Reusing a relationship preserves its identity and details. Use **Connect** to create a new one.
 
-![Contents has separate commands for reusing elements and relationships](images/32-riuso-relazione.png)
+![Contents has separate commands for reusing elements and relationships](images/32-reuse-relationship.png)
 
 #### Show logical layers in a package diagram
 
 Group the responsibilities into domain, application, and adapter packages to discuss dependencies before organizing source files. The domain contains the rules you want to preserve. The application coordinates the user goals, and the adapters connect external details. Use separate **Package** elements to model these logical groups before creating the source layout.
 
-With **Add Diagram**, create `14 Moduli applicativi`. Choose **Package** in **Diagram Type** and **Acquisto** in **Choose Feature**. Create three **Package** elements named “Dominio,” “Applicazione,” and “Adapter.” Create three **Dependency** relationships with blank conditions. Connect “Applicazione” to “Dominio” with “usa regole,” “Adapter” to “Dominio” with “implementa contratti,” and “Adapter” to “Applicazione” with “collega esterni.” During implementation, compare the direction of dependencies in the code with the model.
+With **Add Diagram**, create `14 Application Modules`. Choose **Package** in **Diagram Type** and **Checkout** in **Choose Feature**. Create three **Package** elements named “Domain,” “Application,” and “Adapter.” Create three **Dependency** relationships with blank conditions. Connect “Application” to “Domain” with “uses rules,” “Adapter” to “Domain” with “implements contracts,” and “Adapter” to “Application” with “connects external systems.” During implementation, compare the direction of dependencies in the code with the model.
 
 **L6 check.** Save. The class and UML component diagrams share the “OrderRepository” interface, so edits to it should appear in both. In the package diagram, dependencies point towards the domain. The classes, components, and packages keep separate identities because they represent different parts of the design.
 
@@ -501,96 +501,96 @@ With responsibilities and data in place, describe what happens during checkout. 
 
 Reuse the flow that Ordito created with the checkout feature. Validate the cart before requesting payment. Model unavailable stock and declined payment separately so you can see the two reasons an order may be rejected.
 
-Open **Acquisto · Flow** in the diagram picker. Open **Diagram** and click **Rename** next to the title. Enter `08 Flusso acquisto`.
+Open **Checkout · Flow** in the diagram picker. Open **Diagram** and click **Rename** next to the title. Enter `08 Checkout Flow`.
 
 For each item, click **Add Element**, enter the name, choose **Element Type**, and click **Create**.
 
 | Type | Names to create |
 | --- | --- |
-| Start | Inizio |
-| Action | Valida carrello, Richiedi pagamento, Conferma ordine, Rifiuta ordine |
-| Decision | Scorte disponibili? |
-| End | Fine |
+| Start | Start |
+| Action | Validate Cart, Request Payment, Confirm Order, Decline Order |
+| Decision | Inventory Available? |
+| End | End |
 
 Connect the nodes with **Control Flow** to describe steps and alternatives. In **Create Relationship**, use **Relationship Name** to name the step and **Condition (Optional)** to say when it applies. Click **Save Changes** after each relationship.
 
 | Source | Destination | Relationship Name | Condition |
 | --- | --- | --- | --- |
-| Inizio | Valida carrello | avvia | Blank |
-| Valida carrello | Scorte disponibili? | controlla | Blank |
-| Scorte disponibili? | Richiedi pagamento | prosegui | disponibili |
-| Scorte disponibili? | Rifiuta ordine | rifiuta | non disponibili |
-| Richiedi pagamento | Conferma ordine | conferma | pagamento autorizzato |
-| Richiedi pagamento | Rifiuta ordine | rifiuta | pagamento rifiutato |
-| Conferma ordine | Fine | termina | Blank |
-| Rifiuta ordine | Fine | termina | Blank |
+| Start | Validate Cart | starts | Blank |
+| Validate Cart | Inventory Available? | checks | Blank |
+| Inventory Available? | Request Payment | continue | available |
+| Inventory Available? | Decline Order | declines | unavailable |
+| Request Payment | Confirm Order | confirms | payment authorized |
+| Request Payment | Decline Order | declines | payment declined |
+| Confirm Order | End | ends | Blank |
+| Decline Order | End | ends | Blank |
 
 Click **Fit Diagram** and follow both outcomes. The conditions describe the intended behavior. This exercise uses a model of payment approval and refusal.
 
 #### Select participants and messages for a sequence
 
-After defining the possible paths, assign calls to the responsibilities from L2. Reuse “Cliente” as an **Actor**, “Checkout” as a **Component**, “Pagamenti esterni” as a **Software System**, and “Ordine” as a **Resource**. These are the objects that request, coordinate, authorize, and receive the order record. Entities and classes with the same names belong to other views of the design. Add messages separately to set their order while preserving shared relationships.
+After defining the possible paths, assign calls to the responsibilities from L2. Reuse “Customer” as an **Actor**, “Checkout” as a **Component**, “External Payments” as a **Software System**, and “Order” as a **Resource**. These are the objects that request, coordinate, authorize, and receive the order record. Entities and classes with the same names belong to other views of the design. Add messages separately to set their order while preserving shared relationships.
 
-With **Add Diagram**, create `07 Sequenza acquisto`. Choose **Sequence Diagram** in **Diagram Type** and **Acquisto** in **Choose Feature**. On the canvas, use **Add Existing Element** to add “Cliente” (**Actor**), “Checkout” (**Component**), “Pagamenti esterni” (**Software System**), and “Ordine” (**Resource**) in that order.
+With **Add Diagram**, create `07 Checkout Sequence`. Choose **Sequence Diagram** in **Diagram Type** and **Checkout** in **Choose Feature**. On the canvas, use **Add Existing Element** to add “Customer” (**Actor**), “Checkout” (**Component**), “External Payments” (**Software System**), and “Order” (**Resource**) in that order.
 
-The picker may also list the **Entity** elements “Cliente” and “Ordine” from L5. Check the type of each row before confirming. The sequence may initially show **No messages**. Add participants first, then select the messages to show.
+The picker may also list the **Entity** elements “Customer” and “Order” from L5. Check the type of each row before confirming. The sequence may initially show **No messages**. Add participants first, then select the messages to show.
 
-1. Select **Cliente** and click **Connect**. If **Relationship Type** appears, choose **Invocation**. Click **Checkout** among the highlighted destinations. Enter `conferma acquisto`, leave **Condition (Optional)** blank, and click **Save Changes**. This is the first message.
-2. Open **Diagram > Contents > Add Existing Message**. Choose the **Invocation** named **Checkout → Pagamenti esterni: autorizza pagamento** to reuse the existing relationship.
-3. Use **Add Existing Message** again and choose the **Write** named **Checkout → Ordine: registra ordine**. The message keeps the condition “pagamento autorizzato.”
+1. Select **Customer** and click **Connect**. If **Relationship Type** appears, choose **Invocation**. Click **Checkout** among the highlighted destinations. Enter `confirms purchase`, leave **Condition (Optional)** blank, and click **Save Changes**. This is the first message.
+2. Open **Diagram > Contents > Add Existing Message**. Choose the **Invocation** named **Checkout → External Payments: authorizes payment** to reuse the existing relationship.
+3. Use **Add Existing Message** again and choose the **Write** named **Checkout → Order: records order**. The message keeps the condition “payment authorized.”
 
-You should see three messages in this order. First, “Cliente” calls “Checkout.” Next, “Checkout” calls “Pagamenti esterni.” Finally, “Checkout” writes to “Ordine.” Authorization must precede the conditional order write. The participants keep their shared identities. To change the order of calls, edit the sequence. Moving the cards changes their layout.
+You should see three messages in this order. First, “Customer” calls “Checkout.” Next, “Checkout” calls “External Payments.” Finally, “Checkout” writes to “Order.” Authorization must precede the conditional order write. The participants keep their shared identities. To change the order of calls, edit the sequence. Moving the cards changes their layout.
 
 #### Choose the resource for a state diagram
 
-Describe what state the order is in after the payment attempt. Use the shared “Ordine” resource from the structure and sequence diagrams. Its states will be “In attesa,” “Confermato,” and “Rifiutato.”
+Describe what state the order is in after the payment attempt. Use the shared “Order” resource from the structure and sequence diagrams. Its states will be “Pending,” “Confirmed,” and “Declined.”
 
-Open **Add Diagram** and enter `09 Stati ordine` in **Name**. Select **State Diagram** in **Diagram Type**, **Acquisto** in **Choose Feature**, and **Ordine** in **Resource Whose State Is Represented**. Click **Create**.
+Open **Add Diagram** and enter `09 Order States` in **Name**. Select **State Diagram** in **Diagram Type**, **Checkout** in **Choose Feature**, and **Order** in **Resource Whose State Is Represented**. Click **Create**.
 
-The canvas includes “Ordine” and the **Add State** button. Use it to create **In attesa**, **Confermato**, and **Rifiutato**. Keep “Ordine” as the resource for each state and click **Create**.
+The canvas includes “Order” and the **Add State** button. Use it to create **Pending**, **Confirmed**, and **Declined**. Keep “Order” as the resource for each state and click **Create**.
 
-Select **In attesa** and click **Connect**. The view uses **Transition** and highlights the available destination states. Click **Confermato**, enter `Pagamento autorizzato` in **Relationship Name** and `esito positivo` in **Condition (Optional)**, then click **Save Changes**. Repeat from “In attesa” to “Rifiutato,” using the name `Pagamento rifiutato` and condition `esito negativo`.
+Select **Pending** and click **Connect**. The view uses **Transition** and highlights the available destination states. Click **Confirmed**, enter `Payment Authorized` in **Relationship Name** and `positive outcome` in **Condition (Optional)**, then click **Save Changes**. Repeat from “Pending” to “Declined,” using the name `Payment Declined` and condition `negative outcome`.
 
 **L7 check.** Save. The activity diagram has seven nodes and eight **Control Flow** relationships. The sequence has four participants and three messages in the stated order. The state diagram has one resource, three states, and two transitions. These views describe the behavior. The modules in L13–L14 cover executable interactions and lifecycles.
 
 ### L8. Build the returns views and check reuse
 
-A return reads a recorded order and creates a separate request. Reuse “Cliente” and “Ordine” in the returns feature, then add the responsibilities that coordinate the return. This lets you check that checkout and returns refer to the same data and that approval and refund remain identifiable steps.
+A return reads a recorded order and creates a separate request. Reuse “Customer” and “Order” in the returns feature, then add the responsibilities that coordinate the return. This lets you check that checkout and returns refer to the same data and that approval and refund remain identifiable steps.
 
 #### Reuse the feature’s structure diagram
 
-Use the structure diagram that Ordito created with the feature to show the new and shared responsibilities. Open **Resi e rimborsi · Structure** and use **Diagram > Rename** next to the title to name it `Resi - responsabilità condivise`. Use **Add Existing Element** to add “Cliente” as an **Actor** and “Ordine” as a **Resource**. For each row below, click **Add Element**, fill in **Name**, choose **Element Type**, and click **Create**.
+Use the structure diagram that Ordito created with the feature to show the new and shared responsibilities. Open **Returns and Refunds · Structure** and use **Diagram > Rename** next to the title to name it `Returns - Shared Responsibilities`. Use **Add Existing Element** to add “Customer” as an **Actor** and “Order” as a **Resource**. For each row below, click **Add Element**, fill in **Name**, choose **Element Type**, and click **Create**.
 
 | Name | Element Type |
 | --- | --- |
-| Pagina resi | Interface |
-| Coordinamento reso | Controller |
-| Richiesta di reso | Resource |
+| Returns Page | Interface |
+| Return Coordination | Controller |
+| Return Request | Resource |
 
-The **Interface** represents a page of the store, and **Interface Contract** is the contract type you used in L6. The C4 **Component** named “Gestione resi” represents the application responsibility. The **Controller** named “Coordinamento reso” shows how that responsibility coordinates a return in more detail.
+The **Interface** represents a page of the store, and **Interface Contract** is the contract type you used in L6. The C4 **Component** named “Returns Handling” represents the application responsibility. The **Controller** named “Return Coordination” shows how that responsibility coordinates a return in more detail.
 
-Open **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. Choose **Coordinamento reso** in **Configuration**, select **API Mercato** in **Architectural Owner**, and click **Apply to Model**. In this lab, the controller and “Gestione resi” belong to the same container.
+Open **Structural Blueprint > Structure > Architectural or Lifecycle Owner**. Choose **Return Coordination** in **Configuration**, select **Marketplace API** in **Architectural Owner**, and click **Apply to Model**. In this lab, the controller and “Returns Handling” belong to the same container.
 
 Connect the request, controller, and resources to show which data is read and which data is recorded. Leave the conditions blank in this structure. The next flow describes how timing affects the result. Create the four relationships below.
 
 | Source | Type | Destination | Name |
 | --- | --- | --- | --- |
-| Cliente | Invocation | Pagina resi | chiede reso |
-| Pagina resi | Invocation | Coordinamento reso | invia richiesta |
-| Coordinamento reso | Read | Ordine | verifica acquisto |
-| Coordinamento reso | Write | Richiesta di reso | registra reso |
+| Customer | Invocation | Returns Page | requests return |
+| Returns Page | Invocation | Return Coordination | sends request |
+| Return Coordination | Read | Order | checks purchase |
+| Return Coordination | Write | Return Request | records return |
 
-“Coordinamento reso” reads the order and records the return request. “Ordine” remains shared with “Acquisto.”
+“Return Coordination” reads the order and records the return request. “Order” remains shared with “Checkout.”
 
 #### Complete the refund flow
 
-The structure shows who handles returns and what data they use. The flow shows when to refund or decline the request. Open **Resi e rimborsi · Flow** and use **Diagram > Rename** to name it `Resi - ammissione e rimborso`. Create **Valuta reso**, **Emetti rimborso**, and **Rifiuta richiesta**, with **Action** in **Element Type**. Connect “Valuta reso” to “Emetti rimborso” with **Control Flow**, the name `autorizza`, and the condition `entro 30 giorni`. Connect “Valuta reso” to “Rifiuta richiesta” with **Control Flow**, the name `rifiuta`, and the condition `termine superato`.
+The structure shows who handles returns and what data they use. The flow shows when to refund or decline the request. Open **Returns and Refunds · Flow** and use **Diagram > Rename** to name it `Returns - Eligibility and Refunds`. Create **Evaluate Return**, **Issue Refund**, and **Decline Request**, with **Action** in **Element Type**. Connect “Evaluate Return” to “Issue Refund” with **Control Flow**, the name `authorizes`, and the condition `within 30 days`. Connect “Evaluate Return” to “Decline Request” with **Control Flow**, the name `declines`, and the condition `return window expired`.
 
 #### Check change impact and shared identity
 
-“Ordine” appears in both features. Return to the returns structure, select **Ordine**, and click **Show Change Impact** under **Explore** in the properties. Review the affected references and views, then click **Back** in the project navigation. Select “Ordine” again if the properties are closed. Click **Rename** next to the properties heading, enter `Ordine cliente`, and click **Save Changes**. Open the checkout overview and check that the same resource has the new name. Click **Undo** on the canvas to restore the original name, then click **Save** if changes are pending.
+“Order” appears in both features. Return to the returns structure, select **Order**, and click **Show Change Impact** under **Explore** in the properties. Review the affected references and views, then click **Back** in the project navigation. Select “Order” again if the properties are closed. Click **Rename** next to the properties heading, enter `Customer Order`, and click **Save Changes**. Open the checkout overview and check that the same resource has the new name. Click **Undo** on the canvas to restore the original name, then click **Save** if changes are pending.
 
-**L8 check.** The name “Ordine” is restored in both views. Both features still refer to the same order resource. The return request is a new resource, and the controller details the “Gestione resi” responsibility. The flow has two alternatives with explicit conditions.
+**L8 check.** The name “Order” is restored in both views. Both features still refer to the same order resource. The return request is a new resource, and the controller details the “Returns Handling” responsibility. The flow has two alternatives with explicit conditions.
 
 ### L9. Design deployment and network connections
 
@@ -598,86 +598,86 @@ The application architecture gives you the components needed to plan where softw
 
 #### Place components on deployment hosts
 
-Use **Add Diagram** to create `10 Distribuzione locale progettata`. Select **Deployment** in **Diagram Type** and **Acquisto** in **Choose Feature**.
+Use **Add Diagram** to create `10 Proposed Local Deployment`. Select **Deployment** in **Diagram Type** and **Checkout** in **Choose Feature**.
 
-Use **Add Element** to create **Host Web**, **Host API**, and **Host dati** as **Deployment Node** elements, then create **Web bundle** and **API ESM** as **Artifact** elements. ESM is the JavaScript module format used in the example. From the canvas, choose **Add Existing Element** and include **API Mercato** and **Archivio Mercato**. Deployment and C4 now reference the same containers.
+Use **Add Element** to create **Web Host**, **API Host**, and **Data Host** as **Deployment Node** elements, then create **Web bundle** and **API ESM** as **Artifact** elements. ESM is the JavaScript module format used in the example. From the canvas, choose **Add Existing Element** and include **Marketplace API** and **Marketplace Store**. Deployment and C4 now reference the same containers.
 
 Create four **Hosts** relationships to declare where each component or artifact belongs. Leave the condition blank for each relationship.
 
 | Host | Hosted element | Name |
 | --- | --- | --- |
-| Host Web | Web bundle | ospita |
-| Host API | API ESM | ospita |
-| Host API | API Mercato | ospita |
-| Host dati | Archivio Mercato | ospita |
+| Web Host | Web bundle | hosts |
+| API Host | API ESM | hosts |
+| API Host | Marketplace API | hosts |
+| Data Host | Marketplace Store | hosts |
 
 Select each host and choose **Edit Attributes and Technology** in **Properties**. Enter `Processo locale progettato` in **Technology** and `Didattico locale` in **Environment**, then select **Save Changes**. These fields describe the planned local setting in the example.
 
 #### Declare network connections
 
-Use the Network view to describe how the client, API, and data store communicate. Use **Add Diagram** to create `16 Connessioni progettate`. Select **Network / Infrastructure** in **Diagram Type** and **Acquisto** in **Choose Feature**. Use **Add Element** to create **Rete client** and **Rete backend** as **Network Node** elements. Use **Add Existing Element** to include **Web shop**, **API Mercato**, and **Archivio Mercato**.
+Use the Network view to describe how the client, API, and data store communicate. Use **Add Diagram** to create `16 Proposed Connections`. Select **Network / Infrastructure** in **Diagram Type** and **Checkout** in **Choose Feature**. Use **Add Element** to create **Client Network** and **Backend Network** as **Network Node** elements. Use **Add Existing Element** to include **Web shop**, **Marketplace API**, and **Marketplace Store**.
 
 Create the three **Communication** relationships in the table and leave their conditions blank. For each relationship, open **Edit Cardinalities and Protocol**, fill in **Protocol / Transport**, and select **Save Changes**. Leave multiplicities and members blank. The protocols distinguish web access, API calls, and persistence.
 
 | Source | Target | Name | Protocol / Transport |
 | --- | --- | --- | --- |
-| Rete client | Web shop | accesso web | HTTPS 443 |
-| Rete client | Rete backend | confine applicativo | HTTPS 443 |
-| Rete backend | API Mercato | API | HTTPS / JSON |
+| Client Network | Web shop | web access | HTTPS 443 |
+| Client Network | Backend Network | application boundary | HTTPS 443 |
+| Backend Network | Marketplace API | API | HTTPS / JSON |
 
-Reuse the fourth connection through **Diagram > Contents > Add Existing Relationship** and select **API Mercato → Archivio Mercato: legge e scrive**. The existing relationship brings its SQL protocol with it. Check that the Network view contains four relationships. Both views now share one definition of how the API communicates with the data store.
+Reuse the fourth connection through **Diagram > Contents > Add Existing Relationship** and select **Marketplace API → Marketplace Store: reads and writes**. The existing relationship brings its SQL protocol with it. Check that the Network view contains four relationships. Both views now share one definition of how the API communicates with the data store.
 
-Check the grouping in the Deployment view. If you need more space, try **Diagram > Arrange > Balanced** and **Fit Diagram**. If groups still overlap, drag **API ESM** next to **API Mercato** and move them away from **Archivio Mercato** and **Web bundle**. Each **Hosts** relationship determines which items belong to its group.
+Check the grouping in the Deployment view. If you need more space, try **Diagram > Arrange > Balanced** and **Fit Diagram**. If groups still overlap, drag **API ESM** next to **Marketplace API** and move them away from **Marketplace Store** and **Web bundle**. Each **Hosts** relationship determines which items belong to its group.
 
 Save and select **Fit Diagram**. Deployment shows where the parts are intended to run, and Network shows how they are intended to connect. Treat both diagrams as design records. Running processes, opening ports, and testing connectivity require a deployment environment.
 
 ### L10. Trace the data and check all diagram types
 
-Follow the purchase data through the model. **Cliente** submits a request, the catalog supplies prices and availability, and the process records the order and returns the outcome. Use the Data Flow view to review inputs and outputs before you formalize the contract in L11.
+Follow the purchase data through the model. **Customer** submits a request, the catalog supplies prices and availability, and the process records the order and returns the outcome. Use the Data Flow view to review inputs and outputs before you formalize the contract in L11.
 
-Use **Add Diagram** to create `15 Dati dell’acquisto`. Select **Data Flow** in **Diagram Type** and **Acquisto** in **Choose Feature**.
+Use **Add Diagram** to create `15 Checkout Data`. Select **Data Flow** in **Diagram Type** and **Checkout** in **Choose Feature**.
 
-Use **Add Existing Element** to include **Cliente**, which has the **Actor** type. Use **Add Element** to create **Elabora ordine** as a **Process** and **Dati ordini** and **Dati catalogo** as **Data Store** elements. The process represents data handling, and the stores represent data retention.
+Use **Add Existing Element** to include **Customer**, which has the **Actor** type. Use **Add Element** to create **Process Order** as a **Process** and **Order Data** and **Catalog Data** as **Data Store** elements. The process represents data handling, and the stores represent data retention.
 
-Name each connection after the data it transfers. This lets you check that **Elabora ordine** receives the data it needs, stores the order data, and returns an outcome to **Cliente**. Create four **Data Flow** relationships with **Condition** left blank.
+Name each connection after the data it transfers. This lets you check that **Process Order** receives the data it needs, stores the order data, and returns an outcome to **Customer**. Create four **Data Flow** relationships with **Condition** left blank.
 
 | Source | Target | Data transferred |
 | --- | --- | --- |
-| Cliente | Elabora ordine | dati acquisto |
-| Dati catalogo | Elabora ordine | prezzi e disponibilità |
-| Elabora ordine | Dati ordini | ordine confermato |
-| Elabora ordine | Cliente | esito acquisto |
+| Customer | Process Order | checkout data |
+| Catalog Data | Process Order | prices and availability |
+| Process Order | Order Data | confirmed order |
+| Process Order | Customer | checkout outcome |
 
 Choose **Diagram > Arrange > Balanced**, select **Fit Diagram**, and save. The labels on the arrows show what passes between elements.
 
-The two automatically created views for **Catalogo prodotti** are still empty. To match the 18 views in the reference project, open each empty view and select **Diagram > Manage Diagram > Delete Diagram**. Check the name in the confirmation and select **Delete**. Use **Undo** to recover a view you just deleted.
+The two automatically created views for **Product Catalog** are still empty. To match the 18 views in the reference project, open each empty view and select **Diagram > Manage Diagram > Delete Diagram**. Check the name in the confirmation and select **Delete**. Use **Undo** to recover a view you just deleted.
 
-To return the overview to the six responsibilities from L2, select these eight detail cards one at a time: **Mercato**, **Corriere esterno**, **Assistenza**, **API Mercato**, **Archivio Mercato**, **Broker eventi**, **Registro esiti**, and **Scorte**. For each card, select **Remove from This Diagram** in **Properties**. The pane closes, and the element remains available in its other views. Arrange the remaining cards and select **Fit Diagram**.
+To return the overview to the six responsibilities from L2, select these eight detail cards one at a time: **Marketplace**, **External Carrier**, **Support**, **Marketplace API**, **Marketplace Store**, **Event Broker**, **Outcome Log**, and **Inventory**. For each card, select **Remove from This Diagram** in **Properties**. The pane closes, and the element remains available in its other views. Arrange the remaining cards and select **Fit Diagram**.
 
 Save and reopen the project root to check that your work persists. Use the table to find any missing perspective before adding contracts. The numbers identify the views. You may create them in the order the lessons require.
 
 | Diagram type | View in the reference project | Lesson |
 | --- | --- | --- |
-| Structure | 01 Panoramica delle responsabilità | L2 |
-| C4 System Context | 02 C4 Contesto Mercato | L3 |
-| C4 Container | 03 C4 Applicazioni e dati | L4 |
-| C4 Component | 04 C4 Componenti API | L4 |
-| ERD | 05 Entità e cardinalità | L5 |
-| Database Schema | 06 Schema dati progettato | L5 |
-| Sequence | 07 Sequenza acquisto | L7 |
-| Activity / Flowchart | 08 Flusso acquisto | L7 |
-| State Machine | 09 Stati ordine | L7 |
-| Deployment | 10 Distribuzione locale progettata | L9 |
-| Class | 11 Classi e repository | L6 |
-| Use Case | 12 Casi d’uso | L3 |
-| UML Component | 13 Componenti e interfacce | L6 |
-| Package | 14 Moduli applicativi | L6 |
-| Data Flow | 15 Dati dell’acquisto | L10 |
-| Network / Infrastructure | 16 Connessioni progettate | L9 |
+| Structure | 01 Responsibilities Overview | L2 |
+| C4 System Context | 02 C4 Marketplace Context | L3 |
+| C4 Container | 03 C4 Applications and Data | L4 |
+| C4 Component | 04 C4 API Components | L4 |
+| ERD | 05 Entities and Cardinality | L5 |
+| Database Schema | 06 Proposed Data Schema | L5 |
+| Sequence | 07 Checkout Sequence | L7 |
+| Activity / Flowchart | 08 Checkout Flow | L7 |
+| State Machine | 09 Order States | L7 |
+| Deployment | 10 Proposed Local Deployment | L9 |
+| Class | 11 Classes and Repositories | L6 |
+| Use Case | 12 Use Cases | L3 |
+| UML Component | 13 Components and Interfaces | L6 |
+| Package | 14 Application Modules | L6 |
+| Data Flow | 15 Checkout Data | L10 |
+| Network / Infrastructure | 16 Proposed Connections | L9 |
 
-The 16 views above and the two **Resi** views give you **18 views in 16 diagram types**. Open each view from the selector and inspect its elements and at least one relevant relationship. If you kept the two empty **Catalogo prodotti** views, they also appear.
+The 16 views above and the two **Returns** views give you **18 views in 16 diagram types**. Open each view from the selector and inspect its elements and at least one relevant relationship. If you kept the two empty **Product Catalog** views, they also appear.
 
-**Consistency check for L10.** Check that **Cliente** and **Ordine** are reused in compatible views and that entities, tables, and classes remain distinct. Each relationship should connect the intended elements, each condition should specify a clear outcome, and ownership should follow the boundaries of the model. Check the details in the text view. Arrange the cards so the diagram is easy to read.
+**Consistency check for L10.** Check that **Customer** and **Order** are reused in compatible views and that entities, tables, and classes remain distinct. Each relationship should connect the intended elements, each condition should specify a clear outcome, and ownership should follow the boundaries of the model. Check the details in the text view. Arrange the cards so the diagram is easy to read.
 
 ### L11. Define types, a contract, and an architecture decision
 
@@ -689,60 +689,60 @@ Open **Structural Blueprint > Data and Operations > Shared Types**. For each row
 
 | Type Name | Type Kind | Additional fields |
 | --- | --- | --- |
-| Testo | Primitive | Enter `string` in **Primitive Defined by the Profile** |
-| Intero | Primitive | Enter `integer` in **Primitive Defined by the Profile** |
-| Riga ordine | Record | Add `productId` and `quantity` as shown in the next table |
-| Righe ordine | Collection | Choose **Riga ordine** in **Item Type** |
-| Dati ordine | Record | Add `orderId` and `rows` as shown in the next table |
-| Esito acquisto | Enumeration | Enter `confirmed` in the first row of **Enumeration Values**. Select **Add Value** and enter `declined` in the second row |
-| Errore input | Record | Leave **Fields** blank. The operation declares the error code |
+| Text | Primitive | Enter `string` in **Primitive Defined by the Profile** |
+| Integer | Primitive | Enter `integer` in **Primitive Defined by the Profile** |
+| Order Line | Record | Add `productId` and `quantity` as shown in the next table |
+| Order Lines | Collection | Choose **Order Line** in **Item Type** |
+| Order Data | Record | Add `orderId` and `rows` as shown in the next table |
+| Checkout Outcome | Enumeration | Enter `confirmed` in the first row of **Enumeration Values**. Select **Add Value** and enter `declined` in the second row |
+| Input Error | Record | Leave **Fields** blank. The operation declares the error code |
 
 On each record card, select **Add Field** for each field in the table. Fill in **Name** and **Type**, keep **Required** selected, and set **Nullability** to **Non-null Value**. **Required** controls whether the field must be present. **Nullability** controls the values it can hold.
 
 | Record | Field name | Type |
 | --- | --- | --- |
-| Riga ordine | productId | Testo |
-| Riga ordine | quantity | Intero |
-| Dati ordine | orderId | Testo |
-| Dati ordine | rows | Righe ordine |
+| Order Line | productId | Text |
+| Order Line | quantity | Integer |
+| Order Data | orderId | Text |
+| Order Data | rows | Order Lines |
 
-Complete **Riga ordine** before you create the **Righe ordine** collection, then add `rows`. A required collection field can still contain an empty collection. Add the requirement for at least one row as a contract precondition.
+Complete **Order Line** before you create the **Order Lines** collection, then add `rows`. A required collection field can still contain an empty collection. Add the requirement for at least one row as a contract precondition.
 
 #### Add the checkout operation
 
-Use the shared types in the **submitCheckout** signature. **Contratto acquisto** owns the operation and **Checkout** provides the contract. The input specifies what the caller sends, the result specifies what the caller receives, and the error identifies invalid input.
+Use the shared types in the **submitCheckout** signature. **Checkout Contract** owns the operation and **Checkout** provides the contract. The input specifies what the caller sends, the result specifies what the caller receives, and the error identifies invalid input.
 
 1. Open **Data and Operations > Shared Operations** and select **New Shared Operation**.
-2. On the **Signature** tab, enter `submitCheckout` in **Operation Name** and select **Contratto acquisto** in **Operation Owner**.
-3. Select **Add Input**. Enter `ordine` for the name and choose **Dati ordine** for the type. Keep **Required** and **Non-null Value**.
-4. Select **Add Result**. Enter `esito` for the name and choose **Esito acquisto** for the type. Keep **Required** and **Non-null Value**.
-5. Select **Add Error**. Enter `INPUT_INVALID` in **Error Code** and `Ordine assente o non valido` in **Description**, then choose **Errore input** in **Declared Type**.
+2. On the **Signature** tab, enter `submitCheckout` in **Operation Name** and select **Checkout Contract** in **Operation Owner**.
+3. Select **Add Input**. Enter `order` for the name and choose **Order Data** for the type. Keep **Required** and **Non-null Value**.
+4. Select **Add Result**. Enter `outcome` for the name and choose **Checkout Outcome** for the type. Keep **Required** and **Non-null Value**.
+5. Select **Add Error**. Enter `INPUT_INVALID` in **Error Code** and `Missing or invalid order` in **Description**, then choose **Input Error** in **Declared Type**.
 
-![The Signature tab showing submitCheckout, the owning contract, and the input and result](images/06-operazione.png)
+![The Signature tab showing submitCheckout, the owning contract, and the input and result](images/06-operation.png)
 
 Complete the rules in the same configuration. The precondition requires a populated order. The stock criterion gives you a requirement to verify when you implement the operation. Use the following values to match the reference project.
 
 | Path from the operation | Value |
 | --- | --- |
-| Behavior Rules > Add Precondition | L’ordine contiene almeno una riga |
-| Behavior Rules > Add Postcondition | L’esito viene registrato |
-| Access and Acceptance > Add Criterion | **Given** Scorte disponibili. **When** Il cliente conferma. **Then** Le scorte sono riservate una sola volta |
+| Behavior Rules > Add Precondition | The order contains at least one line |
+| Behavior Rules > Add Postcondition | The outcome is recorded |
+| Access and Acceptance > Add Criterion | **Given** Inventory is available. **When** The customer confirms. **Then** The inventory is reserved once |
 
 Check the signature, rules, and criterion in **Review**, then select **Apply to Model**. L12 uses a predicate to formalize an executable rule.
 
 #### Expose the contract and set its provider
 
-Add the operation to the interface offered to callers. Open **Data and Operations > Interfaces and Invariants** and select **Add Contract Definition**. Choose **Contratto acquisto** in **Contract or Interface Element**, enter `1` in **Contract Version**, and select **submitCheckout** in **Declared Operations**. Leave **Descriptive Invariants** blank and select **Apply to Model**. If the operation is missing, check that **Contratto acquisto** owns it.
+Add the operation to the interface offered to callers. Open **Data and Operations > Interfaces and Invariants** and select **Add Contract Definition**. Choose **Checkout Contract** in **Contract or Interface Element**, enter `1` in **Contract Version**, and select **submitCheckout** in **Declared Operations**. Leave **Descriptive Invariants** blank and select **Apply to Model**. If the operation is missing, check that **Checkout Contract** owns it.
 
-Open **Connections > Provided or Required Interface** and select **Add Interface to Element**. Choose **Checkout** in **Element**, **Contratto acquisto** in **Declared Contract or Interface**, and **Provided** in **Direction**. Select **Apply to Model**. This assignment lets validation identify the provider alongside the **Implementation** relationship.
+Open **Connections > Provided or Required Interface** and select **Add Interface to Element**. Choose **Checkout** in **Element**, **Checkout Contract** in **Declared Contract or Interface**, and **Provided** in **Direction**. Select **Apply to Model**. This assignment lets validation identify the provider alongside the **Implementation** relationship.
 
 Use the **Connections** group to configure required interfaces, consumer–provider connections, and transports when your design needs them. Resolve a diagnostic by declaring the actual connection or contract. A production payment service requires its own contracts and policies.
 
 #### Map the order field and connect the catalog
 
-Map the shared `orderId` field to its storage column. Open **Technology > Domain Field Mapping** and select **Add Field Mapping**. Choose **Dati ordine · orderId** in **Domain Field** and **orders · id** in **Physical Column or Class Attribute**, then select **Apply to Model**.
+Map the shared `orderId` field to its storage column. Open **Technology > Domain Field Mapping** and select **Add Field Mapping**. Choose **Order Data · orderId** in **Domain Field** and **orders · id** in **Physical Column or Class Attribute**, then select **Apply to Model**.
 
-Open **Structure > Feature Memberships** and choose **Scorte** in **Configuration**. Select **Catalogo prodotti**, keep **Acquisto** selected, and select **Apply to Model**. Stock is now visible in both features, and **API Mercato** is its architectural owner.
+Open **Structure > Feature Memberships** and choose **Inventory** in **Configuration**. Select **Product Catalog**, keep **Checkout** selected, and select **Apply to Model**. Stock is now visible in both features, and **Marketplace API** is its architectural owner.
 
 #### Record the architecture decision
 
@@ -753,16 +753,16 @@ Open **Decisions > Project Architecture Decisions** and select **New Architectur
 | Field | Lab value |
 | --- | --- |
 | Decision Number | ADR-001 |
-| Decision Title | Importi in centesimi |
-| Context | Prezzi e totali devono essere confrontabili senza arrotondamenti impliciti |
-| Decision | Usare interi in centesimi per prezzi e totali |
+| Decision Title | Amounts in Cents |
+| Context | Prices and totals must be comparable without implicit rounding |
+| Decision | Use integer amounts in cents for prices and totals |
 | Decision Status | Proposed |
-| Consequences | Select **Add Consequence** and enter “Mostrare la valuta soltanto al confine della UI”. Select it again and enter “Validare gli importi nel dominio” |
-| Applicable Scope | Select only **Checkout** and **Registro esiti** to link the decision to confirmation and to recording the outcome |
+| Consequences | Select **Add Consequence** and enter “Display currency only in the user interface”. Select it again and enter “Validate amounts in the domain” |
+| Applicable Scope | Select only **Checkout** and **Outcome Log** to link the decision to confirmation and to recording the outcome |
 
-Select **Apply to Model**. To read the decision again, choose **ADR-001 · Importi in centesimi** in **Configuration**. **Record** shows its rationale, status, and scope. **Constraints** contains structured constraints. Keep the status **Proposed** for the lab.
+Select **Apply to Model**. To read the decision again, choose **ADR-001 · Amounts in Cents** in **Configuration**. **Record** shows its rationale, status, and scope. **Constraints** contains structured constraints. Keep the status **Proposed** for the lab.
 
-Save and reopen Mercato, then check that all shared definitions are available. Resolve any **Draft Needs Correction** message or missing type before continuing. If a draft blocks the canvas, use **Search System** to select the element and correct its ownership in **Structural Blueprint**.
+Save and reopen Marketplace, then check that all shared definitions are available. Resolve any **Draft Needs Correction** message or missing type before continuing. If a draft blocks the canvas, use **Search System** to select the element and correct its ownership in **Structural Blueprint**.
 
 **L11 checkpoint.** Locate the seven types, operation input, result, and error, version 1 of the contract, **Checkout** as the provider, the field mapping, and **ADR-001**. The final reference project contains these records. Generation diagnostics may still request adapters, implementations, or design decisions before this descriptive model can back an executable application.
 
@@ -772,13 +772,13 @@ The final rule accepts integer quantities from 1 through 10. First, verify the t
 
 #### Start from the quantity template
 
-Use a standalone module to verify one rule independently of the rest of Mercato. Open the supplied `07-mercato-laboratorio/moduli/quantita` folder to start immediately, or create an empty project and run **Ordito: Add Pure Quantity Feature** from the command palette to reproduce the setup. The command creates the feature, types, `validateQuantity` operation, predicate, and initial cases. Save the model. The **Domain** node shows the context of the rule.
+Use a standalone module to verify one rule independently of the rest of Marketplace. Open the supplied `07-marketplace-workshop/modules/quantity` folder to start immediately, or create an empty project and run **Ordito: Add Pure Quantity Feature** from the command palette to reproduce the setup. The command creates the feature, types, `validateQuantity` operation, predicate, and initial cases. Save the model. The **Domain** node shows the context of the rule.
 
-The template requires **quantity greater than zero** and uses a safe integer type. With this rule, `due` produces a type error, while 0 is a valid integer that fails the condition.
+The template requires **quantity greater than zero** and uses a safe integer type. With this rule, `two` produces a type error, while 0 is a valid integer that fails the condition.
 
 #### Edit the predicate in the form
 
-From the **Quantità ordine** project menu, choose **Project Settings > Executable Behavior > Edit Pure Predicate**. Select **validateQuantity**, the existing precondition, and **Precondition · Inputs Only**. Select **Next** after each choice. **Precondition · Inputs Only** uses the inputs. **Postcondition · Inputs and Outputs** can also use the results.
+From the **Order Quantity** project menu, choose **Project Settings > Executable Behavior > Edit Pure Predicate**. Select **validateQuantity**, the existing precondition, and **Precondition · Inputs Only**. Select **Next** after each choice. **Precondition · Inputs Only** uses the inputs. **Postcondition · Inputs and Outputs** can also use the results.
 
 Use **Add Value** for references and literals, **Combine Values** for compatible operators, and **Choose Result and Save** to set the result. The predicate answers whether the quantity is allowed, so the builder only offers boolean expressions as final results.
 
@@ -794,8 +794,8 @@ In **Project Settings > Executable Behavior**, find **Cases and Simulation** and
 
 | Name | Input option | Value | Expected result |
 | --- | --- | --- | --- |
-| Zero quantità | Value for quantity | 0 | Not Satisfied |
-| Testo non numerico | Different Value Type, then Text | due | Input Type Error |
+| Zero Quantity | Value for quantity | 0 | Not Satisfied |
+| Non-numeric Text | Different Value Type, then Text | two | Input Type Error |
 
 ![The independent case name field and its OK button](images/07-input.png)
 
@@ -818,7 +818,7 @@ Review the proposed behavior and files before writing them to the project. Verif
 
 In **Restricted Mode**, Ordito may ask you to trust the folder before preparing the review. Verify that the path points to your copy of the lab module, then select **Trust Folder & Continue**.
 
-![The review shows the proposal, successful verification, and local application](images/08-verifica.png)
+![The review shows the proposal, successful verification, and local application](images/08-verification.png)
 
 The initial template proposal creates a module, its test, `package.json`, and `.gitignore`. Ordito assigns the module name. Keep the generated name and contents for this exercise. Verification covers the formal rule and the expectations supplied to the runner. Testing a complete storefront requires an end-to-end test.
 
@@ -829,15 +829,15 @@ If you change the model, criteria, or relevant sources after review, prepare a n
 Use a copy of the quantity module so you can compare it with the original. Update the rule to accept integers from 1 through 10. Test both boundaries and the values just outside the range. Expected results are **Not Satisfied** for 0 and 11, and **Satisfied** for 1 and 10.
 
 1. Open **Edit Pure Predicate**. Select **validateQuantity**, the existing precondition, and **Precondition · Inputs Only**. The limit applies to the input before the operation runs.
-2. In **Add Value > Add Typed Literal > Quantity**, enter `10`, the inclusive maximum for Mercato.
+2. In **Add Value > Add Typed Literal > Quantity**, enter `10`, the inclusive maximum for Marketplace.
 3. In **Combine Values > Add Comparison**, choose `quantity`, then the literal `10` and **≤**. This includes 10.
 4. In **Combine Values > Add Boolean Logic > All True**, select `quantity > 0` first, then the condition for quantity less than or equal to 10. **All True** requires both conditions. The upper bound on its own would still allow zero and negative values.
 5. In **Choose Result and Save**, select the result that begins with **and(** and includes both conditions. Select **Next**, check **Review Your Changes**, and select **Apply Changes**. Choose **Save** in the Ordito toolbar to save the model.
-6. Add the independent case **Limite 10** with input 10 and expected result **Satisfied**. Add **Oltre limite 11** with input 11 and expected result **Not Satisfied**.
-7. Open **Structural Blueprint > Data and Operations > Shared Operations**. Choose **validateQuantity** in **Configuration**, then open **Access and Acceptance**. Change **Then** in the existing criterion to “Soltanto i valori da 1 a 10 soddisfano la precondizione” (“Only values from 1 through 10 satisfy the precondition”). Keep **Given** and **When**. Select **Apply to Model** and **Save**. The edit preserves the criterion and its associated cases. Go back to **Independent Business Expectations** and use **Edit Expected Result** to set the expected result for input **9007199254740991** to **Not Satisfied**. The other initial expectations still apply.
+6. Add the independent case **Limit 10** with input 10 and expected result **Satisfied**. Add **Over Limit 11** with input 11 and expected result **Not Satisfied**.
+7. Open **Structural Blueprint > Data and Operations > Shared Operations**. Choose **validateQuantity** in **Configuration**, then open **Access and Acceptance**. Change **Then** in the existing criterion to “Only values from 1 to 10 satisfy the precondition”. Keep **Given** and **When**. Select **Apply to Model** and **Save**. The edit preserves the criterion and its associated cases. Go back to **Independent Business Expectations** and use **Edit Expected Result** to set the expected result for input **9007199254740991** to **Not Satisfied**. The other initial expectations still apply.
 8. Prepare a new review and rerun verification. After completing all of L12, this version gives you **12 independent cases** and **12 derived cases**. If **Code** shows **Review Changes**, open it and choose **Prepare New Review**. Read the combined rule and the results, then apply the proposal if you want to keep it. The new business rule explains why the maximum-safe-integer case now has a different expected result.
 
-To compare your result, use **Open Project** to open `07-mercato-laboratorio/moduli/quantita/soluzione-limite` from the archive. It contains the completed predicate and all **12 independent cases**. These include the eight initial cases and **Zero quantità**, **Testo non numerico**, **Limite 10**, and **Oltre limite 11**.
+To compare your result, use **Open Project** to open `07-marketplace-workshop/modules/quantity/limit-solution` from the archive. It contains the completed predicate and all **12 independent cases**. These include the eight initial cases and **Zero Quantity**, **Non-numeric Text**, **Limit 10**, and **Over Limit 11**.
 
 Move a card to confirm that a layout change leaves the predicate intact. The code and verification need to be regenerated when the behavior changes. To complete the exercise, explain why 11 fails and identify the files that the proposal applies.
 
@@ -845,11 +845,11 @@ Move a card to confirm that a layout change leaves the predicate intact. The cod
 
 ### L13. Define the checkout calls
 
-The Mercato sequence diagram describes the order of calls. This module adds arguments, replies, and errors so you can verify how **Checkout**, **Payments**, and **Orders** work together with simulated replies.
+The Marketplace sequence diagram describes the order of calls. This module adds arguments, replies, and errors so you can verify how **Checkout**, **Payments**, and **Orders** work together with simulated replies.
 
-Open `07-mercato-laboratorio/moduli/interazioni` and choose **Checkout e pagamento**. Scroll vertically to follow the complete flow. The main interaction calls **Payments**, evaluates an alternative, can call the persistence sub-interaction, and handles an optional notification.
+Open `07-marketplace-workshop/modules/interactions` and choose **Checkout and Payment**. Scroll vertically to follow the complete flow. The main interaction calls **Payments**, evaluates an alternative, can call the persistence sub-interaction, and handles an optional notification.
 
-![The executable sequence showing calls, guards, and frames](images/12-interazioni.png)
+![The executable sequence showing calls, guards, and frames](images/12-interactions.png)
 
 On the canvas, choose **Diagram > Contents > Edit Executable Interaction** to open **Interaction · checkout**. Explore the hierarchy of messages, frames, and branches to see what determines the payment branch and when persistence occurs. For each call, declare the sender, the recipient that owns the operation, the arguments, whether the call is synchronous or asynchronous, the reply, the deadline for receiving the reply, and the correlation used to match requests with replies. Include the relevant results and errors.
 
@@ -866,9 +866,9 @@ When an argument needs the result of an earlier call, refer to that particular o
 
 To extend coverage, declare collaborator replies and the expected call order before verification. This lets the checks catch a missing or premature call. The supplied project covers approved payments, alternatives, notification, and errors. Open **Independent Business Expectations** to add an interaction case. Choose the criterion and enter the inputs, simulated replies, delays, expected completion or failure, output, and call order. Verification uses the supplied reply data.
 
-**Exercise.** Prepare a review through **Code > Prepare Model to Code Review**. If prompted for trust, check that the path points to your copy of `interazioni` and select **Trust Folder & Continue**. Choose **Run Real Verification** and confirm that **seven derived cases and seven independent cases** pass. Scroll to **Optional · Guard: notify** on the canvas to read the guard and the call from **Checkout** to **Notifications**. To inspect the fields, open **Edit Executable Interaction**, select **opt**, choose **Next**, then **Open Child Steps** and **Next**. The **notify** entry is the message in the optional branch. Select **Cancel** to leave the module as supplied. To write your own case, use **Independent Business Expectations > Author Independent Interaction Case** and supply inputs, simulated replies, and the expected order.
+**Exercise.** Prepare a review through **Code > Prepare Model to Code Review**. If prompted for trust, check that the path points to your copy of `interactions` and select **Trust Folder & Continue**. Choose **Run Real Verification** and confirm that **seven derived cases and seven independent cases** pass. Scroll to **Optional · Guard: notify** on the canvas to read the guard and the call from **Checkout** to **Notifications**. To inspect the fields, open **Edit Executable Interaction**, select **opt**, choose **Next**, then **Open Child Steps** and **Next**. The **notify** entry is the message in the optional branch. Select **Cancel** to leave the module as supplied. To write your own case, use **Independent Business Expectations > Author Independent Interaction Case** and supply inputs, simulated replies, and the expected order.
 
-**Apply this to Mercato.** In this exercise, **Payments** stands for **Pagamenti esterni**, **Orders** records the **Ordine**, and **Notifications** sends a notification. Explore the supplied identities and expectations first, then carry the contracts your design needs into your specification. The Mercato reference diagram describes the workflow, and this module supplies an executable contract for checking it.
+**Apply this to Marketplace.** In this exercise, **Payments** stands for **External Payments**, **Orders** records the **Order**, and **Notifications** sends a notification. Explore the supplied identities and expectations first, then carry the contracts your design needs into your specification. The Marketplace reference diagram describes the workflow, and this module supplies an executable contract for checking it.
 
 **L13 checkpoint.** Identify a call, its simulated reply, an alternative branch, and an independent criterion. A passing test verifies the declared behavior with the simulated replies. A real payment needs its own integration test.
 
@@ -878,11 +878,11 @@ Use events and states to check which moves are allowed, whether a failure leaves
 
 #### State machines
 
-Open `07-mercato-laboratorio/moduli/stati`. **Checkout Lifecycle** has three states, **Draft**, **Paid**, and **Cancelled**. The module extends the descriptive Mercato state view with an executable contract that declares initialization, events, entry, exit, and do actions, guards, priorities, and ordered effects.
+Open `07-marketplace-workshop/modules/states`. **Checkout Lifecycle** has three states, **Draft**, **Paid**, and **Cancelled**. The module extends the descriptive Marketplace state view with an executable contract that declares initialization, events, entry, exit, and do actions, guards, priorities, and ordered effects.
 
-Start with a successful payment so you have a trace to compare with a failure and a repeated delivery. From the **Bottega - Stati** project menu in the top bar, choose **Project Settings > Executable Behavior > Simulate State Machine**. Select **checkout.paid**. **State Simulation.txt** opens in the editor. The report shows **Paid**, an accepted event, and the transition from **Draft** to **Paid**. The trace shows guard evaluation, cancellation of the do activity, exit, effect, entry, and commit.
+Start with a successful payment so you have a trace to compare with a failure and a repeated delivery. From the **Order Shop - States** project menu in the top bar, choose **Project Settings > Executable Behavior > Simulate State Machine**. Select **checkout.paid**. **State Simulation.txt** opens in the editor. The report shows **Paid**, an accepted event, and the transition from **Draft** to **Paid**. The trace shows guard evaluation, cancellation of the do activity, exit, effect, entry, and commit.
 
-![The state simulation report showing the execution phases and final state](images/10-stati.png)
+![The state simulation report showing the execution phases and final state](images/10-states.png)
 
 To check other outcomes, select **Checkout Lifecycle** in the editor tab bar. **Project Settings** reopens with **Executable Behavior** expanded. Choose **Simulate State Machine** again and try `checkout.failed-charge`. Check that the machine stays in **Draft** and reports the `denied` error. Try `checkout.dedup-reopen` next. It should report **Paid** and three event outcomes, `accepted`, `duplicate`, and `rejected` with `deliveryConflict`. After reading the report, select **Checkout Lifecycle** and choose **Back to Diagram** to return to the canvas.
 
@@ -890,13 +890,13 @@ Read the traces before editing the machine. In **Project Settings > Executable B
 
 Write the expected trace before you simulate a variation. In independent cases, declare the initial input, events, action replies, event outcomes such as accepted, rejected, duplicate, or failed, and the expected transition, error, and final state. Include quiescence and checkpoint expectations when relevant. The profile supports flat state machines. Composite states and orthogonal regions are outside its scope. The simulation runs the supplied scenario locally.
 
-**Apply this to Mercato.** Compare **Draft**, **Paid**, and **Cancelled** with **In attesa** (pending), **Confermato** (confirmed), and **Rifiutato** (rejected). Cancellation and payment rejection may require different transitions. Decide which lifecycle and events your application needs before using the module in a real system.
+**Apply this to Marketplace.** Compare **Draft**, **Paid**, and **Cancelled** with **Pending**, **Confirmed**, and **Declined**. Cancellation and payment rejection may require different transitions. Decide which lifecycle and events your application needs before using the module in a real system.
 
 ### L15. Simulate message publication and delivery
 
 After defining order transitions, explore how events reach other participants. A queue assigns work to a consumer. A topic delivers the same event to multiple subscriptions. The local simulation shows deliveries, retries, and duplicates before you choose a messaging infrastructure.
 
-Open `07-mercato-laboratorio/moduli/messaggi` and choose **Bottega - Messaggistica > Project Settings > Executable Behavior**. Open **Edit Messaging Topology**, select **checkout.messaging**, and choose **Next** to inspect the contracts, channels, producers, consumers, and policies. The topology has a queue producer and a topic producer. Its subscriptions include `workers`, `billing`, and `analytics`. Select **Cancel** to leave the topology as supplied.
+Open `07-marketplace-workshop/modules/messaging` and choose **Order Shop - Messaging > Project Settings > Executable Behavior**. Open **Edit Messaging Topology**, select **checkout.messaging**, and choose **Next** to inspect the contracts, channels, producers, consumers, and policies. The topology has a queue producer and a topic producer. Its subscriptions include `workers`, `billing`, and `analytics`. Select **Cancel** to leave the topology as supplied.
 
 Use a **queue** to assign a job to one of several competing consumers, as in the `workers` exercise. Use a **topic** to fan out the same event to different subscriptions, such as `billing` and `analytics`. Message contracts have a name and version, a record payload, and fields for identity, routing, and correlation. An acknowledgement confirms processing. Backoff sets the wait between attempts. The dead-letter queue collects messages the policy can no longer deliver. Declare the wait, attempt limit, capacity, deduplication, and idempotency so that error handling can be verified.
 
@@ -906,29 +906,29 @@ Start with a publication and a successful delivery. The two observations give yo
 
 1. In **Project Settings > Executable Behavior**, open **Simulate Messaging**. The module opens the `checkout.messaging` topology. If several topologies are available, choose the one to simulate. Select **Next** after each choice or value.
 2. Choose **Publish Message**, keep the logical time at `0`, and choose the **publish.queue** producer to assign work to a worker.
-3. Enter `ordine-guida-1` for the message identity, `42` for `orderId`, and `checkout-42` for `correlationId`. The identity identifies the message, the order ID identifies the domain object, and the correlation ID links it to the checkout.
+3. Enter `guide-order-1` for the message identity, `42` for `orderId`, and `checkout-42` for `correlationId`. The identity identifies the message, the order ID identifies the domain object, and the correlation ID links it to the checkout.
 4. Choose **Deliver to Worker** with time `0`, subscription **workers**, worker `A`, and **Handler Succeeds**. This tests a successful delivery on the first attempt.
 5. Choose **Finish Scenario**, select **Next**, and check **Review Simulation Scenario**. Select **Run Simulation** to run the local scenario.
 
-Under **Simulation Result · Zero AI Calls · No Network**, check the **ordine-guida-1** row for **Publication Observation** and the **workers:A:ordine-guida-1:1:ok** row for **Worker Delivery Observation**. The summary shows zero rejections and zero dead letters. Select a row to close the result when finished.
+Under **Simulation Result · Zero AI Calls · No Network**, check the **guide-order-1** row for **Publication Observation** and the **workers:A:guide-order-1:1:ok** row for **Worker Delivery Observation**. The summary shows zero rejections and zero dead letters. Select a row to close the result when finished.
 
-![The simulated message result showing one publication and one delivery](images/11-messaggi.png)
+![The simulated message result showing one publication and one delivery](images/11-messages.png)
 
 After the successful case, change one outcome at a time and compare the observations. To test retry and backoff, select **Handler Fails** and use logical times that follow the policy. To check fan-out, choose **publish.topic** and different subscriptions. The supplied independent cases cover competing consumers, fan-out, deduplication, idempotency, exhausted retries, and incompatible contracts. Run them from the profile review.
 
 The simulation runs locally, with zero network calls. Set up and manage a real NATS broker separately, and use an integration test to verify delivery on external infrastructure.
 
-**Apply this to Mercato.** Use the broker design from L4 as context and use this module to verify a local policy. Describe an `OrderConfirmed` event with an identity, `orderId`, and correlation information, then decide who publishes it and who consumes it. A live service requires its own implementation, configuration, credentials, and integration tests.
+**Apply this to Marketplace.** Use the broker design from L4 as context and use this module to verify a local policy. Describe an `OrderConfirmed` event with an identity, `orderId`, and correlation information, then decide who publishes it and who consumes it. A live service requires its own implementation, configuration, credentials, and integration tests.
 
 ### L16. Run the JavaScript module and import it
 
 Compare the model with a small executable JavaScript module. The tests and demo establish its initial behavior, and the import connects declarations to their source files. Use that evidence to distinguish what a function does from later proposals about the project's architecture.
 
-**Open a copy of `07-mercato-laboratorio/codice`**. This separate example contains `src/orders.mjs`, a demo, and seven tests. It requires no dependency installation. The module uses prices in cents, positive integer quantities, and `confirmed` or `declined` outcomes.
+**Open a copy of `07-marketplace-workshop/code`**. This separate example contains `src/orders.mjs`, a demo, and seven tests. It requires no dependency installation. The module uses prices in cents, positive integer quantities, and `confirmed` or `declined` outcomes.
 
-Run the tests and demo on a clean copy to establish a baseline for the changes in L18. Use your system terminal, or open the copy of `codice` in the IDE to use the integrated terminal. If **Restricted Mode** appears, inspect the folder contents and choose **Trust** for this copy only. From the project menu, choose **Project Settings > Developer Tools > Terminal**.
+Run the tests and demo on a clean copy to establish a baseline for the changes in L18. Use your system terminal, or open the copy of `code` in the IDE to use the integrated terminal. If **Restricted Mode** appears, inspect the folder contents and choose **Trust** for this copy only. From the project menu, choose **Project Settings > Developer Tools > Terminal**.
 
-Run `pwd` on macOS or Linux, or `Get-Location` in PowerShell, to verify that the terminal is in `codice`. If needed, use `cd` with the quoted path to your copy. The lab was verified with Node 24.22.1 and npm. If you use `nvm` and already have that version installed, select it with `nvm use 24.22.1`. Then run both commands.
+Run `pwd` on macOS or Linux, or `Get-Location` in PowerShell, to verify that the terminal is in `code`. If needed, use `cd` with the quoted path to your copy. The lab was verified with Node 24.22.1 and npm. If you use `nvm` and already have that version installed, select it with `nvm use 24.22.1`. Then run both commands.
 
 ```sh
 npm test
@@ -941,16 +941,16 @@ All seven tests should pass, and the demo should print `{ status: 'confirmed', t
 
 Build the inventory to navigate from `validateQuantity` to its declaration. If you already imported the copy to open the integrated terminal, resume at step 3. Semantic resolution adds available JavaScript and TypeScript links. **Structure Only** gives you a structural inventory.
 
-1. From the home screen, choose **Import Codebase** and select `07-mercato-laboratorio/codice`.
+1. From the home screen, choose **Import Codebase** and select `07-marketplace-workshop/code`.
 2. Choose **Structure and Available Semantic Analysis** to include available JavaScript and TypeScript resolution, or **Structure Only** for the structural inventory.
-3. Wait for **Source Inventory Ready**. Importing reads the source files without installing dependencies or running the application.
+3. Wait for **Ready to explore**. Importing reads the source files without installing dependencies or running the application.
 4. On **Explore Your Codebase**, click **Inspect Code Evidence** to browse the local inventory.
 5. Select **validateQuantity**, marked **Extracted declaration** and linked to `src/orders.mjs`. The declaration is visible in this example. In a longer list, enter the name in the search field. Verify in the editor that the function accepts positive integers.
-6. Click the **Create Diagrams: codice** editor tab to return to the exploration view.
+6. Click the **Create Diagrams: code** editor tab to return to the exploration view.
 
-![The local inventory is ready before architectural exploration begins](images/13-importazione.png)
+![The local inventory is ready before architectural exploration begins](images/13-import.png)
 
-![The evidence view identifies declarations, static references, and definitions](images/14-evidenze.png)
+![The evidence view identifies declarations, static references, and definitions](images/14-evidence.png)
 
 The inventory gives you evidence from the source files. In the current incremental exploration workflow, **Explore Architecture** starts the AI workflow in L17. You can inspect the evidence and continue manual modeling in a visual project without an AI account.
 
@@ -960,7 +960,7 @@ Check language coverage and resolution before interpreting the results. An inven
 
 In the evidence list, click **Open Full Analysis Details** to open the read-only **Source Analysis.json** report. Inspect the inventory, revisions, diagnostics, and analysis producers. Check whether files were analyzed, partially analyzed, unsupported, or unclassified. Partial analysis can leave dependencies unresolved.
 
-Before starting AI exploration, limit the inventory to the relevant sources and documents. From **Create Diagrams: codice**, click **Open Quick Access**, search for `>Configure Import Scope`, and choose **Configure Import Scope**.
+Before starting AI exploration, limit the inventory to the relevant sources and documents. From **Create Diagrams: code**, click **Open Quick Access**, search for `>Configure Import Scope`, and choose **Configure Import Scope**.
 
 1. In **Include Source Paths**, enter `src/**, test/**, package.json, REQUIREMENTS.md` and press Enter.
 2. In **Exclude Source Paths**, enter `.vscode/**` and press Enter. The `.gitignore` and `.orditoignore` rules still apply.
@@ -968,21 +968,21 @@ Before starting AI exploration, limit the inventory to the relevant sources and 
 
 Model and index versions support recovery and comparison. Restoring a historical index changes the index only. If evidence is stale, refresh the analysis or open the current file without using the old source range.
 
-**L16 checkpoint.** Verify that all seven tests pass in `codice` and that the inventory contains the declarations. Open `validateQuantity` from the evidence list and confirm that the original module accepts positive integers. You can use this copy for the update exercise in L18. Open a separate copy of `codice-ia` to explore both features in L17.
+**L16 checkpoint.** Verify that all seven tests pass in `code` and that the inventory contains the declarations. Open `validateQuantity` from the evidence list and confirm that the original module accepts positive integers. You can use this copy for the update exercise in L18. Open a separate copy of `ai-code` to explore both features in L17.
 
 
-### L17. Generate Purchase and Returns diagrams
+### L17. Generate checkout and returns diagrams
 
-Start with a codebase that supports two recognizable capabilities and use the diagrams to examine their shared **Ordine** (Order) contract. Compare each proposal with the source before applying it. This exercise requires a configured AI account and an available model. You can also run the tests, inspect the local inventory, and continue to L20 without an AI account.
+Start with a codebase that supports two recognizable capabilities and use the diagrams to examine their shared **Order** contract. Compare each proposal with the source before applying it. This exercise requires a configured AI account and an available model. You can also run the tests, inspect the local inventory, and continue to L20 without an AI account.
 
 #### Connect a provider and start generation
 
-1. Copy `07-mercato-laboratorio/codice-ia`. Open a terminal in the copy and run `npm test` with Node 24. All five tests should pass. They include cases where an approved purchase makes an order available for returns and where the thirtieth day is still within the return window.
-2. From the home screen, choose **Import Codebase** and select your copy of `codice-ia`. Choose **Structure and Available Semantic Analysis** and wait for **Source Inventory Ready**. You can follow declarations back to their source files before generation, as in L16.
+1. Copy `07-marketplace-workshop/ai-code`. Open a terminal in the copy and run `npm test` with Node 24. All five tests should pass. They include cases where an approved purchase makes an order available for returns and where the thirtieth day is still within the return window.
+2. From the home screen, choose **Import Codebase** and select your copy of `ai-code`. Choose **Structure and Available Semantic Analysis** and wait for **Ready to explore**. You can follow declarations back to their source files before generation, as in L16.
 3. In the project menu, open **AI Settings**, then **Account and Model**. Click **Connect Claude Code or Codex** and follow the provider's sign-in steps. If the CLI is already authenticated, use **Choose Model and CLI**. After signing in, select **Refresh Account and Models** and set the model in **Choose Diagram Model**. If the model is absent from the catalog, choose **Enter Exact Model ID** and enter an ID your provider supports.
 4. Reopen the import tab and click **Explore Architecture**. Review the folder, source scope, and model, then confirm with **Generate Diagrams** to start processing.
 
-![AI settings for the connection, model, and budgets](images/09-ia.png)
+![AI settings for the connection, model, and budgets](images/09-ai-settings.png)
 
 If you see **The Selected Diagram Model Is Not Available in Codex Chat** for a model that your authenticated Codex CLI can access, use **Refresh Account and Models**. If the chat catalog still omits it, reopen **Connect Claude Code or Codex > Codex > Choose Model and CLI** and enter the absolute path to the CLI in **Original CLI Executable**. Check the ID in **Choose Diagram Model** and resume from the import tab with **Continue Generation** or **Explore Architecture**.
 
@@ -992,46 +992,46 @@ Use **AI Requests > Configure AI Request Budget** to set the number of CLI calls
 
 Ordito identifies the features first, then plans and verifies views one feature at a time. It saves validated drafts so later features can inspect them and reuse existing element and relationship IDs. The main view shows the current phase and, when available, the feature or diagram. Open **Activity Details** to inspect the session, then close it to return to the progress view.
 
-![Purchase generation progress with Activity Details closed, rendered from the Ordito component in Chromium](images/34-ia-avanzamento-diagrammi.png)
+![Purchase generation progress with Activity Details closed, rendered from the Ordito component in Chromium](images/34-ai-diagram-progress.png)
 
 Once a draft is complete, try **Stop Generation**. Note the feature in progress and choose **Continue Generation**. The validated draft should remain available, and work should resume from the first incomplete step. If the session needs a decision, read **Clarification Needed** and use **Answer and Continue**. If the budget runs out, Ordito indicates when you need to increase it.
 
 #### Review and apply the proposed views
 
-1. When generation finishes, open **Review All Changes**. Find the **Acquisto** (Purchase) and **Resi** (Returns) views and read any exclusions. Open **Change Details, Sources and Diagnostics** to inspect the changes and their source evidence. The names, view counts, and notations depend on the evidence and the proposal.
-2. Check that **Acquisto** writes **Ordine** after simulated approval and that **Resi** reads the same order. Follow references to `src/checkout.mjs`, `src/returns.mjs`, `src/orders.mjs`, and the tests. Check the relevant code branch and test to see when each source-level connection takes effect.
+1. When generation finishes, open **Review All Changes**. Find the **Checkout** and **Returns** views and read any exclusions. Open **Change Details, Sources and Diagnostics** to inspect the changes and their source evidence. The names, view counts, and notations depend on the evidence and the proposal.
+2. Check that **Checkout** writes **Order** after simulated approval and that **Returns** reads the same order. Follow references to `src/checkout.mjs`, `src/returns.mjs`, `src/orders.mjs`, and the tests. Check the relevant code branch and test to see when each source-level connection takes effect.
 3. Check the conditions and limits. Returns distinguish between a missing order and an expired return window. The sample uses an in-memory store and takes the approval outcome as input. Record gaps such as missing evidence about payments, databases, or deployment. Model descriptive state views manually in this workflow.
 4. When the proposal reflects the code, choose **Apply All Changes** and confirm. Ordito applies the drafts together to the local model. Open the views from the diagram picker and check the result. If the model or evidence changes, refresh the review before applying.
 
 In applied views, use **Add Element** to create an element and **Add Existing Element** to reuse one. In a generated sequence or activity diagram, edit the shared scenario with **Add Message**, **Add Step**, or **Diagram > Contents > Edit Scenario**. You can change participants, steps, conditions, branches, and ordering constraints. Linked views reflect the edits and retain the same IDs. Save the model before starting **Update Codebase from Diagrams**. An update from source can refresh the evidence and flag conflicts with manual scenario edits.
 
-**L17 checkpoint.** From the project menu, choose **Open Project** and reopen your copy of `codice-ia`. Find **Ordine** in both applicable views and confirm that they refer to the same identity. Record the five test results, one source reference per feature, and the result of the resume exercise. If you completed the inventory only, record that result.
+**L17 checkpoint.** From the project menu, choose **Open Project** and reopen your copy of `ai-code`. Find **Order** in both applicable views and confirm that they refer to the same identity. Record the five test results, one source reference per feature, and the result of the resume exercise. If you completed the inventory only, record that result.
 
-To repeat the import on a standalone project similar to Mercato, copy `08-mercato-codebase` and choose **Import Codebase** for that folder. Start with the Purchase and Returns sources, the shared order store, and the local events. See `README.md` for the evidence to look for and the commands for running the tests.
+To repeat the import on a standalone project similar to Marketplace, copy `08-marketplace-codebase` and choose **Import Codebase** for that folder. Start with the checkout and returns sources, the shared order store, and the local events. See `README.md` for the evidence to look for and the commands for running the tests.
 
 
 ### L18. Generate code from diagrams
 
-This standalone exercise starts with a Purchase and Returns model in a folder that has no source files or Git repository. Choose a stack, prepare one feature at a time, and verify that the code behaves as specified by the diagrams and test cases. You need Node.js 24.22.1 and an AI account with a model configured as in L17. Make Node available on the `PATH` or set `ORDITO_NODE_EXECUTABLE` before starting Ordito. You can use this folder even if you skipped L17.
+This standalone exercise starts with a checkout and returns model in a folder that has no source files or Git repository. Choose a stack, prepare one feature at a time, and verify that the code behaves as specified by the diagrams and test cases. You need Node.js 24.22.1 and an AI account with a model configured as in L17. Make Node available on the `PATH` or set `ORDITO_NODE_EXECUTABLE` before starting Ordito. You can use this folder even if you skipped L17.
 
 #### Build the first implementation
 
-1. Copy `07-mercato-laboratorio/moduli/generazione-ia`, including `.ordito`. In Ordito, choose **Open Project** and select the copy. You should see **Mercato · Acquisto e Resi**. Open **Acquisto · Struttura**, **Resi · Struttura**, and **Mercato · Dipendenze**. Both features use the same **Ordine** resource, and **Resi** depends on its contract.
+1. Copy `07-marketplace-workshop/modules/ai-generation`, including `.ordito`. In Ordito, choose **Open Project** and select the copy. You should see **Marketplace · Checkout and Returns**. Open **Checkout · Structure**, **Returns · Structure**, and **Marketplace · Dependencies**. Both features use the same **Order** resource, and **Returns** depends on its contract.
 2. Open **Code > Prepare Code from Diagrams**. In the **Choose Stack** step of **Generate Code from Diagrams**, choose **JavaScript · Node.js 24.22.1 · No Framework**. The exercise profile uses local functions and JSON data and needs no dependencies.
-3. In **Select Features**, choose **Acquisto** and **Resi**. You can leave **Implementation Notes** blank. In **Independent Verification Cases**, leave the field blank and choose **Next** to use the seven cases included in the copy. In your own projects, provide cases you have written to compare their expected outcomes with the generated code.
+3. In **Select Features**, choose **Checkout** and **Returns**. You can leave **Implementation Notes** blank. In **Independent Verification Cases**, leave the field blank and choose **Next** to use the seven cases included in the copy. In your own projects, provide cases you have written to compare their expected outcomes with the generated code.
 4. In **Review Code Generation**, check the profile, features, and destination. Confirm with **Prepare Code Changes**. Ordito stages files and advances once the current feature is complete. If generation stops, use **Resume Generation**. If a domain decision blocks progress, answer the clarification and resume.
-5. Open **Review AI Code Changes**. For each feature, inspect file changes, model references, and expected outcomes. Use **Open Diff** to read the proposed content. **Acquisto** produces an order with an ID and a total in cents. **Resi** receives a record in the same format and checks how many days have elapsed.
+5. Open **Review AI Code Changes**. For each feature, inspect file changes, model references, and expected outcomes. Use **Open Diff** to read the proposed content. **Checkout** produces an order with an ID and a total in cents. **Returns** receives a record in the same format and checks how many days have elapsed.
 6. Use **Run Verification** to run the independent cases included in `.ordito`. Check the results for both features. When verification passes, click **Apply to Project** to write the files to the copy. If you changed the model, criteria, or affected files during review, prepare or verify the proposal again when prompted. After applying, run `npm test` in the copy to check the same cases, or use **Undo Local Changes** to restore the project files.
 
 You can also start this workflow from the command palette with **Ordito: Prepare Reviewed Code from Diagrams**. If a session is already in progress, the command opens its status or saved review. If an edit makes the review stale, choose **Prepare New Code Changes** from the Code page to work from the current model.
 
-![Code review with the selected profile and Apply to Project available after verification, rendered from the Ordito component in Chromium](images/35-ia-review-codice.png)
+![Code review with the selected profile and Apply to Project available after verification, rendered from the Ordito component in Chromium](images/35-ai-code-review.png)
 
 | Independent case | Expected result in the review |
 | --- | --- |
-| Approved purchase of two units at 1,250 cents each | Order `ordine-1`, total of 2,500 cents, outcome `confirmed` |
+| Approved purchase of two units at 1,250 cents each | Order `order-1`, total of 2,500 cents, outcome `confirmed` |
 | Unapproved purchase or quantity above 10 | `declined` or `invalid-input`, with no order |
-| Return of `ordine-1` after 30 or 31 days | `accepted` with 2,500 cents, or `outside-window` from day 31 |
+| Return of `order-1` after 30 or 31 days | `accepted` with 2,500 cents, or `outside-window` from day 31 |
 | Return with a missing order | `unknown-order` |
 
 **L18 checkpoint.** Check the seven independent cases and the destination before applying. Verify afterward that Ordito created modules for both features and that you can trace each one to the reviewed contracts. These tests describe the local behavior of this sample.
@@ -1040,7 +1040,7 @@ You can also start this workflow from the command palette with **Ordito: Prepare
 
 With compatible Node.js ESM modules, you can prepare another proposal after updating the model and cases. Open **Code** in the same copy, check the destination, and inspect the diff before applying.
 
-To practice an update from diagrams, use a copy of `codice` from L16. Prepare a view that includes quantity validation using the generation workflow from L17. In the view, select the element that represents `validateQuantity` and open **Manage > Edit Description**. Specify that the function returns `true` for safe integers from 1 to 10, `false` for other safe integers, and throws `TypeError` for decimals or strings. Click **Save Changes**, then **Save**.
+To practice an update from diagrams, use a copy of `code` from L16. Prepare a view that includes quantity validation using the generation workflow from L17. In the view, select the element that represents `validateQuantity` and open **Manage > Edit Description**. Specify that the function returns `true` for safe integers from 1 to 10, `false` for other safe integers, and throws `TypeError` for decimals or strings. Click **Save Changes**, then **Save**.
 
 If **Update Codebase from Diagrams** appears after you save, choose it. You can also start the workflow from **Code** or search for `>Ordito: Update Codebase from Diagrams` in **Open Quick Access**. Review the saved changes the provider will receive, then start the update. Read the result, compare the files in your copy, and run `npm test` and `npm start` again. Check 0, 1, 10, 11, and a non-integer in the tests. If a diagram still shows the old rule, use **Update Diagrams from Codebase** and review the updated proposal as in L17.
 
@@ -1048,13 +1048,13 @@ If **Update Codebase from Diagrams** appears after you save, choose it. You can 
 
 A worktree lets you inspect and verify proposed files before applying them to the main folder. This workflow requires a compatible legacy model, a linked Git codebase with at least one commit and a clean working tree, a feature with recognized acceptance criteria, and a configured provider. To verify executable behavior in v4 and v5 projects, use **Prepare Model to Code Review** from L12.
 
-If you have the Ordito sources from A1, make an independent copy of the original sample codebase and name it `codice-legacy`. Copy the example file `ordito/examples/checkout.ordito.json` from the Ordito sources into that folder without editing it. From the home screen, choose **Start a Project > Examples and Model Files > Open Model** and open the copied file. The model includes **Conferma acquisto** (Confirm purchase), a feature with defined criteria.
+If you have the Ordito sources from A1, make an independent copy of the original sample codebase and name it `legacy-code`. Copy the example file `ordito/examples/checkout.ordito.json` from the Ordito sources into that folder without editing it. From the home screen, choose **Start a Project > Examples and Model Files > Open Model** and open the copied file. The model includes **Confirm Purchase**, a feature with defined criteria.
 
 From the project menu, choose **Show IDE**. If the copy has no Git repository, open **Source Control** and choose **Initialize Repository**. Select **Stage All Changes**, enter a commit message such as “Add sample project baseline,” and click **Commit**. Configure your Git identity first if prompted. In **Source Control**, verify that the commit exists and the working tree is clean. The sample codebase already excludes the `.ordito` working folder from Git.
 
 After the initial commit, prepare a model and code snapshot. Click **Open Quick Access**, search for `>Ordito: Update Diagrams from Codebase`, and select it. If prompted, check the path to your copy and choose **Trust Folder & Continue**. Once the inventory is ready, cancel **Generate Diagrams**. If the earlier message composer appears, close it before sending a message. Ordito retains the initial snapshot. If you created the baseline before initializing Git and see **Source manifest changed**, use Sync in L19 to realign it.
 
-In the compatible project, click **Open Quick Access**, search for `>Ordito: Implement Feature`, and select **Conferma acquisto** for this example. Enter the change in **Requested Behavior** and press Enter. Choose the files to share, `src/orders.mjs` and `test/orders.test.mjs` in this example, and click **OK**. Read **Review Implementation Context**, then choose **Send Context to Codex** or the corresponding control for your provider. Review the plan and questions. With the **Plan and Implementation** budget, answer any clarifications and click **Generate in Worktree**.
+In the compatible project, click **Open Quick Access**, search for `>Ordito: Implement Feature`, and select **Confirm Purchase** for this example. Enter the change in **Requested Behavior** and press Enter. Choose the files to share, `src/orders.mjs` and `test/orders.test.mjs` in this example, and click **OK**. Read **Review Implementation Context**, then choose **Send Context to Codex** or the corresponding control for your provider. Review the plan and questions. With the **Plan and Implementation** budget, answer any clarifications and click **Generate in Worktree**.
 
 Ordito prepares the changes in a separate worktree. Read the diff tabs and **Implementation Review.md**, then return to the model tab and open **Code > Implementation Worktree**. Click **Run Tests** and confirm **Run Tests**. After verification, return to the model tab, click **Apply Verified Changes** in the same pane, and confirm **Apply Changes**. Check the diff for the main folder in **Source Control**.
 
@@ -1071,7 +1071,7 @@ Keep the file diff and test results when you hand off the update branch. Check c
 
 After independent changes to the model and source files, Sync compares both with a common baseline to identify differences and conflicts. Use that comparison to agree on what to preserve before continuing. This workflow requires a compatible project that already has an adapter and baseline.
 
-**Advanced exercise for compatible legacy projects.** Sync requires a supported format and adapter, a linked codebase, model-to-code mappings, and a valid common baseline. A new assisted proposal also requires an AI account. To see a local preview, use the `codice-legacy` copy and set up the baseline as described in L18. If you imported your copy in L16 using the incremental v5 workflow, continue to L20.
+**Advanced exercise for compatible legacy projects.** Sync requires a supported format and adapter, a linked codebase, model-to-code mappings, and a valid common baseline. A new assisted proposal also requires an AI account. To see a local preview, use the `legacy-code` copy and set up the baseline as described in L18. If you imported your copy in L16 using the incremental v5 workflow, continue to L20.
 
 To try Sync after the worktree exercise, make a second clean copy of the sample and prepare its baseline. If **Review Sync Context** rejects a source file, check whether it came from **Apply** in the worktree workflow. This build excludes files hard-linked to the journal from Sync.
 
@@ -1096,16 +1096,16 @@ After the first implementation, a source or runtime change can alter the agreed 
 
 #### Map changes from code back to the model
 
-Direct code edits can conflict with an agreed rule. Reverse mapping proposes a corresponding model change, and independent cases show whether that change is acceptable. In this exercise, deliberately lowering the maximum from 10 to 9 should fail **Limite 10** (Limit 10). The failure shows that the proposal violates a requirement that is still in force.
+Direct code edits can conflict with an agreed rule. Reverse mapping proposes a corresponding model change, and independent cases show whether that change is acceptable. In this exercise, deliberately lowering the maximum from 10 to 9 should fail **Limit 10** (Limit 10). The failure shows that the proposal violates a requirement that is still in force.
 
 **Use Open Project to return to your copy of the quantity module from L12.** If you finished with Undo, prepare a new review, run **Run Real Verification**, and choose **Apply to Project**. Reverse mapping needs the generated files in this folder. Use the L12 review to create them before proceeding.
 
 1. If Explorer is closed, open **Project Settings > Developer Tools > Files** from the project menu. Expand `src` and open the `predicate-…mjs` file generated by the L12 review.
 2. Find the literal used as the limit in the `<=` comparison. In the example, it is `const v3=10;`. Scroll horizontally if necessary. Change only `10` to `9`, keep the metadata comment intact, and choose **File > Save**.
 3. Return to the Ordito tab. From the project menu, open **Project Settings > Executable Behavior > Code and Context > Reverse Model Behavior from Code**.
-4. In **Code to Model**, check for `quantity ≤ 9` and click **Run Real Verification**. Confirm if prompted. Wait for **Real Verification Failed · Application Blocked** and expand **Verification Output**. In the 24-case variant, 23 pass and **Limite 10** fails. **Apply to Project** stays disabled.
+4. In **Code to Model**, check for `quantity ≤ 9` and click **Run Real Verification**. Confirm if prompted. Wait for **Real Verification Failed · Application Blocked** and expand **Verification Output**. In the 24-case variant, 23 pass and **Limit 10** fails. **Apply to Project** stays disabled.
 5. Keep the original expected result. Return to the file, restore the literal `10`, and save.
-6. Run **Reverse Model Behavior from Code** again. When the file and model agree, Ordito shows **Model Behavior Is Aligned · No Proposal · No AI Calls**. Open **Project Settings > Developer Tools > Terminal** in your copy of `quantita`, check the working folder, and select Node 24.22.1. Run `node --test test/*.test.mjs` to check the **12 independent tests** generated in the project. The Ordito review also runs 12 derived cases.
+6. Run **Reverse Model Behavior from Code** again. When the file and model agree, Ordito shows **Model Behavior Is Aligned · No Proposal · No AI Calls**. Open **Project Settings > Developer Tools > Terminal** in your copy of `quantity`, check the working folder, and select Node 24.22.1. Run `node --test test/*.test.mjs` to check the **12 independent tests** generated in the project. The Ordito review also runs 12 derived cases.
 
 To accept a different limit in a real project, record the business decision, update the criterion and expected outcomes, and run verification again.
 
@@ -1134,14 +1134,14 @@ You review, verify, and publish these proposals manually. If the budget runs out
 
 After saving the views, decisions, and local evidence, prepare a handoff that lets someone else trace a purchase and a return.
 
-Reopen Mercato and use navigation and search to find **Cliente** (Customer), **Ordine** (Order), purchase confirmation, and the return request. If a colleague is available, ask them to follow the same path independently and record their feedback.
+Reopen Marketplace and use navigation and search to find **Customer**, **Order**, purchase confirmation, and the return request. If a colleague is available, ask them to follow the same path independently and record their feedback.
 
-Collect the entire Mercato folder, including `.ordito`, the relevant modules, and a summary of test evidence and pending decisions. Reopen the copy with **Open Project** and check its references. Leave out caches, credentials, and provider history. You can commit or publish the project separately.
+Collect the entire Marketplace folder, including `.ordito`, the relevant modules, and a summary of test evidence and pending decisions. Reopen the copy with **Open Project** and check its references. Leave out caches, credentials, and provider history. You can commit or publish the project separately.
 
 | Deliverable | How to demonstrate it |
 | --- | --- |
 | Saved model that reopens | Close the project, reopen it, and find a view for each notation |
-| Two linked features with shared identities | Follow **Ordine** from purchase to return and check change impact |
+| Two linked features with shared identities | Follow **Order** from purchase to return and check change impact |
 | Readable architecture | Identify the context, containers, components, packages, and deployment |
 | Consistent data | Check cardinalities, keys, and mappings among distinct identities |
 | Verified quantity behavior | Current review, independent cases, and local Apply and Undo |
@@ -1178,7 +1178,7 @@ C4 describes architecture at several levels of detail. UML (Unified Modeling Lan
 
 #### Create a view in the editor
 
-1. Open the project root where you want to save the view. Click the diagram name and choose **Add Diagram**. In Mercato, select the feature requested by the form. Use **Acquisto** for general views and **Resi e rimborsi** for the dedicated returns views. Ordito places each diagram under the capability it describes. For a C4 view with a subject, use step 3.
+1. Open the project root where you want to save the view. Click the diagram name and choose **Add Diagram**. In Marketplace, select the feature requested by the form. Use **Checkout** for general views and **Returns and Refunds** for the dedicated returns views. Ordito places each diagram under the capability it describes. For a C4 view with a subject, use step 3.
 2. In **Create Diagram**, fill in **Name** and select a notation under **Diagram Type**. Use **Choose Feature** when the view needs a feature, then click **Create**.
 3. For **C4**, follow L3. Open **Structural Blueprint > Structure > C4 View Subject and Context**, click **New C4 View**, and set the name, level, subject, context, and visibility. Click **Apply to Model** to create the view and **Open Diagram** to open it. L1 is Context, L2 is Container, and L3 is Component. Ordito keeps the subject visible. L4 Contract scopes a Class view to a contract.
 4. For **State Diagram**, also select **Resource Whose State Is Represented** in the creation form. The states describe the lifecycle of that resource. For other diagram types, use **Add Element** for new objects and **Add Existing Element** to reuse objects already defined.
@@ -1195,13 +1195,13 @@ Read the type on the element card, since colors and shapes are visual aids. Ordi
 
 | Element | Meaning and scope |
 | --- | --- |
-| Feature | Project capability such as **Resi**. It groups related perspectives. |
-| Actor | Role that interacts with the system, such as **Cliente**. One actor can represent many people in the same role. |
+| Feature | Project capability such as **Returns**. It groups related perspectives. |
+| Actor | Role that interacts with the system, such as **Customer**. One actor can represent many people in the same role. |
 | System | System within your control or an external system. Its scope defines whether it falls within the design or is a dependency. |
 | Container | Deployable application, client, service, store, or messaging infrastructure. The C4 meaning covers these roles regardless of packaging technology. |
 | Component | Internal responsibility, such as **Checkout**. Containment identifies its application. |
-| Resource | Domain object with identity, contracts, or a lifecycle, such as **Ordine**. Its mapping to a physical table is a separate design choice. |
-| UI View / Interface | Product interface such as **Pagina resi**. It is an element you can place on a diagram. |
+| Resource | Domain object with identity, contracts, or a lifecycle, such as **Order**. Its mapping to a physical table is a separate design choice. |
+| UI View / Interface | Product interface such as **Returns Page**. It is an element you can place on a diagram. |
 | Controller | Coordination of requests or behavior. The implementation can take different forms depending on the framework. |
 | Contract | Shared contract definition that can connect to its provider and operations. |
 | Interface Contract | Interface with members or operations, such as a provider contract. |
@@ -1237,17 +1237,17 @@ A Structure diagram shows the path into a feature, the responsibilities that col
 
 Use Structure for an initial feature map or a system overview. It helps at the start of a project and when onboarding someone to a codebase. Pick one scope and stay at a consistent level of detail. An overview that includes every function, table, and file soon becomes hard to read.
 
-In the reference project, open **01 Panoramica delle responsabilità**. The customer (**Cliente**) uses **Web shop**, which sends the purchase to **Checkout**. Checkout requests authorization and records **Ordine**. **Gestione resi** depends on Checkout to look up the purchase. Use this view to see responsibilities and Sequence to see the order of calls.
+In the reference project, open **01 Responsibilities Overview**. The customer (**Customer**) uses **Web shop**, which sends the purchase to **Checkout**. Checkout requests authorization and records **Order**. **Returns Handling** depends on Checkout to look up the purchase. Use this view to see responsibilities and Sequence to see the order of calls.
 
-![Structure diagram showing people, applications, responsibilities, and a resource](images/atlante-01.png)
+![Structure diagram showing people, applications, responsibilities, and a resource](images/atlas-01.png)
 
 #### Elements and details
 
 | Common element | Role in the diagram |
 | --- | --- |
-| Actor | Role that initiates or uses the capability. **Cliente** retains its identity across features. |
+| Actor | Role that initiates or uses the capability. **Customer** retains its identity across features. |
 | Component / Controller | Responsibility or coordinator. Choose a name that describes what it does. |
-| Resource | Domain object with an identity. **Ordine**, its screen, and its table each have a different role. |
+| Resource | Domain object with an identity. **Order**, its screen, and its table each have a different role. |
 | Interface / View | Interaction point such as a page or system interface. |
 | System / Container | External context or application, as needed for the overview. |
 | Contract and other compatible types | Include details when they clarify responsibilities and constraints. |
@@ -1256,9 +1256,9 @@ Use an element's description to explain what it does, and containment to declare
 
 #### Relationships, construction, and checks
 
-Use **Invocation** for requests, **Read/Write** for access to a resource, and **Dependency** for structural use. In the Mercato overview, recording the order is a **Write** with payment authorization as its condition. Name a dependency for what it uses so the label communicates its role without implying an undeclared temporal order.
+Use **Invocation** for requests, **Read/Write** for access to a resource, and **Dependency** for structural use. In the Marketplace overview, recording the order is a **Write** with payment authorization as its condition. Name a dependency for what it uses so the label communicates its role without implying an undeclared temporal order.
 
-Follow D0 to create a Structure view. Add **Cliente**, **Web shop**, **Checkout**, and **Ordine**. Connect the main path, then add payment and returns. This order gives readers an entry point, coordinator, and result before you expand the context. You can construct the same relationships in any order. Reuse existing identities so names and details stay shared. Add a Sequence diagram for call order or a C4 Context diagram for the product boundary.
+Follow D0 to create a Structure view. Add **Customer**, **Web shop**, **Checkout**, and **Order**. Connect the main path, then add payment and returns. This order gives readers an entry point, coordinator, and result before you expand the context. You can construct the same relationships in any order. Reuse existing identities so names and details stay shared. Add a Sequence diagram for call order or a C4 Context diagram for the product boundary.
 
 **Check.** A new reader can identify the entry point, the coordinator, and the result. Each arrow has a clear meaning, each identity appears once per view, and any changes in level are explicit. When you intend to remove a shared responsibility from this view, use the view-level removal action to keep its model identity available elsewhere.
 
@@ -1270,28 +1270,28 @@ A System Context diagram identifies the product in scope, its users, and the ext
 
 Use Context with stakeholders and new team members, or when discussing scope. The C4 reference places a single system at the center of its environment. [C4 System Context](https://c4model.com/diagrams/system-context)
 
-Open **02 C4 Contesto Mercato**. **Mercato** is the system in scope. **Cliente** and **Assistenza** are roles, and **Pagamenti esterni** and **Corriere esterno** are external systems. The view shows the store's responsibilities and where its control ends.
+Open **02 C4 Marketplace Context**. **Marketplace** is the system in scope. **Customer** and **Support** are roles, and **External Payments** and **External Carrier** are external systems. The view shows the store's responsibilities and where its control ends.
 
-![C4 Context diagram showing Mercato, its users, and external systems](images/atlante-02.png)
+![C4 Context diagram showing Marketplace, its users, and external systems](images/atlas-02.png)
 
 #### Elements
 
 | Element | Meaning and details |
 | --- | --- |
 | Subject system | The single system at the center of the analysis. Its name and description identify the product. |
-| Actor | A human role or other party that uses the system. **Cliente** and **Assistenza** pursue different goals. |
-| External Software System | System outside the design's control, such as the payment and delivery services in Mercato. |
+| Actor | A human role or other party that uses the system. **Customer** and **Support** pursue different goals. |
+| External Software System | System outside the design's control, such as the payment and delivery services in Marketplace. |
 | Declared context | External identities included in the view's scope. They retain their existing owners. |
 
 Keep the Context view at system and actor level. Use the System type's scope to distinguish internal and external systems, and set the subject through the Blueprint. The context setting describes a dependency. Authorization to generate or modify external systems is separate.
 
 #### Relationships and how to build the view
 
-Use **Communication** or **Dependency** with a name that explains the relationship, such as **autorizza e rimborsa** (authorizes and refunds) or **richiede consegna** (requests delivery). Point the relationship from the party that uses or requests the other system. When parties communicate in both directions, name the responsibilities and add the relevant relationships explicitly.
+Use **Communication** or **Dependency** with a name that explains the relationship, such as **authorizes payments and issues refunds** (authorizes and refunds) or **requests delivery** (requests delivery). Point the relationship from the party that uses or requests the other system. When parties communicate in both directions, name the responsibilities and add the relevant relationships explicitly.
 
-Create the Context from **C4 View Subject and Context > New C4 View** as in L3 and D0. Select L1, set **Mercato** as the subject, and name the view. In **View Contents**, select and show the four context elements. Create any missing actors or systems first. Click **Apply to Model** and **Open Diagram**, add the relationships, and save.
+Create the Context from **C4 View Subject and Context > New C4 View** as in L3 and D0. Select L1, set **Marketplace** as the subject, and name the view. In **View Contents**, select and show the four context elements. Create any missing actors or systems first. Click **Apply to Model** and **Open Diagram**, add the relationships, and save.
 
-**Check.** There is one product boundary, readers can distinguish actors from systems, and internal components belong at a deeper level. See D3 for the parts of Mercato and D16 for network topology. Consult runtime evidence for observed traffic.
+**Check.** There is one product boundary, readers can distinguish actors from systems, and internal components belong at a deeper level. See D3 for the parts of Marketplace and D16 for network topology. Consult runtime evidence for observed traffic.
 
 ### D3. C4 Container – Map applications and stores
 
@@ -1301,9 +1301,9 @@ A Container diagram divides the product into applications, services, and data st
 
 Use this view to discuss deployable responsibilities, technology, and the boundaries between clients, services, and persistence. A C4 container is an application or data store and can use any packaging technology. [C4 Container](https://c4model.com/diagrams/container)
 
-In **03 C4 Applicazioni e dati**, the **Mercato** system contains **Web shop**, **API Mercato**, **Archivio Mercato**, and **Broker eventi**. **Cliente** remains external context. These are design choices for the example. Use runtime evidence to identify processes actually running on a host.
+In **03 C4 Applications and Data**, the **Marketplace** system contains **Web shop**, **Marketplace API**, **Marketplace Store**, and **Event Broker**. **Customer** remains external context. These are design choices for the example. Use runtime evidence to identify processes actually running on a host.
 
-![C4 Container diagram showing applications and data stores inside the system boundary](images/atlante-03.png)
+![C4 Container diagram showing applications and data stores inside the system boundary](images/atlas-03.png)
 
 #### Elements
 
@@ -1315,13 +1315,13 @@ In **03 C4 Applicazioni e dati**, the **Mercato** system contains **Web shop**, 
 | Resource | Domain resource allowed by the picker. Include it when it clarifies a dependency. |
 | Actor / External Software System | Context that uses or is used by the applications. Keep its external scope. |
 
-Declare ownership in the Blueprint to assign internal parts to **Mercato** and distinguish them from external dependencies across views. Dragging items inside a boundary affects the layout. Declare technology and environment based on known information or explicit design decisions.
+Declare ownership in the Blueprint to assign internal parts to **Marketplace** and distinguish them from external dependencies across views. Dragging items inside a boundary affects the layout. Declare technology and environment based on known information or explicit design decisions.
 
 #### Relationships, construction, and checks
 
-Mercato declares HTTPS from **Cliente** to **Web shop**, HTTPS / JSON from the web app to the API, SQL from the API to the store, and publishing to the broker. The arrow name describes the intent. The protocol describes the planned means of communication. For a structural dependency, leave protocols and ports unspecified unless you know them.
+Marketplace declares HTTPS from **Customer** to **Web shop**, HTTPS / JSON from the web app to the API, SQL from the API to the store, and publishing to the broker. The arrow name describes the intent. The protocol describes the planned means of communication. For a structural dependency, leave protocols and ports unspecified unless you know them.
 
-In the Blueprint, assign the four containers to **Mercato** using **Architectural or Lifecycle Owner** and complete their roles as in L4. Create an L2 C4 view with **Mercato** as subject and **Cliente** as context. Make **Cliente** and the four containers visible. Ordito shows the subject automatically. Click **Apply to Model** and **Open Diagram**, then connect the elements to declare their integrations. See D4 for API components and D10 for deployment.
+In the Blueprint, assign the four containers to **Marketplace** using **Architectural or Lifecycle Owner** and complete their roles as in L4. Create an L2 C4 view with **Marketplace** as subject and **Customer** as context. Make **Customer** and the four containers visible. Ordito shows the subject automatically. Click **Apply to Model** and **Open Diagram**, then connect the elements to declare their integrations. See D4 for API components and D10 for deployment.
 
 **Check.** Each container has a responsibility and an owner. Application and host are distinct model elements, and each data store has a single identity. Installation, provisioning, communication, and migration require separate execution.
 
@@ -1333,28 +1333,28 @@ A Component diagram identifies the responsibilities inside an application and th
 
 Use C4 Component when you need more detail than an application-level view provides about responsibilities, dependencies, or contracts. Choose the applications where this level of detail helps readers. [C4 Component](https://c4model.com/diagrams/component)
 
-Open **04 C4 Componenti API**. **API Mercato** is the subject. **Checkout**, **Registro esiti**, **Gestione resi**, and **Scorte** are internal responsibilities. **Scorte** manages availability at the application level. **Archivio Mercato** provides persistence. **Contratto acquisto** also belongs to **API Mercato**, and **Checkout** provides it. Check the declared owner and binding in the Blueprint.
+Open **04 C4 API Components**. **Marketplace API** is the subject. **Checkout**, **Outcome Log**, **Returns Handling**, and **Inventory** are internal responsibilities. **Inventory** manages availability at the application level. **Marketplace Store** provides persistence. **Checkout Contract** also belongs to **Marketplace API**, and **Checkout** provides it. Check the declared owner and binding in the Blueprint.
 
-![C4 Component diagram showing API responsibilities and the contract Checkout provides](images/atlante-04.png)
+![C4 Component diagram showing API responsibilities and the contract Checkout provides](images/atlas-04.png)
 
 #### Elements and ownership
 
 | Element | How to read it |
 | --- | --- |
-| Subject container | Application whose internals the view shows, here **API Mercato**. |
-| Component | Internal responsibility such as **Checkout** and **Registro esiti**. |
+| Subject container | Application whose internals the view shows, here **Marketplace API**. |
+| Component | Internal responsibility such as **Checkout** and **Outcome Log**. |
 | Controller | Internal coordination when that role is more precise than Component. |
 | Resource | Domain object needed for this level of detail. It retains its model type. |
 | Contract / Interface Contract | Shared contract or interface. Complete operations and types in the Blueprint. |
 | Context Container and other compatible dependencies | Items outside the subject. Declare them as context and keep their existing architectural owners. |
 
-The solution defines version 1 of **Contratto acquisto** and records **Checkout** as its provider in the Blueprint (L11). This gives the contract an explicit provider and lets checks read the signature it offers. The dependency on **Scorte** expresses a structural relationship. Declare any operation bindings separately.
+The solution defines version 1 of **Checkout Contract** and records **Checkout** as its provider in the Blueprint (L11). This gives the contract an explicit provider and lets checks read the signature it offers. The dependency on **Inventory** expresses a structural relationship. Declare any operation bindings separately.
 
 #### Relationships and construction
 
-The **richiede disponibilità** Dependency connects **Checkout** to **Scorte**. The **registra esito** Communication connects Checkout to **Registro esiti**. Implementation shows that Checkout exposes **Contratto acquisto**, and **Gestione resi** depends on Checkout. To check compatibility between operations, declare ports, types, and bindings.
+The **requests availability** Dependency connects **Checkout** to **Inventory**. The **records outcome** Communication connects Checkout to **Outcome Log**. Implementation shows that Checkout exposes **Checkout Contract**, and **Returns Handling** depends on Checkout. To check compatibility between operations, declare ports, types, and bindings.
 
-In the Blueprint, assign the components to **API Mercato** using **Architectural or Lifecycle Owner**, as in L4. Create a level L3 C4 view and select **API Mercato** as the subject. Set **Context** and **Visible** for the scope you want to show, then click **Apply to Model** and **Open Diagram**. Save and check the boundary in the textual view too.
+In the Blueprint, assign the components to **Marketplace API** using **Architectural or Lifecycle Owner**, as in L4. Create a level L3 C4 view and select **Marketplace API** as the subject. Set **Context** and **Visible** for the scope you want to show, then click **Apply to Model** and **Open Diagram**. Save and check the boundary in the textual view too.
 
 **Check.** Components keep their roles regardless of how you arrange them, and external dependencies stay outside the system in scope. Use UML Component (D13) when you need to discuss interfaces across modules.
 
@@ -1366,27 +1366,27 @@ An ERD gives the team a shared understanding of the data. Identify the concepts 
 
 Use an ERD to agree on the domain before choosing table names and database details. It helps when the same word means different things to different readers. An order, an order line, and a return request each have their own identity and constraints.
 
-Open **05 Entità e cardinalità**. **Cliente**, **Ordine**, **Riga ordine**, **Prodotto**, and **Reso** show the essential attributes. The lab ERD is a logical view of the domain. See D6 for the designed physical schema.
+Open **05 Entities and Cardinality**. **Customer**, **Order**, **Order Line**, **Product**, and **Return** show the essential attributes. The lab ERD is a logical view of the domain. See D6 for the designed physical schema.
 
-![ERD showing logical entities, attributes, and cardinalities](images/atlante-05.png)
+![ERD showing logical entities, attributes, and cardinalities](images/atlas-05.png)
 
 #### Elements and members
 
 | Element or detail | Meaning |
 | --- | --- |
-| Entity | Logical concept with an identity, such as **Prodotto**. Use consistent singular names. |
+| Entity | Logical concept with an identity, such as **Product**. Use consistent singular names. |
 | Resource | Domain resource compatible with the notation. Reuse it when it represents the same object. |
-| Attribute | Data that describes the entity. For example, quantity belongs to **Riga ordine**. |
+| Attribute | Data that describes the entity. For example, quantity belongs to **Order Line**. |
 | Type | The domain of a value. A string and an integer have different types even when both appear as “42”. |
 | Presence and nullability | Whether a field is required and whether its value may be null are separate settings. |
 
-Represent a property's value as an attribute. Use a separate entity for an order line, which has its own quantity and price. That makes the constraints on lines explicit for each **Ordine**.
+Represent a property's value as an attribute. Use a separate entity for an order line, which has its own quantity and price. That makes the constraints on lines explicit for each **Order**.
 
 #### Relationships and cardinalities
 
 An **Association** names a structural relationship. The notation also supports whole-part relationships where appropriate. Use explicit associations in the lab. **1** means exactly one. **0..1** means zero or one. **0..\*** means zero or more. **1..\*** means one or more. The number beside an entity tells you how many instances of that entity can relate to an object at the other end.
 
-“Cliente 1 - Ordine 0..\*” means each order has one customer and each customer can have multiple orders. “Riga ordine 0..\* - Prodotto 1” means each line refers to one product and a product can appear in multiple lines. The relationship from **Reso** to **Ordine** records the return's dependence on the purchase.
+“Customer 1 - Order 0..\*” means each order has one customer and each customer can have multiple orders. “Order Line 0..\* - Product 1” means each line refers to one product and a product can appear in multiple lines. The relationship from **Return** to **Order** records the return's dependence on the purchase.
 
 Create the entities and add members in their properties. Once the identities and attributes are clear, connect the entities and set the cardinalities.
 
@@ -1398,11 +1398,11 @@ A database schema shows how domain concepts are stored. Use it to define tables,
 
 #### When to use it
 
-Use this view after clarifying the domain or while reading existing schema definitions and migrations. Record whether your schema is a proposal or backed by source evidence. Mercato is an SQL design exercise. It uses no deployed DBMS.
+Use this view after clarifying the domain or while reading existing schema definitions and migrations. Record whether your schema is a proposal or backed by source evidence. Marketplace is an SQL design exercise. It uses no deployed DBMS.
 
-Open **06 Schema dati progettato**. The tables `customers`, `orders`, `order_lines`, `products`, and `returns` have their own identities. The five related logical entities are separate model elements.
+Open **06 Proposed Data Schema**. The tables `customers`, `orders`, `order_lines`, `products`, and `returns` have their own identities. The five related logical entities are separate model elements.
 
-![Database Schema diagram showing columns, keys, and references](images/atlante-06.png)
+![Database Schema diagram showing columns, keys, and references](images/atlas-06.png)
 
 #### Elements and columns
 
@@ -1434,9 +1434,9 @@ The order of interactions can affect the outcome of a purchase. A Sequence diagr
 
 Use Sequence for a purchase confirmation, return request, or specific error case. It helps when the point at which a read, write, or response occurs affects the outcome.
 
-Open **07 Sequenza acquisto**. **Cliente** requests confirmation from **Checkout**. Checkout invokes **Pagamenti esterni** and then writes **Ordine** when authorized. The diagram focuses on coordination and simplifies the web channel. Use production traces for measured timing.
+Open **07 Checkout Sequence**. **Customer** requests confirmation from **Checkout**. Checkout invokes **External Payments** and then writes **Order** when authorized. The diagram focuses on coordination and simplifies the web channel. Use production traces for measured timing.
 
-![Descriptive sequence diagram with three ordered messages](images/atlante-07.png)
+![Descriptive sequence diagram with three ordered messages](images/atlas-07.png)
 
 #### Elements and messages
 
@@ -1467,17 +1467,17 @@ An Activity diagram describes how inputs lead to possible outcomes, including fa
 
 Activity / Flowchart is one notation in Ordito. Use it to discuss a procedure across roles, find missing outcomes, and establish what comes before what. You can design the flow before choosing its classes and services.
 
-Open **08 Flusso acquisto** to follow validation, availability checks, payment, confirmation or rejection, and the end of the flow. The tour's shorter refund flow applies the same principle. Each alternative needs a clear meaning.
+Open **08 Checkout Flow** to follow validation, availability checks, payment, confirmation or rejection, and the end of the flow. The tour's shorter refund flow applies the same principle. Each alternative needs a clear meaning.
 
-![Activity diagram showing the entry point, actions, decision, and outcomes](images/atlante-08.png)
+![Activity diagram showing the entry point, actions, decision, and outcomes](images/atlas-08.png)
 
 #### Elements
 
 | Element | Naming and meaning |
 | --- | --- |
-| Start | Procedure entry point, such as **Inizio**. Describe its trigger. |
-| Action | Step named with a verb, such as **Valida carrello** or **Richiedi pagamento**. Reserve **Pagato** for a state. |
-| Decision | Question or choice such as **Scorte disponibili?**. Label each outgoing branch with the condition that permits it. |
+| Start | Procedure entry point, such as **Start**. Describe its trigger. |
+| Action | Step named with a verb, such as **Validate Cart** or **Request Payment**. Reserve **Pagato** for a state. |
+| Decision | Question or choice such as **Inventory Available?**. Label each outgoing branch with the condition that permits it. |
 | End | Declared outcome or endpoint. Give each negative path an intentional outcome. |
 | Compatible responsibilities and resources | Context for who performs an action or which data it uses. Keep the main flow legible. |
 | Control Flow | Relationship that takes the path from one step or decision to the next. |
@@ -1500,16 +1500,16 @@ Some actions are valid only at certain stages of an order's lifecycle. A State M
 
 Use State Machine for orders, return requests, reservations, and other objects whose available actions depend on their state. It helps you identify illegal transitions and distinguish attempts, authorizations, and completions.
 
-Open **09 Stati ordine**. The **Ordine** resource has the states **In attesa**, **Confermato**, and **Rifiutato**. The tour's **Richiesta di reso** has its own lifecycle with **Richiesto**, **Autorizzato**, **Rimborsato**, and **Rifiutato**.
+Open **09 Order States**. The **Order** resource has the states **Pending**, **Confirmed**, and **Declined**. The tour's **Return Request** has its own lifecycle with **Requested**, **Authorized**, **Refunded**, and **Rejected**.
 
-![Descriptive State Machine showing a resource, states, and transitions](images/atlante-09.png)
+![Descriptive State Machine showing a resource, states, and transitions](images/atlas-09.png)
 
 #### Elements and details
 
 | Element or detail | Meaning |
 | --- | --- |
 | Resource / lifecycle owner | Object whose lifecycle you are describing. Declare it explicitly. |
-| State | Condition of the object, such as **Confermato**. Use an action such as **Conferma ordine** for the step that leads to it. |
+| State | Condition of the object, such as **Confirmed**. Use an action such as **Confirm Order** for the step that leads to it. |
 | Transition | Move from one state to another, with a relevant event or condition. |
 | Event | Occurrence that can trigger the transition. Use a typed payload in the executable profile. |
 | Guard | Condition that allows the transition. Describe it in text or use a formal expression in an executable contract. |
@@ -1519,7 +1519,7 @@ In the descriptive diagram, states are children of the resource. An executable c
 
 #### Construction and verification
 
-Create the State Machine and choose **Ordine**. Use **Add State** for states in its lifecycle. Connect transitions and name each event and outcome to show what enables the change and where it leads. To verify whether an event is accepted or rejected, define the executable contract with **Edit Executable State Machine** and use the cases in L14. **Simulate State Machine** reports the phases and final state for comparison with the expected results.
+Create the State Machine and choose **Order**. Use **Add State** for states in its lifecycle. Connect transitions and name each event and outcome to show what enables the change and where it leads. To verify whether an event is accepted or rejected, define the executable contract with **Edit Executable State Machine** and use the cases in L14. **Simulate State Machine** reports the phases and final state for comparison with the expected results.
 
 **Check.** Every state belongs to the intended lifecycle. Returning a confirmed order to waiting requires a declared event, and the negative case has a path. The current profile supports flat machines with one active state at a time. Composite states and orthogonal regions require a different execution model. For retries and delivery behavior, make the messaging policy explicit. Use live order data if you need to observe actual state changes.
 
@@ -1531,9 +1531,9 @@ A Deployment diagram shows which nodes host applications, data, and artifacts. G
 
 Use Deployment to discuss placement, such as separating the web application and API, locating persistence, setting environment boundaries, or distributing artifacts. Use C4 Container to describe application responsibilities and Deployment to locate them on hosts.
 
-Open **10 Distribuzione locale progettata**. **Host Web** hosts **Web bundle**. **Host API** hosts **API ESM** and **API Mercato**. **Host dati** hosts **Archivio Mercato**. The title identifies the example as a designed local deployment.
+Open **10 Proposed Local Deployment**. **Web Host** hosts **Web bundle**. **API Host** hosts **API ESM** and **Marketplace API**. **Data Host** hosts **Marketplace Store**. The title identifies the example as a designed local deployment.
 
-![Deployment diagram showing host nodes and the parts they host](images/atlante-10.png)
+![Deployment diagram showing host nodes and the parts they host](images/atlas-10.png)
 
 #### Elements and properties
 
@@ -1550,7 +1550,7 @@ Look in the Architecture, Data, and Infrastructure picker categories for less co
 
 #### Construction and checks
 
-Define the hosts, add existing artifacts and applications, and connect them with **Hosts**. Every part now has a planned environment for running or storing it. Set the environment and technology in its properties to distinguish the lab's local deployment from a production proposal. Declare architectural ownership independently of **Hosts**. Belonging to the API and running on **Host API** describe different aspects of the same part. Drag cards to adjust the layout and use model properties or relationships to update the design.
+Define the hosts, add existing artifacts and applications, and connect them with **Hosts**. Every part now has a planned environment for running or storing it. Set the environment and technology in its properties to distinguish the lab's local deployment from a production proposal. Declare architectural ownership independently of **Hosts**. Belonging to the API and running on **API Host** describe different aspects of the same part. Drag cards to adjust the layout and use model properties or relationships to update the design.
 
 **Check.** For every application, you can point to the planned location and distinguish the node, software, and data. Label the diagram as a design or record the evidence for an observed deployment. Use your deployment tools to start services, provision infrastructure, and discover running components. See Network (D16) for protocols and communication boundaries.
 
@@ -1562,9 +1562,9 @@ A Class diagram specifies the software types that implement a design and the att
 
 Use Class to explain a rich domain, a particular interface, or a collaboration between a few types. Select the types that matter to the design decision.
 
-Open **11 Classi e repository**. `CheckoutService` depends on `Order` and `OrderRepository`. `Order` contains `orderId`, `totalCents`, and `confirm`. The interface exposes `save`. The method's text result illustrates the design. Define typed inputs and results in the Blueprint for a complete executable contract.
+Open **11 Classes and Repositories**. `CheckoutService` depends on `Order` and `OrderRepository`. `Order` contains `orderId`, `totalCents`, and `confirm`. The interface exposes `save`. The method's text result illustrates the design. Define typed inputs and results in the Blueprint for a complete executable contract.
 
-![Class diagram showing types, attributes, methods, and an interface](images/atlante-11.png)
+![Class diagram showing types, attributes, methods, and an interface](images/atlas-11.png)
 
 #### Elements and compartments
 
@@ -1592,11 +1592,11 @@ A Use Case diagram shows what each actor can achieve and which system owns those
 
 #### When to use it
 
-Use Use Case to agree on functional scope with users and stakeholders before designing screens. **Richiedere reso** (request a return) expresses a user goal. Modal layout belongs in the interface design.
+Use Use Case to agree on functional scope with users and stakeholders before designing screens. **Request Return** (request a return) expresses a user goal. Modal layout belongs in the interface design.
 
-Open **12 Casi d’uso**. **Cliente** can confirm a purchase and request a return, and **Assistenza** handles returns. Purchase confirmation includes payment authorization. Applying a coupon extends confirmation only when a coupon is present. The coupon is an optional design example.
+Open **12 Use Cases**. **Customer** can confirm a purchase and request a return, and **Support** handles returns. Purchase confirmation includes payment authorization. Applying a coupon extends confirmation only when a coupon is present. The coupon is an optional design example.
 
-![Use Case diagram showing actors, goals, and include and extend relationships](images/atlante-12.png)
+![Use Case diagram showing actors, goals, and include and extend relationships](images/atlas-12.png)
 
 #### Elements
 
@@ -1609,11 +1609,11 @@ Open **12 Casi d’uso**. **Cliente** can confirm a purchase and request a retur
 | Include | Points from the base use case to the behavior it always includes. |
 | Extend | Points from the additional behavior to the base use case. Declare the extension condition. |
 
-**Mercato** owns the use cases. The actors remain external to the product boundary even when their cards are nearby. If the diagram omits the boundary card, check containment in the properties or textual reading.
+**Marketplace** owns the use cases. The actors remain external to the product boundary even when their cards are nearby. If the diagram omits the boundary card, check containment in the properties or textual reading.
 
 #### Procedure and arrow direction
 
-Add the two existing actors and the four use cases. Associate **Cliente** with **Confermare acquisto** and **Richiedere reso**, and associate **Assistenza** with **Richiedere reso**. Draw **Include** from **Confermare acquisto** to **Autorizzare pagamento**, since authorization is required. Draw **Extend** from **Applicare coupon** to **Confermare acquisto** and use **coupon presente** as its condition. The direction identifies which behavior extends the base use case.
+Add the two existing actors and the four use cases. Associate **Customer** with **Confirm Purchase** and **Request Return**, and associate **Support** with **Request Return**. Draw **Include** from **Confirm Purchase** to **Authorize Payment**, since authorization is required. Draw **Extend** from **Apply Coupon** to **Confirm Purchase** and use **coupon provided** as its condition. The direction identifies which behavior extends the base use case.
 
 Ordito centers names in ovals that resize to fit the text. After an edit, use **Diagram > Arrange** and **Fit Diagram** to arrange the view. **Include** and **Extend** show required and optional behavior. Activity and Sequence describe the order of steps. Contracts and Given/When/Then cases specify verifiable requirements.
 
@@ -1627,16 +1627,16 @@ Components collaborate through shared contracts. Use this view to show who provi
 
 Use this view to discuss substitutability, public contracts, and dependencies between modules. It complements C4 Component, which details the internals of one subject container.
 
-Open **13 Componenti e interfacce**. **Checkout** exposes **Contratto acquisto**, and **Registro esiti** provides `OrderRepository`. This is the same interface used in the Class view.
+Open **13 Components and Interfaces**. **Checkout** exposes **Checkout Contract**, and **Outcome Log** provides `OrderRepository`. This is the same interface used in the Class view.
 
-![UML Component diagram showing implementations and shared contracts](images/atlante-13.png)
+![UML Component diagram showing implementations and shared contracts](images/atlas-13.png)
 
 #### Elements and bindings
 
 | Element | Role in the view |
 | --- | --- |
 | Component | Unit of responsibility with an interface boundary. |
-| Contract | Shared contract definition, such as **Contratto acquisto**. |
+| Contract | Shared contract definition, such as **Checkout Contract**. |
 | Interface Contract | Interface with operations or members, such as `OrderRepository`. |
 | Application / Container | Application context when it helps place components. |
 | Ports and operations in the Blueprint | Required and provided interfaces and their actual bindings. Declare these alongside any relationships shown on the canvas. |
@@ -1645,11 +1645,11 @@ Use Ordito's notation symbols on the canvas. In the Blueprint, complete the inpu
 
 #### Relationships and checks
 
-**Implementation** points from the component to the contract it provides. **Dependency** shows who uses a contract or another responsibility. The **fornisce persistenza** relationship describes the intended role of **Registro esiti**. Use implementation evidence and compatibility checks to verify the adapter, types, and policies.
+**Implementation** points from the component to the contract it provides. **Dependency** shows who uses a contract or another responsibility. The **provides persistence** relationship describes the intended role of **Outcome Log**. Use implementation evidence and compatibility checks to verify the adapter, types, and policies.
 
-Create the view and add the four existing identities. Use **Diagram > Contents > Add Existing Relationship** to include the Implementation from **Checkout** to **Contratto acquisto** and the Communication from Checkout to **Registro esiti**, preserving their definitions. Then create the Implementation from **Registro esiti** to `OrderRepository`. To check consumer and provider compatibility, declare each required and provided interface in the Blueprint and specify how their operations and types correspond. Check diagnostics before review for missing or incompatible declarations.
+Create the view and add the four existing identities. Use **Diagram > Contents > Add Existing Relationship** to include the Implementation from **Checkout** to **Checkout Contract** and the Communication from Checkout to **Outcome Log**, preserving their definitions. Then create the Implementation from **Outcome Log** to `OrderRepository`. To check consumer and provider compatibility, declare each required and provided interface in the Blueprint and specify how their operations and types correspond. Check diagnostics before review for missing or incompatible declarations.
 
-**Check.** The contract belongs to the intended provider, providers and consumers are identifiable, and the Interface Contract is separate from the **Pagina acquisto** screen. If you change a shared signature, open **Show Change Impact** and check which consumers must adapt. Run the generation readiness checks separately from saving the diagram.
+**Check.** The contract belongs to the intended provider, providers and consumers are identifiable, and the Interface Contract is separate from the **Checkout Page** screen. If you change a shared signature, open **Show Change Impact** and check which consumers must adapt. Run the generation readiness checks separately from saving the diagram.
 
 ### D14. Package – Organize modules and dependency direction
 
@@ -1659,9 +1659,9 @@ A Package diagram groups software into modules or layers and shows the direction
 
 Use Package to discuss layers, organizational boundaries, and dependency direction. You can use it to organize a single application, with all its packages deployed together.
 
-Open **14 Moduli applicativi**. **Applicazione** uses rules from **Dominio**. **Adapter** implements domain contracts and connects to application use cases. The lab places domain rules at the center and has the adapters depend on them.
+Open **14 Application Modules**. **Application** uses rules from **Domain**. **Adapter** implements domain contracts and connects to application use cases. The lab places domain rules at the center and has the adapters depend on them.
 
-![Package diagram showing three logical groups and their declared dependencies](images/atlante-14.png)
+![Package diagram showing three logical groups and their declared dependencies](images/atlas-14.png)
 
 #### Elements and boundaries
 
@@ -1672,11 +1672,11 @@ Open **14 Moduli applicativi**. **Applicazione** uses rules from **Dominio**. **
 | Containment | Declared organizational relationship with other elements. Set this in the model. |
 | Dependency | Use of another group. It points from the dependent group to the group it uses. |
 
-The picker for this notation offers **Package**. Use it for logical groups so their types carry the intended meaning. Connect **Dominio** to a source folder such as `domain` through an explicit mapping or relevant evidence.
+The picker for this notation offers **Package**. Use it for logical groups so their types carry the intended meaning. Connect **Domain** to a source folder such as `domain` through an explicit mapping or relevant evidence.
 
 #### Construction and reading
 
-Create three packages with **Add Element**. Connect **Applicazione** to **Dominio** with **usa regole** (uses rules), **Adapter** to **Dominio** with **implementa contratti** (implements contracts), and **Adapter** to **Applicazione** with **collega esterni** (connects external systems). This direction keeps external details dependent on the store's rules and the domain independent of a particular adapter. Name each arrow for the reason the dependency exists. If a dependency runs in both directions, check whether there is a cycle or whether a group covers too much.
+Create three packages with **Add Element**. Connect **Application** to **Domain** with **uses rules** (uses rules), **Adapter** to **Domain** with **implements contracts** (implements contracts), and **Adapter** to **Application** with **connects external systems** (connects external systems). This direction keeps external details dependent on the store's rules and the domain independent of a particular adapter. Name each arrow for the reason the dependency exists. If a dependency runs in both directions, check whether there is a cycle or whether a group covers too much.
 
 An architectural decision record can state a rule about dependencies. Use compiler or project checks to enforce it and source analysis to find a cycle in the implementation. A cycle in the diagram shows what the model declares.
 
@@ -1690,25 +1690,25 @@ A Data Flow diagram follows information from its inputs through transformations 
 
 Use Data Flow to trace sensitive data, order records, price sources, or process results. It helps when a call diagram shows many interactions and readers need to know what information passes through the system.
 
-Open **15 Dati dell’acquisto**. **Cliente** provides **dati acquisto**. **Elabora ordine** reads prices and availability from **Dati catalogo**, writes the confirmed order to **Dati ordini**, and returns the outcome to **Cliente**. The arrows between the customer and the process carry different data and point in different directions.
+Open **15 Checkout Data**. **Customer** provides **checkout data**. **Process Order** reads prices and availability from **Catalog Data**, writes the confirmed order to **Order Data**, and returns the outcome to **Customer**. The arrows between the customer and the process carry different data and point in different directions.
 
-![Data Flow diagram showing inputs, a transformation, stores, and the result](images/atlante-15.png)
+![Data Flow diagram showing inputs, a transformation, stores, and the result](images/atlas-15.png)
 
 #### Elements
 
 | Element | Meaning |
 | --- | --- |
 | Actor / Software System | External source or destination of data in the selected perspective. |
-| Process | Transformation with inputs and outputs, such as **Elabora ordine**. |
+| Process | Transformation with inputs and outputs, such as **Process Order**. |
 | Data Store | Logical store that the system reads or writes. Physical tables can be specified separately. |
 | Resource | Compatible domain object that helps clarify the data shown. |
 | Data Flow | Named transfer from a source to a destination. |
 
-Name the data on the arrows, such as **dati acquisto** (purchase data), **prezzi e disponibilità** (prices and availability), or **ordine confermato** (confirmed order). The process name should explain what transformation it performs.
+Name the data on the arrows, such as **checkout data** (purchase data), **prices and availability** (prices and availability), or **confirmed order** (confirmed order). The process name should explain what transformation it performs.
 
 #### Construction and checks
 
-Add the existing **Cliente** along with the process and two stores. Connect the input and result first to show what **Elabora ordine** transforms. Then add the catalog read and order write to show where data comes from and where it goes. You can create the relationships in a different order. To detail **Elabora ordine**, create a second view with smaller transformations and keep the same inputs and outputs recognizable so readers can compare the two views.
+Add the existing **Customer** along with the process and two stores. Connect the input and result first to show what **Process Order** transforms. Then add the catalog read and order write to show where data comes from and where it goes. You can create the relationships in a different order. To detail **Process Order**, create a second view with smaller transformations and keep the same inputs and outputs recognizable so readers can compare the two views.
 
 Use Sequence or Activity for temporal order and operational evidence to confirm that a real connection took place. Declare payload types, presence, and constraints in the contracts.
 
@@ -1722,15 +1722,15 @@ A Network diagram shows which nodes and applications can communicate across boun
 
 Use this view to discuss intended reachability, service exposure, and infrastructure separation. Identify which details come from observed configuration and which are design decisions.
 
-Open **16 Connessioni progettate**. **Rete client** reaches **Web shop** and the **Rete backend** boundary. The back end exposes **API Mercato**, which communicates with **Archivio Mercato**. HTTPS on port 443 and SQL are declarations in the example's planned topology.
+Open **16 Proposed Connections**. **Client Network** reaches **Web shop** and the **Backend Network** boundary. The back end exposes **Marketplace API**, which communicates with **Marketplace Store**. HTTPS on port 443 and SQL are declarations in the example's planned topology.
 
-![Network diagram showing nodes, applications, and declared protocols](images/atlante-16.png)
+![Network diagram showing nodes, applications, and declared protocols](images/atlas-16.png)
 
 #### Elements and details
 
 | Element | Use |
 | --- | --- |
-| Network Node | Network node or boundary, such as **Rete backend**. Describe whether it is a zone, network, or conceptual endpoint. |
+| Network Node | Network node or boundary, such as **Backend Network**. Describe whether it is a zone, network, or conceptual endpoint. |
 | Deployment Node | Host or other execution node when the connection requires that level of detail. |
 | Application / Container | Service, client, or store that communicates. Reuse identities from other views. |
 | Software System | Internal or external system involved in the connection. |
@@ -1741,7 +1741,7 @@ Add a cloud node, CDN, VPC, or remote database when the design or evidence calls
 
 #### Procedure and checks
 
-Create the two **Network Node** elements to identify network boundaries and add the existing **Web shop**, **API Mercato**, and **Archivio Mercato**. Connect the endpoints with **Communication** and enter the protocols through **Edit Cardinalities and Protocol** so readers can identify which parts communicate and by what means. Mark the topology as planned in its description. If you import an existing configuration, retain the evidence and observed scope so readers can distinguish recorded facts from decisions still to implement.
+Create the two **Network Node** elements to identify network boundaries and add the existing **Web shop**, **Marketplace API**, and **Marketplace Store**. Connect the endpoints with **Communication** and enter the protocols through **Edit Cardinalities and Protocol** so readers can identify which parts communicate and by what means. Mark the topology as planned in its description. If you import an existing configuration, retain the evidence and observed scope so readers can distinguish recorded facts from decisions still to implement.
 
 **Check.** Each relationship identifies which parts communicate and how. Unknown ports remain open, and evidence supports any security or availability claims. See Deployment for artifact placement and C4 for product responsibilities. Provisioning, discovery, security testing, and deployment are separate operations.
 
@@ -1757,7 +1757,7 @@ If Ordito is already running, go to T1. To start from source, install Git, Pytho
 
 #### macOS and Linux
 
-Build the Ordito revision that contains the lab updates and AI workflows covered by this guide. Use the clone for Ordito itself and separate copies of the Mercato and Bottega projects. Close the development instance before updating dependencies or rebuilding. With `nvm` installed, run `nvm install` to install the Node version in `.nvmrc` and `nvm use` to select it in your shell.
+Build the Ordito revision that contains the lab updates and AI workflows covered by this guide. Use the clone for Ordito itself and separate copies of the Marketplace and Order Shop projects. Close the development instance before updating dependencies or rebuilding. With `nvm` installed, run `nvm install` to install the Node version in `.nvmrc` and `nvm use` to select it in your shell.
 
 ```sh
 git clone https://github.com/FrappaF/Ordito.git
@@ -1815,7 +1815,7 @@ JavaScript and TypeScript use the TypeScript language service. HTML, CSS, and JS
 
 #### Terminal and tasks
 
-In the Mercato code module, run `npm test` to check the expected behavior and `npm start` to see what the demo returns. L16 explains each command. First check that you are in the `codice` folder. Use separate or split terminals for concurrent tasks, rename the sessions, and choose the appropriate shell profile. Search terminal output to review what happened and stop a process when needed. Shell integration, when available, shows commands and their status.
+In the Marketplace code module, run `npm test` to check the expected behavior and `npm start` to see what the demo returns. L16 explains each command. First check that you are in the `code` folder. Use separate or split terminals for concurrent tasks, rename the sessions, and choose the appropriate shell profile. Search terminal output to review what happened and stop a process when needed. Shell integration, when available, shows commands and their status.
 
 Use a task to run a build or test sequence that the project already defines. Choose **Tasks: Run Task** from the Command Palette to start a recognized script or task. Tasks can have dependencies, run in the background, and report errors through problem matchers. Start tasks explicitly when you intend to execute them. Standard Ordito imports perform source analysis.
 
@@ -1904,7 +1904,7 @@ When a step gives an unexpected result, use the symptom to identify which prereq
 | I changed a criterion after running tests | Prepare and verify a fresh review. The previous result applies to the previous rule. |
 | The tests were canceled | Run verification again and wait for a completed result. |
 | A file blocks **Undo** | Compare the file and preserve subsequent manual edits. Restore the file only if you intend to undo those changes. |
-| Import stops at the inventory | **Source Inventory Ready** presents the evidence. To prepare views, choose **Explore Architecture** as in L17. |
+| Import stops at the inventory | **Ready to explore** indicates you can inspect code evidence. To prepare views, choose **Explore Architecture** as in L17. |
 | Diagram generation stopped | Open **Activity Details**, find the pending step, and use **Continue Generation** to resume from the checkpoint. |
 | Code verification fails | In **AI Code Review**, read **Verification Output** and the feature diff. Use **Repair Failing Features** if available, then verify again before applying. |
 | Source evidence is stale | Refresh the analysis to use current sources. The old location may now point to different code. |
@@ -1990,7 +1990,7 @@ Use this glossary to describe what you have designed, reviewed, applied, or veri
 
 This edition covers the **Structural Blueprint** editor, relationship reuse with **Add Existing Relationship**, and the layered **System Map**. The screenshots show where to find the controls. T2 gives the expected results for the four perspectives on a purchase.
 
-The examples are synthetic and come from the Ordito repository's demo models and the Bottega lab. They are distributed under the project's MIT license. The package contains example data only, with no accounts, credentials, AI histories, or personal Git repositories.
+The examples are synthetic and come from the Ordito repository's demo models and the Order Shop lab. They are distributed under the project's MIT license. The package contains example data only, with no accounts, credentials, AI histories, or personal Git repositories.
 
 The following references describe the notations. Consult the forms and scope documented in this guide for the constructs Ordito supports. [C4 System Context](https://c4model.com/diagrams/system-context) · [C4 Container](https://c4model.com/diagrams/container) · [C4 Component](https://c4model.com/diagrams/component) · [OMG UML 2.5.1 specification](https://www.omg.org/spec/UML/2.5.1)
 
@@ -2008,13 +2008,13 @@ Open the same map from the sidebar as you navigate the project, from the button 
 - Above a diagram, choose **System Map** next to **Diagrams**.
 - In the Command Palette, run **Ordito: Show System Map**. Open the palette with `Cmd+Shift+P` on macOS or `Ctrl+Shift+P` on Windows and Linux.
 
-![System Map with the Cliente filter visible in the filter bar](images/17-system-map-panorama.png)
+![System Map with the Customer filter visible in the filter bar](images/17-system-map-overview.png)
 
 #### Read the map
 
 Read the groups to identify who uses the system, which capability you are looking at, and which responsibilities span multiple capabilities. **Actors** appear on the left. The center column shows **Areas**, then the **Features** in the open area, then the **Internal Elements** of the open feature. **Shared Elements** on the right lists elements shared across features or unassigned to any single feature.
 
-Use **Features Without a Declared Area** if the model has no declared areas. The Bottega Ordini example uses this group to keep its features accessible.
+Use **Features Without a Declared Area** if the model has no declared areas. The Order Shop example uses this group to keep its features accessible.
 
 | Control | Effect |
 | --- | --- |
@@ -2027,13 +2027,13 @@ Use **Features Without a Declared Area** if the model has no declared areas. The
 
 Select an actor and a feature to isolate what the customer needs to make a purchase. Open the feature details while preserving the context. Add an area filter as well so you can practice removing that filter independently.
 
-1. Open **Bottega Ordini** and choose **System Map**. Select the body of the **Cliente** (customer) card to focus on capabilities connected to that actor. **Cliente** appears in the active filter bar.
-2. Select the body of the **Features Without a Declared Area** card. Both the **Cliente** and area filters are now active at the top level.
-3. Select the arrow on the group card to open it. Select the body of **Conferma acquisto** (confirm purchase) to focus on purchases in the customer's context.
-4. Select the arrow on **Conferma acquisto** to inspect the feature's internal and shared responsibilities. The customer, area, and feature filters stay in the filter bar.
-5. Remove the area filter with its **×**. The **Cliente** and **Conferma acquisto** filters remain active. Selecting an already filtered card keeps that filter active.
+1. Open **Order Shop** and choose **System Map**. Select the body of the **Customer** card to focus on capabilities connected to that actor. **Customer** appears in the active filter bar.
+2. Select the body of the **Features Without a Declared Area** card. Both the **Customer** and area filters are now active at the top level.
+3. Select the arrow on the group card to open it. Select the body of **Confirm Purchase** to focus on purchases in the customer's context.
+4. Select the arrow on **Confirm Purchase** to inspect the feature's internal and shared responsibilities. The customer, area, and feature filters stay in the filter bar.
+5. Remove the area filter with its **×**. The **Customer** and **Confirm Purchase** filters remain active. Selecting an already filtered card keeps that filter active.
 
-![Three active filters for the customer, area, and feature, with internal elements visible](images/18-system-map-filtri.png)
+![Three active filters for the customer, area, and feature, with internal elements visible](images/18-system-map-filters.png)
 
 Filters are cumulative. Each criterion narrows the context shared by the active filters. An actor filter retains the internal and shared content of the features linked to that actor. An incompatible combination shows an empty state with all filters still visible. Use a filter's **×** to broaden the results.
 
@@ -2043,7 +2043,7 @@ When you know an object's name, search for it across the whole system, including
 
 Lines summarize declared relationships between the displayed objects. With an actor filter applied, a solid line marks a direct relationship and a dashed line marks a relationship in the feature context. To examine a specific dependency, open **Relationships** to see the original source, target, conditions, and errors. The summary line represents existing relationships.
 
-![Relationships view showing source and target as model identities](images/19-system-map-relazioni.png)
+![Relationships view showing source and target as model identities](images/19-system-map-relationships.png)
 
 Each list has its own pages and counts. Switching the page, level, or tab, or returning from a diagram, preserves filters for the editor session. In a narrow window, the columns stack vertically and the counts and relationship details remain available.
 

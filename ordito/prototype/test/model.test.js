@@ -4,7 +4,7 @@ const {validateModel, renderModel} = require('../src/model');
 const example = require('../examples/checkout.diagram.json');
 test('validates and renders the example', () => {
   assert.equal(validateModel(example), example);
-  assert.match(renderModel(example), /Cliente/);
+  assert.match(renderModel(example), /Customer/);
 });
 test('rejects dangling relationships and duplicate IDs', () => {
   assert.throws(() => validateModel({...example, edges: [{from: 'missing', to: 'order', label: ''}]}));

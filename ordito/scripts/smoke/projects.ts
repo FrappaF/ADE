@@ -61,7 +61,7 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		assert.deepEqual(await messages(), before);
 		await shell.getByRole('button', { name: 'Redo', exact: true }).click();
 		await runCommand(window, 'Ordito: Add Diagram');
-		await completeDiagramForm(window, { feature: 'Acquisizione dati', kind: 'State Diagram', resource: 'Campione', name: 'Ciclo campioni' });
+		await completeDiagramForm(window, { feature: 'Acquisizione dati', kind: 'State Diagram', resource: 'Campione', name: 'Sample Lifecycle' });
 		for (const name of ['Nuovo', 'Archiviato']) {
 			await shell.getByRole('button', { name: 'Add State', exact: true }).click();
 			await enterValue(window, 'Name', name);
@@ -98,16 +98,16 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await copyFile(path.join(root, 'ordito/examples/library.ordito.json'), libraryFile);
 		await copyFile(path.join(root, 'ordito/examples/observatory.ordito.json'), observatoryFile);
 		await openModelFile(window, libraryFile);
-		await shell.getByRole('region', { name: 'Diagram: Servizio prestiti', exact: true }).waitFor();
-		assert.equal(await window.locator('.ordito-sidebar').getByRole('button', { name: 'Ciclo campioni', exact: true }).count(), 0);
-		await searchSystem(window, 'Contract', 'Regole del prestito');
+		await shell.getByRole('region', { name: 'Diagram: Loan Service', exact: true }).waitFor();
+		assert.equal(await window.locator('.ordito-sidebar').getByRole('button', { name: 'Sample Lifecycle', exact: true }).count(), 0);
+		await searchSystem(window, 'Contract', 'Loan Policy');
 		await shell.getByText('This element is not placed in a diagram.', { exact: true }).waitFor();
 		await clickOrditoButton(window, 'Show Change Impact');
 		await shell.getByRole('heading', { name: 'Potential Dependents: 3', exact: true }).waitFor();
-		await chooseOrditoDiagram(window, 'Stati della copia');
+		await chooseOrditoDiagram(window, 'Copy States');
 		await revealOrditoText(window, '2 of 2 declared states visible · 2 visible transitions');
 		await closeCanvasActions(window);
-		await shell.locator('.ordito-node').getByText('Copia', { exact: true }).click();
+		await shell.locator('.ordito-node').getByText('Copy', { exact: true }).click();
 		await clickOrditoButton(window, 'Show Change Impact');
 		await shell.getByRole('heading', { name: 'Potential Dependents: 4', exact: true }).waitFor();
 		await window.screenshot({ path: path.join(evidence, 'independent-library.png') });
@@ -115,12 +115,12 @@ export function createProjectsScenarios(harness: SmokeHarness) {
 		await shell.getByText('No diagrams yet. Open the feature to explore its details or add a diagram.', { exact: true }).waitFor();
 		assert.equal(await shell.locator('.ordito-impact, .ordito-canvas').count(), 0);
 		await shell.getByRole('button', { name: 'Add Diagram', exact: true }).click();
-		await completeDiagramForm(window, { feature: 'Acquisizioni notturne', kind: 'State Diagram', resource: 'Esposizione', resourceContext: 'Coordinatore', name: 'Stati esposizione' });
+		await completeDiagramForm(window, { feature: 'Nighttime Observations', kind: 'State Diagram', resource: 'Exposure', resourceContext: 'Coordinator', name: 'Exposure States' });
 		await runCommand(window, 'Ordito: Include Resource Lifecycle');
 		await revealOrditoText(window, '2 of 2 declared states visible · 1 visible transitions');
-		await searchSystem(window, 'Contract', 'Vincoli ottici');
+		await searchSystem(window, 'Contract', 'Optical Constraints');
 		await clickOrditoButton(window, 'Show Change Impact');
-		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Vincoli ottici', exact: true }).waitFor();
+		await shell.getByRole('heading', { level: 1, name: 'Change Impact: Optical Constraints', exact: true }).waitFor();
 		await shell.getByRole('heading', { name: 'Potential Dependents: 3', exact: true }).waitFor();
 		await shell.locator('.ordito-workspace-bar').getByRole('button', { name: 'Save', exact: true }).click();
 		await shell.getByText('Model Saved Locally', { exact: true }).waitFor();

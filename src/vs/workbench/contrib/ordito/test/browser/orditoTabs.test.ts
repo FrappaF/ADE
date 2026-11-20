@@ -48,7 +48,7 @@ suite('Ordito reusable tabs', () => {
 
 	test('selection and focused actions persist through rerenders and changing the inspected object', () => {
 		const controls = store.add(new OrditoControls());
-		let selection = 'Cliente';
+		let selection = 'Customer';
 		let current: ReturnType<OrditoControls['tabs']> | undefined;
 		const render = () => controls.render(root, () => {
 			root.replaceChildren(); current = controls.tabs(root, 'element-inspector', entries);
@@ -56,9 +56,9 @@ suite('Ordito reusable tabs', () => {
 		});
 		render(); controls.selectTab('element-inspector', 'behavior');
 		assert.ok(controls.focusTarget('edit:behavior'));
-		selection = 'Ordine'; render();
+		selection = 'Order'; render();
 		assert.ok(current);
-		assert.deepStrictEqual({ active: current.activeId, behaviorHidden: current.panels.get('behavior')?.hidden, action: document.activeElement?.textContent }, { active: 'behavior', behaviorHidden: false, action: 'Edit Ordine behavior' });
+		assert.deepStrictEqual({ active: current.activeId, behaviorHidden: current.panels.get('behavior')?.hidden, action: document.activeElement?.textContent }, { active: 'behavior', behaviorHidden: false, action: 'Edit Order behavior' });
 		controls.selectTab('element-inspector', 'architecture', true);
 		assert.deepStrictEqual([current.activeId, document.activeElement], ['architecture', tab('Architecture')]);
 	});

@@ -9,7 +9,7 @@ export function createAtlasFixture(options: { version?: 3 | 4; actors?: number; 
 		: { version: 3, id: 'atlas-test', name: 'Commerce Platform', semantics: { elements: [], relations: [] }, views: [], codeMappings: [], verifications: [] };
 	const { elements, relations } = model.semantics;
 	for (let i = 0; i < config.areas; i++) { elements.push({ id: `area-${i}`, kind: 'container', name: i === 0 ? 'Ordini' : `Area ${i}` }); }
-	for (let i = 0; i < config.actors; i++) { elements.push({ id: `actor-${i}`, kind: 'actor', name: i === 0 ? 'Cliente' : `Operatore ${i}` }); }
+	for (let i = 0; i < config.actors; i++) { elements.push({ id: `actor-${i}`, kind: 'actor', name: i === 0 ? 'Customer' : `Operatore ${i}` }); }
 	for (let i = 0; i < config.shared; i++) { elements.push({ id: `shared-${i}`, kind: 'resource', name: `Registro ${i}` }); }
 	for (let i = 0; i < config.features; i++) {
 		const featureId = `feature-${i}`;

@@ -20,10 +20,10 @@ test('reparenting changes group ownership; same-name roots retain distinct ident
 	const model = structuredClone(checkoutModel);
 	const contract = model.semantics.elements.find(element => element.id === 'payment-contract');
 	contract.parentId = 'purchase';
-	model.semantics.elements.find(element => element.id === 'cart-management').name = 'Conferma acquisto';
+	model.semantics.elements.find(element => element.id === 'cart-management').name = 'Confirm Purchase';
 	const overview = getSystemMap(model);
 	assert.equal(overview.branches.find(branch => branch.root.id === 'purchase').members.find(member => member.element.id === contract.id).depth, 1);
-	assert.deepEqual(overview.branches.filter(branch => branch.root.name === 'Conferma acquisto').map(branch => branch.root.id), ['purchase', 'cart-management']);
+	assert.deepEqual(overview.branches.filter(branch => branch.root.name === 'Confirm Purchase').map(branch => branch.root.id), ['purchase', 'cart-management']);
 	model.semantics = { elements: [], relations: [] };
 	assert.deepEqual(getSystemMap(model), { branches: [], connections: [] });
 });

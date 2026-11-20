@@ -37,7 +37,7 @@ test('published schema and checkout example stay identical to their runtime sour
 
 test('rename, containment move, layout move and serialization preserve identity and references', () => {
 	const service = new SemanticModelService(checkoutModel);
-	service.renameElement('checkout-controller', 'Completa acquisto');
+	service.renameElement('checkout-controller', 'Complete Purchase');
 	service.moveElement('checkout-controller', 'gateway');
 	service.setPosition('purchase-structure', 'checkout-controller', -24, 500);
 	const result = readSemanticModel(JSON.parse(JSON.stringify(service.getSnapshot())));
@@ -46,7 +46,7 @@ test('rename, containment move, layout move and serialization preserve identity 
 		relations: result.semantics.relations,
 		position: result.views[0].nodes.find(node => node.elementId === 'checkout-controller')
 	}, {
-		element: { ...checkoutModel.semantics.elements[3], name: 'Completa acquisto', parentId: 'gateway' },
+		element: { ...checkoutModel.semantics.elements[3], name: 'Complete Purchase', parentId: 'gateway' },
 		relations: checkoutModel.semantics.relations,
 		position: { elementId: 'checkout-controller', x: -24, y: 500 }
 	});

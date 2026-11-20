@@ -1,7 +1,0 @@
-{
-  "name": "bottega-ordini-esempio",
-  "private": true,
-  "type": "module",
-  "scripts": {"test": "node --test", "start": "node src/demo.mjs"},
-  "engines": {"node": ">=24"}
-}

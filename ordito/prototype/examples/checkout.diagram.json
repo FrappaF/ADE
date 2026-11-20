@@ -1,17 +1,17 @@
 {
   "version": 1,
-  "name": "Acquisto — interazioni attore e sistema",
+  "name": "Checkout — Actor and System Interactions",
   "nodes": [
-    {"id": "customer", "kind": "actor", "label": "Cliente"},
+    {"id": "customer", "kind": "actor", "label": "Customer"},
     {"id": "checkout", "kind": "component", "label": "Checkout"},
-    {"id": "payment", "kind": "component", "label": "Servizio pagamenti"},
-    {"id": "order", "kind": "class", "label": "Ordine"},
-    {"id": "confirmed", "kind": "state", "label": "Confermato"}
+    {"id": "payment", "kind": "component", "label": "Payment Service"},
+    {"id": "order", "kind": "class", "label": "Order"},
+    {"id": "confirmed", "kind": "state", "label": "Confirmed"}
   ],
   "edges": [
-    {"from": "customer", "to": "checkout", "label": "conferma acquisto"},
-    {"from": "checkout", "to": "payment", "label": "richiede pagamento"},
-    {"from": "checkout", "to": "order", "label": "crea"},
-    {"from": "order", "to": "confirmed", "label": "pagamento riuscito"}
+    {"from": "customer", "to": "checkout", "label": "confirms purchase"},
+    {"from": "checkout", "to": "payment", "label": "requests payment"},
+    {"from": "checkout", "to": "order", "label": "creates"},
+    {"from": "order", "to": "confirmed", "label": "payment succeeds"}
   ]
 }

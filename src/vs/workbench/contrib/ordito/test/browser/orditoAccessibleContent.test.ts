@@ -21,11 +21,11 @@ suite('Ordito accessible content', () => {
 
 	test('reads diagram identities, both payment outcomes and the current selection without inferring execution', () => {
 		const content = describeOrditoDiagram(state());
-		for (const expected of ['Diagram: Esito pagamento', 'Feature: Conferma acquisto', 'Elements in This Diagram: 4', 'Relationships in This Diagram: 2',
-			'Condition: pagamento autorizzato', 'Condition: pagamento non autorizzato', 'Selected Element: Pagamento rifiutato', 'Read-only', 'not execution results']) {
+		for (const expected of ['Diagram: Payment Outcome', 'Feature: Confirm Purchase', 'Elements in This Diagram: 4', 'Relationships in This Diagram: 2',
+			'Condition: payment authorized', 'Condition: payment not authorized', 'Selected Element: Payment Declined', 'Read-only', 'not execution results']) {
 			assert.ok(content.includes(expected), expected);
 		}
-		assert.ok(!content.includes('legge carrello'));
+		assert.ok(!content.includes('reads cart'));
 	});
 
 	test('a draft with a required interface awaiting its provider still reads its diagram and every diagnostic', () => {
@@ -42,20 +42,20 @@ suite('Ordito accessible content', () => {
 	test('diagram errors keep every diagnostic available without reading an unavailable diagram', () => {
 		const diagnostics = ['Missing endpoint', 'Invalid parent'];
 		const content = describeOrditoDiagram(state({ hasStructuralErrors: true, hasDiagramErrors: true, diagnostics }));
-		assert.deepStrictEqual({ blocked: content.includes('before using its diagrams'), diagnostics: diagnostics.every(message => content.includes(message)), stale: content.includes('Diagram: Esito pagamento') },
+		assert.deepStrictEqual({ blocked: content.includes('before using its diagrams'), diagnostics: diagnostics.every(message => content.includes(message)), stale: content.includes('Diagram: Payment Outcome') },
 			{ blocked: true, diagnostics: true, stale: false });
 	});
 
 	test('distinguishes additional relationships of a shared selection from relationships drawn in the view', () => {
 		const content = describeOrditoDiagram(state({ selectedId: 'payment' }));
 		assert.match(content, /Other Relationships of the Selected Element, Not Shown in This Diagram:/);
-		assert.match(content, /Conferma ordine to Richiedi pagamento/);
+		assert.match(content, /Confirm Order to Request Payment/);
 		assert.match(content, /Relationships in This Diagram: 2/);
 	});
 
 	test('loading, invalid documents and Home never expose the previous diagram as current', () => {
 		const reading = [describeOrditoDiagram(state({ loading: true })), describeOrditoDiagram(state({ error: 'Invalid document' })), describeOrditoDiagram(state({ section: 'home' }))];
-		assert.deepStrictEqual(reading.map(content => ({ stale: content.includes('Esito pagamento'), selected: content.includes('Selected Element:') })),
+		assert.deepStrictEqual(reading.map(content => ({ stale: content.includes('Payment Outcome'), selected: content.includes('Selected Element:') })),
 			[{ stale: false, selected: false }, { stale: false, selected: false }, { stale: false, selected: false }]);
 		assert.ok(reading[1].includes('Invalid document'));
 	});
@@ -77,7 +77,7 @@ suite('Ordito accessible content', () => {
 		model.views.push(view);
 		const before = JSON.stringify(model);
 		const content = describeOrditoDiagram(state({ model, activeView: view, editable: true, selectedId: 'declined' }));
-		assert.deepStrictEqual({ owner: content.includes('Feature: Conferma acquisto'), empty: content.includes('This diagram has no elements.'), staleSelection: content.includes('Selected Element:'), unchanged: JSON.stringify(model) === before },
+		assert.deepStrictEqual({ owner: content.includes('Feature: Confirm Purchase'), empty: content.includes('This diagram has no elements.'), staleSelection: content.includes('Selected Element:'), unchanged: JSON.stringify(model) === before },
 			{ owner: true, empty: true, staleSelection: false, unchanged: true });
 	});
 
@@ -86,14 +86,14 @@ suite('Ordito accessible content', () => {
 		model.codeMappings.push({ id: 'mapping', elementId: 'checkout-controller', file: 'src/checkout.ts', symbol: 'confirm', revision: 'test-revision' });
 		model.verifications.push({ id: 'verification', elementId: 'checkout-controller', criterionId: model.semantics.elements.find(element => element.id === 'checkout-controller')!.behavior!.acceptanceCriteria[0].id, outcome: 'unknown', evidence: 'Declared test fixture', revision: 'test-revision' });
 		const content = describeOrditoDiagram(state({ model, activeView: model.views[0], selectedId: 'checkout-controller', editable: true, dirty: true, saveError: 'Save conflict', diagnostics: ['Legacy classification warning'] }));
-		for (const expected of ['Input: cartId (CartId), Required', 'Output: orderId (OrderId), Required', 'Authorization: Cliente, purchase:own-cart', 'Code mappings: 1. Verification records: 1.', 'Unsaved Changes', 'Save conflict', 'Legacy classification warning']) {
+		for (const expected of ['Input: cartId (CartId), Required', 'Output: orderId (OrderId), Required', 'Authorization: Customer, purchase:own-cart', 'Code mappings: 1. Verification records: 1.', 'Unsaved Changes', 'Save conflict', 'Legacy classification warning']) {
 			assert.ok(content.includes(expected), expected);
 		}
 	});
 
 	test('element details read unplaced contracts without inventing a diagram', () => {
 		const content = describeOrditoDiagram(state({ section: 'element', selectedId: 'payment-contract' }));
-		assert.deepStrictEqual({ details: content.includes('Element Details: Pagamento'), unplaced: content.includes('not placed in a diagram'), related: content.includes('Related Relationships: 2'), staleDiagram: content.includes('Diagram: Esito pagamento') },
+		assert.deepStrictEqual({ details: content.includes('Element Details: Payment'), unplaced: content.includes('not placed in a diagram'), related: content.includes('Related Relationships: 2'), staleDiagram: content.includes('Diagram: Payment Outcome') },
 			{ details: true, unplaced: true, related: true, staleDiagram: false });
 	});
 
@@ -102,7 +102,7 @@ suite('Ordito accessible content', () => {
 		const view = { id: 'sequence', name: 'Purchase Sequence', kind: 'sequence' as const, nodes: [...model.views[0].nodes].reverse(), relationIds: ['show-declined', 'checkout-confirm', 'confirm-order'] };
 		model.views.push(view);
 		const content = describeOrditoDiagram(state({ model, activeView: view, selectedId: 'checkout-controller' }));
-		assert.deepStrictEqual({ declared: content.includes('not observed execution'), firstParticipant: content.includes('1. Ordine (Resource)'), orderedMessages: content.indexOf('mostra errore') < content.indexOf('invia'), condition: content.includes('Condition: pagamento riuscito'), error: content.includes('Error: payment-declined'), contract: content.includes('Input: cartId (CartId), Required') },
+		assert.deepStrictEqual({ declared: content.includes('not observed execution'), firstParticipant: content.includes('1. Order (Resource)'), orderedMessages: content.indexOf('shows error') < content.indexOf('submits'), condition: content.includes('Condition: payment succeeds'), error: content.includes('Error: payment-declined'), contract: content.includes('Input: cartId (CartId), Required') },
 			{ declared: true, firstParticipant: true, orderedMessages: true, condition: true, error: true, contract: true });
 		view.relationIds.push('confirm-feature');
 		view.nodes.push({ elementId: 'purchase', x: 0, y: 0 });
@@ -111,7 +111,7 @@ suite('Ordito accessible content', () => {
 
 	test('state reading names resource ownership and events while preserving historical context', () => {
 		const content = describeOrditoDiagram(state());
-		assert.deepStrictEqual({ resource: content.includes('Resource: Ordine. Visible states: 3 of 3. Visible transitions: 2.'), ownership: content.includes('State In attesa belongs to resource Ordine.'), context: content.includes('Additional context: 1 elements and 0 relationships'), event: content.includes('Transition Event: pagamento riuscito'), guard: content.includes('Condition: pagamento autorizzato'), intent: content.includes('no initial or final state is inferred') },
+		assert.deepStrictEqual({ resource: content.includes('Resource: Order. Visible states: 3 of 3. Visible transitions: 2.'), ownership: content.includes('State Pending belongs to resource Order.'), context: content.includes('Additional context: 1 elements and 0 relationships'), event: content.includes('Transition Event: payment succeeds'), guard: content.includes('Condition: payment authorized'), intent: content.includes('no initial or final state is inferred') },
 			{ resource: true, ownership: true, context: true, event: true, guard: true, intent: true });
 	});
 
@@ -121,7 +121,7 @@ suite('Ordito accessible content', () => {
 		model.verifications.push({ id: 'fixture-passed', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'passed', evidence: 'fixture-result', revision: 'fixture-rev-1' },
 			{ id: 'fixture-failed', elementId: 'checkout-controller', criterionId: 'purchase-success', outcome: 'failed', evidence: 'fixture-other-result', revision: 'fixture-rev-2' });
 		const content = describeOrditoDiagram(state({ model, section: 'impact', selectedId: 'payment-contract' }));
-		assert.deepStrictEqual({ impact: content.includes('Change Impact: Pagamento'), reason: content.includes('Realization to Pagamento'), revision: content.includes('Revision: fixture-rev-2'), failed: content.includes('Recorded Failed'), passed: content.includes('Recorded Passed'), mixed: content.includes('Different Outcomes Recorded'), missing: content.includes('No Records for Criterion purchase-declined'), limits: content.includes('do not establish the current implementation'), stale: content.includes('Diagram: Esito pagamento') },
+		assert.deepStrictEqual({ impact: content.includes('Change Impact: Payment'), reason: content.includes('Realization to Payment'), revision: content.includes('Revision: fixture-rev-2'), failed: content.includes('Recorded Failed'), passed: content.includes('Recorded Passed'), mixed: content.includes('Different Outcomes Recorded'), missing: content.includes('No Records for Criterion purchase-declined'), limits: content.includes('do not establish the current implementation'), stale: content.includes('Diagram: Payment Outcome') },
 			{ impact: true, reason: true, revision: true, failed: true, passed: true, mixed: true, missing: true, limits: true, stale: false });
 		assert.ok(!describeOrditoDiagram(state({ model, section: 'impact', selectedId: 'payment-contract', loading: true })).includes('Potential Dependents'));
 	});
@@ -135,7 +135,7 @@ suite('Ordito accessible content', () => {
 
 	test('system map reads hierarchy, unplaced elements and all relationship conditions without a stale diagram', () => {
 		const content = describeOrditoDiagram(state({ section: 'map' }));
-		assert.deepStrictEqual({ map: content.includes('System Map.'), hierarchy: content.includes('parent: Conferma acquisto'), contract: content.includes('Pagamento (Contract)'), condition: content.includes('Condition: pagamento non autorizzato'), stale: content.includes('Selected Element:') || content.includes('Diagram: Esito pagamento') },
+		assert.deepStrictEqual({ map: content.includes('System Map.'), hierarchy: content.includes('parent: Confirm Purchase'), contract: content.includes('Payment (Contract)'), condition: content.includes('Condition: payment not authorized'), stale: content.includes('Selected Element:') || content.includes('Diagram: Payment Outcome') },
 			{ map: true, hierarchy: true, contract: true, condition: true, stale: false });
 		assert.ok(!describeOrditoDiagram(state({ section: 'map', loading: true })).includes('Group:'));
 	});

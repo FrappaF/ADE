@@ -30,8 +30,8 @@ suite('Ordito inspector information hierarchy', () => {
 			semantics: {
 				elements: [
 					{ id: 'crm', kind: 'component', name: 'Customer Service' },
-					{ id: 'client', kind: 'entity', name: 'Cliente', parentId: 'crm', description: 'A customer registered in the CRM.', details: { technology: 'PostgreSQL', environment: 'Production', members: [{ name: 'customerId', type: 'string', kind: 'attribute', key: 'primary', required: true }] } },
-					{ id: 'order', kind: 'entity', name: 'Ordine' }
+					{ id: 'client', kind: 'entity', name: 'Customer', parentId: 'crm', description: 'A customer registered in the CRM.', details: { technology: 'PostgreSQL', environment: 'Production', members: [{ name: 'customerId', type: 'string', kind: 'attribute', key: 'primary', required: true }] } },
+					{ id: 'order', kind: 'entity', name: 'Order' }
 				],
 				relations: [{ id: 'orders', kind: 'association', from: 'client', to: 'order', name: 'Places Orders', condition: 'active', errorCode: 'NOT_ACTIVE' }]
 			},
@@ -199,7 +199,7 @@ suite('Ordito inspector information hierarchy', () => {
 		assert.strictEqual(document.activeElement, button('Edit Behavioral Contract'));
 		f.project.selectedId = 'order'; f.render();
 		assert.deepStrictEqual([tab('Behavior').getAttribute('aria-selected'), panel('Behavior').hidden], ['true', false]);
-		assert.ok(detail.querySelector('h2')?.textContent?.includes('Ordine'));
+		assert.ok(detail.querySelector('h2')?.textContent?.includes('Order'));
 	});
 
 	test('the current diagram is explicit and other diagrams remain navigable from every tab', () => {

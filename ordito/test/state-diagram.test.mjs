@@ -6,7 +6,7 @@ const { readSemanticModel } = await import('../../src/vs/workbench/contrib/ordit
 
 const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ordito/common/visualEditing.ts');
 const { getStateDiagram } = await import('../../src/vs/workbench/contrib/ordito/common/stateDiagram.ts');
-const create = () => applyVisualEdit(checkoutModel, { kind: 'stateDiagram', id: 'lifecycle', name: 'Ordine · Stati', featureId: 'purchase', resourceId: 'order' });
+const create = () => applyVisualEdit(checkoutModel, { kind: 'stateDiagram', id: 'lifecycle', name: 'Order · States', featureId: 'purchase', resourceId: 'order' });
 const view = model => model.views.find(view => view.id === 'lifecycle');
 
 test('resource lifecycle includes shared states and transitions once, preserving existing positions and other views', () => {
@@ -20,14 +20,14 @@ test('resource lifecycle includes shared states and transitions once, preserving
 });
 
 test('new states and self transitions belong to the chosen resource and round-trip without format changes', () => {
-	let model = applyVisualEdit(create(), { kind: 'element', id: 'cancelled', elementKind: 'state', parentId: 'order', name: 'Annullato', viewId: 'lifecycle' });
-	model = applyVisualEdit(model, { kind: 'relation', id: 'retry', viewId: 'lifecycle', relationKind: 'transition', from: 'cancelled', to: 'cancelled', name: 'Riprova', condition: 'Richiesta valida' });
+	let model = applyVisualEdit(create(), { kind: 'element', id: 'cancelled', elementKind: 'state', parentId: 'order', name: 'Cancelled', viewId: 'lifecycle' });
+	model = applyVisualEdit(model, { kind: 'relation', id: 'retry', viewId: 'lifecycle', relationKind: 'transition', from: 'cancelled', to: 'cancelled', name: 'Riprova', condition: 'Valid request' });
 	model = readSemanticModel(JSON.parse(JSON.stringify(model)));
 	const group = getStateDiagram(model, view(model)).groups[0];
 	assert.deepEqual({ version: model.version, states: group.states.map(state => [state.id, state.parentId]), transition: group.transitions[0] },
-		{ version: 3, states: [['cancelled', 'order']], transition: { id: 'retry', kind: 'transition', from: 'cancelled', to: 'cancelled', name: 'Riprova', condition: 'Richiesta valida' } });
-	model = applyVisualEdit(model, { kind: 'resource', id: 'shipment', name: 'Spedizione', parentId: 'purchase' });
-	model = applyVisualEdit(model, { kind: 'stateDiagram', id: 'shipment-states', name: 'Spedizione · Stati', featureId: 'purchase', resourceId: 'shipment' });
+		{ version: 3, states: [['cancelled', 'order']], transition: { id: 'retry', kind: 'transition', from: 'cancelled', to: 'cancelled', name: 'Riprova', condition: 'Valid request' } });
+	model = applyVisualEdit(model, { kind: 'resource', id: 'shipment', name: 'Shipment', parentId: 'purchase' });
+	model = applyVisualEdit(model, { kind: 'stateDiagram', id: 'shipment-states', name: 'Shipment · States', featureId: 'purchase', resourceId: 'shipment' });
 	assert.equal(model.views.at(-1).nodes[0].elementId, 'shipment');
 });
 
@@ -50,8 +50,8 @@ test('cross-resource, unsupported and invalid transition edits are rejected atom
 test('event and guard edits share semantic identity while removing references preserves the system', () => {
 	let model = applyVisualEdit(create(), { kind: 'stateLifecycle', viewId: 'lifecycle', resourceId: 'order' });
 	const others = structuredClone(model.views.slice(0, -1));
-	model = applyVisualEdit(model, { kind: 'renameRelation', id: 'order-confirmed', name: 'Pagamento autorizzato' });
-	model = applyVisualEdit(model, { kind: 'condition', id: 'order-confirmed', condition: 'Importo valido' });
+	model = applyVisualEdit(model, { kind: 'renameRelation', id: 'order-confirmed', name: 'Payment Authorized' });
+	model = applyVisualEdit(model, { kind: 'condition', id: 'order-confirmed', condition: 'Valid amount' });
 	const shared = structuredClone(model.semantics);
 	model = applyVisualEdit(model, { kind: 'exclude', viewId: 'lifecycle', id: 'order-confirmed', target: 'relation' });
 	model = applyVisualEdit(model, { kind: 'exclude', viewId: 'lifecycle', id: 'pending', target: 'element' });

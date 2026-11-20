@@ -18,7 +18,7 @@ exports.run = async function () {
   await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   const panel = await api.openModel(resource);
   assert.ok(panel, 'The development extension must open a webview');
-  assert.match(panel.webview.html, /Acquisto/);
+  assert.match(panel.webview.html, /Checkout — Actor and System Interactions/);
   async function replace(text) {
     const edit = new vscode.WorkspaceEdit();
     edit.replace(resource, new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)), text);
