@@ -12,6 +12,7 @@ import { adeInteractionRows } from '../../browser/adeInteractionContent.js';
 import { interactionFixture } from '../common/interactionFixture.js';
 import '../../browser/media/ade.css';
 import { renderAdeSequence } from '../../browser/adeSequence.js';
+import { renderAdeDescriptiveActivity } from '../../browser/adeDescriptiveActivity.js';
 
 suite('A.D.E sequence renderer', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite(); let root: HTMLElement;
@@ -59,5 +60,14 @@ suite('A.D.E sequence renderer', () => {
 		for (const arrow of root.querySelectorAll<SVGPathElement>('[data-occurrence-id="success"], [data-occurrence-id="failure"]')) { assert.ok(arrow.getBBox().y + arrow.getBBox().height < frame.y + frame.height, 'the alternative frame encloses its message arrows'); }
 		messages[1].focus(); messages[1].click();
 		assert.deepStrictEqual([document.activeElement === messages[1], selected, model], [true, ['build'], before]);
+
+		dom.clearNode(root);
+		const activity = disposables.add(new AdeControls());
+		renderAdeDescriptiveActivity(root, model, view.interactionId, activity, id => selected.push(id), 'save');
+		for (const selector of ['button[data-occurrence-id="save"]', 'button.ade-sequence-frame-label', 'button.ade-sequence-operand']) {
+			const button = root.querySelector<HTMLButtonElement>(selector)!;
+			button.focus(); button.click();
+		}
+		assert.deepStrictEqual([selected, root.querySelector('[data-occurrence-id="save"]')?.getAttribute('aria-pressed'), model], [['build', 'save', 'outcome', 'saved'], 'true', before]);
 	});
 });

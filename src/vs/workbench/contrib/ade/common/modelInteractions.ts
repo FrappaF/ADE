@@ -35,7 +35,8 @@ export function interactionValueModel(model: SemanticModelV4): SemanticModelV4 {
 	return { ...model, foundation: { ...model.foundation, types } };
 }
 function interactionFrameSteps(frame: ModelFrame): string[][] {
-	return 'steps' in frame ? [frame.steps] : 'operands' in frame ? frame.operands.map(operand => operand.steps) : [];
+	if (frame.kind === 'alt' || frame.kind === 'par') { return frame.operands.map(operand => operand.steps); }
+	return frame.kind === 'opt' || frame.kind === 'loop' || frame.kind === 'critical' ? [frame.steps] : [];
 }
 function operationScope(fields: ModelField[]): ExpressionScope { return Object.fromEntries(fields.map(field => [field.id!, fieldValueType(field)])); }
 function booleanExpression(model: SemanticModelV4, expression: ModelExpression, scope: ExpressionScope): string[] {
@@ -179,10 +180,11 @@ export async function executeInteractionProgram(program: InteractionProgram, inp
 					const index = consumed.get(id) ?? 0; consumed.set(id, index + 1); const reply = replies[id]?.[index];
 					if (!reply || !Number.isSafeInteger(reply.delayMs) || reply.delayMs < 0 || reply.delayMs > 30000 || !!reply.outputs === !!reply.error) { fail('replyContract', id); }
 					await new Promise<void>((resolve, reject) => {
-						let timer: ReturnType<typeof setTimeout>, deadline: ReturnType<typeof setTimeout>;
 						const done = (reason?: string) => { clearTimeout(timer); clearTimeout(deadline); currentSignal.removeEventListener('abort', cancel); if (reason) { record({ kind: reason === 'timeout' ? 'timeout' : 'cancel', id }); reject(new InteractionFailure(reason, id)); } else { resolve(); } };
-						const cancel = () => done('cancelled'); currentSignal.addEventListener('abort', cancel, { once: true });
-						timer = setTimeout(() => done(), reply.delayMs); deadline = setTimeout(() => done('timeout'), execution.timeoutMs);
+						const cancel = () => done('cancelled');
+						const timer = setTimeout(() => done(), reply.delayMs);
+						const deadline = setTimeout(() => done('timeout'), execution.timeoutMs);
+						currentSignal.addEventListener('abort', cancel, { once: true });
 						if (currentSignal.aborted) { cancel(); }
 					});
 					if (reply.error) {
@@ -235,7 +237,7 @@ export function describeModelInteraction(model: SemanticModelV4, id: string): { 
 		};
 		const message = (id: string, depth: number) => { const call = model.foundation.occurrences.find(entry => entry.id === id)!; rows.push({ id, depth, kind: 'message', text: call.name ?? id }); };
 		const edges = interaction.description!.order.map(edge => ({ before: owner(edge.before), after: owner(edge.after) })).filter(edge => edge.before !== edge.after);
-		const groups = ordered([...new Set(interaction.occurrenceIds.map(owner))], edges);
+		const groups = ordered([...new Set([...interaction.occurrenceIds.map(owner), ...interaction.frameIds])], edges);
 		// A frame can surround an external event. Collapsing it may cycle even though occurrence order is valid.
 		if (!groups.length && interaction.occurrenceIds.length) {
 			if (scenarioUnorderedOccurrences(model, id).size) { rows.push({ id: id + '.partialOrder', depth: 0, kind: 'unordered', text: 'partialOrder' }); }
@@ -265,7 +267,19 @@ export function describeModelInteraction(model: SemanticModelV4, id: string): { 
 		if (visited.has(id)) { rows.push({ id, depth, kind: 'invalid', text: id }); continue; } visited.add(id);
 		const call = model.foundation.occurrences.find(entry => entry.id === id), frame = model.foundation.frames.find(entry => entry.id === id);
 		if (call) { const operation = model.foundation.blueprint?.operations.find(entry => entry.id === call.operationId); rows.push({ id, depth, kind: 'message', text: `${call.from} → ${call.to}: ${operation?.name ?? call.operationId} · ${call.execution?.mode ?? 'draft'} · ${call.execution?.timeoutMs ?? '?'} ms → ${call.execution?.resultId ?? '?'}` }); }
-		else if (frame) { const { occurrenceIds, ...policy } = frame; rows.push({ id, depth, kind: frame.kind, text: canonicalJson(policy) }); if ('operands' in frame) { for (const operand of frame.operands) { rows.push({ id: operand.id, depth: depth + 1, kind: 'operand', text: 'guard' in operand && operand.guard === null ? 'else' : operand.id }); walk(operand.steps, depth + 2); } } else { for (const steps of interactionFrameSteps(frame)) { walk(steps, depth + 1); } } }
+		else if (frame) {
+			const { occurrenceIds, ...policy } = frame;
+			rows.push({ id, depth, kind: frame.kind, text: canonicalJson(policy) });
+			if (frame.kind === 'alt' || frame.kind === 'par') {
+				for (const [index, operand] of frame.operands.entries()) {
+					const fallback = frame.kind === 'alt' && frame.operands[index].guard === null;
+					rows.push({ id: operand.id, depth: depth + 1, kind: 'operand', text: fallback ? 'else' : operand.id });
+					walk(operand.steps, depth + 2);
+				}
+			} else {
+				for (const steps of interactionFrameSteps(frame)) { walk(steps, depth + 1); }
+			}
+		}
 	} };
 	walk(interaction?.execution?.steps ?? [], 0); return rows;
 }

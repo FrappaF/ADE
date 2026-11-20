@@ -515,7 +515,9 @@ export class AdeEditor extends EditorPane {
 		help.textContent = interaction
 			? interaction.execution
 				? localize('ade.sequence.projectedHelp', "Select a participant, message, frame or branch to inspect its properties. Edit the linked behavior to change the diagram. Focus the background and use arrow keys to pan.")
-				: localize('ade.interaction.descriptiveHelp', "Select an item to inspect its properties. Focus the background and use arrow keys to pan.")
+				: this.project.editable
+					? localize('ade.interaction.descriptiveEditingHelp', "Select an item to edit it in Properties. Use Edit Scenario in the Diagram menu to change the linked flow. Focus the background and use arrow keys to pan.")
+					: localize('ade.interaction.descriptiveHelp', "Select an item to inspect its properties. Focus the background and use arrow keys to pan.")
 			: view.kind === 'sequence' && this.project.editable
 			? localize('ade.sequence.help', "Select a participant or message to inspect its shared contract. Use Properties to order participants and messages or remove them from this diagram. Focus the background and use arrow keys to pan.")
 			: view.kind === 'sequence' ? localize('ade.sequence.readonlyHelp', "Select a participant or message to inspect its shared contract. Read Diagram presents the sequence as text. Focus the background and use arrow keys to pan.")

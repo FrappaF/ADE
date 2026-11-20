@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type EvidenceRecord, type ModelView, type SemanticElement, type SemanticModel } from './modelTypes.js';
+import { type EvidenceRecord, type ModelInteraction, type ModelView, type SemanticElement, type SemanticModel } from './modelTypes.js';
 import { canonicalJson, type ModelJson } from './modelSerialization.js';
 
 export interface ModelCodeChange {
@@ -54,9 +54,14 @@ function codeView({ nodes, spec, ...view }: ModelView) {
 	return { ...view, ...(spec ? { intent: spec.intent } : {}), elementIds: nodes.map(node => node.elementId) };
 }
 
+function codeInteraction({ authored, ...interaction }: ModelInteraction) {
+	return interaction;
+}
+
 /** The implementation-relevant model snapshot, independent of canvas layout. */
 export function codeUpdateContent(model: SemanticModel): object {
-	return { ...model, views: model.views.map(codeView) };
+	return { ...model, views: model.views.map(codeView), ...((model.version === 4 || model.version === 5)
+		? { foundation: { ...model.foundation, interactions: model.foundation.interactions.map(codeInteraction) } } : {}) };
 }
 
 /** Compare identified declarations individually even when they belong to nested foundation sections. */
@@ -69,8 +74,9 @@ function codeRecords(model: SemanticModel): Record<string, readonly { id: string
 		verifications: model.verifications
 	};
 	if (model.version === 4 || model.version === 5) {
-		const { blueprint, platform, migration, ...collections } = model.foundation;
+		const { blueprint, platform, migration, interactions, ...collections } = model.foundation;
 		for (const [key, entries] of Object.entries(collections)) { records[`foundation.${key}`] = entries; }
+		records['foundation.interactions'] = interactions.map(codeInteraction);
 		for (const [key, entries] of Object.entries(blueprint ?? {})) { records[`foundation.blueprint.${key}`] = entries; }
 		records['foundation.platform.bindings'] = platform.bindings;
 		const migrationRecords = migration ? [{ id: model.id, ...migration }] : [];
@@ -121,9 +127,25 @@ function changedFields(before: Record<string, unknown>, after: Record<string, un
 
 export function describeModelCodeChanges(changes: readonly ModelCodeChange[]): ModelCodeUpdateItem[] {
 	const scalar = (value: unknown) => value === null || typeof value !== 'object';
-	const display = (value: unknown) => {
-		const text = value === undefined ? '—' : String(value);
-		return text.length > 160 ? text.slice(0, 159) + '…' : text;
+	const fieldValue = (record: Record<string, unknown>, field: string): unknown => {
+		let value: unknown = record;
+		for (const key of field.split('.')) {
+			value = value !== null && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, key)?.value : undefined;
+		}
+		return value;
+	};
+	const displayPair = (previous: unknown, current: unknown) => {
+		const before = previous === undefined ? '—' : String(previous);
+		const after = current === undefined ? '—' : String(current);
+		if (Math.max(before.length, after.length) <= 160) { return { before, after }; }
+		let difference = 0;
+		while (difference < before.length && difference < after.length && before[difference] === after[difference]) { difference++; }
+		const start = Math.max(0, difference - 45);
+		const display = (text: string) => {
+			const end = start + 158;
+			return (start ? '…' : '') + text.slice(start, end) + (end < text.length ? '…' : '');
+		};
+		return { before: display(before), after: display(after) };
 	};
 	return changes.map(({ collection, id, before, after }) => {
 		const record = (after ?? before) as Record<string, unknown>;
@@ -131,15 +153,17 @@ export function describeModelCodeChanges(changes: readonly ModelCodeChange[]): M
 		if (!before || !after) { return { collection, id, label: label ?? id, kind: before ? 'removed' : 'added' }; }
 		const previous = before as Record<string, unknown>, current = after as Record<string, unknown>;
 		const fields = changedFields(previous, current);
-		const preview = fields.filter(field => !field.includes('.') && scalar(previous[field]) && scalar(current[field])).slice(0, 3)
-			.map(field => ({ field, before: display(previous[field]), after: display(current[field]) }));
+		const preview = fields.map(field => ({ field, before: fieldValue(previous, field), after: fieldValue(current, field) }))
+			.filter(entry => scalar(entry.before) && scalar(entry.after)).slice(0, 3)
+			.map(({ field, before, after }) => ({ field, ...displayPair(before, after) }));
 		return { collection, id, label: label ?? id, kind: 'modified', fields, ...(preview.length ? { preview } : {}) };
 	});
 }
 
 /** Keep the changed records and only identifiers and source hints that explain this delta. */
 export function createModelCodeUpdateContext({ model, changes }: SavedModelChange): ModelCodeUpdateContext {
-	const references = new Set<string>();
+	const changedIds = new Set(changes.map(change => change.id));
+	const references = new Set(changedIds);
 	const collect = (value: unknown, isReference = false): void => {
 		if (typeof value === 'string' && isReference) { references.add(value); }
 		else if (Array.isArray(value)) { for (const item of value) { collect(item, isReference); } }
@@ -147,7 +171,7 @@ export function createModelCodeUpdateContext({ model, changes }: SavedModelChang
 			for (const [key, child] of Object.entries(value)) { collect(child, key === 'id' || /(?:Id|Ids)$/.test(key) || ['from', 'to', 'before', 'after', 'steps'].includes(key)); }
 		}
 	};
-	for (const change of changes) { references.add(change.id); collect(change.before); collect(change.after); }
+	for (const { before, after } of changes) { collect(before); collect(after); }
 	const direct = new Set(references);
 	for (const relation of model.semantics.relations) {
 		if (direct.has(relation.id) || direct.has(relation.from) || direct.has(relation.to)) {
@@ -155,7 +179,14 @@ export function createModelCodeUpdateContext({ model, changes }: SavedModelChang
 		}
 	}
 	const foundation = model.version === 4 || model.version === 5 ? model.foundation : undefined;
-	const interactions = new Set(foundation?.interactions.filter(entry => direct.has(entry.id) || entry.occurrenceIds.some(id => direct.has(id)) || entry.frameIds.some(id => direct.has(id))).map(entry => entry.id));
+	const interactions = new Set<string>();
+	for (const interaction of foundation?.interactions ?? []) {
+		if (direct.has(interaction.id) || interaction.occurrenceIds.some(id => direct.has(id)) || interaction.frameIds.some(id => direct.has(id))) {
+			interactions.add(interaction.id);
+			if (interaction.ownerId) { references.add(interaction.ownerId); }
+			for (const id of interaction.description?.evidenceIds ?? []) { references.add(id); }
+		}
+	}
 	for (const assertion of foundation?.assertions ?? []) {
 		if (references.has(assertion.subject.id)) { for (const id of assertion.evidenceIds ?? []) { references.add(id); } }
 	}
@@ -164,7 +195,7 @@ export function createModelCodeUpdateContext({ model, changes }: SavedModelChang
 		direction: 'model-to-code',
 		project: { id: model.id, name: model.name },
 		changes,
-		affectedViews: model.views.filter(view => direct.has(view.id) || (view.interactionId && interactions.has(view.interactionId)) || view.nodes.some(node => direct.has(node.elementId)) || view.relationIds.some(id => direct.has(id)))
+		affectedViews: model.views.filter(view => changedIds.has(view.id) || (view.featureId && changedIds.has(view.featureId)) || (view.interactionId && interactions.has(view.interactionId)) || view.nodes.some(node => changedIds.has(node.elementId)) || view.relationIds.some(id => changedIds.has(id)))
 			.map(({ id, name, kind, spec }) => ({ id, name, kind, ...(spec?.intent ? { intent: spec.intent } : {}) })),
 		referencedElements: model.semantics.elements.filter(element => references.has(element.id)).map(({ id, name, kind }) => ({ id, name, kind })),
 		sourceHints: {

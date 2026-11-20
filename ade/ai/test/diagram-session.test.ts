@@ -259,6 +259,23 @@ test('v4 migration and descriptive scenarios retain unknown order and refuse exe
 	assert.deepEqual(v4.foundation.interactions, []);
 });
 
+test('diagram refresh preserves manually authored behavior, IDs and projections while updating source anchors', async () => {
+	const model: SemanticModelV4 = { version: 5, id: 'project', name: 'Project', semantics: { elements: [{ id: 'api', kind: 'component', name: 'API' }, { id: 'store', kind: 'resource', name: 'Store' }], relations: [] }, views: [{ id: 'sequence', name: 'Checkout', kind: 'sequence', nodes: [{ elementId: 'api', x: 0, y: 0 }, { elementId: 'store', x: 260, y: 0 }], relationIds: [], interactionId: 'scenario' }], codeMappings: [], verifications: [], foundation: emptyFoundation() };
+	model.foundation.interactions = [{ id: 'scenario', profile: 'descriptive', authored: true, occurrenceIds: ['call'], frameIds: [], description: { trigger: 'Checkout', scope: 'One request', participantIds: ['api', 'store'], evidenceIds: [], order: [] } }];
+	model.foundation.occurrences = [{ id: 'call', profile: 'descriptive', name: 'Save the paid order', from: 'api', to: 'store', evidenceIds: [] }];
+	const evidence = { id: 'evidence:fresh', revision: contentHash(source), file: 'server.mjs', start: 0, end: 20, encoding: 'utf-16' as const, producer: 'fixture', producerVersion: '1', nature: 'syntax' as const, factIds: [] };
+	const request = { proposalId: 'refresh-checkout', baseSemanticRevision: await diagramModelRevision(model), readEvidenceIds: [evidence.id], readObjectIds: [], queryIds: [], commands: [] };
+	const scenario = { kind: 'scenario' as const, ref: 'scenario', trigger: 'Checkout', scope: 'One request', participantIds: ['api', 'store'], evidenceIds: [evidence.id], occurrences: [{ ref: 'call', name: 'Save the paid order', from: 'api', to: 'store', evidenceIds: [evidence.id] }], order: [], alternatives: [] };
+	const proposal = await proposeDiagramModel(model, { ...request, commands: [scenario] }, [evidence]);
+	const refreshed = applyDiagramProposal(model, proposal);
+	assert.deepEqual([refreshed.views[0].interactionId, refreshed.foundation.interactions[0].authored, refreshed.foundation.occurrences[0].evidenceIds], ['scenario', true, [evidence.id]]);
+	await assert.rejects(proposeDiagramModel(model, { ...request, commands: [{ ...scenario, occurrences: [{ ...scenario.occurrences[0], name: 'Different imported behavior' }] }] }, [evidence]), /authoredScenarioConflict:scenario/);
+	await assert.rejects(proposeDiagramModel(model, { ...request, commands: [{ kind: 'view', ref: 'sequence', name: 'Replaced checkout', viewKind: 'structure', intent: 'Database modules', elementIds: ['api', 'store'], relationIds: [] }] }, [evidence]), /authoredScenarioProjectionConflict:sequence/);
+	const view = await proposeDiagramModel(model, { ...request, commands: [{ kind: 'view', ref: 'sequence', name: 'Checkout sequence', viewKind: 'sequence', intent: 'Paid orders', elementIds: ['api', 'store'], relationIds: [] }] }, [evidence]);
+	const removal = { ...view, patch: view.patch.map(patch => patch.collection === 'views' ? { ...patch, value: null } : patch) };
+	assert.throws(() => applyDiagramProposal(model, removal), /authoredScenarioProjectionConflict:sequence/);
+});
+
 test('official MCP protocol uses the same services for a second source read, restart and cancellation', async t => {
 	const f = await fixture(t), { server, sessionId } = await createDiagramMcpServer(f.root, f.opened.sessionId);
 	const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair(), client = new Client({ name: 'ade-protocol-test', version: '1' });

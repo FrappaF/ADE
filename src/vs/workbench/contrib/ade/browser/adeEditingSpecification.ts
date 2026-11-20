@@ -11,6 +11,7 @@ import { readAdeMessagingScenario } from './adeMessagingCriteria.js';
 import { compileModelMessaging, simulateMessaging } from '../common/modelMessaging.js';
 import { editAdeStateMachine } from './adeStateEditing.js';
 import { editAdeInteraction } from './adeInteractionEditing.js';
+import { editAdeDescriptiveInteraction } from './adeDescriptiveInteractionEditing.js';
 import { editAdePredicate } from './adePredicateEditing.js';
 import { editAdeStack } from './adeStackEditing.js';
 import { editAdeTask } from './adeTaskEditing.js';
@@ -19,7 +20,7 @@ import { type AdeEditingContext } from './adeEditingContext.js';
 import { type AdeEditingCommand } from './adeEditingCommands.js';
 
 /** Collects specification intent; domain mutation remains in the project service. */
-export async function runAdeSpecificationCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'taskIntent' | 'createPureFeature' | 'selectStructuralProfile' | 'messaging' | 'simulateMessaging' | 'stateMachine' | 'interaction' | 'predicate' | 'prepareStructuralContext'>, id?: string): Promise<void> {
+export async function runAdeSpecificationCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'taskIntent' | 'createPureFeature' | 'selectStructuralProfile' | 'messaging' | 'simulateMessaging' | 'stateMachine' | 'interaction' | 'editScenario' | 'predicate' | 'prepareStructuralContext'>, id?: string): Promise<void> {
 	const view = ui.project.activeView;
 	const model = ui.project.model;
 	const collect = async <T>(title: string, callback: (quick: Pick<IQuickInputService, 'pick' | 'input'>) => Promise<T | undefined>, reviewLabels?: AdeWizardReviewLabels): Promise<T | undefined> => {
@@ -52,6 +53,10 @@ export async function runAdeSpecificationCommand(ui: AdeEditingContext, command:
 		await ui.quickInput.pick(observations, { title: localize('ade.messaging.simResult', "Simulation Result · Zero AI Calls · No Network"), placeHolder: localize('ade.messaging.simSummary', "Publication Observations: {0} · Delivery Observations: {1} · Dead Letters: {2} · Rejections: {3}", result.published.length, result.deliveries.length, result.deadLetters.length, result.errors.length) }); return;
 	}
 	if (command === 'stateMachine') { if ((model.version !== 4 && model.version !== 5)) { return; } const edits = await collect(localize('ade.states.edit', "Edit State Machine"), quick => editAdeStateMachine(quick, model)); if (edits?.length) { const entry = edits.find(edit => edit.kind === 'stateMachine'); if (view?.kind === 'state' && entry?.kind === 'stateMachine') { edits.push({ kind: 'viewStateMachine', viewId: view.id, stateMachineId: entry.entry.id }); } ui.edit(edits); } return; }
+	if (command === 'editScenario') {
+		if (view) { await editAdeDescriptiveInteraction(ui, view, id); }
+		return;
+	}
 	if (command === 'interaction') {
 		if ((model.version !== 4 && model.version !== 5)) { return; }
 		const edits = await collect(localize('ade.interaction.edit', "Edit Interaction"), quick => editAdeInteraction(quick, model, id ?? ui.project.selectedId)); if (edits?.length) { const entry = edits[0]; if (view?.kind === 'sequence' && entry.kind === 'interaction') { edits.push({ kind: 'viewInteraction', viewId: view.id, interactionId: entry.entry.interaction.id }); } ui.edit(edits); } return;

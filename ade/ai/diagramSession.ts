@@ -502,7 +502,11 @@ export async function executeDiagramExploration(snapshotDirectory: string, reque
 		} catch (error) {
 			Object.assign(session, checkpoint);
 			call.status = signal?.aborted ? 'interrupted' : 'complete';
-			result = envelope({}, [{ code: error instanceof Error ? error.message : 'toolFailure', recoverable: true, ...(error instanceof ExplorationSourceRangeError ? { range: error.range, action: 'Use these UTF-16 bounds, or omit start/end for an initial bounded read; then follow nextStart and requestedEnd.' } : { action: 'Correct this request or refresh evidence; accepted proposals are preserved.' }) }]);
+			const code = error instanceof Error ? error.message : 'toolFailure';
+			const recovery = error instanceof ExplorationSourceRangeError
+				? { range: error.range, action: 'Use these UTF-16 bounds, or omit start/end for an initial bounded read; then follow nextStart and requestedEnd.' }
+				: { action: /^authoredScenario(?:Projection)?Conflict:/.test(code) ? 'Preserve the authored behavior and view binding. Report differences with the code as gaps.' : 'Correct this request or refresh evidence; accepted proposals are preserved.' };
+			result = envelope({}, [{ code, recoverable: true, ...recovery }]);
 		}
 		// Rejected requests consume calls and returned bytes too. Only the bounded exhaustion response may exceed the remaining data allowance.
 		call.outputBytes = Buffer.byteLength(JSON.stringify(result)); session.usage.readBytes += call.outputBytes;

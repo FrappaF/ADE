@@ -92,6 +92,36 @@ function entryRevision(collection: Collection, entry: Entry): string {
 }
 export function diagramModelRevision(model: SemanticModelV4): Promise<string> { return modelDigest(canonicalJson(semanticContent(model))); }
 
+/** Evidence can be refreshed without replacing an authored interaction or reassigning its projections. */
+function preserveAuthoredInteractions(model: SemanticModelV4, candidate: SemanticModelV4): void {
+	const authored = model.foundation.interactions.filter(interaction => interaction.authored);
+	if (!authored.length) { return; }
+	const snapshot = (source: SemanticModelV4) => {
+		const calls = new Map(source.foundation.occurrences.map(({ evidenceIds, ...entry }) => [entry.id, entry]));
+		const frames = new Map(source.foundation.frames.map(frame => [frame.id, frame.kind === 'unspecified' && frame.description
+			? { ...frame, description: { ...frame.description, operands: frame.description.operands.map(({ evidenceIds, ...operand }) => operand) } }
+			: frame]));
+		return new Map(source.foundation.interactions.filter(entry => entry.authored).map(interaction => {
+			const description = interaction.description;
+			return [interaction.id, canonicalJson({
+				...interaction,
+				description: description ? { trigger: description.trigger, scope: description.scope, participantIds: description.participantIds, order: description.order.map(({ evidenceIds, ...edge }) => edge) } : null,
+				occurrences: interaction.occurrenceIds.map(id => calls.get(id) ?? null),
+				frames: interaction.frameIds.map(id => frames.get(id) ?? null)
+			})];
+		}));
+	};
+	const before = snapshot(model), after = snapshot(candidate);
+	const candidateViews = new Map(candidate.views.map(view => [view.id, view]));
+	for (const interaction of authored) {
+		if (before.get(interaction.id) !== after.get(interaction.id)) { throw new Error('authoredScenarioConflict:' + interaction.id); }
+		for (const view of model.views.filter(view => view.interactionId === interaction.id)) {
+			const projection = candidateViews.get(view.id);
+			if (!projection || projection.interactionId !== interaction.id || projection.kind !== view.kind) { throw new Error('authoredScenarioProjectionConflict:' + view.id); }
+		}
+	}
+}
+
 function identityDiagnostics(model: SemanticModelV4, candidate: SemanticModelV4, patch: ModelPatch[], checkUnanchored: boolean): ModelDiagnostic[] {
 	const elements = new Set<string>(), relations = new Set<string>();
 	for (const change of patch) {
@@ -153,7 +183,12 @@ export async function proposeDiagramModel(model: SemanticModelV4, request: Diagr
 				const operands = frame.operands.map(operand => ({ id: resolve(operand.ref), condition: operand.condition, steps: operand.steps.map(resolve), evidenceIds: cite(operand.evidenceIds) }));
 				replace(candidate, 'frames', { id: resolve(frame.ref), kind: 'unspecified', occurrenceIds: operands.flatMap(operand => operand.steps), description: { operator: frame.operator, operands } });
 			}
-			replace(candidate, 'interactions', { id, profile: 'descriptive', occurrenceIds, frameIds, description: { trigger: command.trigger, scope: command.scope, participantIds: command.participantIds.map(read), evidenceIds: cite(command.evidenceIds), order: command.order.map(edge => ({ ...edge, before: resolve(edge.before), after: resolve(edge.after), evidenceIds: cite(edge.evidenceIds) })) } });
+			const order = command.order.map(edge => {
+				const before = resolve(edge.before), after = resolve(edge.after);
+				const previous = old?.authored ? old.description?.order.find(entry => entry.before === before && entry.after === after) : undefined;
+				return { before, after, basis: previous?.basis ?? edge.basis, evidenceIds: cite(edge.evidenceIds) };
+			});
+			replace(candidate, 'interactions', { id, profile: 'descriptive', ...(old?.ownerId ? { ownerId: old.ownerId } : {}), ...(old?.authored ? { authored: true } : {}), occurrenceIds, frameIds, description: { trigger: command.trigger, scope: command.scope, participantIds: command.participantIds.map(read), evidenceIds: cite(command.evidenceIds), order } });
 		} else {
 			if (command.viewKind === 'state') { throw new Error('unsupportedNotation:useStructureOrDescriptiveSequence'); }
 			const previous = candidate.views.find(view => view.id === id), nodes = command.elementIds.map(read);
@@ -170,6 +205,7 @@ export async function proposeDiagramModel(model: SemanticModelV4, request: Diagr
 			view.nodes = placeDiagramAdditions(candidate, { ...view, nodes: arranged }, retained);
 		}
 	}
+	preserveAuthoredInteractions(model, candidate);
 	for (const id of usedEvidence) {
 		const record = evidence.find(entry => entry.id === id) ?? model.foundation.evidence?.find(entry => entry.id === id);
 		if (!record) { throw new Error('unknownEvidence:' + id); } replace(candidate, 'evidence', structuredClone(record));
@@ -217,6 +253,7 @@ export function applyDiagramProposal(model: SemanticModelV4, proposal: DiagramPr
 		}
 		replace(candidate, patch.collection, value);
 	}
+	preserveAuthoredInteractions(model, candidate);
 	const validated = readSemanticModel(candidate) as SemanticModelV4;
 	const duplicate = identityDiagnostics(model, validated, proposal.patch, false)[0];
 	if (duplicate) { throw new Error(duplicate.args.join(':')); }

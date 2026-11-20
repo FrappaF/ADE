@@ -658,7 +658,7 @@ export class AdeAiDiagrams extends Disposable {
 	async updateDiagrams(): Promise<void> {
 		if (this.host.busy || this.operations.busy || this.configuration.getValue<boolean>('chat.disableAIFeatures') === true || !await this.code.ensureProjectContext()) { return; }
 		if (this.configuration.getValue<boolean>('ade.diagramImport.incremental') === false) { await this.generateDiagrams(true); return; }
-		await this.exploreDiagrams(localize('ade.explore.updatePrompt', "Update the project diagrams from the current codebase using the ADE tools. Inspect the saved project and the workflow phase first. Identify code changes and preserve existing diagram and object IDs, feature identities and manual layout where they still apply. Prepare the affected diagrams in workflow order and reuse existing definitions. Read only the relevant sources, validate and preview all revised drafts, and finish with a single complete project review. Do not publish changes: I will apply them from the review."), true);
+		await this.exploreDiagrams(localize('ade.explore.updatePrompt', "Update the project diagrams from the current codebase using the ADE tools. Inspect the saved project and the workflow phase first. Identify code changes and preserve existing diagram and object IDs, feature identities and manual layout where they still apply. Keep authored scenarios and report any discrepancies with the code. Prepare the affected diagrams in workflow order and reuse existing definitions. Read only the relevant sources, validate and preview all revised drafts, and finish with a single complete project review. Do not publish changes: I will apply them from the review."), true);
 	}
 
 	private async generateDiagrams(resume: boolean): Promise<void> {

@@ -3,13 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type ModelView, type SemanticElement, type SemanticModel } from './modelTypes.js';
+import { type DescriptiveScenario, type ModelInteraction, type ModelView, type SemanticElement, type SemanticModel } from './modelTypes.js';
 import { describeModelInteraction } from './modelInteractions.js';
 
 /** A linked behavior owns its participants and steps independently of manual diagram nodes. */
 export function getProjectedInteraction(model: SemanticModel, view: ModelView) {
 	if ((model.version !== 4 && model.version !== 5) || view.kind !== 'sequence' && !(model.version === 5 && view.kind === 'activity')) { return undefined; }
 	return model.foundation.interactions.find(interaction => interaction.id === view.interactionId);
+}
+
+/** Imported descriptive behavior uses the same model for manual and generated edits. */
+export function getEditableScenario(model: SemanticModel, view: ModelView): (ModelInteraction & { description: DescriptiveScenario }) | undefined {
+	const interaction = model.version === 5 ? getProjectedInteraction(model, view) : undefined;
+	return interaction?.profile === 'descriptive' && interaction.description && !interaction.execution
+		? interaction as ModelInteraction & { description: DescriptiveScenario }
+		: undefined;
 }
 
 export function getViewSelectionIds(model: SemanticModel, view: ModelView): string[] {

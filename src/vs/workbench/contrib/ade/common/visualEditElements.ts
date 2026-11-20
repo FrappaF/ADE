@@ -8,6 +8,7 @@ import { isSequenceMessage } from './sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from './stateDiagram.js';
 import { type VisualEditContext, type VisualEditOf } from './visualEditTypes.js';
 import { getDeletionImpact, includeElement } from './visualEditSupport.js';
+import { addScenarioParticipants } from './visualEditScenario.js';
 
 /** Elements edits share the caller's transaction and validation boundary. */
 export function applyElementsVisualEdit(context: VisualEditContext, edit: VisualEditOf<'feature' | 'resource' | 'element' | 'relation' | 'rename' | 'description' | 'renameRelation' | 'parent' | 'elementDetails' | 'relationDetails' | 'condition' | 'behavior' | 'relationError' | 'updateRelation' | 'deleteRelation' | 'deleteElement'>): SemanticModel | undefined {
@@ -31,6 +32,7 @@ export function applyElementsVisualEdit(context: VisualEditContext, edit: Visual
 			candidate.semantics.elements.push({ id: edit.id, kind: edit.elementKind, name: edit.name, ...(parentId ? { parentId } : {}), ...(contextElement && edit.elementKind === 'system' ? { scope: 'external' as const } : {}) });
 			if (contextElement) { diagram.contextIds = [...new Set([...(diagram.contextIds ?? []), edit.id])]; }
 			includeElement(diagram, edit.id, candidate);
+			addScenarioParticipants(candidate, diagram, [edit.id]);
 			break;
 		}
 		case 'relation': {

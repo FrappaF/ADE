@@ -30,7 +30,7 @@ import { IQuickInputService } from '../../../../platform/quickinput/common/quick
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { AdeCanvasController } from './adeCanvasController.js';
-import { getProjectedInteraction, getViewSelectionIds } from '../common/visualNavigation.js';
+import { getEditableScenario, getProjectedInteraction, getViewSelectionIds } from '../common/visualNavigation.js';
 import { type BlueprintEditMode } from './adeBlueprintEditing.js';
 import { editAdeConnectionDetails } from './adeRelationForm.js';
 
@@ -70,13 +70,14 @@ export class AdeCanvasSurface {
 		const menu = this.canvas.floatingMenu = dom.append(parent, dom.$('nav.ade-floating-menu'));
 		menu.setAttribute('aria-label', localize('ade.canvasActions', "Canvas Actions"));
 		const interaction = getProjectedInteraction(this.project.model, view);
-		if (this.project.editable) {
-			if (!interaction) {
-				this.host.button(menu, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => this.commandService.executeCommand('ade.addElement')).classList.add('ade-primary-action');
-				this.host.button(menu, localize('ade.addExisting', "Add Existing Element"), () => this.commandService.executeCommand('ade.addExisting'), 'canvas-add-existing');
-				if (view.nodes.some(node => node.elementId === this.project.selectedId)) {
-					this.host.button(menu, localize('ade.canvas.connect', "Connect"), () => this.beginConnection(this.project.selectedId));
-				}
+		const scenario = getEditableScenario(this.project.model, view);
+		if (this.project.editable && (!interaction || scenario)) {
+			this.host.button(menu, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => this.commandService.executeCommand('ade.addElement')).classList.add('ade-primary-action');
+			this.host.button(menu, localize('ade.addExisting', "Add Existing Element"), () => this.commandService.executeCommand('ade.addExisting'), 'canvas-add-existing');
+			if (scenario) {
+				this.host.button(menu, view.kind === 'activity' ? localize('ade.scenario.addStep', "Add Step") : localize('ade.scenario.addMessage', "Add Message"), () => this.commandService.executeCommand('ade.connect'), 'canvas-add-scenario-step');
+			} else if (view.nodes.some(node => node.elementId === this.project.selectedId)) {
+				this.host.button(menu, localize('ade.canvas.connect', "Connect"), () => this.beginConnection(this.project.selectedId));
 			}
 		}
 		const actions = this.controls.details(menu, localize('ade.canvas.diagramMenu', "Diagram"), 'canvas-actions', { popup: true });
@@ -114,24 +115,31 @@ export class AdeCanvasSurface {
 		const contents = tabs.panels.get('contents')!;
 		const display = tabs.panels.get('display')!;
 		const information = tabs.panels.get('information')!;
-		const interaction = getProjectedInteraction(this.project.model, view);
-		const canRefreshFromCode = !!interaction?.description && !interaction.execution && this.project.model.version === 5 && this.project.projectRoot?.scheme === 'file';
+		const model = this.project.model;
+		const interaction = getProjectedInteraction(model, view);
+		const scenario = getEditableScenario(model, view);
+		const canEditContents = !interaction || !!scenario;
+		const canAddExistingMessage = (view.kind === 'sequence' && canEditContents) || (view.kind === 'activity' && !!scenario);
+		const canRefreshFromCode = !!scenario && this.project.projectRoot?.scheme === 'file';
 		if (options.editable) {
 			if (interaction?.execution) {
 				palette.action(contents, localize('ade.interaction.edit', "Edit Executable Interaction"), () => this.commandService.executeCommand('ade.interaction', interaction.id), { icon: Codicon.arrowSwap });
-			} else if (canRefreshFromCode) {
-				palette.action(contents, localize('ade.shortcuts.update', "Update Diagrams from Codebase"), () => this.commandService.executeCommand('ade.ai.updateDiagrams'), { icon: Codicon.refresh });
+			} else {
+				if (scenario) { palette.action(contents, localize('ade.scenario.edit', "Edit Scenario"), () => this.commandService.executeCommand('ade.editScenario'), { icon: Codicon.gitMerge, emphasis: 'primary' }); }
+				if (canRefreshFromCode) { palette.action(contents, localize('ade.shortcuts.update', "Update Diagrams from Codebase"), () => this.commandService.executeCommand('ade.ai.updateDiagrams'), { icon: Codicon.refresh }); }
 			}
 			this.renderBlueprintActions(contents, view);
 			for (const [label, command, icon] of [
-				...(!interaction ? [[localize('ade.addExisting', "Add Existing Element"), 'ade.addExisting', Codicon.add] as const] : []),
-				...(!interaction && view.kind !== 'state' && view.kind !== 'sequence' ? [[localize('ade.addExistingRelation', "Add Existing Relationship"), 'ade.addExistingRelation', Codicon.link] as const] : []),
+				...(canEditContents ? [[localize('ade.addExisting', "Add Existing Element"), 'ade.addExisting', Codicon.add] as const] : []),
+				...(scenario || !interaction && view.kind !== 'state' && view.kind !== 'sequence' ? [[localize('ade.addExistingRelation', "Add Existing Relationship"), 'ade.addExistingRelation', Codicon.link] as const] : []),
 				...(view.kind === 'state' ? [[localize('ade.state.addExisting', "Add Existing State"), 'ade.addExistingState', Codicon.circleLarge] as const, [localize('ade.state.addTransition', "Add Existing Transition"), 'ade.addTransition', Codicon.arrowRight] as const, [localize('ade.state.includeLifecycle', "Include Resource Lifecycle"), 'ade.includeLifecycle', Codicon.symbolEvent] as const] : []),
-				...(view.kind === 'sequence' && !interaction ? [[localize('ade.sequence.addMessage', "Add Existing Message"), 'ade.addSequenceMessage', Codicon.arrowSwap] as const] : []),
+				...(canAddExistingMessage ? [[view.kind === 'activity' ? localize('ade.scenario.addExistingStep', "Add Existing Step") : localize('ade.sequence.addMessage', "Add Existing Message"), 'ade.addSequenceMessage', Codicon.arrowSwap] as const] : []),
 				...(options.includeFeature ? [[localize('ade.addFeature', "Add Feature"), 'ade.addFeature', Codicon.symbolEvent] as const] : [])
 			]) { palette.action(contents, label, () => this.commandService.executeCommand(command), { icon }); }
 		}
-		if (interaction) {
+		if (scenario && options.editable) {
+			this.host.paragraph(contents, localize('ade.canvas.scenarioContents', "Edit participants, steps and branches in the scenario. Changes appear in every diagram linked to it."));
+		} else if (interaction) {
 			this.host.paragraph(contents, interaction.execution
 				? localize('ade.canvas.derivedContents', "This diagram is populated by its linked behavior. Edit that behavior to change its participants and steps.")
 				: localize('ade.canvas.descriptiveContents', "This diagram describes a recorded interaction. Its participants, branches and steps are shown for inspection."));
@@ -158,9 +166,23 @@ export class AdeCanvasSurface {
 		const overview = palette.section(information, localize('ade.canvas.overview', "Overview"), { compact: true });
 		const visibleIds = new Set(getViewSelectionIds(this.project.model, view));
 		palette.info(overview, localize('ade.canvas.visibleElements', "Visible Elements"), String(this.project.model.semantics.elements.filter(element => visibleIds.has(element.id)).length), Codicon.symbolClass);
+		if (scenario && view.kind === 'activity' && scenario.description.participantIds.length) {
+			const participants = palette.disclosure(information, localize('ade.scenario.participants', "Participants"), 'canvas-scenario-participants', { icon: Codicon.organization });
+			for (const id of scenario.description.participantIds) {
+				const element = model.semantics.elements.find(element => element.id === id);
+				if (element) { palette.action(participants, element.name, () => this.elementMenu(id, 0, 0), { icon: elementIcon(element.kind), kind: 'navigation' }); }
+			}
+		}
+		if (scenario && view.relationIds.length) {
+			const relationships = palette.disclosure(information, localize('ade.scenario.contextRelationships', "Context Relationships"), 'canvas-scenario-relations', { icon: Codicon.link });
+			for (const id of view.relationIds) {
+				const relation = model.semantics.relations.find(relation => relation.id === id);
+				if (relation) { palette.action(relationships, relation.name || relationLabels[relation.kind], () => this.relationMenu(id, 0, 0), { icon: Codicon.link, kind: 'navigation' }); }
+			}
+		}
 		if ((this.project.model.version === 4 || this.project.model.version === 5) && view.messagingId) { renderAdeMessaging(palette.disclosure(information, localize('ade.messaging.details', "Messaging Details"), 'canvas-messaging', { icon: Codicon.mail }), this.project.model, view.messagingId, this.controls, id => this.project.inspectElement(id)); }
 		if (view.kind === 'state') { renderAdeState(palette.disclosure(information, localize('ade.state.lifecycle', "Lifecycle Details"), 'canvas-lifecycle', { icon: Codicon.symbolEvent }), this.project.model, view, this.controls, id => this.project.inspectElement(id), id => { this.inspectorOpen = true; this.project.selectElement(id); this.host.render(); this.host.focusSelection(); }); }
-		if (this.project.model.version === 5 && view.interactionId) { this.host.paragraph(palette.disclosure(information, localize('ade.scenario.details', "Scenario Details"), 'canvas-scenario', { icon: Codicon.gitMerge }), localize('ade.scenario.editHelp', "This View Projects an Explicit Scenario. Revise Its Occurrences, Branches and Known Order in the Conversation; Layout Is Derived from That Scenario.")); }
+		if (scenario) { this.host.paragraph(palette.disclosure(information, localize('ade.scenario.details', "Scenario Details"), 'canvas-scenario', { icon: Codicon.gitMerge }), localize('ade.scenario.editHelp', "The layout follows the participants, steps, branches and order of the linked scenario.")); }
 		if (view.kind === 'sequence') {
 			const intent = interaction?.execution ? localize('ade.sequence.executableIntent', "Executable sequence: calls, frames and their declared order come from the linked interaction. Verify independent cases before applying its code.") : interaction ? localize('ade.sequence.scenarioIntent', "Scenario sequence: calls, branches and known order come from the linked scenario. They do not establish observed execution.") : localize('ade.sequence.intent', "Declared sequence: invocations, reads and writes, one occurrence per relationship. Order is local to this diagram, not observed execution.");
 			this.host.paragraph(palette.disclosure(information, localize('ade.sequence.info', "Sequence Details"), 'canvas-sequence', { icon: Codicon.arrowSwap }), intent);
@@ -196,7 +218,7 @@ export class AdeCanvasSurface {
 		if (model.version === 5 && view.kind === 'activity' && view.interactionId) {
 			const frame = dom.append(parent, dom.$('.ade-canvas')), canvas = dom.append(frame, dom.$('.ade-canvas-content'));
 			this.canvas.canvasContent = canvas;
-			const size = renderAdeDescriptiveActivity(canvas, model, view.interactionId, this.controls, id => { this.inspectorOpen = true; this.project.selectElement(id); this.host.render(); });
+			const size = renderAdeDescriptiveActivity(canvas, model, view.interactionId, this.controls, id => { this.inspectorOpen = true; this.relationSelection = undefined; this.project.selectElement(id); this.host.render(); }, this.project.selectedId);
 			dom.size(canvas, size.width, size.height); dom.size(frame, 1, 1);
 			this.canvas.worldBounds = { x: 0, y: 0, width: size.width, height: size.height }; canvas.style.transformOrigin = '0 0'; canvas.style.transform = `scale(${this.canvas.zoom})`;
 			return;
@@ -237,7 +259,7 @@ export class AdeCanvasSurface {
 			canvas.style.transformOrigin = '0 0';
 			canvas.style.transform = `scale(${this.canvas.zoom})`;
 			const sequence = getSequenceDiagram(model, view);
-			if (!sequence.messages.length && (!interaction || !interaction.occurrenceIds.length && !interaction.frameIds.length)) { this.host.paragraph(parent, interaction?.execution ? localize('ade.sequence.emptyExecutable', "No messages in the linked interaction. Use Edit Executable Interaction in Project to add behavior.") : interaction ? localize('ade.sequence.emptyScenario', "The linked scenario has no calls yet. Revise its declared behavior to populate this view.") : localize('ade.sequence.empty', "No messages. Add an existing interaction or connect participants.")); }
+			if (!sequence.messages.length && (!interaction || !interaction.occurrenceIds.length && !interaction.frameIds.length)) { this.host.paragraph(parent, interaction?.execution ? localize('ade.sequence.emptyExecutable', "No messages in the linked interaction. Use Edit Executable Interaction in Project to add behavior.") : interaction ? localize('ade.sequence.emptyScenario', "The linked scenario has no messages yet.") : localize('ade.sequence.empty', "No messages. Add an existing interaction or connect participants.")); }
 			if (sequence.unsupported.length) {
 				this.host.paragraph(parent, localize('ade.sequence.unsupported', "Not rendered as sequence messages: {0}. These relationships remain in Properties and Read Diagram.", sequence.unsupported.map(relation => relation.name || relationLabels[relation.kind]).join(', ')));
 			}
@@ -455,18 +477,21 @@ export class AdeCanvasSurface {
 		}
 		const view = this.project.activeView;
 		const interaction = view && getProjectedInteraction(this.project.model, view);
+		const scenario = view && getEditableScenario(this.project.model, view);
 		const editable = this.project.editable && !['element', 'impact', 'map'].includes(this.project.section);
 		if (this.project.editable && this.project.section !== 'element' && this.project.section !== 'impact') {
 			if (this.project.section === 'map' || !view) {
 				this.host.button(toolbar, localize('ade.addFeature', "Add Feature"), () => this.commandService.executeCommand('ade.addFeature'));
-			} else if (!interaction) {
+			} else if (!interaction || scenario) {
 				this.host.button(toolbar, view.kind === 'state' ? localize('ade.state.addState', "Add State") : localize('ade.addElement', "Add Element"), () => this.commandService.executeCommand('ade.addElement'));
 			}
 		}
 		if (view) {
 			const options = this.controls.details(toolbar, localize('ade.diagramOptions', "Diagram Options"), 'diagram-options', { popup: true });
 			this.renderDiagramOptions(options, view, { popupId: 'diagram-options', canvas: false, editable, includeFeature: true });
-			if (!interaction) { this.host.button(toolbar, localize('ade.createRelationship', "Create Relationship…"), () => this.beginConnection(this.project.selectedId)).disabled = !this.project.editable; }
+			if (scenario && editable) {
+				this.host.button(toolbar, view.kind === 'activity' ? localize('ade.scenario.addStep', "Add Step") : localize('ade.scenario.addMessage', "Add Message"), () => this.commandService.executeCommand('ade.connect'), 'canvas-add-scenario-step');
+			} else if (!interaction) { this.host.button(toolbar, localize('ade.createRelationship', "Create Relationship…"), () => this.beginConnection(this.project.selectedId)).disabled = !this.project.editable; }
 			if (!this.host.root.classList.contains('ade-canvas-mode')) { this.host.button(toolbar, localize('ade.fitDiagram', "Fit Diagram"), () => this.canvas.fitDiagram()); }
 		} else if (this.project.section === 'element') {
 			this.host.button(toolbar, localize('ade.readElement', "Read Element Details"), () => this.commandService.executeCommand('ade.readContext'));

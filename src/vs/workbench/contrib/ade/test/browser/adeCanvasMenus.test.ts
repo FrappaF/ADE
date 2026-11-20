@@ -161,18 +161,31 @@ suite('A.D.E canvas action menus', () => {
 		});
 	}
 
-	test('a recorded activity in a linked local project offers regeneration from source', () => {
-		const model = { ...structuredClone(interactionFixture), version: 5 as const };
-		const interaction = model.foundation.interactions[0];
-		interaction.execution = undefined;
-		interaction.profile = 'descriptive';
-		interaction.description = { trigger: 'Checkout requested', scope: 'Checkout', participantIds: [], evidenceIds: [], order: [] };
-		const view: ModelView = { id: 'activity.checkout', name: 'Checkout', kind: 'activity', interactionId: interaction.id, nodes: [], relationIds: [] };
-		const { commands } = fixture({ model, view, projectRoot: URI.file('/checkout') });
-		run('Update Diagrams from Codebase', panel('Contents'));
-		assert.match(panel('Contents').textContent!, /shown for inspection/);
-		assert.deepStrictEqual(commands, [{ command: 'ade.ai.updateDiagrams', args: [] }]);
-	});
+	for (const kind of ['sequence', 'activity'] as const) {
+		test(`an imported ${kind} exposes editing and source refresh while using its actual step IDs`, () => {
+			const model = { ...structuredClone(interactionFixture), version: 5 as const };
+			const interaction = model.foundation.interactions[0];
+			interaction.execution = undefined;
+			interaction.profile = 'descriptive';
+			interaction.description = { trigger: 'Checkout requested', scope: 'Checkout', participantIds: ['checkout.4', 'component.orders'], evidenceIds: [], order: [] };
+			interaction.occurrenceIds = ['save']; interaction.frameIds = [];
+			model.foundation.occurrences = [{ id: 'save', name: 'Save Order', from: 'checkout.4', to: 'component.orders', profile: 'descriptive' }];
+			const view: ModelView = { id: `${kind}.checkout`, name: 'Checkout', kind, interactionId: interaction.id, nodes: [], relationIds: [] };
+			const { commands, surface } = fixture({ model, view, inspector: true, projectRoot: URI.file('/checkout') });
+			const canvas = root.querySelector('.ade-floating-menu')!;
+			run('Add Element', canvas);
+			run('Add Existing Element', canvas);
+			run(kind === 'sequence' ? 'Add Message' : 'Add Step', canvas);
+			run('Edit Scenario', panel('Contents'));
+			run('Update Diagrams from Codebase', panel('Contents'));
+			surface.elementMenu('save', 20, 30);
+			run(kind === 'sequence' ? 'Edit Message' : 'Edit Step', root.querySelector('aside')!);
+			assert.deepStrictEqual(commands, [
+				{ command: 'ade.addElement', args: [] }, { command: 'ade.addExisting', args: [] }, { command: 'ade.connect', args: [] },
+				{ command: 'ade.editScenario', args: [] }, { command: 'ade.ai.updateDiagrams', args: [] }, { command: 'ade.editScenario', args: ['save'] }
+			]);
+		});
+	}
 
 	test('the alternate toolbar retains feature, blueprint, display and delete commands in matching tabs', () => {
 		const { commands } = fixture({ toolbar: true });

@@ -12,7 +12,7 @@ import { IQuickInputService } from '../../../../platform/quickinput/common/quick
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { SemanticElement } from '../common/modelTypes.js';
-import { getProjectedInteraction } from '../common/visualNavigation.js';
+import { getEditableScenario, getProjectedInteraction } from '../common/visualNavigation.js';
 import { VisualEdit } from '../common/visualEditing.js';
 import { getDeletionPreview } from '../common/deletionPreview.js';
 import { confirmAdeDeletion } from './adeDeletionDialog.js';
@@ -72,7 +72,9 @@ class EditingUI implements AdeEditingContext {
 			case 'reload': return runAdeProjectCommand(this, command);
 		}
 		if (!this.project.editable) { return; }
-		if (this.project.activeView && getProjectedInteraction(this.project.model, this.project.activeView) && ['addElement', 'addExisting', 'addExistingRelation', 'addSequenceMessage', 'connect', 'removeElementFromDiagram', 'removeRelationFromDiagram', 'layout'].includes(command)) {
+		const view = this.project.activeView;
+		const model = this.project.model;
+		if (view && getProjectedInteraction(model, view) && (command === 'layout' || !getEditableScenario(model, view) && ['addElement', 'addExisting', 'addExistingRelation', 'addSequenceMessage', 'connect', 'removeElementFromDiagram', 'removeRelationFromDiagram'].includes(command))) {
 			throw new Error(localize('ade.interaction.derivedEdit', "This diagram is derived from its linked behavior. Edit the interaction or scenario to change its participants and messages."));
 		}
 		switch (command) {
@@ -83,6 +85,7 @@ class EditingUI implements AdeEditingContext {
 			case 'simulateMessaging':
 			case 'stateMachine':
 			case 'interaction':
+			case 'editScenario':
 			case 'predicate':
 			case 'prepareStructuralContext': return runAdeSpecificationCommand(this, command, id);
 			case 'addFeature':

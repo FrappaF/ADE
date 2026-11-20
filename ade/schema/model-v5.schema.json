@@ -7152,6 +7152,10 @@
 											"order"
 										],
 										"additionalProperties": false
+									},
+									"authored": {
+										"type": "boolean",
+										"const": true
 									}
 								},
 								"required": [

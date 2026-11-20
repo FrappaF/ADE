@@ -14,7 +14,7 @@ import { runAdeDiagramCommand } from '../../browser/adeEditingDiagram.js';
 import { type AdeEditingContext } from '../../browser/adeEditingContext.js';
 import { AdeProjectService } from '../../browser/adeProjectService.js';
 import { emptyFoundation } from '../../common/modelFoundation.js';
-import { type SemanticModel, type ModelView } from '../../common/modelTypes.js';
+import { type SemanticModel, type ModelView, type SemanticModelV5 } from '../../common/modelTypes.js';
 import { applyVisualEdit } from '../../common/visualEditing.js';
 import { type VisualEdit } from '../../common/visualEditTypes.js';
 import { validateSemanticModel } from '../../common/modelValidation.js';
@@ -47,6 +47,39 @@ suite('A.D.E project diagram creation', () => {
 		assert.deepStrictEqual(validateSemanticModel(project.model), []); assert.deepStrictEqual(project.model.foundation.ownership, owners);
 		const view = project.model.views.find(view => view.id === 'c4.l3')!; assert.ok(view.contextIds?.includes('container.store'));
 		assert.deepStrictEqual(view.nodes.filter(node => node.elementId !== 'container.store'), before);
+	});
+
+	test('including a shared participant and creating a message edits the scenario behind both generated diagrams', async () => {
+		const nodes = ['client', 'server'].map((elementId, index) => ({ elementId, x: index * 260, y: 0 }));
+		const model: SemanticModelV5 = {
+			version: 5, id: 'project', name: 'Mercato',
+			semantics: { elements: [{ id: 'client', name: 'Client', kind: 'actor' }, { id: 'server', name: 'Server', kind: 'component' }, { id: 'outbox', name: 'Outbox', kind: 'resource' }], relations: [] },
+			views: (['sequence', 'activity'] as const).map(kind => ({ id: kind, name: 'Read Events', kind, nodes, relationIds: [], interactionId: 'read' })),
+			foundation: { ...emptyFoundation(), interactions: [{ id: 'read', profile: 'descriptive', occurrenceIds: [], frameIds: [], description: { trigger: 'Read events', scope: 'HTTP request', participantIds: ['client', 'server'], evidenceIds: [], order: [] } }] },
+			codeMappings: [], verifications: []
+		};
+		const project = Object.assign(new (mock<AdeProjectService>())(), { model, selectedId: 'server', activeView: model.views[0], selectElement: (id: string) => { project.selectedId = id; } });
+		const ui = Object.assign(new (mock<AdeEditingContext>())(), {
+			container: parent, project,
+			quickInput: Object.assign(new (mock<IQuickInputService>())(), { pick: async (items: (IQuickPickItem & { element?: { id: string } })[]) => items.find(item => item.element?.id === 'outbox') }),
+			edit: (change: VisualEdit) => { project.model = applyVisualEdit(project.model, change) as SemanticModelV5; project.activeView = project.model.views[0]; }
+		});
+		await runAdeDiagramCommand(ui, 'addExisting');
+		const pending = runAdeDiagramCommand(ui, 'connect', 'server');
+		fill('Name', 'List events'); fill('To', 'outbox'); create(); await pending;
+		const scenario = project.model.foundation.interactions[0];
+		assert.deepStrictEqual({
+			participants: scenario.description?.participantIds,
+			authored: scenario.authored,
+			linkedViews: project.model.views.map(view => view.nodes.map(node => node.elementId)),
+			occurrence: project.model.foundation.occurrences.find(occurrence => occurrence.id === project.selectedId),
+			errors: validateSemanticModel(project.model).filter(diagnostic => diagnostic.severity === 'error')
+		}, {
+			participants: ['client', 'server', 'outbox'],
+			authored: true,
+			linkedViews: [['client', 'server', 'outbox'], ['client', 'server', 'outbox']],
+			occurrence: { id: project.selectedId, profile: 'descriptive', name: 'List events', from: 'server', to: 'outbox', evidenceIds: [] }, errors: []
+		});
 	});
 
 	test('a new wide card avoids existing geometry without rearranging authored positions', () => {

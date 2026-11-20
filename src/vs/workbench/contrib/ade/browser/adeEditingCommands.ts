@@ -14,6 +14,7 @@ export const adeEditingCommands = [
 	['simulateMessaging', localize2('ade.messaging.simCommand', "A.D.E: Simulate Messaging")],
 	['stateMachine', localize2('ade.states.command', "A.D.E: Edit Executable State Machine")],
 	['interaction', localize2('ade.interaction.command', "A.D.E: Edit Executable Interaction")],
+	['editScenario', localize2('ade.scenario.editCommand', "A.D.E: Edit Diagram Scenario")],
 	['predicate', localize2('ade.predicate.command', "A.D.E: Edit Pure Predicate")],
 	['prepareStructuralContext', localize2('ade.task.command', "A.D.E: Preview Structural AI Context")],
 	['blueprint', localize2('ade.blueprint.command', "A.D.E: Edit Structural Blueprint")],

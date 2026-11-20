@@ -8,6 +8,7 @@ import { getStateDiagram } from './stateDiagram.js';
 import { arrangeDiagram } from './diagramLayout.js';
 import { type VisualEditContext, type VisualEditOf } from './visualEditTypes.js';
 import { getAvailableDiagramRelations, includeElement, excludeFromView, isDiagramContextElement } from './visualEditSupport.js';
+import { addScenarioParticipants, removeScenarioParticipant } from './visualEditScenario.js';
 
 /** Views edits share the caller's transaction and validation boundary. */
 export function applyViewsVisualEdit(context: VisualEditContext, edit: VisualEditOf<'c4View' | 'diagram' | 'include' | 'includeRelation' | 'exclude' | 'position' | 'layout' | 'deleteDiagram'>): SemanticModel | undefined {
@@ -24,6 +25,7 @@ export function applyViewsVisualEdit(context: VisualEditContext, edit: VisualEdi
 			if (diagram.kind === 'state' && element?.kind === 'state' && !getStateDiagram(candidate, diagram).groups.some(group => group.resource.id === element.parentId)) { throw new Error(`Resource is outside this state diagram: ${element.parentId}`); }
 			if (isDiagramContextElement(candidate, diagram, edit.id)) { diagram.contextIds = [...new Set([...(diagram.contextIds ?? []), edit.id])]; }
 			includeElement(diagram, edit.id, candidate);
+			addScenarioParticipants(candidate, diagram, [edit.id]);
 			break;
 		}
 		case 'includeRelation': {
@@ -33,9 +35,11 @@ export function applyViewsVisualEdit(context: VisualEditContext, edit: VisualEdi
 			diagram.relationIds.push(edit.id);
 			break;
 		}
-		case 'exclude':
-			excludeFromView(candidate, view(edit.viewId), edit.id, edit.target);
+		case 'exclude': {
+			const diagram = view(edit.viewId);
+			if (edit.target !== 'element' || !removeScenarioParticipant(candidate, diagram, edit.id)) { excludeFromView(candidate, diagram, edit.id, edit.target); }
 			break;
+		}
 		case 'position': {
 			const node = view(edit.viewId).nodes.find(node => node.elementId === edit.id);
 			if (!node) { throw new Error(`Unknown node: ${edit.id}`); }

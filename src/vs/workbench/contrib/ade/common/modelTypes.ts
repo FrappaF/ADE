@@ -272,6 +272,8 @@ export type ModelFrame = FrameBase & (
 
 export interface ModelInteraction {
 	profile?: 'descriptive' | 'executable'; description?: DescriptiveScenario;
+	/** Manual behavior is authoritative when later source evidence is refreshed. */
+	authored?: true;
 	id: string; ownerId?: string; occurrenceIds: string[]; frameIds: string[]; legacyViewId?: string; legacyRelationOrder?: string[];
 	execution?: { version: 1; revision: string; operationId: string; steps: string[]; outputs: InteractionArgument[] };
 }

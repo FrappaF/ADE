@@ -7,7 +7,7 @@ import { readSemanticDraft, readSemanticModel } from './modelValidation.js';
 import { type ModelView, type SemanticModel } from './modelTypes.js';
 import { acceptsNotationRelation } from './modelNotation.js';
 import { findUnoccupiedDiagramPosition, notationNodeSize } from './diagramLayout.js';
-import { getDiagramGroups } from './visualNavigation.js';
+import { getDiagramGroups, getEditableScenario } from './visualNavigation.js';
 
 export function upgradeVisualModel(model: SemanticModel): SemanticModel {
 	const candidate = structuredClone(model);
@@ -56,7 +56,7 @@ export function isDiagramContextElement(model: SemanticModel, view: ModelView, i
 
 /** Ordinary views reuse shared relationships only when both endpoints are already visible. */
 export function getAvailableDiagramRelations(model: SemanticModel, view: ModelView) {
-	if (view.kind === 'state' || view.kind === 'sequence' || view.interactionId) { return []; }
+	if (view.kind === 'state' || (view.kind === 'sequence' || view.interactionId) && !getEditableScenario(model, view)) { return []; }
 	const visible = new Set(view.nodes.map(node => node.elementId));
 	return model.semantics.relations.filter(relation => !view.relationIds.includes(relation.id)
 		&& visible.has(relation.from) && visible.has(relation.to) && acceptsNotationRelation(view.kind, relation));

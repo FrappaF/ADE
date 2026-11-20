@@ -79,7 +79,7 @@ export function auditDiagram(model: SemanticModelV4, input: PageRequest & { view
 		...(model.foundation.evidence ?? []).filter(entry => evidenceIds.has(entry.id)).map(value => ({ collection: 'evidence', value })),
 	];
 	const description = interaction?.description;
-	return { view, interaction: interaction && { id: interaction.id, profile: interaction.profile, trigger: description?.trigger, scope: description?.scope, participantIds: description?.participantIds, occurrenceIds: interaction.occurrenceIds, frameIds: interaction.frameIds }, objects: explorationPage(entries, contentHash(canonicalJson(entries)), { audit: 'diagram', viewId: view.id }, input.cursor, input.limit ?? 20) };
+	return { view, interaction: interaction && { id: interaction.id, profile: interaction.profile, authored: interaction.authored, trigger: description?.trigger, scope: description?.scope, participantIds: description?.participantIds, occurrenceIds: interaction.occurrenceIds, frameIds: interaction.frameIds }, objects: explorationPage(entries, contentHash(canonicalJson(entries)), { audit: 'diagram', viewId: view.id }, input.cursor, input.limit ?? 20) };
 }
 
 /** Show actual UUID reuse and possible duplicates, leaving equivalence to source review. */

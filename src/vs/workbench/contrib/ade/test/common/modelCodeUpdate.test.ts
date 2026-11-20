@@ -53,6 +53,33 @@ suite('A.D.E saved model implementation context', () => {
 		assert.ok(!JSON.stringify(context).includes('Unrelated cancellation'));
 	});
 
+	test('authored occurrence updates use source hints from the projected interaction without emitting the marker', () => {
+		const before: SemanticModelV4 = { ...structuredClone(checkoutModel), version: 5, foundation: emptyFoundation() };
+		const api = before.semantics.elements[0].id;
+		const evidence = { id: 'scenario-source', file: 'checkout.mjs', start: 0, end: 20, revision: 'example', encoding: 'utf-16' as const, producer: 'example', producerVersion: '1', nature: 'text' as const, factIds: [] };
+		before.foundation.evidence = [evidence];
+		before.foundation.occurrences = [{ profile: 'descriptive', id: 'submit', from: api, to: api, name: 'Submit checkout', evidenceIds: [] }];
+		before.foundation.interactions = [{ id: 'checkout-scenario', ownerId: api, profile: 'descriptive', occurrenceIds: ['submit'], frameIds: [], description: { trigger: 'Request received', scope: 'Checkout', participantIds: [api], evidenceIds: [evidence.id], order: [] } }];
+		before.views = [
+			{ ...before.views[0], interactionId: 'checkout-scenario' },
+			{ id: 'unrelated', name: 'Another use of the same participant', kind: 'structure', nodes: [{ elementId: api, x: 0, y: 0 }], relationIds: [] }
+		];
+		const after = structuredClone(before);
+		after.foundation.occurrences[0].name = 'Submit a checked order';
+		after.foundation.interactions[0].authored = true;
+		const changes = savedModelChanges(before, after);
+		const context = createModelCodeUpdateContext({ modelUri: 'checkout.ade.json', model: after, changes });
+		assert.deepStrictEqual([changes.map(change => change.id), context.affectedViews.map(view => view.id), context.sourceHints.evidence], [['submit'], [before.views[0].id], [evidence]]);
+	});
+
+	test('nested scalar previews include changes near the end of long descriptions', () => {
+		const prefix = 'Original description. '.repeat(14);
+		const changes = [{ collection: 'foundation.interactions', id: 'checkout-scenario', before: { description: { scope: prefix } }, after: { description: { scope: prefix + 'Include partial refunds.' } } }];
+		const [preview] = describeModelCodeChanges(changes)[0].preview!;
+		assert.deepStrictEqual([preview.field, preview.before.includes('Include partial refunds.'), preview.after.includes('Include partial refunds.')], ['description.scope', false, true]);
+		assert.ok(preview.before.length <= 160 && preview.after.length <= 160);
+	});
+
 	test('coalesces successive saves against the original preimage and drops reversions', () => {
 		const original = structuredClone(checkoutModel), first = structuredClone(original), second = structuredClone(first);
 		first.semantics.elements[0].name = 'First edit';

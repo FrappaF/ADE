@@ -11,12 +11,13 @@ import { getAvailableDiagramRelations, isDiagramContextElement } from '../common
 import { elementLabels, relationLabels } from './adeLabels.js';
 import { isSequenceMessage } from '../common/sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from '../common/stateDiagram.js';
-import { getElementPath } from '../common/visualNavigation.js';
+import { getEditableScenario, getElementPath } from '../common/visualNavigation.js';
 import { type AdeEditingContext } from './adeEditingContext.js';
 import { type AdeEditingCommand } from './adeEditingCommands.js';
 import { AdeFormDialog } from './adeFormDialog.js';
 import { createAdeDiagramForm, createAdeElementForm } from './adeCreationForms.js';
 import { editAdeRelationForm } from './adeRelationForm.js';
+import { editAdeDescriptiveMessage } from './adeDescriptiveInteractionEditing.js';
 
 /** Collects diagram intent; domain mutation remains in the project service. */
 export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extract<AdeEditingCommand, 'addDiagram' | 'addElement' | 'addExisting' | 'addExistingRelation' | 'addExistingState' | 'includeLifecycle' | 'addTransition' | 'addSequenceMessage' | 'connect' | 'editRelation' | 'removeElementFromDiagram' | 'removeRelationFromDiagram' | 'renameDiagram' | 'deleteDiagram' | 'renameRelation' | 'condition' | 'relationError' | 'deleteRelation' | 'layout'>, id?: string): Promise<void> {
@@ -24,6 +25,7 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 	const model = ui.project.model;
 	const context = (element: SemanticElement): string => [model.name, ...getElementPath(model, element.id).slice(0, -1).map(parent => parent.name)].join(' / ');
 	const selected = model.semantics.elements.find(element => element.id === ui.project.selectedId);
+	const scenario = view && getEditableScenario(model, view);
 	if (command === 'addDiagram') {
 		const edits = await createAdeDiagramForm(ui.container, model, id);
 		if (!edits?.length) { return; }
@@ -40,7 +42,7 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 	}
 	if ((command === 'addExisting' || command === 'addExistingState') && view) {
 		const resources = view.kind === 'state' ? new Set(getStateDiagram(model, view).groups.map(group => group.resource.id)) : undefined;
-		const candidates = model.semantics.elements.filter(element => !view.nodes.some(node => node.elementId === element.id)
+		const candidates = model.semantics.elements.filter(element => !view.nodes.some(node => node.elementId === element.id) && !scenario?.description.participantIds.includes(element.id)
 			&& acceptsNotationElement(view.kind, element)
 			&& (command !== 'addExistingState' || element.kind === 'state')
 			&& (!resources || element.kind !== 'state' || resources.has(element.parentId ?? ''))).map(element => ({ label: element.name, description: isDiagramContextElement(model, view, element.id) ? localize('ade.includeContext', "Context · {0}", elementLabels[element.kind]) : elementLabels[element.kind], detail: context(element), element }));
@@ -81,15 +83,19 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 			ui.project.selectElement(picked.relation.from);
 		}
 	}
-	if (command === 'addSequenceMessage' && view?.kind === 'sequence') {
+	if (command === 'addSequenceMessage' && view && (view.kind === 'sequence' || scenario)) {
 		const names = new Map(model.semantics.elements.map(element => [element.id, element.name]));
-		const picked = await ui.quickInput.pick(model.semantics.relations.filter(relation => isSequenceMessage(relation) && !view.relationIds.includes(relation.id)).map(relation => ({
+		const picked = await ui.quickInput.pick(model.semantics.relations.filter(relation => isSequenceMessage(relation) && (scenario || !view.relationIds.includes(relation.id))).map(relation => ({
 			label: localize('ade.sequence.existing', "{0} → {1}: {2}", names.get(relation.from)!, names.get(relation.to)!, relation.name), description: relationLabels[relation.kind], relation
-		})), { title: localize('ade.sequence.addMessage', "Add Existing Message") });
+		})), { title: view.kind === 'activity' ? localize('ade.scenario.addExistingStep', "Add Existing Step") : localize('ade.sequence.addMessage', "Add Existing Message") });
 		if (picked) {
 			ui.edit({ kind: 'sequenceMessage', viewId: view.id, id: picked.relation.id });
 			ui.project.selectElement(picked.relation.from);
 		}
+	}
+	if (command === 'connect' && view && scenario) {
+		const from = id ?? selected?.id;
+		return editAdeDescriptiveMessage(ui, view, { from: from && scenario.description.participantIds.includes(from) ? from : undefined });
 	}
 	if (command === 'connect' && view && selected) {
 		const value = await editAdeRelationForm(ui.container, model, { sourceId: selected.id, view });
@@ -114,8 +120,21 @@ export async function runAdeDiagramCommand(ui: AdeEditingContext, command: Extra
 		const value = await editAdeRelationForm(ui.container, model, { relation });
 		if (value) { ui.edit({ kind: 'updateRelation', id, ...value }); }
 	}
-	if (command === 'removeElementFromDiagram' && selected && view) {
-		ui.edit({ kind: 'exclude', viewId: view.id, id: selected.id, target: 'element' });
+	if (command === 'removeElementFromDiagram' && view) {
+		const element = id ? model.semantics.elements.find(element => element.id === id) : selected;
+		if (!element) { return; }
+		if (scenario && model.version === 5) {
+			const occurrences = model.foundation.occurrences.filter(call => scenario.occurrenceIds.includes(call.id) && (call.from === element.id || call.to === element.id)).length;
+			const views = model.views.filter(candidate => candidate.interactionId === scenario.id).length;
+			if ((occurrences || views > 1) && !(await ui.dialogs.confirm({
+				message: localize('ade.scenario.removeParticipantConfirm', "Remove {0} from the Scenario?", element.name),
+				detail: occurrences
+					? localize('ade.scenario.removeParticipantImpact', "Linked diagrams will also lose the {0} associated steps. The shared element remains in the project.", occurrences)
+					: localize('ade.scenario.removeParticipantShared', "The participant will be removed from every diagram linked to this scenario. The shared element remains in the project."),
+				primaryButton: localize('ade.scenario.removeParticipantAction', "Remove Participant")
+			})).confirmed) { return; }
+		}
+		ui.edit({ kind: 'exclude', viewId: view.id, id: element.id, target: 'element' });
 	}
 	if (command === 'removeRelationFromDiagram' && id && view) {
 		ui.edit({ kind: 'exclude', viewId: view.id, id, target: 'relation' });

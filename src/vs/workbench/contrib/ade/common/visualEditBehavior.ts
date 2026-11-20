@@ -11,9 +11,11 @@ import { isSequenceMessage } from './sequenceDiagram.js';
 import { getStateDiagram, isResourceTransition } from './stateDiagram.js';
 import { type VisualEditContext, type VisualEditOf } from './visualEditTypes.js';
 import { includeElement, excludeFromView } from './visualEditSupport.js';
+import { applyScenarioEdit, editScenarioSequence } from './visualEditScenario.js';
+import { getEditableScenario } from './visualNavigation.js';
 
 /** Behavior edits share the caller's transaction and validation boundary. */
-export function applyBehaviorVisualEdit(context: VisualEditContext, edit: VisualEditOf<'stateDefinition' | 'messagingOccurrence' | 'messaging' | 'viewMessaging' | 'stateMachine' | 'viewStateMachine' | 'interaction' | 'viewInteraction' | 'stateDiagram' | 'stateLifecycle' | 'stateTransition' | 'sequenceMessage' | 'sequenceOrder' | 'sequenceRemove'>): SemanticModel | undefined {
+export function applyBehaviorVisualEdit(context: VisualEditContext, edit: VisualEditOf<'stateDefinition' | 'messagingOccurrence' | 'messaging' | 'viewMessaging' | 'stateMachine' | 'viewStateMachine' | 'interaction' | 'viewInteraction' | 'stateDiagram' | 'stateLifecycle' | 'stateTransition' | 'sequenceMessage' | 'sequenceOrder' | 'sequenceRemove' | 'scenarioOccurrence' | 'scenarioDetails' | 'scenarioFrame' | 'scenarioRemoveFrame' | 'scenarioOrderEdge'>): SemanticModel | undefined {
 	const { candidate, nextId, view } = context;
 	switch (edit.kind) {
 		case 'stateDefinition': { if ((candidate.version !== 4 && candidate.version !== 5)) { throw new Error('States require v4'); } candidate.semantics.elements.push({ id: edit.id, name: edit.name, kind: 'state', parentId: edit.ownerId }); candidate.foundation.ownership.push({ id: nextId(), elementId: edit.id, ownerId: edit.ownerId, role: 'lifecycle' }); break; }
@@ -52,6 +54,10 @@ export function applyBehaviorVisualEdit(context: VisualEditContext, edit: Visual
 		case 'sequenceMessage': {
 			const diagram = view(edit.viewId);
 			const relation = candidate.semantics.relations.find(relation => relation.id === edit.id);
+			if (relation && isSequenceMessage(relation) && getEditableScenario(candidate, diagram)) {
+				applyScenarioEdit(candidate, diagram, { kind: 'scenarioOccurrence', id: nextId(), viewId: edit.viewId, from: relation.from, to: relation.to, name: relation.name });
+				break;
+			}
 			if (diagram.kind !== 'sequence' || !relation || !isSequenceMessage(relation)) { throw new Error(`Unsupported sequence message: ${edit.id}`); }
 			for (const elementId of [relation.from, relation.to]) { includeElement(diagram, elementId); }
 			if (!diagram.relationIds.includes(relation.id)) { diagram.relationIds.push(relation.id); }
@@ -59,6 +65,7 @@ export function applyBehaviorVisualEdit(context: VisualEditContext, edit: Visual
 		}
 		case 'sequenceOrder': {
 			const diagram = view(edit.viewId);
+			if (editScenarioSequence(candidate, diagram, edit)) { break; }
 			if (diagram.kind !== 'sequence') { throw new Error(`Not a sequence diagram: ${diagram.id}`); }
 			const entries = edit.target === 'participant' ? diagram.nodes.map(node => node.elementId) : diagram.relationIds.filter(id => isSequenceMessage(candidate.semantics.relations.find(relation => relation.id === id)!));
 			const index = entries.indexOf(edit.id);
@@ -75,10 +82,18 @@ export function applyBehaviorVisualEdit(context: VisualEditContext, edit: Visual
 		}
 		case 'sequenceRemove': {
 			const diagram = view(edit.viewId);
+			if (editScenarioSequence(candidate, diagram, edit)) { break; }
 			if (diagram.kind !== 'sequence') { throw new Error(`Not a sequence diagram: ${diagram.id}`); }
 			excludeFromView(candidate, diagram, edit.id, edit.target === 'participant' ? 'element' : 'relation');
 			break;
 		}
+		case 'scenarioOccurrence':
+		case 'scenarioDetails':
+		case 'scenarioFrame':
+		case 'scenarioRemoveFrame':
+		case 'scenarioOrderEdge':
+			applyScenarioEdit(candidate, view(edit.viewId), edit);
+			break;
 	}
 	return undefined;
 }

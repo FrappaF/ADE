@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { type InteractionEdit } from './modelInteractions.js';
-import { type ModelBlueprint, type ModelType, type ModelDecision, type ModelFoundation, type ModelAssertion, type ElementDetails, type RelationDetails, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './modelTypes.js';
+import { type Knowledge, type ModelBlueprint, type ModelType, type ModelDecision, type ModelFoundation, type ModelAssertion, type ElementDetails, type RelationDetails, type ElementKind, type ModelBehavior, type ModelView, type RelationKind, type SemanticModel } from './modelTypes.js';
 import { type ModelIdFactory } from './modelMigration.js';
 import { type DiagramDensity } from './diagramLayout.js';
 
@@ -42,6 +42,11 @@ export type VisualEdit =
 	| { kind: 'sequenceMessage'; id: string; viewId: string }
 	| { kind: 'sequenceOrder'; id: string; viewId: string; target: 'participant' | 'message'; direction: -1 | 1 }
 	| { kind: 'sequenceRemove'; id: string; viewId: string; target: 'participant' | 'message' }
+	| { kind: 'scenarioOccurrence'; id: string; viewId: string; from: string; to: string; name: string; operandId?: string | null }
+	| { kind: 'scenarioDetails'; viewId: string; trigger: string; scope: string }
+	| { kind: 'scenarioFrame'; id: string; viewId: string; operator: 'alt' | 'opt' | 'par' | 'loop'; operands: { id: string; condition: Knowledge; steps: string[] }[] }
+	| { kind: 'scenarioRemoveFrame'; id: string; viewId: string }
+	| { kind: 'scenarioOrderEdge'; viewId: string; before: string; after: string; remove?: true }
 	| { kind: 'relation'; id: string; viewId: string; from: string; to: string; relationKind: RelationKind; name: string; condition?: string }
 	| { kind: 'rename'; id: string; name: string; target: 'element' | 'diagram' }
 	| { kind: 'renameRelation'; id: string; name: string }

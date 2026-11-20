@@ -13,6 +13,8 @@ import { applyFoundationVisualEdit } from './visualEditFoundation.js';
 import { applyElementsVisualEdit } from './visualEditElements.js';
 import { applyViewsVisualEdit } from './visualEditViews.js';
 import { applyBehaviorVisualEdit } from './visualEditBehavior.js';
+import { pruneDeletedScenarioParticipants } from './visualEditScenario.js';
+import { getEditableScenario } from './visualNavigation.js';
 
 export type { VisualEdit } from './visualEditTypes.js';
 export { upgradeVisualModel, getDeletionImpact } from './visualEditSupport.js';
@@ -85,7 +87,12 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 		case 'stateTransition':
 		case 'sequenceMessage':
 		case 'sequenceOrder':
-		case 'sequenceRemove': {
+		case 'sequenceRemove':
+		case 'scenarioOccurrence':
+		case 'scenarioDetails':
+		case 'scenarioFrame':
+		case 'scenarioRemoveFrame':
+		case 'scenarioOrderEdge': {
 			const result = applyBehaviorVisualEdit({ model, candidate, nextId, view }, edit);
 			if (result !== undefined) { return result; }
 			break;
@@ -109,8 +116,9 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 			f.integrations = f.integrations.filter(entry => elementIds.has(entry.consumerId) && elementIds.has(entry.externalId));
 			f.platform.bindings = f.platform.bindings.filter(entry => elementIds.has(entry.elementId));
 			if (f.migration) { f.migration.unresolvedOwnershipIds = f.migration.unresolvedOwnershipIds.filter(id => elementIds.has(id)); }
+			if (edit.kind === 'deleteElement') { pruneDeletedScenarioParticipants(candidate, elementIds); }
 			const operations = new Set([...(f.blueprint?.operations.map(operation => operation.id) ?? []), ...candidate.semantics.elements.flatMap(element => [element.behavior?.id, ...(element.details?.members.filter(member => member.kind === 'method').map(member => member.id) ?? [])])]);
-			f.occurrences = f.occurrences.filter(entry => elementIds.has(entry.from) && elementIds.has(entry.to) && operations.has(entry.operationId));
+			f.occurrences = f.occurrences.filter(entry => elementIds.has(entry.from) && elementIds.has(entry.to) && (entry.profile === 'descriptive' || operations.has(entry.operationId)));
 			const occurrences = new Set(f.occurrences.map(entry => entry.id));
 			for (const frame of f.frames) { frame.occurrenceIds = frame.occurrenceIds.filter(id => occurrences.has(id)); }
 			f.interactions = f.interactions.filter(entry => !entry.ownerId || elementIds.has(entry.ownerId));
@@ -125,6 +133,7 @@ export function applyVisualEdit(model: SemanticModel, edit: VisualEdit, nextId: 
 		}
 		for (const diagram of candidate.views.filter(view => view.kind === 'sequence')) {
 			let interaction = f.interactions.find(item => item.legacyViewId === diagram.id);
+			if (!interaction && getEditableScenario(candidate, diagram)) { continue; }
 			if (!interaction) { interaction = { id: nextId(), ...(diagram.featureId ? { ownerId: diagram.featureId } : {}), occurrenceIds: [], frameIds: [], legacyViewId: diagram.id, legacyRelationOrder: [...diagram.relationIds] }; f.interactions.push(interaction); }
 			interaction.legacyRelationOrder = [...diagram.relationIds];
 		}
