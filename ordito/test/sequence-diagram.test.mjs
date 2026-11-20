@@ -6,7 +6,7 @@ const { readSemanticModel } = await import('../../src/vs/workbench/contrib/ordit
 
 const { applyVisualEdit } = await import('../../src/vs/workbench/contrib/ordito/common/visualEditing.ts');
 const { getSequenceDiagram } = await import('../../src/vs/workbench/contrib/ordito/common/sequenceDiagram.ts');
-const create = () => applyVisualEdit(checkoutModel, { kind: 'diagram', id: 'sequence', name: 'Acquisto · Sequenza', viewKind: 'sequence', featureId: 'purchase' });
+const create = () => applyVisualEdit(checkoutModel, { kind: 'diagram', id: 'sequence', name: 'Checkout · Sequence', viewKind: 'sequence', featureId: 'purchase' });
 const diagram = model => model.views.find(view => view.id === 'sequence');
 
 test('existing interactions include their endpoints once and follow view order rather than global relation order', () => {

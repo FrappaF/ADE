@@ -3,18 +3,18 @@
 	"model": {
 		"version": 2,
 		"id": "invalid-example",
-		"name": "Esempio non valido",
+		"name": "Invalid Example",
 		"semantics": {
 			"elements": [
 				{
 					"id": "customer",
 					"kind": "actor",
-					"name": "Cliente"
+					"name": "Customer"
 				},
 				{
 					"id": "order",
 					"kind": "resource",
-					"name": "Ordine"
+					"name": "Order"
 				}
 			],
 			"relations": [
@@ -23,7 +23,7 @@
 					"kind": "dependency",
 					"from": "customer",
 					"to": "missing",
-					"name": "riferimento mancante"
+					"name": "missing reference"
 				}
 			]
 		},

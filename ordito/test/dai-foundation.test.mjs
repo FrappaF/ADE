@@ -257,7 +257,7 @@ test('v4 visual creation and ownership edits separate shared feature membership 
 
 test('ownerless legacy sequence declarations remain visible to readiness and cannot certify generation', async () => {
 	const source = await json('../examples/checkout.ordito.json');
-	source.views.push({ id: 'legacy.sequence', kind: 'sequence', name: 'Ordine dichiarato', nodes: source.semantics.elements.map((element, index) => ({ elementId: element.id, x: index * 100, y: 0 })), relationIds: source.semantics.relations.filter(edge => edge.from === 'checkout-controller' || edge.to === 'checkout-controller').map(edge => edge.id) });
+	source.views.push({ id: 'legacy.sequence', kind: 'sequence', name: 'Declared Order', nodes: source.semantics.elements.map((element, index) => ({ elementId: element.id, x: index * 100, y: 0 })), relationIds: source.semantics.relations.filter(edge => edge.from === 'checkout-controller' || edge.to === 'checkout-controller').map(edge => edge.id) });
 	const migrated = migrateSemanticModelToV4(source);
 	const profile = { ...fixtureProfile, elementKinds: [...new Set(migrated.semantics.elements.map(item => item.kind))], primitiveTypes: [...new Set(migrated.semantics.elements.flatMap(item => [...(item.behavior?.inputs ?? []), ...(item.behavior?.outputs ?? [])].map(field => field.type)))], requiredOwnershipKinds: [], requiredTechnologyKinds: [] };
 	assert.ok(getModelReadiness(migrated, 'checkout-controller', profile).diagnostics.some(item => item.code === 'incompleteBehavior'));

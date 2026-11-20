@@ -27,7 +27,7 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		};
 		const candidates = diagram.locator('.is-connection-candidate');
 		const candidateNames = () => candidates.evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')).sort());
-		const dependencyCandidates = ['Carrello', 'Checkout', 'Cliente', 'Conferma ordine', 'Ordine', 'Richiedi pagamento', 'Servizio pagamenti'];
+		const dependencyCandidates = ['Cart', 'Checkout', 'Confirm Order', 'Customer', 'Order', 'Payment Service', 'Request Payment'];
 		const preview = diagram.locator('.ordito-relation-preview');
 		const drawnPreview = diagram.locator('.ordito-relation-preview[d]');
 		const readArrow = async () => {
@@ -66,7 +66,7 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		assert.deepEqual(afterZoom.tip, second, 'Zooming keeps the preview tip at the stationary pointer');
 		assert.notDeepEqual(afterZoom.start, afterPan.start, 'Zooming moves the start with the source');
 		await shell.getByRole('button', { name: 'Fit Diagram', exact: true }).click();
-		const cart = diagram.getByRole('button', { name: 'Carrello', exact: true });
+		const cart = diagram.getByRole('button', { name: 'Cart', exact: true });
 		const cartBounds = await cart.boundingBox();
 		assert.ok(cartBounds);
 		const cartCenter = { x: Math.round(cartBounds.x + cartBounds.width / 2), y: Math.round(cartBounds.y + cartBounds.height / 2) };
@@ -79,7 +79,7 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		const candidateOutline = await cartOutline();
 		await window.mouse.move(cartCenter.x, cartCenter.y);
 		const snapped = (await readArrow()).tip;
-		assert.deepEqual(await highlightedNames(), ['Carrello'], 'Only the compatible node under the pointer is emphasized');
+		assert.deepEqual(await highlightedNames(), ['Cart'], 'Only the compatible node under the pointer is emphasized');
 		const hoveredOutline = await cartOutline();
 		assert.ok(candidateOutline.style === 'dashed' && candidateOutline.width > 0 && hoveredOutline.style === 'solid' && hoveredOutline.width > candidateOutline.width, 'The hovered target has a stronger outline than its candidate indication');
 		assert.ok(Math.abs(snapped.x - cartCenter.x) <= 1 && Math.abs(snapped.y - cartBounds.y) <= 1, 'The arrow tip snaps to the upper border of the target');
@@ -99,15 +99,15 @@ export function createCanvasScenarios(harness: SmokeHarness) {
 		await highlighted.waitFor({ state: 'detached' });
 		assert.deepEqual(await candidateNames(), [], 'Escape clears the compatible node indications');
 		await connect(shell.getByRole('button', { name: 'Connect', exact: true }), 'Invocation');
-		assert.deepEqual(await candidateNames(), ['Checkout', 'Conferma ordine', 'Richiedi pagamento', 'Servizio pagamenti'], 'Changing the relationship kind marks only its compatible targets');
+		assert.deepEqual(await candidateNames(), ['Checkout', 'Confirm Order', 'Payment Service', 'Request Payment'], 'Changing the relationship kind marks only its compatible targets');
 		await window.mouse.move(cartCenter.x, cartCenter.y);
 		assert.deepEqual({ tip: (await readArrow()).tip, highlighted: await highlightedNames() }, { tip: cartCenter, highlighted: [] }, 'An incompatible node leaves the preview free');
-		const controller = diagram.getByRole('button', { name: 'Conferma ordine', exact: true });
+		const controller = diagram.getByRole('button', { name: 'Confirm Order', exact: true });
 		await controller.hover();
 		await highlighted.waitFor();
 		await controller.click();
 		const relationForm = window.getByRole('dialog', { name: 'Create Relationship', exact: true });
-		await relationForm.getByText('Checkout → Conferma ordine', { exact: true }).waitFor();
+		await relationForm.getByText('Checkout → Confirm Order', { exact: true }).waitFor();
 		await preview.waitFor({ state: 'detached' });
 		await highlighted.waitFor({ state: 'detached' });
 		assert.deepEqual(await candidateNames(), [], 'Selecting the target clears the compatible node indications');

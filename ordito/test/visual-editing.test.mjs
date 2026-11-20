@@ -23,11 +23,11 @@ test('v3 has a published schema and upgrades v2 without losing identity, layout 
 });
 
 test('empty feature diagrams retain explicit ownership through save, reopen and rename', () => {
-	let model = applyVisualEdit(empty(), { kind: 'feature', id: 'purchase', name: 'Conferma acquisto' });
-	model = applyVisualEdit(model, { kind: 'diagram', id: 'flow', featureId: 'purchase', name: 'Pagamento', viewKind: 'activity' });
-	model = applyVisualEdit(model, { kind: 'rename', target: 'element', id: 'purchase', name: 'Completa acquisto' });
+	let model = applyVisualEdit(empty(), { kind: 'feature', id: 'purchase', name: 'Confirm Purchase' });
+	model = applyVisualEdit(model, { kind: 'diagram', id: 'flow', featureId: 'purchase', name: 'Payment', viewKind: 'activity' });
+	model = applyVisualEdit(model, { kind: 'rename', target: 'element', id: 'purchase', name: 'Complete Purchase' });
 	model = readSemanticModel(JSON.parse(JSON.stringify(model)));
-	assert.deepEqual(getDiagramGroups(model).map(group => [group.name, group.views.map(view => view.id)]), [['New system', []], ['Completa acquisto', ['flow']]]);
+	assert.deepEqual(getDiagramGroups(model).map(group => [group.name, group.views.map(view => view.id)]), [['New system', []], ['Complete Purchase', ['flow']]]);
 	assert.deepEqual(model.views[0].nodes, []);
 	const invalid = structuredClone(model);
 	invalid.views[0].featureId = 'missing';
@@ -35,16 +35,16 @@ test('empty feature diagrams retain explicit ownership through save, reopen and 
 });
 
 test('designs success and refusal paths from an empty system without implementation claims', () => {
-	let model = applyVisualEdit(empty(), { kind: 'feature', id: 'purchase', name: 'Conferma acquisto' });
-	model = applyVisualEdit(model, { kind: 'diagram', id: 'flow', featureId: 'purchase', name: 'Flusso acquisto', viewKind: 'activity' });
-	for (const [id, name] of [['payment', 'Pagamento'], ['success', 'Ordine confermato'], ['failure', 'Pagamento rifiutato']]) {
+	let model = applyVisualEdit(empty(), { kind: 'feature', id: 'purchase', name: 'Confirm Purchase' });
+	model = applyVisualEdit(model, { kind: 'diagram', id: 'flow', featureId: 'purchase', name: 'Checkout Flow', viewKind: 'activity' });
+	for (const [id, name] of [['payment', 'Payment'], ['success', 'Order Confirmed'], ['failure', 'Payment Declined']]) {
 		model = applyVisualEdit(model, { kind: 'element', id, name, elementKind: 'action', viewId: 'flow' });
 	}
-	for (const [to, condition] of [['success', 'Pagamento autorizzato'], ['failure', 'Pagamento rifiutato']]) {
+	for (const [to, condition] of [['success', 'Payment Authorized'], ['failure', 'Payment Declined']]) {
 		model = applyVisualEdit(model, { kind: 'relation', id: `to-${to}`, from: 'payment', to, relationKind: 'invocation', name: condition, condition, viewId: 'flow' });
 	}
 	assert.deepEqual({ errors: validateSemanticModel(model), conditions: model.semantics.relations.map(relation => relation.condition), mappings: model.codeMappings, verifications: model.verifications },
-		{ errors: [], conditions: ['Pagamento autorizzato', 'Pagamento rifiutato'], mappings: [], verifications: [] });
+		{ errors: [], conditions: ['Payment Authorized', 'Payment Declined'], mappings: [], verifications: [] });
 });
 
 test('edits a shared element once while layout stays local to its diagram', () => {

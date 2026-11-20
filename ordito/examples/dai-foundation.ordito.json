@@ -1,24 +1,24 @@
 {
 	"version": 4,
 	"id": "shop.foundation",
-	"name": "Fondazione semantica indipendente",
+	"name": "Independent Semantic Foundation",
 	"semantics": {
 		"elements": [
-			{ "id": "system.shop", "kind": "system", "name": "Negozio", "scope": "governed" },
-			{ "id": "container.api", "kind": "container", "name": "API acquisti" },
-			{ "id": "feature.checkout", "kind": "feature", "name": "Acquisto" },
-			{ "id": "component.checkout", "kind": "component", "name": "Conferma ordine", "behavior": {
+			{ "id": "system.shop", "kind": "system", "name": "Shop", "scope": "governed" },
+			{ "id": "container.api", "kind": "container", "name": "Checkout API" },
+			{ "id": "feature.checkout", "kind": "feature", "name": "Checkout" },
+			{ "id": "component.checkout", "kind": "component", "name": "Confirm Order", "behavior": {
 				"id": "operation.confirm",
 				"inputs": [{ "id": "field.requestId", "name": "requestId", "type": "string", "required": true }],
 				"outputs": [{ "id": "field.confirmed", "name": "confirmed", "type": "boolean", "required": false }],
 				"preconditions": [], "postconditions": [], "errors": [], "permissions": [], "acceptanceCriteria": []
 			} },
-			{ "id": "feature.draft", "kind": "feature", "name": "Bozza indipendente" },
-			{ "id": "container.draft", "kind": "container", "name": "Analisi da progettare" }
+			{ "id": "feature.draft", "kind": "feature", "name": "Independent Draft" },
+			{ "id": "container.draft", "kind": "container", "name": "Analysis to Design" }
 		],
 		"relations": []
 	},
-	"views": [{ "id": "view.checkout", "kind": "structure", "featureId": "feature.checkout", "name": "Proiezione", "nodes": [{ "elementId": "component.checkout", "x": 0, "y": 0 }], "relationIds": [] }],
+	"views": [{ "id": "view.checkout", "kind": "structure", "featureId": "feature.checkout", "name": "Projection", "nodes": [{ "elementId": "component.checkout", "x": 0, "y": 0 }], "relationIds": [] }],
 	"codeMappings": [],
 	"verifications": [],
 	"foundation": {

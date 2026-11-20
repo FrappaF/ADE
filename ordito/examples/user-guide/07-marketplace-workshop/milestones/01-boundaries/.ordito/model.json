@@ -1,0 +1,498 @@
+{
+	"version": 4,
+	"foundation": {
+		"ownership": [
+			{
+				"id": "72177da8-0f90-4135-ac8b-542a8f33866b",
+				"elementId": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "9ab1ae73-67d1-47dc-96ed-85c79e26bde9",
+				"elementId": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "25ade685-6200-4237-bbe8-629a4174d63a",
+				"elementId": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			},
+			{
+				"id": "a0a369ef-c36a-4378-aa27-bfd2bc377406",
+				"elementId": "98318779-77bb-472a-90e9-a04b5d3962bc",
+				"ownerId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"role": "architecture"
+			}
+		],
+		"memberships": [
+			{
+				"id": "d5a6c758-3744-43f9-b03c-3f380499c936",
+				"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "b7c89087-3e85-421a-bbae-b4efba18a8f0",
+				"elementId": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "6d499a06-79b2-4d0d-b53d-5e4f067384aa",
+				"elementId": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "07274430-0637-4b74-ae74-aa03b6eed3bf",
+				"elementId": "87cd4fa8-c0f8-4a46-962c-bbcb377cd889",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "43c449ba-8b49-4bae-a6c0-2d8769d775f9",
+				"elementId": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "6540d91e-98cd-43cd-900d-9caee4206b83",
+				"elementId": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "53f37afc-08c9-43d1-88fb-4d590f56e0b2",
+				"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "a2a8022e-d677-46ef-a008-3460be4d8580",
+				"elementId": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "33c4d4b1-f8fc-484b-b321-a8fa264a04c8",
+				"elementId": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "6a9a27a3-cdce-4f6e-b1db-a76404221e69",
+				"elementId": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "2b4acef2-4597-4383-be8e-24fb091d0d30",
+				"elementId": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "9e69a8c3-cadb-4d9c-ad3f-5e821ae49a4d",
+				"elementId": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			},
+			{
+				"id": "2cbc6d6a-af66-411a-ac07-c472e4569c9c",
+				"elementId": "98318779-77bb-472a-90e9-a04b5d3962bc",
+				"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88"
+			}
+		],
+		"integrations": [],
+		"types": [],
+		"occurrences": [],
+		"frames": [],
+		"interactions": [],
+		"assertions": [],
+		"platform": {
+			"bindings": []
+		},
+		"decisions": []
+	},
+	"id": "e1899bec-ddc6-4187-8ec0-43b199bf6e0d",
+	"name": "Marketplace",
+	"semantics": {
+		"elements": [
+			{
+				"id": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+				"kind": "feature",
+				"name": "Checkout"
+			},
+			{
+				"id": "076207b4-dd44-4b55-96bf-2c93b42085cb",
+				"kind": "feature",
+				"name": "Product Catalog"
+			},
+			{
+				"id": "98afe8bb-9eb3-48d2-8bc9-6740b38deb15",
+				"kind": "feature",
+				"name": "Returns and Refunds"
+			},
+			{
+				"id": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"kind": "actor",
+				"name": "Customer"
+			},
+			{
+				"id": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"kind": "container",
+				"name": "Web shop"
+			},
+			{
+				"id": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"kind": "component",
+				"name": "Checkout"
+			},
+			{
+				"id": "87cd4fa8-c0f8-4a46-962c-bbcb377cd889",
+				"kind": "resource",
+				"name": "Order"
+			},
+			{
+				"id": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"kind": "system",
+				"name": "External Payments",
+				"scope": "external"
+			},
+			{
+				"id": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+				"kind": "component",
+				"name": "Returns Handling"
+			},
+			{
+				"id": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"kind": "system",
+				"name": "Marketplace",
+				"scope": "governed"
+			},
+			{
+				"id": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+				"kind": "system",
+				"name": "External Carrier",
+				"scope": "external"
+			},
+			{
+				"id": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+				"kind": "actor",
+				"name": "Support"
+			},
+			{
+				"id": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"kind": "useCase",
+				"name": "Confirm Purchase"
+			},
+			{
+				"id": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+				"kind": "useCase",
+				"name": "Authorize Payment"
+			},
+			{
+				"id": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"kind": "useCase",
+				"name": "Request Return"
+			},
+			{
+				"id": "98318779-77bb-472a-90e9-a04b5d3962bc",
+				"kind": "useCase",
+				"name": "Apply Coupon"
+			}
+		],
+		"relations": [
+			{
+				"id": "06cbc73b-bb84-48a6-819f-5b94f18f88ef",
+				"kind": "communication",
+				"from": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"to": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"name": "browses"
+			},
+			{
+				"id": "ed25f55c-18e3-4577-aba4-1ba7a6a90a96",
+				"kind": "invocation",
+				"from": "0c137ada-9052-4753-a62c-b4dc85104beb",
+				"to": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"name": "submits purchase"
+			},
+			{
+				"id": "4478f597-1f6b-4c5d-87b3-ecb78b689f77",
+				"kind": "invocation",
+				"from": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"to": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"name": "authorizes payment"
+			},
+			{
+				"id": "4b7d5a05-6def-4f32-b82e-bb9bfe8d668e",
+				"kind": "write",
+				"from": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"to": "87cd4fa8-c0f8-4a46-962c-bbcb377cd889",
+				"name": "records order",
+				"condition": "payment authorized"
+			},
+			{
+				"id": "11024d82-521f-4eff-8f1f-ef0272b4247f",
+				"kind": "dependency",
+				"from": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+				"to": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+				"name": "looks up purchase"
+			},
+			{
+				"id": "9eb3aba7-e41d-46b3-8103-b0ad18a8cadc",
+				"kind": "communication",
+				"from": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"to": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"name": "makes purchases and requests returns"
+			},
+			{
+				"id": "27f830da-fccb-4814-974b-432af7891233",
+				"kind": "communication",
+				"from": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+				"to": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"name": "handles requests"
+			},
+			{
+				"id": "a1e33746-66bb-47c6-9b6a-ed9230ec5c39",
+				"kind": "communication",
+				"from": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"to": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"name": "authorizes payments and issues refunds"
+			},
+			{
+				"id": "e6574117-ecce-4258-a3ab-d6da892aa6f5",
+				"kind": "communication",
+				"from": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+				"to": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+				"name": "requests delivery"
+			},
+			{
+				"id": "47230415-2032-4f27-9fc4-1056006c3268",
+				"kind": "association",
+				"from": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"to": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"name": "starts"
+			},
+			{
+				"id": "42f03692-f53d-40d4-9c26-aecfebdf32f6",
+				"kind": "association",
+				"from": "d60014ac-abe7-4f46-a536-1cb58086c886",
+				"to": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"name": "requests"
+			},
+			{
+				"id": "b1d37471-85ea-4aca-acfa-742f0467250c",
+				"kind": "association",
+				"from": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+				"to": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+				"name": "handles"
+			},
+			{
+				"id": "a1f79678-3770-4ad1-8682-2e239d50cbfa",
+				"kind": "include",
+				"from": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"to": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+				"name": "include"
+			},
+			{
+				"id": "f0377b20-b578-4049-bd7d-fb2f34b9ad97",
+				"kind": "extend",
+				"from": "98318779-77bb-472a-90e9-a04b5d3962bc",
+				"to": "d0f39791-d81e-47a2-b309-db59c14e818b",
+				"name": "extend",
+				"condition": "coupon provided"
+			}
+		]
+	},
+	"views": [
+		{
+			"id": "921cbbda-22ce-4456-b294-d578b9fcf09e",
+			"name": "01 Responsibilities Overview",
+			"kind": "structure",
+			"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+			"nodes": [
+				{
+					"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "0c137ada-9052-4753-a62c-b4dc85104beb",
+					"x": 360,
+					"y": 0
+				},
+				{
+					"elementId": "a593f283-1be0-4780-8ba0-cfd00e0562e6",
+					"x": 720,
+					"y": 0
+				},
+				{
+					"elementId": "87cd4fa8-c0f8-4a46-962c-bbcb377cd889",
+					"x": 0,
+					"y": 416
+				},
+				{
+					"elementId": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+					"x": 0,
+					"y": 624
+				},
+				{
+					"elementId": "a1e664e6-fbc6-4c49-b1d8-f6541591dd77",
+					"x": 0,
+					"y": 208
+				},
+				{
+					"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+					"x": 256,
+					"y": 360
+				},
+				{
+					"elementId": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+					"x": 512,
+					"y": 360
+				},
+				{
+					"elementId": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+					"x": 768,
+					"y": 360
+				}
+			],
+			"relationIds": [
+				"06cbc73b-bb84-48a6-819f-5b94f18f88ef",
+				"ed25f55c-18e3-4577-aba4-1ba7a6a90a96",
+				"4478f597-1f6b-4c5d-87b3-ecb78b689f77",
+				"4b7d5a05-6def-4f32-b82e-bb9bfe8d668e",
+				"11024d82-521f-4eff-8f1f-ef0272b4247f"
+			]
+		},
+		{
+			"id": "fd50f4d7-6e61-4983-9f87-601ef3d153a4",
+			"name": "Checkout · Flow",
+			"kind": "activity",
+			"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "52139061-78fb-44af-a0f6-de85ddaf0e4d",
+			"name": "Product Catalog · Structure",
+			"kind": "structure",
+			"featureId": "076207b4-dd44-4b55-96bf-2c93b42085cb",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "7e9c6f96-f0e4-4ccc-a25b-33f6a0020075",
+			"name": "Product Catalog · Flow",
+			"kind": "activity",
+			"featureId": "076207b4-dd44-4b55-96bf-2c93b42085cb",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "0b872073-56b0-406c-b6b7-32df5e3a5a49",
+			"name": "Returns and Refunds · Structure",
+			"kind": "structure",
+			"featureId": "98afe8bb-9eb3-48d2-8bc9-6740b38deb15",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "9e487cca-3e11-4af9-b6fe-0e0973eec42a",
+			"name": "Returns and Refunds · Flow",
+			"kind": "activity",
+			"featureId": "98afe8bb-9eb3-48d2-8bc9-6740b38deb15",
+			"nodes": [],
+			"relationIds": []
+		},
+		{
+			"id": "a886eeb1-acd8-425e-9030-d7764e531fa1",
+			"name": "02 C4 Marketplace Context",
+			"kind": "c4Context",
+			"subjectId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+			"contextIds": [
+				"d60014ac-abe7-4f46-a536-1cb58086c886",
+				"6937d02c-d982-46b7-a3a7-58a166307fe7",
+				"3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+				"e6cc2c22-7d90-4f2a-af61-cac9a7cccc55"
+			],
+			"nodes": [
+				{
+					"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "6937d02c-d982-46b7-a3a7-58a166307fe7",
+					"x": 0,
+					"y": 208
+				},
+				{
+					"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+					"x": 0,
+					"y": 416
+				},
+				{
+					"elementId": "3274a9c1-ead9-4135-b8b8-01c5b1521faa",
+					"x": 360,
+					"y": 0
+				},
+				{
+					"elementId": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+					"x": 360,
+					"y": 208
+				}
+			],
+			"relationIds": [
+				"9eb3aba7-e41d-46b3-8103-b0ad18a8cadc",
+				"27f830da-fccb-4814-974b-432af7891233",
+				"a1e33746-66bb-47c6-9b6a-ed9230ec5c39",
+				"e6574117-ecce-4258-a3ab-d6da892aa6f5"
+			]
+		},
+		{
+			"id": "fca070ca-4be7-4f16-b2a1-7d6c2573073f",
+			"name": "12 Use Cases",
+			"kind": "useCase",
+			"featureId": "46d8b679-4dfe-4085-92f0-4444a7592f88",
+			"nodes": [
+				{
+					"elementId": "d60014ac-abe7-4f46-a536-1cb58086c886",
+					"x": 0,
+					"y": 0
+				},
+				{
+					"elementId": "e6cc2c22-7d90-4f2a-af61-cac9a7cccc55",
+					"x": 260,
+					"y": 0
+				},
+				{
+					"elementId": "d0f39791-d81e-47a2-b309-db59c14e818b",
+					"x": 520,
+					"y": 0
+				},
+				{
+					"elementId": "4c1a087a-7447-40f3-8661-5a75a1eab48f",
+					"x": 0,
+					"y": 180
+				},
+				{
+					"elementId": "f4ef4d14-fff2-4cd2-8598-8851741bd3b1",
+					"x": 260,
+					"y": 180
+				},
+				{
+					"elementId": "98318779-77bb-472a-90e9-a04b5d3962bc",
+					"x": 520,
+					"y": 180
+				},
+				{
+					"elementId": "245d8d59-2cc7-49a1-95a0-03a6be16654b",
+					"x": 0,
+					"y": 360
+				}
+			],
+			"relationIds": [
+				"47230415-2032-4f27-9fc4-1056006c3268",
+				"42f03692-f53d-40d4-9c26-aecfebdf32f6",
+				"b1d37471-85ea-4aca-acfa-742f0467250c",
+				"a1f79678-3770-4ad1-8682-2e239d50cbfa",
+				"f0377b20-b578-4049-bd7d-fb2f34b9ad97"
+			]
+		}
+	],
+	"codeMappings": [],
+	"verifications": []
+}

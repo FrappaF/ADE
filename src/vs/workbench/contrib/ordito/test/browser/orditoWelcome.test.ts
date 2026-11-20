@@ -31,12 +31,12 @@ suite('Ordito project entrances and truthful status', () => {
 		return {
 			version: 2, id: 'mercato', name: '<img src=x>',
 			semantics: { elements: populated ? [
-				{ id: 'purchase', kind: 'feature', name: 'Acquisto', description: '<script>unsafe</script>' },
+				{ id: 'purchase', kind: 'feature', name: 'Checkout', description: '<script>unsafe</script>' },
 				{ id: 'returns', kind: 'feature', name: 'Resi' }
 			] : [], relations: [] },
 			views: populated ? [
-				{ id: 'structure', name: 'Struttura acquisto', kind: 'structure', featureId: 'purchase', nodes: [], relationIds: [] },
-				{ id: 'flow', name: 'Flusso acquisto', kind: 'activity', featureId: 'purchase', nodes: [], relationIds: [] },
+				{ id: 'structure', name: 'Checkout Structure', kind: 'structure', featureId: 'purchase', nodes: [], relationIds: [] },
+				{ id: 'flow', name: 'Checkout Flow', kind: 'activity', featureId: 'purchase', nodes: [], relationIds: [] },
 				{ id: 'shared', name: 'Vista condivisa', kind: 'structure', nodes: [], relationIds: [] }
 			] : [], codeMappings: [], verifications: []
 		};

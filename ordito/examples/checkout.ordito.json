@@ -1,18 +1,18 @@
 {
 	"version": 2,
 	"id": "checkout-example",
-	"name": "Acquisto",
+	"name": "Checkout",
 	"semantics": {
 		"elements": [
 			{
 				"id": "purchase",
 				"kind": "feature",
-				"name": "Conferma acquisto"
+				"name": "Confirm Purchase"
 			},
 			{
 				"id": "customer",
 				"kind": "actor",
-				"name": "Cliente"
+				"name": "Customer"
 			},
 			{
 				"id": "checkout",
@@ -23,7 +23,7 @@
 			{
 				"id": "checkout-controller",
 				"kind": "controller",
-				"name": "Conferma ordine",
+				"name": "Confirm Order",
 				"parentId": "purchase",
 				"behavior": {
 					"inputs": [
@@ -41,16 +41,16 @@
 						}
 					],
 					"preconditions": [
-						"Il carrello contiene almeno un articolo",
-						"Il cliente è autenticato"
+						"The cart contains at least one item",
+						"The customer is signed in"
 					],
 					"postconditions": [
-						"Un pagamento riuscito conferma un solo ordine"
+						"A successful payment confirms exactly one order"
 					],
 					"errors": [
 						{
 							"code": "payment-declined",
-							"description": "Pagamento rifiutato: ordine non confermato"
+							"description": "Payment declined: order was not confirmed"
 						}
 					],
 					"permissions": [
@@ -62,15 +62,15 @@
 					"acceptanceCriteria": [
 						{
 							"id": "purchase-success",
-							"given": "Carrello valido",
-							"when": "Il pagamento riesce",
-							"then": "Ordine confermato"
+							"given": "Valid cart",
+							"when": "The payment succeeds",
+							"then": "Order Confirmed"
 						},
 						{
 							"id": "purchase-declined",
-							"given": "Carrello valido",
-							"when": "Il pagamento è rifiutato",
-							"then": "Errore visibile e nessun ordine confermato"
+							"given": "Valid cart",
+							"when": "The payment is declined",
+							"then": "An error is shown and no order is confirmed"
 						}
 					]
 				}
@@ -78,67 +78,67 @@
 			{
 				"id": "payment",
 				"kind": "action",
-				"name": "Richiedi pagamento",
+				"name": "Request Payment",
 				"parentId": "purchase"
 			},
 			{
 				"id": "gateway",
 				"kind": "component",
-				"name": "Servizio pagamenti"
+				"name": "Payment Service"
 			},
 			{
 				"id": "payment-contract",
 				"kind": "contract",
-				"name": "Pagamento"
+				"name": "Payment"
 			},
 			{
 				"id": "cart",
 				"kind": "resource",
-				"name": "Carrello"
+				"name": "Cart"
 			},
 			{
 				"id": "order",
 				"kind": "resource",
-				"name": "Ordine"
+				"name": "Order"
 			},
 			{
 				"id": "pending",
 				"kind": "state",
-				"name": "In attesa",
+				"name": "Pending",
 				"parentId": "order"
 			},
 			{
 				"id": "confirmed",
 				"kind": "state",
-				"name": "Confermato",
+				"name": "Confirmed",
 				"parentId": "order"
 			},
 			{
 				"id": "declined",
 				"kind": "state",
-				"name": "Pagamento rifiutato",
+				"name": "Payment Declined",
 				"parentId": "order"
 			},
 			{
 				"id": "cart-management",
 				"kind": "feature",
-				"name": "Gestione carrello"
+				"name": "Cart Management"
 			},
 			{
 				"id": "review-cart",
 				"kind": "action",
-				"name": "Rivedi carrello",
+				"name": "Review Cart",
 				"parentId": "cart-management"
 			},
 			{
 				"id": "cancellation",
 				"kind": "feature",
-				"name": "Annullamento acquisto"
+				"name": "Cancel Purchase"
 			},
 			{
 				"id": "cancel-controller",
 				"kind": "controller",
-				"name": "Annulla ordine",
+				"name": "Cancel Order",
 				"parentId": "cancellation"
 			}
 		],
@@ -148,87 +148,87 @@
 				"kind": "invocation",
 				"from": "customer",
 				"to": "checkout",
-				"name": "conferma acquisto"
+				"name": "confirms purchase"
 			},
 			{
 				"id": "checkout-confirm",
 				"kind": "invocation",
 				"from": "checkout",
 				"to": "checkout-controller",
-				"name": "invia"
+				"name": "submits"
 			},
 			{
 				"id": "confirm-payment",
 				"kind": "invocation",
 				"from": "checkout-controller",
 				"to": "payment",
-				"name": "richiede pagamento"
+				"name": "requests payment"
 			},
 			{
 				"id": "payment-gateway",
 				"kind": "invocation",
 				"from": "payment",
 				"to": "gateway",
-				"name": "autorizza"
+				"name": "authorizes"
 			},
 			{
 				"id": "payment-realization",
 				"kind": "realization",
 				"from": "payment",
 				"to": "payment-contract",
-				"name": "realizza contratto"
+				"name": "implements contract"
 			},
 			{
 				"id": "confirm-cart",
 				"kind": "read",
 				"from": "checkout-controller",
 				"to": "cart",
-				"name": "legge carrello"
+				"name": "reads cart"
 			},
 			{
 				"id": "confirm-order",
 				"kind": "write",
 				"from": "checkout-controller",
 				"to": "order",
-				"name": "crea ordine",
-				"condition": "pagamento riuscito"
+				"name": "creates order",
+				"condition": "payment succeeds"
 			},
 			{
 				"id": "confirm-feature",
 				"kind": "realization",
 				"from": "checkout-controller",
 				"to": "purchase",
-				"name": "realizza feature"
+				"name": "implements feature"
 			},
 			{
 				"id": "gateway-contract",
 				"kind": "dependency",
 				"from": "gateway",
 				"to": "payment-contract",
-				"name": "rispetta contratto"
+				"name": "follows contract"
 			},
 			{
 				"id": "order-confirmed",
 				"kind": "transition",
 				"from": "pending",
 				"to": "confirmed",
-				"name": "pagamento riuscito",
-				"condition": "pagamento autorizzato"
+				"name": "payment succeeds",
+				"condition": "payment authorized"
 			},
 			{
 				"id": "order-declined",
 				"kind": "transition",
 				"from": "pending",
 				"to": "declined",
-				"name": "pagamento rifiutato",
-				"condition": "pagamento non autorizzato"
+				"name": "payment declined",
+				"condition": "payment not authorized"
 			},
 			{
 				"id": "show-declined",
 				"kind": "invocation",
 				"from": "checkout-controller",
 				"to": "checkout",
-				"name": "mostra errore",
+				"name": "shows error",
 				"errorCode": "payment-declined"
 			},
 			{
@@ -236,28 +236,28 @@
 				"kind": "read",
 				"from": "review-cart",
 				"to": "cart",
-				"name": "legge carrello"
+				"name": "reads cart"
 			},
 			{
 				"id": "customer-cancel",
 				"kind": "invocation",
 				"from": "customer",
 				"to": "cancel-controller",
-				"name": "richiede annullamento"
+				"name": "requests cancellation"
 			},
 			{
 				"id": "cancel-order",
 				"kind": "write",
 				"from": "cancel-controller",
 				"to": "order",
-				"name": "annulla ordine"
+				"name": "cancels order"
 			}
 		]
 	},
 	"views": [
 		{
 			"id": "purchase-structure",
-			"name": "Percorso acquisto",
+			"name": "Checkout Structure",
 			"kind": "structure",
 			"nodes": [
 				{
@@ -308,7 +308,7 @@
 		},
 		{
 			"id": "purchase-outcome",
-			"name": "Esito pagamento",
+			"name": "Payment Outcome",
 			"kind": "state",
 			"nodes": [
 				{
@@ -339,7 +339,7 @@
 		},
 		{
 			"id": "cart-structure",
-			"name": "Struttura carrello",
+			"name": "Cart Structure",
 			"kind": "structure",
 			"nodes": [
 				{
@@ -359,7 +359,7 @@
 		},
 		{
 			"id": "cancellation-structure",
-			"name": "Percorso annullamento",
+			"name": "Cancellation Flow",
 			"kind": "structure",
 			"nodes": [
 				{

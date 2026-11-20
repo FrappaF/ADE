@@ -1,18 +1,18 @@
 {
 	"version": 3,
 	"id": "purchase-design",
-	"name": "Acquisto progettato",
+	"name": "Checkout Design",
 	"semantics": {
 		"elements": [
 			{
 				"id": "purchase",
 				"kind": "feature",
-				"name": "Conferma acquisto"
+				"name": "Confirm Purchase"
 			},
 			{
 				"id": "customer",
 				"kind": "actor",
-				"name": "Cliente",
+				"name": "Customer",
 				"parentId": "purchase"
 			},
 			{
@@ -24,26 +24,26 @@
 			{
 				"id": "controller",
 				"kind": "controller",
-				"name": "Conferma ordine",
+				"name": "Confirm Order",
 				"parentId": "purchase"
 			},
 			{
 				"id": "order",
 				"kind": "resource",
-				"name": "Ordine",
+				"name": "Order",
 				"parentId": "purchase"
 			},
 			{
 				"id": "payment",
 				"kind": "action",
-				"name": "Richiedi pagamento",
+				"name": "Request Payment",
 				"parentId": "purchase",
 				"behavior": {
 					"inputs": [{ "name": "amount", "type": "Money", "required": true }],
 					"outputs": [{ "name": "receipt", "type": "PaymentReceipt", "required": false }],
-					"preconditions": ["L'importo è positivo"],
-					"postconditions": ["Un pagamento autorizzato conferma al massimo un ordine"],
-					"errors": [{ "code": "payment-declined", "description": "Pagamento rifiutato: nessun ordine confermato" }],
+					"preconditions": ["The amount is positive"],
+					"postconditions": ["An authorized payment confirms at most one order"],
+					"errors": [{ "code": "payment-declined", "description": "Payment declined: no order was confirmed" }],
 					"permissions": [],
 					"acceptanceCriteria": []
 				}
@@ -51,28 +51,28 @@
 			{
 				"id": "confirmed",
 				"kind": "action",
-				"name": "Ordine confermato",
+				"name": "Order Confirmed",
 				"parentId": "purchase"
 			},
 			{
 				"id": "declined",
 				"kind": "action",
-				"name": "Pagamento rifiutato",
+				"name": "Payment Declined",
 				"parentId": "purchase"
 			},
 			{
 				"id": "order-awaiting",
 				"kind": "state",
-				"name": "In attesa",
+				"name": "Pending",
 				"parentId": "order",
 				"behavior": {
 					"inputs": [], "outputs": [], "preconditions": [], "postconditions": [],
-					"errors": [{ "code": "payment-declined", "description": "Pagamento non autorizzato" }],
+					"errors": [{ "code": "payment-declined", "description": "Payment not authorized" }],
 					"permissions": [], "acceptanceCriteria": []
 				}
 			},
-			{ "id": "order-confirmed", "kind": "state", "name": "Confermato", "parentId": "order" },
-			{ "id": "order-declined", "kind": "state", "name": "Pagamento rifiutato", "parentId": "order" }
+			{ "id": "order-confirmed", "kind": "state", "name": "Confirmed", "parentId": "order" },
+			{ "id": "order-declined", "kind": "state", "name": "Payment Declined", "parentId": "order" }
 		],
 		"relations": [
 			{
@@ -80,54 +80,54 @@
 				"kind": "invocation",
 				"from": "customer",
 				"to": "checkout",
-				"name": "conferma acquisto"
+				"name": "confirms purchase"
 			},
 			{
 				"id": "checkout-controller",
 				"kind": "invocation",
 				"from": "checkout",
 				"to": "controller",
-				"name": "invia"
+				"name": "submits"
 			},
 			{
 				"id": "controller-order",
 				"kind": "write",
 				"from": "controller",
 				"to": "order",
-				"name": "crea ordine",
-				"condition": "pagamento autorizzato"
+				"name": "creates order",
+				"condition": "payment authorized"
 			},
 			{
 				"id": "payment-success",
 				"kind": "invocation",
 				"from": "payment",
 				"to": "confirmed",
-				"name": "conferma ordine",
-				"condition": "pagamento autorizzato"
+				"name": "confirms order",
+				"condition": "payment authorized"
 			},
 			{
 				"id": "payment-declined",
 				"kind": "invocation",
 				"from": "payment",
 				"to": "declined",
-				"name": "mostra errore",
-				"condition": "pagamento rifiutato",
+				"name": "shows error",
+				"condition": "payment declined",
 				"errorCode": "payment-declined"
 			},
 			{
 				"id": "order-payment-accepted", "kind": "transition", "from": "order-awaiting", "to": "order-confirmed",
-				"name": "Conferma pagamento", "condition": "pagamento autorizzato"
+				"name": "Confirm Payment", "condition": "payment authorized"
 			},
 			{
 				"id": "order-payment-refused", "kind": "transition", "from": "order-awaiting", "to": "order-declined",
-				"name": "Rifiuto pagamento", "condition": "pagamento non autorizzato", "errorCode": "payment-declined"
+				"name": "Decline Payment", "condition": "payment not authorized", "errorCode": "payment-declined"
 			}
 		]
 	},
 	"views": [
 		{
 			"id": "structure",
-			"name": "Struttura acquisto",
+			"name": "Checkout Structure",
 			"kind": "structure",
 			"featureId": "purchase",
 			"nodes": [
@@ -160,7 +160,7 @@
 		},
 		{
 			"id": "flow",
-			"name": "Flusso acquisto",
+			"name": "Checkout Flow",
 			"kind": "activity",
 			"featureId": "purchase",
 			"nodes": [
@@ -187,7 +187,7 @@
 		},
 		{
 			"id": "payment-sequence",
-			"name": "Sequenza pagamento",
+			"name": "Payment Sequence",
 			"kind": "sequence",
 			"featureId": "purchase",
 			"nodes": [
@@ -198,7 +198,7 @@
 			"relationIds": ["payment-success", "payment-declined"]
 		},
 		{
-			"id": "order-states", "name": "Stati ordine", "kind": "state", "featureId": "purchase",
+			"id": "order-states", "name": "Order States", "kind": "state", "featureId": "purchase",
 			"nodes": [
 				{ "elementId": "order", "x": 0, "y": 0 },
 				{ "elementId": "order-awaiting", "x": 260, "y": 0 },

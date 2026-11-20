@@ -3,18 +3,18 @@
 	"model": {
 		"version": 2,
 		"id": "invalid-example",
-		"name": "Esempio non valido",
+		"name": "Invalid Example",
 		"semantics": {
 			"elements": [
 				{
 					"id": "customer",
 					"kind": "actor",
-					"name": "Cliente"
+					"name": "Customer"
 				},
 				{
 					"id": "order",
 					"kind": "resource",
-					"name": "Ordine"
+					"name": "Order"
 				}
 			],
 			"relations": [
@@ -23,7 +23,7 @@
 					"kind": "write",
 					"from": "customer",
 					"to": "order",
-					"name": "un attore non scrive direttamente una risorsa"
+					"name": "an actor cannot write directly to a resource"
 				}
 			]
 		},

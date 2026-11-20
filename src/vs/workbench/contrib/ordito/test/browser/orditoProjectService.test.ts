@@ -459,7 +459,7 @@ suite('Ordito project context', () => {
 		assert.strictEqual(await project.createProject('Checkout', folder), true);
 		assert.deepStrictEqual([project.model.version, project.model.name, project.model.views.length, project.dirty], [4, 'Checkout', 0, false]);
 		project.editBatch([
-			{ kind: 'feature', id: 'purchase', name: 'Conferma acquisto' },
+			{ kind: 'feature', id: 'purchase', name: 'Confirm Purchase' },
 			{ kind: 'diagram', id: 'structure', featureId: 'purchase', name: 'Struttura', viewKind: 'structure' },
 			{ kind: 'diagram', id: 'flow', featureId: 'purchase', name: 'Flusso', viewKind: 'activity' }
 		]);

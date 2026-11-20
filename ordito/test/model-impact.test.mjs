@@ -24,7 +24,7 @@ test('containment includes resource states and authorization references propagat
 
 test('cycles and homonyms do not duplicate scope and unclassified links are reported without propagation', () => {
 	const model = structuredClone(checkoutModel);
-	model.semantics.elements.push({ id: 'other-contract', kind: 'contract', name: 'Pagamento' });
+	model.semantics.elements.push({ id: 'other-contract', kind: 'contract', name: 'Payment' });
 	model.semantics.relations.push({ id: 'cycle', kind: 'dependency', from: 'payment-contract', to: 'customer', name: 'Cycle' },
 		{ id: 'uncertain', kind: 'dependency', from: 'cart', to: 'payment-contract', name: 'Legacy', classification: 'legacy-unclassified' });
 	const impact = getModelImpact(readSemanticModel(model), 'payment-contract');
@@ -38,7 +38,7 @@ test('layout and renames preserve review identities, while unrelated evidence is
 	model.codeMappings.push({ id: 'mapping', elementId: 'checkout-controller', file: 'fixture.ts', symbol: 'confirm', revision: 'fixture-rev' },
 		{ id: 'unrelated', elementId: 'cart', file: 'other.ts', symbol: 'cart', revision: 'fixture-rev' });
 	model = applyVisualEdit(model, { kind: 'position', viewId: 'purchase-structure', id: 'payment', x: -400, y: 800 });
-	model = applyVisualEdit(model, { kind: 'rename', id: 'payment', target: 'element', name: 'Pagamento aggiornato' });
+	model = applyVisualEdit(model, { kind: 'rename', id: 'payment', target: 'element', name: 'Updated Payment' });
 	const impact = getModelImpact(model, 'payment-contract');
 	assert.deepEqual(impact.evidence.flatMap(entry => entry.mappings.map(mapping => mapping.id)), ['mapping']);
 	assert.deepEqual(impact.dependents.map(entry => entry.element.id), getModelImpact(checkoutModel, 'payment-contract').dependents.map(entry => entry.element.id));

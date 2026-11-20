@@ -1,0 +1,116 @@
+{
+  "version": 4,
+  "id": "marketplace-ai-generation",
+  "name": "Marketplace · Checkout and Returns",
+  "semantics": {
+    "elements": [
+      {
+        "id": "checkout",
+        "kind": "feature",
+        "name": "Checkout",
+        "description": "Calculates the total in cents and creates an Order only when the simulated payment is approved.",
+        "behavior": {
+          "id": "checkout-contract",
+          "inputs": [
+            { "id": "checkout-order-id", "name": "orderId", "type": "string", "required": true },
+            { "id": "checkout-price", "name": "unitPriceCents", "type": "integer", "required": true },
+            { "id": "checkout-quantity", "name": "quantity", "type": "integer", "required": true },
+            { "id": "checkout-approved", "name": "approved", "type": "boolean", "required": true }
+          ],
+          "outputs": [
+            { "id": "checkout-status", "name": "status", "type": "string", "required": true },
+            { "id": "checkout-order", "name": "order", "type": "Order", "required": false }
+          ],
+          "preconditions": ["orderId is a nonempty string, quantity is an integer from 1 to 10, and unitPriceCents is a nonnegative safe integer. approved is a boolean. The product of unitPriceCents and quantity must also be a safe integer."],
+          "postconditions": ["Invalid input returns only status=invalid-input.", "Valid input with approved=false returns only status=declined.", "Valid input with approved=true returns status=confirmed and order={id: orderId, totalCents: unitPriceCents * quantity}. The order field uses the shared Order contract."],
+          "errors": [],
+          "permissions": [],
+          "acceptanceCriteria": [
+            { "id": "checkout-confirmed", "given": "An order with a valid price and quantity", "when": "The simulated payment is approved", "then": "The result is confirmed and includes the Order with the same ID and the total in cents." },
+            { "id": "checkout-declined", "given": "An order with a valid price and quantity", "when": "The simulated payment is declined", "then": "The result is declined and contains no Order." },
+            { "id": "checkout-invalid-quantity", "given": "A quantity greater than 10", "when": "Checkout is requested", "then": "The result is invalid-input and contains no Order." }
+          ]
+        }
+      },
+      {
+        "id": "returns",
+        "kind": "feature",
+        "name": "Returns",
+        "description": "Evaluates a return using the Order record from Checkout. The workshop accepts returns through day 30.",
+        "behavior": {
+          "id": "returns-contract",
+          "inputs": [
+            { "id": "returns-order", "name": "order", "type": "Order or null", "required": true },
+            { "id": "returns-elapsed", "name": "daysSincePurchase", "type": "integer", "required": true }
+          ],
+          "outputs": [
+            { "id": "returns-status", "name": "status", "type": "string", "required": true },
+            { "id": "returns-order-id", "name": "orderId", "type": "string", "required": false },
+            { "id": "returns-refund", "name": "refundCents", "type": "integer", "required": false }
+          ],
+          "preconditions": ["daysSincePurchase is a nonnegative safe integer. order is either a valid Order record with a nonempty id and a nonnegative safe integer totalCents, or null."],
+          "postconditions": ["Invalid input returns only status=invalid-input.", "Valid input with order=null returns only status=unknown-order.", "A valid Order after day 30 returns only status=outside-window.", "A valid Order through day 30 returns status=accepted, orderId=order.id and refundCents=order.totalCents."],
+          "errors": [],
+          "permissions": [],
+          "acceptanceCriteria": [
+            { "id": "returns-within-window", "given": "An Order created by Checkout", "when": "A return is requested on day 30", "then": "The result is accepted with the same Order ID and total." },
+            { "id": "returns-outside-window", "given": "A valid Order", "when": "A return is requested on day 31", "then": "The result is outside-window." },
+            { "id": "returns-missing-order", "given": "No order", "when": "A return is requested within the return window", "then": "The result is unknown-order." }
+          ]
+        }
+      },
+      { "id": "checkout-service", "kind": "component", "name": "Checkout Service", "description": "Calculates the total, checks the simulated payment decision and builds the Order." },
+      { "id": "returns-handler", "kind": "component", "name": "Returns Handling", "description": "Evaluates the request using the Order record returned by Checkout." },
+      { "id": "order", "kind": "resource", "name": "Order", "description": "Shared JSON record with a nonempty string id and a nonnegative safe integer totalCents." }
+    ],
+    "relations": [
+      { "id": "checkout-writes-order", "kind": "write", "from": "checkout-service", "to": "order", "name": "builds the confirmed order", "condition": "simulated payment approved" },
+      { "id": "returns-reads-order", "kind": "read", "from": "returns-handler", "to": "order", "name": "reads the confirmed order" },
+      { "id": "returns-depends-on-checkout", "kind": "dependency", "from": "returns", "to": "checkout", "name": "reuses the Order contract" }
+    ]
+  },
+  "views": [
+    {
+      "id": "checkout-structure",
+      "featureId": "checkout",
+      "name": "Checkout · Structure",
+      "kind": "structure",
+      "nodes": [{ "elementId": "checkout-service", "x": 40, "y": 70 }, { "elementId": "order", "x": 390, "y": 70 }],
+      "relationIds": ["checkout-writes-order"]
+    },
+    {
+      "id": "returns-structure",
+      "featureId": "returns",
+      "name": "Returns · Structure",
+      "kind": "structure",
+      "nodes": [{ "elementId": "returns-handler", "x": 40, "y": 70 }, { "elementId": "order", "x": 390, "y": 70 }],
+      "relationIds": ["returns-reads-order"]
+    },
+    {
+      "id": "marketplace-dependencies",
+      "name": "Marketplace · Dependencies",
+      "kind": "structure",
+      "nodes": [{ "elementId": "returns", "x": 40, "y": 70 }, { "elementId": "checkout", "x": 390, "y": 70 }],
+      "relationIds": ["returns-depends-on-checkout"]
+    }
+  ],
+  "codeMappings": [],
+  "verifications": [],
+  "foundation": {
+    "ownership": [],
+    "memberships": [
+      { "id": "checkout-service-membership", "elementId": "checkout-service", "featureId": "checkout" },
+      { "id": "checkout-order-membership", "elementId": "order", "featureId": "checkout" },
+      { "id": "returns-handler-membership", "elementId": "returns-handler", "featureId": "returns" },
+      { "id": "returns-order-membership", "elementId": "order", "featureId": "returns" }
+    ],
+    "integrations": [],
+    "types": [],
+    "occurrences": [],
+    "frames": [],
+    "interactions": [],
+    "assertions": [],
+    "platform": { "bindings": [] },
+    "decisions": []
+  }
+}

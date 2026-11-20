@@ -221,7 +221,7 @@ def build_pdf(guide_dir, root, headings, description, edition, revision, font_di
 		plain(headings[0]), description)
 	story = [Spacer(1, 75), Paragraph('Ordito', styles['GuideH1']),
 		Paragraph('User Guide', styles['GuideH1']),
-		Paragraph('Bottega Ordini tour<br/>Build Mercato from scratch<br/>Atlas of 16 diagrams', styles['GuideH3']),
+		Paragraph('Order Shop tour<br/>Build Marketplace from scratch<br/>Atlas of 16 diagrams', styles['GuideH3']),
 		Spacer(1, 28), Paragraph(f'{html.escape(edition)} edition', styles['GuideBody']),
 		Paragraph(f'Software revision · {html.escape(revision)}.', styles['GuideBody']),
 		Paragraph('Model a system, define contracts, simulate behavior, and review changes.',
@@ -318,7 +318,7 @@ def write_archive(destination, source, files, prefix):
 
 
 def build_examples(guide_dir):
-	source = ROOT / 'ordito/examples/guida'
+	source = ROOT / 'ordito/examples/user-guide'
 	project_files = {'model.json', 'criteria.json', 'feature-code-cases.json'}
 	files = []
 	for path in sorted(source.rglob('*')):
@@ -352,7 +352,7 @@ def main():
 		[Path('/usr/share/fonts/truetype/liberation2'), Path('/usr/share/fonts/truetype/liberation')]
 		if path.is_dir()), Path('/usr/share/fonts/truetype/liberation2')))
 	parser.add_argument('--kit-only', action='store_true', help='Assemble the user kit from the existing exports and example archive.')
-	parser.add_argument('--rebuild-examples', action='store_true', help='Package the guide fixtures from ordito/examples/guida.')
+	parser.add_argument('--rebuild-examples', action='store_true', help='Package the guide fixtures from ordito/examples/user-guide.')
 	args = parser.parse_args()
 	if args.rebuild_examples:
 		build_examples(args.guide_dir)

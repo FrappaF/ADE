@@ -9,10 +9,10 @@ import { diagramFeatureChecks, mercatoDiagramChecks } from '../../scripts/diagra
 const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
 const { executeDiagramExploration, readExplorationSession } = await import('../diagramSession.ts');
 
-test('Mercato feature rubric checks grounded views and rejects split order identity', async t => {
+test('Marketplace feature rubric checks grounded views and rejects split order identity', async t => {
 	const root = await mkdtemp(join(tmpdir(), 'ordito-mercato-diagram-rubric-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
-	await cp(new URL('../../examples/guida/07-mercato-laboratorio/codice-ia/', import.meta.url), root, { recursive: true });
+	await cp(new URL('../../examples/user-guide/07-marketplace-workshop/ai-code/', import.meta.url), root, { recursive: true });
 	const context = JSON.parse(await createCodeEngine().execute(JSON.stringify({ operation: 'import', root })));
 	const { sessionId, semanticRevision } = await executeDiagramExploration(context.snapshot, { action: 'open', workflow: 'project', featureWorkflow: true, model: 'deterministic-fixture' });
 	let revision = semanticRevision;
@@ -31,22 +31,22 @@ test('Mercato feature rubric checks grounded views and rejects split order ident
 	const returns = await anchor('requestReturn', 'src/returns.mjs');
 	const orders = await anchor('createOrderStore', 'src/orders.mjs');
 	const features = [
-		{ id: 'acquisto', name: 'Acquisto', description: 'Conferma un ordine approvato', evidenceIds: [checkout], dependsOn: [] },
-		{ id: 'resi', name: 'Resi', description: 'Richiede il reso di un ordine salvato', evidenceIds: [returns], dependsOn: ['acquisto'] }
+		{ id: 'checkout', name: 'Checkout', description: 'Confirms an approved order', evidenceIds: [checkout], dependsOn: [] },
+		{ id: 'returns', name: 'Returns', description: 'Requests a return for a saved order', evidenceIds: [returns], dependsOn: ['checkout'] }
 	];
 	await tool('ordito_feature_catalog', { features });
-	await tool('ordito_diagram_plan', { items: [], gaps: ['Per le due funzionalità bastano le viste focalizzate.'] });
+	await tool('ordito_diagram_plan', { items: [], gaps: ['Focused views cover both features.'] });
 	const stage = async (feature, order, relationKind) => {
-		const taskId = `${feature.id}-structure`, diagramName = `Struttura ${feature.name}`;
+		const taskId = `${feature.id}-structure`, diagramName = `${feature.name} Structure`;
 		const [evidence] = feature.evidenceIds;
-		await tool('ordito_diagram_plan', { featureId: feature.id, items: [{ id: taskId, name: diagramName, viewKind: 'structure', intent: feature.description, rationale: 'Rende esplicita la dipendenza dall’archivio ordini', dependsOn: [] }] });
+		await tool('ordito_diagram_plan', { featureId: feature.id, items: [{ id: taskId, name: diagramName, viewKind: 'structure', intent: feature.description, rationale: 'Shows the dependency on the shared order store', dependsOn: [] }] });
 		await tool('ordito_task_update', { id: taskId, intent: feature.description, status: 'running', gaps: [] });
 		const proposalId = `${feature.id}-first`;
 		const result = await tool('ordito_model_propose', { taskId, proposalId, baseSemanticRevision: revision, readEvidenceIds: [evidence, orders], queryIds: [], readObjectIds: order ? [order] : [], commands: [
 			{ kind: 'element', ref: '@feature', evidenceIds: [evidence], element: { kind: 'feature', name: feature.name } },
 			{ kind: 'element', ref: '@action', evidenceIds: [evidence], element: { kind: 'action', name: feature.description } },
-			...(order ? [] : [{ kind: 'element', ref: '@order', evidenceIds: [orders], element: { kind: 'resource', name: 'Archivio ordini' } }]),
-			{ kind: 'relation', ref: '@orderAccess', evidenceIds: [evidence], relation: { kind: relationKind, from: '@action', to: order ?? '@order', name: relationKind === 'write' ? 'Salva ordine' : 'Legge ordine' } },
+			...(order ? [] : [{ kind: 'element', ref: '@order', evidenceIds: [orders], element: { kind: 'resource', name: 'Order Store' } }]),
+			{ kind: 'relation', ref: '@orderAccess', evidenceIds: [evidence], relation: { kind: relationKind, from: '@action', to: order ?? '@order', name: relationKind === 'write' ? 'Saves order' : 'Reads order' } },
 			{ kind: 'view', ref: '@view', name: diagramName, viewKind: 'structure', intent: feature.description, elementIds: ['@action', order ?? '@order'], relationIds: ['@orderAccess'], featureId: '@feature' }
 		] });
 		await tool('ordito_view_preview', { proposalId });
@@ -54,7 +54,7 @@ test('Mercato feature rubric checks grounded views and rejects split order ident
 		return result.aliases;
 	};
 	const purchase = await stage(features[0], undefined, 'write');
-	const lookup = await tool('ordito_model_query', { collection: 'elements', match: { name: 'Archivio ordini', kind: 'resource', evidenceIds: [orders] } });
+	const lookup = await tool('ordito_model_query', { collection: 'elements', match: { name: 'Order Store', kind: 'resource', evidenceIds: [orders] } });
 	assert.equal(lookup.candidates[0].id, purchase['@order']);
 	await stage(features[1], lookup.candidates[0].id, 'read');
 	const { data: { phase, usage: { toolCalls, readBytes } } } = await call('status');

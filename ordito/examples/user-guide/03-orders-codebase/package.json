@@ -1,0 +1,7 @@
+{
+  "name": "order-shop-example",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test", "start": "node src/demo.mjs"},
+  "engines": {"node": ">=24"}
+}

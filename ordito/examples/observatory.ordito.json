@@ -1,58 +1,58 @@
 {
 	"version": 3,
 	"id": "observatory-system",
-	"name": "Osservatorio — α Centauri",
+	"name": "Observatory — α Centauri",
 	"semantics": {
 		"elements": [
 			{
 				"id": "feature",
 				"kind": "feature",
-				"name": "Acquisizioni notturne"
+				"name": "Nighttime Observations"
 			},
 			{
 				"id": "agent",
 				"kind": "actor",
-				"name": "Astronoma"
+				"name": "Astronomer"
 			},
 			{
 				"id": "worker",
 				"kind": "component",
-				"name": "Coordinatore",
+				"name": "Coordinator",
 				"parentId": "feature"
 			},
 			{
 				"id": "scheduler",
 				"kind": "action",
-				"name": "Pianifica",
+				"name": "Schedule Observation",
 				"parentId": "worker"
 			},
 			{
 				"id": "resource",
 				"kind": "resource",
-				"name": "Esposizione",
+				"name": "Exposure",
 				"parentId": "worker"
 			},
 			{
 				"id": "contract",
 				"kind": "contract",
-				"name": "Vincoli ottici"
+				"name": "Optical Constraints"
 			},
 			{
 				"id": "idle",
 				"kind": "state",
-				"name": "In coda",
+				"name": "Queued",
 				"parentId": "resource"
 			},
 			{
 				"id": "active",
 				"kind": "state",
-				"name": "Acquisita",
+				"name": "Captured",
 				"parentId": "resource"
 			},
 			{
 				"id": "isolated",
 				"kind": "resource",
-				"name": "Esposizione"
+				"name": "Exposure"
 			}
 		],
 		"relations": [
@@ -61,43 +61,43 @@
 				"kind": "invocation",
 				"from": "agent",
 				"to": "scheduler",
-				"name": "Prenota sessione"
+				"name": "Books Session"
 			},
 			{
 				"id": "constraints",
 				"kind": "dependency",
 				"from": "scheduler",
 				"to": "contract",
-				"name": "Controlla vincoli"
+				"name": "Checks Constraints"
 			},
 			{
 				"id": "write",
 				"kind": "write",
 				"from": "scheduler",
 				"to": "resource",
-				"name": "Registra immagine"
+				"name": "Records Image"
 			},
 			{
 				"id": "feedback",
 				"kind": "dependency",
 				"from": "worker",
 				"to": "scheduler",
-				"name": "Avvia pianificazione"
+				"name": "Starts Scheduling"
 			},
 			{
 				"id": "cycle",
 				"kind": "dependency",
 				"from": "scheduler",
 				"to": "worker",
-				"name": "Consulta coordinatore"
+				"name": "Consults Coordinator"
 			},
 			{
 				"id": "capture",
 				"kind": "transition",
 				"from": "idle",
 				"to": "active",
-				"name": "Esposizione completata",
-				"condition": "Segnale sufficiente"
+				"name": "Exposure Complete",
+				"condition": "Sufficient signal"
 			}
 		]
 	},

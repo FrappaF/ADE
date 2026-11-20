@@ -1,34 +1,34 @@
 {
 	"version": 3,
 	"id": "library-system",
-	"name": "Biblioteca civica",
+	"name": "Public Library",
 	"semantics": {
 		"elements": [
 			{
 				"id": "feature",
 				"kind": "feature",
-				"name": "Prestiti"
+				"name": "Loans"
 			},
 			{
 				"id": "catalog",
 				"kind": "feature",
-				"name": "Catalogo"
+				"name": "Catalog"
 			},
 			{
 				"id": "agent",
 				"kind": "actor",
-				"name": "Bibliotecaria"
+				"name": "Librarian"
 			},
 			{
 				"id": "interface",
 				"kind": "view",
-				"name": "Sportello",
+				"name": "Service Desk",
 				"parentId": "feature"
 			},
 			{
 				"id": "worker",
 				"kind": "controller",
-				"name": "Gestore prestiti",
+				"name": "Loan Controller",
 				"parentId": "feature",
 				"behavior": {
 					"inputs": [
@@ -40,15 +40,15 @@
 					],
 					"outputs": [],
 					"preconditions": [
-						"Tessera attiva"
+						"Active library card"
 					],
 					"postconditions": [
-						"Un solo prestito attivo per copia"
+						"Only one active loan per copy"
 					],
 					"errors": [
 						{
 							"code": "unavailable",
-							"description": "Copia non disponibile"
+							"description": "Copy unavailable"
 						}
 					],
 					"permissions": [
@@ -60,9 +60,9 @@
 					"acceptanceCriteria": [
 						{
 							"id": "loan-recorded",
-							"given": "Copia disponibile",
-							"when": "Richiesta approvata",
-							"then": "Prestito registrato"
+							"given": "Copy available",
+							"when": "Request approved",
+							"then": "Loan recorded"
 						}
 					]
 				}
@@ -70,43 +70,43 @@
 			{
 				"id": "catalog-service",
 				"kind": "component",
-				"name": "Indice bibliografico",
+				"name": "Bibliographic Index",
 				"parentId": "catalog"
 			},
 			{
 				"id": "resource",
 				"kind": "resource",
-				"name": "Copia",
+				"name": "Copy",
 				"parentId": "catalog-service"
 			},
 			{
 				"id": "member",
 				"kind": "resource",
-				"name": "Tessera",
+				"name": "Library Card",
 				"parentId": "catalog"
 			},
 			{
 				"id": "contract",
 				"kind": "contract",
-				"name": "Regole del prestito",
+				"name": "Loan Policy",
 				"parentId": "feature"
 			},
 			{
 				"id": "idle",
 				"kind": "state",
-				"name": "Disponibile",
+				"name": "Available",
 				"parentId": "resource"
 			},
 			{
 				"id": "active",
 				"kind": "state",
-				"name": "In prestito",
+				"name": "On Loan",
 				"parentId": "resource"
 			},
 			{
 				"id": "registered",
 				"kind": "state",
-				"name": "Attiva",
+				"name": "Active",
 				"parentId": "member"
 			}
 		],
@@ -116,51 +116,51 @@
 				"kind": "invocation",
 				"from": "agent",
 				"to": "interface",
-				"name": "Registra prestito"
+				"name": "Records Loan"
 			},
 			{
 				"id": "dispatch",
 				"kind": "invocation",
 				"from": "interface",
 				"to": "worker",
-				"name": "Valuta richiesta"
+				"name": "Reviews Request"
 			},
 			{
 				"id": "update",
 				"kind": "write",
 				"from": "worker",
 				"to": "resource",
-				"name": "Assegna copia",
-				"condition": "Copia disponibile"
+				"name": "Assigns Copy",
+				"condition": "Copy available"
 			},
 			{
 				"id": "policy",
 				"kind": "dependency",
 				"from": "worker",
 				"to": "contract",
-				"name": "Applica regole"
+				"name": "Applies Policy"
 			},
 			{
 				"id": "index",
 				"kind": "read",
 				"from": "catalog-service",
 				"to": "resource",
-				"name": "Indicizza copia"
+				"name": "Indexes Copy"
 			},
 			{
 				"id": "lend-copy",
 				"kind": "transition",
 				"from": "idle",
 				"to": "active",
-				"name": "Consegna",
-				"condition": "Prestito approvato"
+				"name": "Checks Out Copy",
+				"condition": "Loan approved"
 			},
 			{
 				"id": "return-copy",
 				"kind": "transition",
 				"from": "active",
 				"to": "idle",
-				"name": "Restituzione"
+				"name": "Returns Copy"
 			}
 		]
 	},
@@ -168,7 +168,7 @@
 		{
 			"id": "structure",
 			"kind": "structure",
-			"name": "Servizio prestiti",
+			"name": "Loan Service",
 			"featureId": "feature",
 			"nodes": [
 				{
@@ -201,7 +201,7 @@
 		{
 			"id": "states",
 			"kind": "state",
-			"name": "Stati della copia",
+			"name": "Copy States",
 			"featureId": "catalog",
 			"nodes": [
 				{
@@ -228,7 +228,7 @@
 		{
 			"id": "empty",
 			"kind": "activity",
-			"name": "Revisione catalogo",
+			"name": "Catalog Review",
 			"featureId": "catalog",
 			"nodes": [],
 			"relationIds": []

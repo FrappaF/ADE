@@ -64,13 +64,13 @@ async function fakeProvider(Client: typeof McpClient, StdioClientTransport: type
 				return items;
 			};
 			const inventory = await call<{ views: { id: string; name: string }[]; files: { items: { file: string; revision: string }[] } }>('ordito_audit_inventory');
-			assert.deepEqual(inventory.data.views.map(view => view.name), ['Mercato · Panoramica', 'Struttura Acquisto', 'Struttura Resi']);
+			assert.deepEqual(inventory.data.views.map(view => view.name), ['Marketplace · Overview', 'Checkout Structure', 'Returns Structure']);
 			for (const { id } of inventory.data.views) { await readObjects('ordito_audit_diagram', { viewId: id }); }
 			const orders = inventory.data.files.items.find(file => file.file === 'src/orders.mjs');
 			assert.ok(orders);
 			await call('ordito_source_read', { file: orders.file, revision: orders.revision });
 			const reuse = await readObjects<{ name: string; viewIds: string[] }>('ordito_audit_reuse');
-			assert.equal(reuse.find(object => object.name === 'Archivio ordini')?.viewIds.length, inventory.data.views.length);
+			assert.equal(reuse.find(object => object.name === 'Order Store')?.viewIds.length, inventory.data.views.length);
 			const report = await call<{ checkpointComplete?: boolean }>('ordito_audit_submit', { summary: 'Verified the shared order store across all three views.', findings: [] });
 			assert.equal(report.data.checkpointComplete, true);
 			await writeFile(output, 'Audit completed.');
@@ -126,11 +126,11 @@ test('only checkpoint requests accept the scoped reasoning effort', () => {
 	assert.throws(() => validateCodeRequest({ ...chat, checkpoint: true, checkpointReasoningEffort: 'invalid' }), /diagramChat.*checkpointReasoningEffort/);
 });
 
-test('Mercato overview resumes its saved preview after a provider deadline', { timeout: 30_000, skip: process.platform === 'win32' }, async t => {
+test('Marketplace overview resumes its saved preview after a provider deadline', { timeout: 30_000, skip: process.platform === 'win32' }, async t => {
 	const directory = await mkdtemp(join(tmpdir(), 'ordito-mercato-timeout-'));
 	t.after(() => rm(directory, { recursive: true, force: true }));
 	const root = join(directory, 'mercato'), executable = join(directory, 'fake-codex.mjs');
-	await cp(new URL('../../examples/guida/08-mercato-codebase/', import.meta.url), root, { recursive: true });
+	await cp(new URL('../../examples/user-guide/08-marketplace-codebase/', import.meta.url), root, { recursive: true });
 	await writeFile(executable, [
 		'#!/usr/bin/env node',
 		`import assert from 'node:assert/strict';`,
@@ -152,20 +152,20 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 		const { page } = await tool<{ page: { items: { name: string; evidence: { id: string } }[] } }>('ordito_source_search', { mode: 'symbol', query: name, filePrefix, role: 'runtime' });
 		return page.items.find(item => item.name === name)!.evidence.id;
 	};
-	const server = await anchor('createMercatoServer', 'src/server.mjs');
+	const server = await anchor('createMarketplaceServer', 'src/server.mjs');
 	const orders = await anchor('createOrderStore', 'src/orders.mjs');
-	const purchase = { id: 'acquisto', name: 'Acquisto', description: 'Conferma un ordine approvato', evidenceIds: [await anchor('checkout', 'src/checkout.mjs')], dependsOn: [] };
-	const returns = { id: 'resi', name: 'Resi', description: 'Registra il reso di un ordine esistente', evidenceIds: [await anchor('returnOrder', 'src/returns.mjs')], dependsOn: [purchase.id] };
+	const purchase = { id: 'checkout', name: 'Checkout', description: 'Confirms an approved order', evidenceIds: [await anchor('checkout', 'src/checkout.mjs')], dependsOn: [] };
+	const returns = { id: 'returns', name: 'Returns', description: 'Records a return for an existing order', evidenceIds: [await anchor('returnOrder', 'src/returns.mjs')], dependsOn: [purchase.id] };
 	await tool('ordito_feature_catalog', { features: [purchase, returns] });
-	const overview = { id: 'system-overview', name: 'Mercato · Panoramica', viewKind: 'structure', intent: 'Mostrare il server e l’archivio ordini condiviso', rationale: 'Rendere esplicita la composizione del sistema locale', dependsOn: [] };
+	const overview = { id: 'system-overview', name: 'Marketplace · Overview', viewKind: 'structure', intent: 'Show the server and shared order store', rationale: 'Describe how the local system is composed', dependsOn: [] };
 	await tool('ordito_diagram_plan', { items: [overview] });
 	const show = (plan: Pick<typeof overview, 'name' | 'intent' | 'viewKind'>, elementIds: string[], relationIds: string[], featureId?: string) => ({ kind: 'view', ref: '@view', name: plan.name, viewKind: plan.viewKind, intent: plan.intent, elementIds, relationIds, ...(featureId ? { featureId } : {}) });
 	const element = (ref: string, kind: string, name: string, evidence: string) => ({ kind: 'element', ref, element: { kind, name }, evidenceIds: [evidence] });
 	const relation = (ref: string, kind: string, from: string, to: string, name: string, evidence: string) => ({ kind: 'relation', ref, relation: { kind, from, to, name }, evidenceIds: [evidence] });
 	const overviewTask = {
 		id: overview.id, intent: overview.intent, proposalId: 'mercato-overview', evidenceIds: [server, orders], readObjectIds: [],
-		commands: [element('@server', 'component', 'Server HTTP', server), element('@orders', 'resource', 'Archivio ordini', orders),
-			relation('@storage', 'dependency', '@server', '@orders', 'Condivide l’archivio', server), show(overview, ['@server', '@orders'], ['@storage'])],
+		commands: [element('@server', 'component', 'HTTP Server', server), element('@orders', 'resource', 'Order Store', orders),
+			relation('@storage', 'dependency', '@server', '@orders', 'Shares the order store', server), show(overview, ['@server', '@orders'], ['@storage'])],
 	};
 	const progress: CodeAiProgress[] = [];
 	const run = async (requestId: string, task: FakeTask | { audit: true }, checkpointTimeoutMinutes?: number, onProgress?: (event: CodeAiProgress) => void, signal?: AbortSignal): Promise<CodeDiagramCheckpointResult> => JSON.parse(await engine.execute(JSON.stringify({
@@ -217,11 +217,11 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 		resumed.text, resumedState.data.phase, resumedState.data.nextFeatureId,
 		progress.filter(event => event.requestId === 'system-resumed' && event.kind === 'tool').map(event => event.tool),
 	], ['Checkpoint completed.', 'planning', purchase.id, ['ordito_project_inspect', 'ordito_task_update']]);
-	for (const [feature, kind, accessName] of [[purchase, 'write', 'Salva ordine'], [returns, 'read', 'Legge ordine']] as const) {
-		const plan = { id: `${feature.id}-structure`, name: `Struttura ${feature.name}`, viewKind: 'structure', intent: feature.description, rationale: 'Mostrare l’accesso all’archivio condiviso', dependsOn: [overview.id] };
+	for (const [feature, kind, accessName] of [[purchase, 'write', 'Saves order'], [returns, 'read', 'Reads order']] as const) {
+		const plan = { id: `${feature.id}-structure`, name: `${feature.name} Structure`, viewKind: 'structure', intent: feature.description, rationale: 'Shows access to the shared order store', dependsOn: [overview.id] };
 		await tool('ordito_diagram_plan', { featureId: feature.id, items: [plan] });
 		const [evidence] = feature.evidenceIds;
-		const { candidates } = await tool<{ candidates: { id: string }[] }>('ordito_model_query', { collection: 'elements', match: { kind: 'resource', name: 'Archivio ordini', evidenceIds: [orders] } });
+		const { candidates } = await tool<{ candidates: { id: string }[] }>('ordito_model_query', { collection: 'elements', match: { kind: 'resource', name: 'Order Store', evidenceIds: [orders] } });
 		assert.deepEqual(candidates.map(candidate => candidate.id), [orderId]);
 		const task = {
 			id: plan.id, intent: plan.intent, proposalId: `${feature.id}-proposal`, evidenceIds: [evidence, orders], readObjectIds: [orderId], commands: [
@@ -239,7 +239,7 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 			assert.equal((await run(`${feature.id}-ready`, task)).text, 'Checkpoint completed.');
 		}
 	}
-	const viewNames = [overview.name, 'Struttura Acquisto', 'Struttura Resi'];
+	const viewNames = [overview.name, 'Checkout Structure', 'Returns Structure'];
 	const audited = await run('independent-audit', { audit: true });
 	assert.equal(audited.text, 'Audit completed.');
 	const review = await call<{ auditReport: { findings: unknown[] }; proposal: { status: string; views: { name: string; nodes: { elementId: string }[] }[] } }>('review');
@@ -248,5 +248,5 @@ test('Mercato overview resumes its saved preview after a provider deadline', { t
 		review.data.proposal.views.map(view => [view.name, view.nodes.filter(node => node.elementId === orderId).length]),
 		(await readExplorationSession(root, sessionId)).proposals.map(proposal => proposal.id),
 		review.data.auditReport.findings,
-	], ['ready', viewNames.map(name => [name, 1]), [overviewTask.proposalId, 'acquisto-proposal', 'resi-proposal'], []]);
+	], ['ready', viewNames.map(name => [name, 1]), [overviewTask.proposalId, 'checkout-proposal', 'returns-proposal'], []]);
 });

@@ -10,7 +10,7 @@ const { advanceFeatureImplementation, prepareFeatureImplementation, readFeatureI
 const { runProcess } = await import('../process.ts');
 const { createCodeEngine } = await import('../../runtime/nativeHost.ts');
 
-const sample = new URL('../../examples/guida/07-mercato-laboratorio/moduli/generazione-ia/', import.meta.url);
+const sample = new URL('../../examples/user-guide/07-marketplace-workshop/modules/ai-generation/', import.meta.url);
 const configuration = { version: 1, provider: 'codex', connection: 'cli', executable: 'codex', model: 'fixture-only', maxCalls: 2, maxContextBytes: 65536, timeoutMs: 2000 };
 const purchase = `export function run(input) {
 	if (!input || typeof input.orderId !== 'string' || !input.orderId.length || !Number.isSafeInteger(input.unitPriceCents) || input.unitPriceCents < 0 || !Number.isSafeInteger(input.quantity) || input.quantity < 1 || input.quantity > 10 || typeof input.approved !== 'boolean') {
@@ -34,7 +34,7 @@ async function fixture(t) {
 	t.after(() => rm(root, { recursive: true, force: true }));
 	await cp(sample, root, { recursive: true });
 	const execute = async (operation, params = {}) => JSON.parse(await executeCollaboration(JSON.stringify({ operation: 'featureImplementation' + operation, root, ...params })));
-	const prepare = (params = {}) => execute('Prepare', { profileId: 'node.esm', featureIds: ['resi', 'acquisto'], config: configuration, ...params });
+	const prepare = (params = {}) => execute('Prepare', { profileId: 'node.esm', featureIds: ['returns', 'checkout'], config: configuration, ...params });
 	return { root, execute, prepare };
 }
 
@@ -47,33 +47,35 @@ function fakeProvider(choose) {
 		return { value: choose(data), usage: { inputTokens: null, outputTokens: null }, cost: null };
 	} };
 }
-const grounded = fakeProvider(data => proposal(data, data.featureId === 'acquisto' ? purchase : returns));
+const grounded = fakeProvider(data => proposal(data, data.featureId === 'checkout' ? purchase : returns));
 
 test('code generation from the model stages and verifies two dependency-ordered features without Git', async t => {
 	const f = await fixture(t);
 	const setup = await f.execute('Inspect');
-	assert.deepEqual([setup.mode, setup.defaultProfileId, setup.featureIds], ['create', 'node.esm', ['acquisto', 'resi']]);
+	assert.deepEqual([setup.mode, setup.defaultProfileId, setup.featureIds], ['create', 'node.esm', ['checkout', 'returns']]);
 	const job = await f.prepare();
 	const first = await advanceFeatureImplementation(f.root, job.id, undefined, undefined, fakeProvider(data => {
-		assert.deepEqual([data.featureId, data.dependencies, data.model.views.map(view => view.id), data.model.elements.map(element => element.id)], ['acquisto', [], ['vista-acquisto'], ['acquisto', 'checkout', 'ordine']]);
+		assert.deepEqual([data.featureId, data.dependencies, data.model.views.map(view => view.id), data.model.elements.map(element => element.id)], ['checkout', [], ['checkout-structure'], ['checkout', 'checkout-service', 'order']]);
 		assert.equal(JSON.stringify(data).includes('2500'), false);
 		return proposal(data, purchase);
 	}));
 	assert.deepEqual([first.status, first.tasks.map(task => task.status)], ['prepared', ['ready', 'pending']]);
 	assert.deepEqual((await f.execute('Session', { id: job.id })).tasks, first.tasks);
 	const ready = await advanceFeatureImplementation(f.root, job.id, undefined, undefined, fakeProvider(data => {
-		assert.equal(data.featureId, 'resi');
-		assert.deepEqual(data.dependencies.map(entry => entry.id), ['acquisto']);
-		assert.match(data.dependencies[0].import, /^\.\/acquisto-/);
+		assert.equal(data.featureId, 'returns');
+		assert.deepEqual(data.dependencies.map(entry => entry.id), ['checkout']);
+		assert.match(data.dependencies[0].import, /^\.\/checkout-/);
 		assert.equal(JSON.stringify(data).includes('2500'), false);
 		return proposal(data, returns);
 	}));
 	assert.equal(ready.status, 'ready', JSON.stringify(ready.tasks));
 	assert.deepEqual(ready.files.map(file => file.kind), Array(5).fill('create'));
+	const sourceNames = ready.files.filter(file => file.file.startsWith('src/')).map(file => file.file.replace(/-[a-f0-9]{12}\.mjs$/, '.mjs'));
+	assert.deepEqual(sourceNames, ['src/features/checkout.mjs', 'src/features/returns.mjs']);
 	await assert.rejects(stat(join(f.root, '.git')), { code: 'ENOENT' });
 	await assert.rejects(stat(join(f.root, 'src')), { code: 'ENOENT' });
 	await assert.rejects(stat(join(f.root, 'package.json')), { code: 'ENOENT' });
-	const diff = await f.execute('Diff', { id: ready.id, file: ready.files.find(file => file.featureId === 'acquisto' && file.file.startsWith('src/')).file });
+	const diff = await f.execute('Diff', { id: ready.id, file: ready.files.find(file => file.featureId === 'checkout' && file.file.startsWith('src/')).file });
 	assert.deepEqual(diff, { before: null, after: purchase + '\n' });
 	await assert.rejects(f.execute('Apply', { id: ready.id, reviewId: ready.reviewId }), /verified/);
 	const verified = await f.execute('Verify', { id: ready.id, reviewId: ready.reviewId });
@@ -94,12 +96,12 @@ test('independent verification blocks a wrong result and reopens only the failin
 	const ready = await advanceFeatureImplementation(f.root, job.id, undefined, undefined, grounded);
 	assert.equal(ready.status, 'ready', JSON.stringify(ready.tasks));
 	const failed = await f.execute('Verify', { id: job.id, reviewId: ready.reviewId });
-	assert.deepEqual([failed.status, failed.verification.cases.filter(entry => !entry.passed).map(entry => entry.featureId)], ['failed', ['acquisto', 'acquisto']]);
+	assert.deepEqual([failed.status, failed.verification.cases.filter(entry => !entry.passed).map(entry => entry.featureId)], ['failed', ['checkout', 'checkout']]);
 	await assert.rejects(f.execute('Apply', { id: job.id, reviewId: ready.reviewId }), /verified/);
 	const repaired = await advanceFeatureImplementation(f.root, job.id, undefined, undefined, fakeProvider(data => {
-		assert.equal(data.featureId, 'acquisto');
+		assert.equal(data.featureId, 'checkout');
 		assert.match(data.previousProposal, /unitPriceCents \+ input.quantity/);
-		assert.match(data.verificationFailures.join(' '), /totale-confermato/);
+		assert.match(data.verificationFailures.join(' '), /confirmed-total/);
 		assert.equal(JSON.stringify(data).includes('2500'), false);
 		return proposal(data, purchase);
 	}));
@@ -111,9 +113,9 @@ test('independent verification blocks a wrong result and reopens only the failin
 
 test('questions, unsafe output, outside dependencies and stale inputs are bounded at the task boundary', async t => {
 	const f = await fixture(t);
-	await assert.rejects(f.prepare({ featureIds: ['resi'] }), /prerequisite feature Acquisto/);
-	await assert.rejects(f.prepare({ cases: [{ id: 'only-one', featureId: 'acquisto', input: false, expected: false }] }), /independent case/);
-	const job = await f.prepare({ featureIds: ['acquisto'] });
+	await assert.rejects(f.prepare({ featureIds: ['returns'] }), /prerequisite feature Checkout/);
+	await assert.rejects(f.prepare({ cases: [{ id: 'only-one', featureId: 'checkout', input: false, expected: false }] }), /independent case/);
+	const job = await f.prepare({ featureIds: ['checkout'] });
 	const waiting = await advanceFeatureImplementation(f.root, job.id, undefined, undefined, fakeProvider(() => ({ kind: 'needsClarification', source: '', implementedIds: [], questions: ['What is the scope?'], gaps: [] })));
 	assert.deepEqual([waiting.status, waiting.questions, waiting.files], ['waitingUser', ['What is the scope?'], []]);
 	assert.equal((await advanceFeatureImplementation(f.root, job.id, undefined, undefined, fakeProvider(() => assert.fail('Unanswered question spent a provider call')))).status, 'waitingUser');
@@ -125,7 +127,7 @@ test('questions, unsafe output, outside dependencies and stale inputs are bounde
 	assert.equal(unsafe.files.length, 0);
 	await assert.rejects(advanceFeatureImplementation(f.root, job.id, undefined, undefined, grounded), /budget/);
 
-	const fresh = await f.prepare({ featureIds: ['acquisto'] });
+	const fresh = await f.prepare({ featureIds: ['checkout'] });
 	const modelPath = join(f.root, '.ordito', 'model.json');
 	const model = JSON.parse(await readFile(modelPath, 'utf8'));
 	model.semantics.elements[0].description += ' A changed business rule.';
@@ -136,20 +138,20 @@ test('questions, unsafe output, outside dependencies and stale inputs are bounde
 
 test('updating an ESM feature preserves unrelated modules, tests and manual edits after review', async t => {
 	const f = await fixture(t);
-	const first = await prepareFeatureImplementation(f.root, { profileId: 'node.esm', featureIds: ['acquisto', 'resi'], config: configuration });
+	const first = await prepareFeatureImplementation(f.root, { profileId: 'node.esm', featureIds: ['checkout', 'returns'], config: configuration });
 	await advanceFeatureImplementation(f.root, first.id, undefined, undefined, grounded);
 	const ready = await advanceFeatureImplementation(f.root, first.id, undefined, undefined, grounded);
 	await f.execute('Verify', { id: first.id, reviewId: ready.reviewId });
 	await f.execute('Apply', { id: first.id, reviewId: ready.reviewId });
-	const unrelated = ready.files.filter(file => file.featureId === 'resi');
+	const unrelated = ready.files.filter(file => file.featureId === 'returns');
 	const images = await Promise.all(unrelated.map(file => readFile(join(f.root, file.file), 'utf8')));
-	const second = await f.prepare({ featureIds: ['acquisto'] });
+	const second = await f.prepare({ featureIds: ['checkout'] });
 	assert.equal(second.mode, 'update');
 	const changes = await advanceFeatureImplementation(f.root, second.id, undefined, undefined, fakeProvider(data => {
 		assert.equal(data.currentSource.content, purchase + '\n');
 		return proposal(data, '// Reviewed clarification.\n' + purchase);
 	}));
-	assert.deepEqual(changes.files.map(file => [file.featureId, file.kind]), [['acquisto', 'update']]);
+	assert.deepEqual(changes.files.map(file => [file.featureId, file.kind]), [['checkout', 'update']]);
 	const verified = await f.execute('Verify', { id: second.id, reviewId: changes.reviewId });
 	assert.equal(verified.status, 'verified');
 	const target = join(f.root, changes.files[0].file);
@@ -169,13 +171,13 @@ test('the active imported snapshot can drive updates and hidden or stale models 
 	await writeFile(join(f.root, source), purchase);
 	const document = join(f.root, '.ordito/model.json');
 	const model = JSON.parse(await readFile(document, 'utf8'));
-	model.codeMappings.push({ id: 'existing-checkout', elementId: 'acquisto', file: source, symbol: 'run', revision: 'initial' });
+	model.codeMappings.push({ id: 'existing-checkout', elementId: 'checkout', file: source, symbol: 'run', revision: 'initial' });
 	await writeFile(document, JSON.stringify(model));
 	const context = JSON.parse(await createCodeEngine().execute(JSON.stringify({ operation: 'import', root: f.root, modelFile: '.ordito/model.json', syntaxOnly: true })));
 	const modelFile = relative(f.root, context.model).replaceAll('\\', '/');
 	const setup = await f.execute('Inspect', { modelFile });
-	assert.deepEqual([setup.mode, setup.featureIds], ['update', ['acquisto', 'resi']]);
-	const job = await f.prepare({ modelFile, featureIds: ['acquisto'] });
+	assert.deepEqual([setup.mode, setup.featureIds], ['update', ['checkout', 'returns']]);
+	const job = await f.prepare({ modelFile, featureIds: ['checkout'] });
 	const updated = '// Requested model clarification.\n' + purchase;
 	const ready = await advanceFeatureImplementation(f.root, job.id, undefined, undefined, fakeProvider(data => {
 		assert.deepEqual([data.file, data.currentSource.content], [source, purchase]);
@@ -190,7 +192,7 @@ test('the active imported snapshot can drive updates and hidden or stale models 
 });
 
 test('recovery completes committed publication after archive-link cleanup was interrupted', async t => {
-	const f = await fixture(t), job = await f.prepare({ featureIds: ['acquisto'] });
+	const f = await fixture(t), job = await f.prepare({ featureIds: ['checkout'] });
 	const ready = await advanceFeatureImplementation(f.root, job.id, undefined, undefined, grounded);
 	const verified = await f.execute('Verify', { id: ready.id, reviewId: ready.reviewId });
 	const original = fs.rm;
@@ -203,5 +205,5 @@ test('recovery completes committed publication after archive-link cleanup was in
 	finally { mock.mock.restore(); syncBuiltinESMExports(); }
 	assert.deepEqual([(await f.execute('Session', { id: ready.id })).status, (await stat(join(f.root, 'package.json'))).nlink], ['interrupted', 2]);
 	assert.deepEqual([(await f.execute('Recover', { id: ready.id })).status, (await stat(join(f.root, 'package.json'))).nlink], ['applied', 1]);
-	assert.equal((await f.prepare({ featureIds: ['acquisto'] })).mode, 'update');
+	assert.equal((await f.prepare({ featureIds: ['checkout'] })).mode, 'update');
 });
