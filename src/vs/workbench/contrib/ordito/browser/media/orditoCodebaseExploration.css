@@ -440,6 +440,158 @@
 	margin-block-start: var(--vscode-spacing-size80);
 }
 
+.ordito-shell .ordito-explore.ordito-feature-code-review {
+	max-inline-size: 58rem;
+	gap: var(--vscode-spacing-size160);
+	padding: var(--vscode-spacing-size80);
+	border: 0;
+}
+
+.ordito-feature-code-review > .ordito-explore-header,
+.ordito-feature-code-review > .ordito-explore-card {
+	flex-shrink: 0;
+}
+
+.ordito-explore.ordito-feature-code-review > .ordito-explore-header {
+	margin: 0;
+}
+
+.ordito-feature-code-review .ordito-feature-code-context {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+	gap: var(--vscode-spacing-size120) var(--vscode-spacing-size240);
+	margin: 0;
+}
+
+.ordito-feature-code-review .ordito-feature-code-target {
+	grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+	padding: var(--vscode-spacing-size120) var(--vscode-spacing-size240);
+	border-block-start: var(--vscode-strokeThickness) solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+}
+
+.ordito-feature-code-target > :only-child {
+	grid-column: 1 / -1;
+}
+
+.ordito-feature-code-context dt,
+.ordito-feature-code-block h4 {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ordito-feature-code-context dd {
+	margin: var(--vscode-spacing-size40) 0 0;
+}
+
+.ordito-feature-code-context dd ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ordito-feature-code-evidence,
+.ordito-feature-code-group,
+.ordito-feature-code-block {
+	display: grid;
+	align-content: start;
+	min-inline-size: 0;
+}
+
+.ordito-feature-code-review .ordito-feature-code-evidence {
+	gap: var(--vscode-spacing-size160);
+	padding-inline-end: 0;
+}
+
+.ordito-feature-code-group {
+	gap: var(--vscode-spacing-size120);
+	padding: var(--vscode-spacing-size160);
+}
+
+.ordito-feature-code-group h3 {
+	display: flex;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+	margin: 0;
+	font-size: var(--vscode-fontSize-heading3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.ordito-feature-code-group h3 > .codicon {
+	color: var(--vscode-textLink-foreground);
+}
+
+.ordito-feature-code-block {
+	gap: var(--vscode-spacing-size60);
+}
+
+.ordito-feature-code-block h4,
+.ordito-feature-code-notes {
+	margin: 0;
+}
+
+.ordito-feature-code-notes {
+	padding-inline-start: var(--vscode-spacing-size160);
+}
+
+.ordito-explore .ordito-feature-code-files > li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--vscode-spacing-size80);
+	padding-block: var(--vscode-spacing-size60);
+}
+
+.ordito-feature-code-file-name {
+	display: flex;
+	flex: 1 1 13rem;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+	min-inline-size: 0;
+}
+
+.ordito-feature-code-file-name > .codicon {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ordito-feature-code-review code,
+.ordito-feature-code-review pre {
+	font-family: var(--monaco-monospace-font, monospace);
+}
+
+.ordito-feature-code-file-name code {
+	min-inline-size: 0;
+}
+
+.ordito-explore .ordito-feature-code-file-name > .ordito-explore-tag {
+	flex-shrink: 0;
+	max-inline-size: 40%;
+	margin-inline-start: 0;
+}
+
+.ordito-explore .ordito-feature-code-cases .ordito-explore-tag[data-tone="success"] {
+	color: var(--vscode-editor-foreground);
+	background: color-mix(in srgb, var(--vscode-testing-iconPassed, var(--vscode-charts-green)) 16%, transparent);
+}
+
+.ordito-explore .ordito-feature-code-cases .ordito-explore-tag[data-tone="attention"] {
+	color: var(--vscode-editor-foreground);
+	background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 16%, transparent);
+}
+
+.ordito-feature-code-cases li > p {
+	margin-block-start: var(--vscode-spacing-size40);
+}
+
+.ordito-shell .ordito-feature-code-output > summary:focus-visible {
+	outline-offset: -2px;
+}
+
+.ordito-feature-code-output pre {
+	margin: 0;
+}
+
 @keyframes ordito-explore-activity {
 	from { background-position: -65% 0; }
 	to { background-position: 165% 0; }
@@ -473,6 +625,22 @@
 
 	.ordito-explore .ordito-explore-progress-label {
 		margin-inline: var(--vscode-spacing-size160);
+	}
+}
+
+@container (max-width: 600px) {
+	.ordito-review-mode > .ordito-content:has(> .ordito-feature-code-review) {
+		display: block;
+		overflow: auto;
+	}
+
+	.ordito-feature-code-review .ordito-feature-code-evidence {
+		overflow: visible;
+	}
+
+	.ordito-feature-code-review .ordito-feature-code-target {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+		padding-inline: var(--vscode-spacing-size160);
 	}
 }
 

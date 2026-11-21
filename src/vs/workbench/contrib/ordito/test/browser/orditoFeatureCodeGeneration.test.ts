@@ -98,17 +98,22 @@ suite('Ordito. AI code generation', () => {
 		run.status = 'failed'; run.verification = { passed: false, cases: [{ id: 'refund', featureId: 'returns', passed: false, message: 'Unexpected amount' }] };
 		draw();
 		assert.ok(button('Apply to Project').disabled);
-		assert.ok(root.textContent?.includes('refund · Failed · Unexpected amount'));
+		const verificationCase = () => root.querySelector('.ordito-feature-code-cases li');
+		assert.deepStrictEqual([
+			verificationCase()?.querySelector('code')?.textContent,
+			verificationCase()?.querySelector('.ordito-explore-tag')?.textContent,
+			verificationCase()?.querySelector('p')?.textContent
+		], ['refund', 'Failed', 'Unexpected amount']);
 		button('Repair Failing Features').click();
 		run.status = 'verified'; run.verification = { passed: true, cases: [{ id: 'refund', featureId: 'returns', passed: true }], output: 'One independent case passed' };
 		draw();
 		assert.equal(button('Apply to Project').disabled, false);
-		assert.ok(root.textContent?.includes('refund · Passed'));
+		assert.equal(verificationCase()?.querySelector('.ordito-explore-tag')?.textContent, 'Passed');
 		button('Apply to Project').click();
 		assert.deepStrictEqual(calls, ['stop', 'src/returns.mjs', 'verify', 'repair', 'apply']);
 		run.files = [];
 		draw();
-		assert.ok(root.textContent?.includes('Verification Passed · No File Changes'));
+		assert.deepStrictEqual(Array.from(root.querySelectorAll('[role=status] > *'), element => element.textContent), ['Verification Passed', 'No file changes to apply.']);
 		assert.ok(!Array.from(root.querySelectorAll('button')).some(button => button.textContent === 'Apply to Project'));
 	});
 

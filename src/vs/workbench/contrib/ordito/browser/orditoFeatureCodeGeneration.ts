@@ -1,5 +1,8 @@
+import './media/orditoCodebaseExploration.css';
 import * as dom from '../../../../base/browser/dom.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { type ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
 import { featureCodeProfiles, parseFeatureCodeCases, type FeatureCodeGenerationRun } from '../common/featureCodeGeneration.js';
 import { type IOrditoAiService } from './orditoAiService.js';
@@ -8,6 +11,7 @@ import { OrditoEditingWizard } from './orditoEditingWizard.js';
 import { renderOrditoErrorNotice } from './orditoErrorNotice.js';
 import { describeOrditoError } from './orditoErrors.js';
 import { OrditoFormDialog } from './orditoFormDialog.js';
+import { prependOrditoIcon } from './orditoIcons.js';
 import { type OrditoProjectService } from './orditoProjectService.js';
 
 export function hasFeatureCodeReview(run: FeatureCodeGenerationRun | undefined): boolean {
@@ -44,6 +48,33 @@ function taskStatus(status: FeatureCodeGenerationRun['tasks'][number]['status'])
 
 function profileLabel(profile: { language: string; runtime: string; framework: string | null }): string {
 	return localize('ordito.featureCode.stackValue', "{0} · {1} · {2}", profile.language, profile.runtime, profile.framework ?? localize('ordito.featureCode.noFramework', "No Framework"));
+}
+
+function reviewStage(run: FeatureCodeGenerationRun, busy: boolean) {
+	switch (run.status) {
+		case 'ready': return {
+			title: localize('ordito.featureCode.reviewReady', "Changes Ready for Review"),
+			description: localize('ordito.featureCode.reviewRequiresVerification', "Run verification before applying the changes."),
+			icon: Codicon.checklist, tone: 'active'
+		};
+		case 'verified': return {
+			title: localize('ordito.featureCode.reviewVerified', "Verification Passed"),
+			description: run.files.length ? localize('ordito.featureCode.reviewReadyToApply', "Ready to apply to the local project.") : localize('ordito.featureCode.reviewUnchanged', "No file changes to apply."),
+			icon: Codicon.pass, tone: 'success'
+		};
+		case 'failed': return {
+			title: run.verification ? localize('ordito.featureCode.reviewVerificationFailed', "Verification Failed") : featureCodeStatus(run, busy),
+			description: run.verification ? localize('ordito.featureCode.reviewApplyBlocked', "Verification must pass before you can apply the changes.") : undefined,
+			icon: Codicon.warning, tone: 'attention'
+		};
+		case 'applied': return { title: featureCodeStatus(run, busy), icon: Codicon.check, tone: 'success' };
+		case 'interrupted': return {
+			title: localize('ordito.featureCode.reviewPaused', "Generation Paused"),
+			description: localize('ordito.featureCode.reviewCheckpoint', "A checkpoint was saved for recovery."),
+			icon: Codicon.history, tone: 'attention'
+		};
+		default: return { title: featureCodeStatus(run, busy), icon: Codicon.info, tone: 'ready' };
+	}
 }
 
 /** User-facing setup and review for the staged AI code workflow. */
@@ -145,59 +176,140 @@ export class OrditoFeatureCodeGeneration extends Disposable {
 
 	renderReview(parent: HTMLElement, run: FeatureCodeGenerationRun, controls: OrditoControls, busy: boolean, close: () => void): HTMLElement {
 		const title = localize('ordito.featureCode.reviewTitle', "AI Code Review");
-		const section = dom.append(parent, dom.$('section.ordito-structural-review', { 'aria-label': title }));
-		dom.append(section, dom.$('h2')).textContent = title;
-		dom.append(section, dom.$('p', { role: 'status' })).textContent = featureCodeStatus(run, busy);
-		const toolbar = dom.append(section, dom.$('div.ordito-review-actions', { 'aria-label': localize('ordito.review.actions', "Review Actions") }));
+		const section = dom.append(parent, dom.$('section.ordito-structural-review.ordito-explore.ordito-feature-code-review', { 'aria-label': title }));
+		const header = dom.append(section, dom.$('header.ordito-explore-header'));
+		const identity = dom.append(header, dom.$('div.ordito-explore-identity'));
+		prependOrditoIcon(dom.append(identity, dom.$('span.ordito-explore-project-icon')), Codicon.codeReview);
+		dom.append(dom.append(identity, dom.$('div.ordito-explore-heading')), dom.$('h1')).textContent = title;
+
+		const action = (container: HTMLElement, label: string, icon: ThemeIcon, run: () => void | Promise<void>, id: string, primary = false) => {
+			const button = controls.button(container, label, run, id);
+			button.classList.add('ordito-explore-button');
+			button.classList.toggle('ordito-primary-action', primary);
+			prependOrditoIcon(button, icon);
+			return button;
+		};
+		action(header, localize('ordito.featureCode.back', "Back to Code"), Codicon.arrowLeft, close, 'feature-code-back');
+
+		const stage = reviewStage(run, busy);
+		const card = dom.append(section, dom.$('div.ordito-explore-card'));
+		const stageBody = dom.append(card, dom.$('div.ordito-explore-stage', { 'data-tone': stage.tone }));
+		const stageMain = dom.append(stageBody, dom.$('div.ordito-explore-stage-main'));
+		prependOrditoIcon(dom.append(stageMain, dom.$('span.ordito-explore-stage-icon')), stage.icon);
+		const copy = dom.append(stageMain, dom.$('div.ordito-explore-stage-copy'));
+		const status = dom.append(copy, dom.$('div.ordito-explore-live', { role: 'status' }));
+		dom.append(status, dom.$('h2')).textContent = stage.title;
+		if (stage.description) {
+			dom.append(status, dom.$('p')).textContent = stage.description;
+		}
+		const toolbar = dom.append(stageBody, dom.$('div.ordito-explore-actions', { role: 'group', 'aria-label': localize('ordito.review.actions', "Review Actions") }));
 		if (run.status === 'ready' || run.status === 'failed') {
-			const verify = controls.button(toolbar, localize('ordito.featureCode.verify', "Run Verification"), () => this.ai.verifyCodeGeneration(), 'feature-code-verify');
-			verify.classList.add('ordito-primary-action'); verify.disabled = busy;
+			action(toolbar, localize('ordito.featureCode.verify', "Run Verification"), Codicon.play, () => this.ai.verifyCodeGeneration(), 'feature-code-verify', true).disabled = busy;
 		}
 		if (run.status === 'failed' && run.verification?.cases?.some(test => !test.passed)) {
-			controls.button(toolbar, localize('ordito.featureCode.repair', "Repair Failing Features"), () => this.ai.resumeCodeGeneration(), 'feature-code-repair').disabled = busy;
+			action(toolbar, localize('ordito.featureCode.repair', "Repair Failing Features"), Codicon.wrench, () => this.ai.resumeCodeGeneration(), 'feature-code-repair').disabled = busy;
 		}
 		if (run.status === 'applied') {
-			controls.button(toolbar, localize('ordito.review.undo', "Undo Local Changes"), () => this.ai.undoCodeGeneration(), 'feature-code-undo').disabled = busy;
+			action(toolbar, localize('ordito.review.undo', "Undo Local Changes"), Codicon.discard, () => this.ai.undoCodeGeneration(), 'feature-code-undo').disabled = busy;
 		} else if (run.status === 'interrupted') {
-			controls.button(toolbar, localize('ordito.featureCode.recover', "Recover Code Generation"), () => this.ai.recoverCodeGeneration(), 'feature-code-recover').disabled = busy;
+			action(toolbar, localize('ordito.featureCode.recover', "Recover Code Generation"), Codicon.history, () => this.ai.recoverCodeGeneration(), 'feature-code-recover', true).disabled = busy;
 		} else if (run.status !== 'undone' && (run.status !== 'verified' || run.files.length > 0)) {
-			const apply = controls.button(toolbar, localize('ordito.review.publish', "Apply to Project"), () => this.ai.applyCodeGeneration(), 'feature-code-apply');
 			const verified = run.status === 'verified' && run.verification?.passed === true;
-			apply.disabled = busy || !verified;
-			apply.classList.toggle('ordito-primary-action', verified);
+			action(toolbar, localize('ordito.review.publish', "Apply to Project"), Codicon.check, () => this.ai.applyCodeGeneration(), 'feature-code-apply', verified).disabled = busy || !verified;
 		}
-		controls.button(toolbar, localize('ordito.featureCode.back', "Back to Code"), close, 'feature-code-back');
-		const body = dom.append(section, dom.$('div.ordito-review-body'));
-		if (this.ai.codeGenerationProblem) { renderOrditoErrorNotice(body, describeOrditoError(this.ai.codeGenerationProblem, 'ai', this.project.model), controls); }
+
+		const target = dom.append(card, dom.$('dl.ordito-feature-code-context.ordito-feature-code-target'));
+		const destination = dom.append(target, dom.$('div'));
+		dom.append(destination, dom.$('dt')).textContent = localize('ordito.featureCode.localDestination', "Local Destination");
+		dom.append(dom.append(destination, dom.$('dd')), dom.$('code')).textContent = run.root;
 		const profile = featureCodeProfiles.find(profile => profile.id === run.profileId);
-		if (profile) { dom.append(body, dom.$('p')).textContent = profileLabel(profile); }
-		dom.append(body, dom.$('p.ordito-supporting-text')).textContent = localize('ordito.featureCode.reviewDestination', "Local destination: {0}", run.root);
+		if (profile) {
+			for (const [label, value] of [
+				[localize('ordito.featureCode.language', "Language"), profile.language],
+				[localize('ordito.featureCode.runtime', "Runtime"), profile.runtime],
+				[localize('ordito.featureCode.framework', "Framework"), profile.framework ?? localize('ordito.featureCode.noFramework', "No Framework")]
+			]) {
+				const field = dom.append(target, dom.$('div'));
+				dom.append(field, dom.$('dt')).textContent = label;
+				dom.append(field, dom.$('dd')).textContent = value;
+			}
+		}
+
+		const body = dom.append(section, dom.$('div.ordito-review-body.ordito-feature-code-evidence'));
+		if (this.ai.codeGenerationProblem) { renderOrditoErrorNotice(body, describeOrditoError(this.ai.codeGenerationProblem, 'ai', this.project.model), controls); }
 		const model = this.project.model;
 		const operationCriteria = model.version === 4 || model.version === 5 ? model.foundation.blueprint?.operations.flatMap(operation => operation.acceptanceCriteria) ?? [] : [];
 		const criteria = new Map([...model.semantics.elements.flatMap(element => element.behavior?.acceptanceCriteria ?? []), ...operationCriteria].map(criterion => [criterion.id, criterion.then]));
 		const cases = run.verification?.cases ?? [];
 		for (const task of run.tasks) {
-			const group = dom.append(body, dom.$('section.ordito-review-changes'));
-			dom.append(group, dom.$('h3')).textContent = task.name;
+			const group = dom.append(body, dom.$('section.ordito-explore-card.ordito-feature-code-group'));
+			const heading = dom.append(group, dom.$('h3'));
+			heading.textContent = task.name;
+			prependOrditoIcon(heading, Codicon.symbolEvent);
 			const views = (task.diagramIds ?? []).map(id => model.views.find(view => view.id === id)?.name ?? id);
-			if (views.length) { dom.append(group, dom.$('p')).textContent = localize('ordito.featureCode.reviewDiagrams', "Diagrams · {0}", views.join(', ')); }
-			if (task.criterionIds?.length) { dom.append(group, dom.$('p')).textContent = localize('ordito.featureCode.reviewCriteria', "Acceptance Criteria · {0}", task.criterionIds.map(id => criteria.get(id) ?? id).join(', ')); }
-			for (const gap of task.gaps) { dom.append(group, dom.$('p')).textContent = gap; }
-			this.renderFiles(group, run.files.filter(file => file.featureId === task.id), controls, busy);
-			for (const test of cases) {
-				if (test.featureId !== task.id) { continue; }
-				const result = test.passed ? localize('ordito.featureCode.casePassed', "Passed") : test.message ? localize('ordito.featureCode.caseFailureReason', "Failed · {0}", test.message) : localize('ordito.featureCode.caseFailed', "Failed");
-				dom.append(group, dom.$('p')).textContent = localize('ordito.featureCode.reviewCase', "{0} · {1}", test.id, result);
+			const acceptance = (task.criterionIds ?? []).map(id => criteria.get(id) ?? id);
+			if (views.length || acceptance.length) {
+				const context = dom.append(group, dom.$('dl.ordito-feature-code-context'));
+				for (const [label, values] of [
+					[localize('ordito.featureCode.diagrams', "Diagrams"), views],
+					[localize('ordito.featureCode.acceptanceCriteria', "Acceptance Criteria"), acceptance]
+				] as const) {
+					if (!values.length) { continue; }
+					const field = dom.append(context, dom.$('div'));
+					dom.append(field, dom.$('dt')).textContent = label;
+					const list = dom.append(dom.append(field, dom.$('dd')), dom.$('ul'));
+					for (const value of values) {
+						dom.append(list, dom.$('li')).textContent = value;
+					}
+				}
+			}
+			if (task.gaps.length) {
+				const notes = dom.append(group, dom.$('div.ordito-feature-code-block'));
+				dom.append(notes, dom.$('h4')).textContent = localize('ordito.featureCode.reviewGaps', "Implementation Notes");
+				const list = dom.append(notes, dom.$('ul.ordito-feature-code-notes'));
+				for (const gap of task.gaps) {
+					dom.append(list, dom.$('li')).textContent = gap;
+				}
+			}
+			const files = run.files.filter(file => file.featureId === task.id);
+			if (files.length) {
+				const changes = dom.append(group, dom.$('div.ordito-feature-code-block'));
+				dom.append(changes, dom.$('h4')).textContent = localize('ordito.featureCode.changedFiles', "Changed Files");
+				this.renderFiles(changes, files, controls, busy);
+			}
+			const featureCases = cases.filter(test => test.featureId === task.id);
+			if (featureCases.length) {
+				const verification = dom.append(group, dom.$('div.ordito-feature-code-block'));
+				dom.append(verification, dom.$('h4')).textContent = localize('ordito.featureCode.verificationCases', "Verification Cases");
+				const list = dom.append(verification, dom.$('ul.ordito-explore-views.ordito-feature-code-cases'));
+				for (const test of featureCases) {
+					const item = dom.append(list, dom.$('li'));
+					const row = dom.append(item, dom.$('div.ordito-explore-view'));
+					dom.append(row, dom.$('code')).textContent = test.id;
+					const result = dom.append(row, dom.$('span.ordito-explore-tag', { 'data-tone': test.passed ? 'success' : 'attention' }));
+					result.textContent = test.passed ? localize('ordito.featureCode.casePassed', "Passed") : localize('ordito.featureCode.caseFailed', "Failed");
+					if (!test.passed && test.message) {
+						dom.append(item, dom.$('p')).textContent = test.message;
+					}
+				}
+			}
+			if (!files.length && !views.length && !acceptance.length && !task.gaps.length && !featureCases.length) {
+				dom.append(group, dom.$('p')).textContent = localize('ordito.featureCode.noFeatureChanges', "No file changes for this feature.");
 			}
 		}
 		const shared = run.files.filter(file => !file.featureId);
 		if (shared.length) {
-			const group = dom.append(body, dom.$('section.ordito-review-changes'));
-			dom.append(group, dom.$('h3')).textContent = localize('ordito.featureCode.sharedFiles', "Shared Project Files");
+			const group = dom.append(body, dom.$('section.ordito-explore-card.ordito-feature-code-group'));
+			const heading = dom.append(group, dom.$('h3'));
+			heading.textContent = localize('ordito.featureCode.sharedFiles', "Shared Project Files");
+			prependOrditoIcon(heading, Codicon.files);
 			this.renderFiles(group, shared, controls, busy);
 		}
 		if (run.verification?.output) {
 			const details = controls.details(body, localize('ordito.review.results', "Verification Output"), 'feature-code-verification-output');
+			const disclosure = details.parentElement!;
+			disclosure.classList.add('ordito-explore-details', 'ordito-feature-code-output');
+			prependOrditoIcon(disclosure.querySelector('summary')!, Codicon.chevronRight);
 			const output = dom.append(details, dom.$('pre', { tabindex: '0' }));
 			output.textContent = run.verification.output;
 		}
@@ -205,14 +317,19 @@ export class OrditoFeatureCodeGeneration extends Disposable {
 	}
 
 	private renderFiles(parent: HTMLElement, files: FeatureCodeGenerationRun['files'], controls: OrditoControls, busy: boolean): void {
-		if (!files.length) { return; }
-		const list = dom.append(parent, dom.$('ul'));
+		const list = dom.append(parent, dom.$('ul.ordito-explore-views.ordito-feature-code-files'));
 		for (const file of files) {
 			const item = dom.append(list, dom.$('li'));
 			const action = file.kind === 'create' ? localize('ordito.review.create', "Create") : file.kind === 'delete' ? localize('ordito.review.delete', "Delete") : localize('ordito.review.modify', "Modify");
-			dom.append(item, dom.$('p')).textContent = localize('ordito.featureCode.fileRow', "{0} · {1}", action, file.file);
+			const name = dom.append(item, dom.$('span.ordito-feature-code-file-name'));
+			prependOrditoIcon(name, Codicon.fileCode);
+			dom.append(name, dom.$('code')).textContent = file.file;
+			dom.append(name, dom.$('span.ordito-explore-tag')).textContent = action;
 			const button = controls.button(item, localize('ordito.featureCode.diff', "Open Diff"), () => this.ai.openCodeGenerationDiff(file.file), `feature-code-diff:${file.file}`);
-			button.setAttribute('aria-label', localize('ordito.featureCode.diffForFile', "Open Diff for {0}", file.file)); button.disabled = busy;
+			button.classList.add('ordito-explore-button');
+			button.setAttribute('aria-label', localize('ordito.featureCode.diffForFile', "Open Diff for {0}", file.file));
+			prependOrditoIcon(button, Codicon.diff);
+			button.disabled = busy;
 		}
 	}
 }
