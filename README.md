@@ -24,13 +24,13 @@ Focus on how the system should work. In Ordito, the boundaries, contracts, and b
 2. In Ordito, choose **Start a Project > Open Project** and select `Ordito-Example-Projects/01-visual-workshop`. **Checkout Structure** opens in the **Order Shop** project.
 3. Select **Confirm Order** in the diagram to inspect its properties. Switch to **Checkout Flow** to follow approved and declined payments. Use **Fit Diagram** if you need to bring the whole view into frame.
 
-This tour requires only Ordito. The deterministic JavaScript exercise adds local acceptance checks and requires Node.js 24.22.1. [Order Shop tour](ordito/docs/user-guide/README.md#part-i---tour-of-order-shop) · [Marketplace quantity exercise](ordito/docs/user-guide/README.md#l12-implement-and-verify-the-quantity-limit)
+This tour requires only Ordito. The deterministic JavaScript exercise adds local acceptance checks and requires Node.js 24.22.1 and a trusted copy of the exercise folder. [Order Shop tour](ordito/docs/user-guide/README.md#part-i---tour-of-order-shop) · [Marketplace quantity exercise](ordito/docs/user-guide/README.md#l12-implement-and-verify-the-quantity-limit)
 
 Tell us where you got stuck or what you would try next. Include your OS, Ordito version, and the step you reached. [Share first-run feedback](https://github.com/FrappaF/Ordito/issues/35)
 
 ## Marketplace demo: model to reviewed code
 
-**Requirements for generation and verification.** Install Node.js 24.22.1 and put it on Ordito's `PATH` or set `ORDITO_NODE_EXECUTABLE` to its absolute path before launching. Install and authenticate the Codex or Claude Code CLI, connect it from **AI Settings**, and select an available model. The framework-free JavaScript example uses local data and simulated payment results. Opening the model requires only Ordito.
+**Requirements for generation and verification.** Install Node.js 24.22.1 and put it on Ordito's `PATH` or set `ORDITO_NODE_EXECUTABLE` to its absolute path before launching. Install and authenticate the Codex or Claude Code CLI, connect it from **AI Settings**, and select an available model. Trust your copy of the example folder when Ordito asks to run the CLI and tests. The framework-free JavaScript example uses local data and simulated payment results. Opening the model requires only Ordito.
 
 1. Open `Ordito-Example-Projects/07-marketplace-workshop/modules/ai-generation` from the extracted ZIP. In **Checkout · Structure**, **Returns · Structure**, and **Marketplace · Dependencies**, trace how both features use the same `Order` contract.
 2. Go to **Code > Prepare Code from Diagrams**. Select **JavaScript · Node.js 24.22.1 · No Framework**, choose **Checkout** and **Returns**, then leave **Independent Verification Cases** blank to use the seven cases bundled with the model. For example, two items at 1,250 cents should total 2,500 cents, and a return qualifies on day 30. Select **Prepare Code Changes** to stage the proposed files.
