@@ -24,7 +24,7 @@ Focus on how the system should work. In Ordito, the boundaries, contracts, and b
 2. In Ordito, choose **Start a Project > Open Project** and select `Ordito-Example-Projects/01-visual-workshop`. **Checkout Structure** opens in the **Order Shop** project.
 3. Select **Confirm Order** in the diagram to inspect its properties. Switch to **Checkout Flow** to follow approved and declined payments. Use **Fit Diagram** if you need to bring the whole view into frame.
 
-This tour requires only Ordito. The deterministic JavaScript exercise adds local acceptance checks and requires Node.js 24.22.1 and a trusted copy of the exercise folder. [Order Shop tour](ordito/docs/user-guide/README.md#part-i---tour-of-order-shop) · [Marketplace quantity exercise](ordito/docs/user-guide/README.md#l12-implement-and-verify-the-quantity-limit)
+This tour requires only Ordito. To try code review next, use Node.js 24.22.1 and a trusted copy of the Marketplace quantity example to inspect the proposed diff and run 12 independent acceptance cases locally. [Marketplace quantity quickstart](ordito/docs/user-guide/marketplace-quantity-quickstart.md) · [Order Shop tour](ordito/docs/user-guide/README.md#part-i---tour-of-order-shop)
 
 Tell us where you got stuck or what you would try next. Include your OS, Ordito version, and the step you reached. [Share first-run feedback](https://github.com/FrappaF/Ordito/issues/35)
 
